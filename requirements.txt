@@ -1,0 +1,8 @@
+PySide6>=6.5.0
+matplotlib>=3.7.0
+openpyxl>=3.1.0
+jdatetime>=4.1.0
+Pillow>=10.0.0
+reportlab>=4.0.0
+arabic-reshaper>=2.1.0
+python-bidi>=0.4.0

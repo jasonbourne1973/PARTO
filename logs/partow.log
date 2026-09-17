@@ -1,0 +1,486 @@
+2026-07-25T22:59:46.475244 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-25T22:59:46.476114 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-25T22:59:46.712740 | ERROR    | partow.ErrorHandler  | log_error       | 187  | [AttributeError] 'MainWindow' object has no attribute 'header_year_label'
+2026-07-25T22:59:46.714948 | ERROR    | partow.Main          | log_error       | 187  | ❌ خطای غیرمنتظره: 'MainWindow' object has no attribute 'header_year_label'
+2026-07-25T23:00:17.828461 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-25T23:00:17.828913 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-25T23:00:17.878693 | ERROR    | partow.ErrorHandler  | log_error       | 187  | [AttributeError] 'MainWindow' object has no attribute 'header_year_label'
+2026-07-25T23:00:17.881530 | ERROR    | partow.Main          | log_error       | 187  | ❌ خطای غیرمنتظره: 'MainWindow' object has no attribute 'header_year_label'
+2026-07-25T23:02:43.319175 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-25T23:02:43.319564 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-25T23:02:43.371054 | ERROR    | partow.ErrorHandler  | log_error       | 187  | [AttributeError] 'MainWindow' object has no attribute 'header_year_label'
+2026-07-25T23:02:43.373192 | ERROR    | partow.Main          | log_error       | 187  | ❌ خطای غیرمنتظره: 'MainWindow' object has no attribute 'header_year_label'
+2026-07-25T23:05:06.941182 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-25T23:05:06.941976 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-25T23:05:07.111453 | ERROR    | partow.ErrorHandler  | log_error       | 187  | [AttributeError] 'MainWindow' object has no attribute 'header_year_label'
+2026-07-25T23:05:07.113862 | ERROR    | partow.Main          | log_error       | 187  | ❌ خطای غیرمنتظره: 'MainWindow' object has no attribute 'header_year_label'
+2026-07-25T23:07:34.262001 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-25T23:07:34.262403 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-25T23:07:38.620462 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-07-25T23:12:18.790797 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-25T23:12:18.791174 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-25T23:12:18.856631 | ERROR    | partow.ErrorHandler  | log_error       | 187  | [AttributeError] 'MainWindow' object has no attribute 'header_year_label'
+2026-07-25T23:12:18.859436 | ERROR    | partow.Main          | log_error       | 187  | ❌ خطای غیرمنتظره: 'MainWindow' object has no attribute 'header_year_label'
+2026-07-25T23:17:19.906175 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-25T23:17:19.906748 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-25T23:17:20.055919 | ERROR    | partow.ErrorHandler  | log_error       | 187  | [AttributeError] 'MainWindow' object has no attribute 'header_year_label'
+2026-07-25T23:17:20.058158 | ERROR    | partow.Main          | log_error       | 187  | ❌ خطای غیرمنتظره: 'MainWindow' object has no attribute 'header_year_label'
+2026-07-25T23:21:08.165875 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-25T23:21:08.166230 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-25T23:21:14.138314 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-07-26T21:20:03.414529 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-26T21:20:03.415231 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-26T21:20:10.949570 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-07-26T21:21:23.122068 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-26T21:21:23.122608 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-26T21:21:29.849423 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-07-26T21:26:02.445232 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-26T21:26:02.445750 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-26T21:26:08.635861 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-07-26T21:36:32.925256 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-26T21:36:32.925620 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-26T21:36:39.091454 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-07-26T21:45:57.147170 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-26T21:45:57.148172 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-26T21:46:02.625704 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-07-26T21:51:10.642485 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-26T21:51:10.642841 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-26T21:51:14.626130 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-07-26T21:57:03.006422 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-26T21:57:03.007400 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-26T21:57:08.097111 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-07-26T21:58:12.761772 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-26T21:58:12.762177 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-26T21:58:16.247913 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-07-26T23:00:33.634005 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-26T23:00:33.635418 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-26T23:00:41.390298 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-07-26T23:52:18.402449 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-26T23:52:18.402892 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-26T23:52:24.908088 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-07-27T19:46:14.121616 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-27T19:46:14.122550 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-27T19:46:22.101257 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-07-27T19:48:10.343822 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-27T19:48:10.344168 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-27T19:48:16.488123 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-07-27T21:27:53.303602 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-27T21:27:53.304467 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-27T21:27:59.110997 | ERROR    | partow.ErrorHandler  | log_error       | 187  | [AttributeError] 'ReportsPage' object has no attribute 'create_summary_tab'
+2026-07-27T21:27:59.113115 | ERROR    | partow.Main          | log_error       | 187  | ❌ خطای غیرمنتظره: 'ReportsPage' object has no attribute 'create_summary_tab'
+2026-07-27T21:31:19.574771 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 12
+2026-07-27T21:31:19.575123 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users']
+2026-07-27T21:31:26.106515 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-07-27T22:24:01.221527 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-07-27T22:24:01.222517 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-07-27T22:24:08.270749 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-07-27T22:26:07.919042 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-07-27T22:26:07.919593 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-07-27T22:26:15.443854 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-07-27T22:29:16.376572 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-07-27T22:29:16.377083 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-07-27T22:29:21.409037 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-07-27T22:30:57.976690 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-07-27T22:30:57.977233 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-07-27T22:31:04.390047 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-07-27T22:40:47.815087 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-07-27T22:40:47.815530 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-07-27T22:40:54.867103 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-07-27T22:57:19.668413 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-07-27T22:57:19.669178 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-07-27T22:57:39.055558 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-07-27T22:59:40.999451 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-07-27T22:59:40.999728 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-07-27T22:59:46.509453 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-03T21:52:21.906554 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-03T21:52:21.907688 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-03T21:54:14.003294 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-03T21:55:07.280334 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-03T21:55:07.280767 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-03T21:55:13.577390 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-03T22:13:42.980965 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-03T22:13:42.981613 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-03T22:13:59.052629 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-03T22:17:13.611716 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-03T22:17:13.613032 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-03T22:17:20.355108 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-03T22:31:05.705954 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-03T22:31:05.706991 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-03T22:31:11.779190 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-05T00:25:54.121914 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-05T00:25:54.122810 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-05T00:26:00.215221 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-05T00:54:54.643315 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-05T00:54:54.685190 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-05T00:54:59.159615 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-05T01:05:23.660734 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-05T01:05:23.661106 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-05T01:05:26.216317 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-05T01:07:58.148491 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-05T01:07:58.148703 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-05T01:08:00.788849 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-05T01:12:43.817198 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-05T01:12:43.817421 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-05T01:12:46.337820 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-05T02:39:02.923234 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-05T02:39:02.925082 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-05T02:39:10.878618 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-05T03:05:45.291094 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-05T03:05:45.292058 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-05T03:05:58.544340 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-05T03:11:38.873007 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-05T03:11:38.873453 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-05T03:11:47.950283 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-05T03:12:50.789698 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-05T03:12:50.790633 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-05T03:12:58.320008 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-05T03:15:04.187566 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-05T03:15:04.188771 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-05T03:15:11.469167 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-05T05:04:14.100684 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-05T05:04:14.101656 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-05T05:04:19.419621 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-05T05:05:23.206551 | DEBUG    | partow.ObservationService | begin_transaction | 39   | Transaction شروع شد.
+2026-08-05T05:05:23.239147 | INFO     | partow.ObservationService | _create         | 128  | مشاهده با ID 21 برای دانش‌آموز 1 ایجاد شد.
+2026-08-05T05:05:23.304829 | DEBUG    | partow.ObservationService | commit_transaction | 50   | Transaction با موفقیت تأیید شد.
+2026-08-05T05:11:28.500044 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-05T05:11:28.501089 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-05T05:11:33.662494 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-05T05:12:49.674868 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-05T05:12:49.675892 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-05T05:12:54.976902 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-05T05:16:35.741503 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-05T05:16:35.742499 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-05T05:16:40.194422 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-05T05:20:53.499899 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-05T05:20:53.500310 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-05T05:20:57.496547 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-05T05:21:56.111399 | DEBUG    | partow.ObservationService | begin_transaction | 39   | Transaction شروع شد.
+2026-08-05T05:21:56.132873 | INFO     | partow.ObservationService | _create         | 128  | مشاهده با ID 22 برای دانش‌آموز 3 ایجاد شد.
+2026-08-05T05:21:56.145960 | DEBUG    | partow.ObservationService | commit_transaction | 50   | Transaction با موفقیت تأیید شد.
+2026-08-05T05:22:04.081920 | INFO     | partow.InterventionForm | load_observations_for_student | 321  | ✅ 1 مشاهده بدون مداخله یافت شد.
+2026-08-05T05:22:14.423374 | DEBUG    | partow.InterventionService | begin_transaction | 39   | Transaction شروع شد.
+2026-08-05T05:22:14.442431 | INFO     | partow.InterventionService | _create         | 125  | مداخله با ID 11 برای دانش‌آموز 3 ایجاد شد.
+2026-08-05T05:22:14.505615 | DEBUG    | partow.InterventionService | commit_transaction | 50   | Transaction با موفقیت تأیید شد.
+2026-08-05T05:22:21.250224 | INFO     | partow.FollowUpForm  | load_interventions_for_student | 303  | ✅ 1 مداخله بدون پیگیری یافت شد.
+2026-08-05T05:22:28.630941 | DEBUG    | partow.FollowUpService | begin_transaction | 39   | Transaction شروع شد.
+2026-08-05T05:22:28.652114 | INFO     | partow.FollowUpService | _create         | 136  | پیگیری با ID 7 برای مداخله 11 ایجاد شد.
+2026-08-05T05:22:28.652671 | DEBUG    | partow.FollowUpService | commit_transaction | 50   | Transaction با موفقیت تأیید شد.
+2026-08-05T05:28:41.654787 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-05T05:28:41.655288 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-05T05:28:45.458196 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-05T05:43:01.874654 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-05T05:43:01.875128 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-05T05:43:05.273321 | INFO     | partow.DashboardPage | load_dashboard_data | 542  | داده‌های داشبورد با موفقیت بارگذاری شد
+2026-08-05T05:43:05.601984 | INFO     | partow.DashboardPage | load_dashboard_data | 542  | داده‌های داشبورد با موفقیت بارگذاری شد
+2026-08-05T05:43:05.799052 | INFO     | partow.DashboardPage | load_dashboard_data | 542  | داده‌های داشبورد با موفقیت بارگذاری شد
+2026-08-05T05:43:07.684573 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-05T05:48:14.232555 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-05T05:48:14.232862 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-05T05:48:16.944184 | INFO     | partow.DashboardPage | load_dashboard_data | 674  | داده‌های داشبورد با موفقیت بارگذاری شد
+2026-08-05T05:48:17.191621 | INFO     | partow.DashboardPage | load_dashboard_data | 674  | داده‌های داشبورد با موفقیت بارگذاری شد
+2026-08-05T05:48:17.317764 | INFO     | partow.DashboardPage | load_dashboard_data | 674  | داده‌های داشبورد با موفقیت بارگذاری شد
+2026-08-05T05:48:19.503768 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-05T05:48:51.333592 | INFO     | partow.DashboardPage | load_dashboard_data | 674  | داده‌های داشبورد با موفقیت بارگذاری شد
+2026-08-05T05:48:53.466195 | INFO     | partow.DashboardPage | load_dashboard_data | 674  | داده‌های داشبورد با موفقیت بارگذاری شد
+2026-08-05T05:53:17.783745 | INFO     | partow.DashboardPage | load_dashboard_data | 674  | داده‌های داشبورد با موفقیت بارگذاری شد
+2026-08-05T05:55:09.131977 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-05T05:55:09.132319 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-05T05:55:13.912366 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-06T04:15:24.700018 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-06T04:15:24.701842 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-06T04:15:34.693249 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-07T00:50:27.192872 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-07T00:50:27.193774 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-07T00:50:52.659520 | INFO     | partow.Main          | log_info        | 177  | 🚀 برنامه PARTOW با موفقیت اجرا شد.
+2026-08-07T01:14:33.361204 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-07T01:14:33.361964 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-07T01:16:17.807238 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-07T01:16:17.807894 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-07T01:19:12.637396 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-07T01:19:12.637781 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-07T01:20:46.684228 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-07T01:20:46.684688 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-07T01:21:56.204076 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-07T01:21:56.204453 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-07T01:29:45.512212 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-07T01:29:45.512616 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-07T01:33:39.990109 | WARNING  | partow.LoginDialog   | log_login_failed | 422  | ⚠️ ورود ناموفق: admin
+2026-08-07T01:33:51.661283 | INFO     | partow.LoginDialog   | log_login_success | 411  | ✅ ورود موفق: admin (ID: 1)
+2026-08-07T01:34:27.815130 | INFO     | partow.Main          | log_info        | 177  | ✅ دیتابیس با موفقیت ایجاد شد. تعداد جداول: 13
+2026-08-07T01:34:27.817144 | INFO     | partow.Main          | log_info        | 177  | 📋 جداول: ['academic_years', 'sqlite_sequence', 'staff', 'students', 'student_academic_profiles', 'competencies', 'observations', 'interventions', 'followups', 'attachments', 'audit_logs', 'users', 'teacher_assignments']
+2026-08-07T01:47:48.940948 | INFO     | partow.LoginDialog   | log_login_success | 434  | ✅ ورود موفق: admin (ID: 1)
+2026-08-07T01:47:48.944053 | INFO     | partow.MainWindow    | on_login_successful | 120  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-07T01:58:59.761042 | INFO     | partow.MainWindow    | closeEvent      | 581  | 🚪 کاربر admin برنامه را بست.
+2026-08-07T02:07:38.633964 | INFO     | partow.LoginDialog   | log_login_success | 434  | ✅ ورود موفق: admin (ID: 1)
+2026-08-07T02:07:38.635543 | INFO     | partow.MainWindow    | on_login_successful | 120  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-07T02:13:38.491875 | INFO     | partow.MainWindow    | closeEvent      | 581  | 🚪 کاربر admin برنامه را بست.
+2026-08-07T02:25:00.135006 | INFO     | partow.LoginDialog   | log_login_success | 434  | ✅ ورود موفق: admin (ID: 1)
+2026-08-07T02:25:00.137000 | INFO     | partow.MainWindow    | on_login_successful | 120  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-07T02:29:54.728948 | INFO     | partow.MainWindow    | closeEvent      | 581  | 🚪 کاربر admin برنامه را بست.
+2026-08-07T22:11:35.156908 | INFO     | partow.LoginDialog   | log_login_success | 434  | ✅ ورود موفق: admin (ID: 1)
+2026-08-07T22:11:35.160342 | INFO     | partow.MainWindow    | on_login_successful | 120  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-07T22:22:47.956804 | INFO     | partow.MainWindow    | closeEvent      | 581  | 🚪 کاربر admin برنامه را بست.
+2026-08-07T22:23:15.577999 | INFO     | partow.LoginDialog   | log_login_success | 434  | ✅ ورود موفق: admin (ID: 1)
+2026-08-07T22:23:15.579663 | INFO     | partow.MainWindow    | on_login_successful | 120  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-07T22:35:53.829359 | INFO     | partow.MainWindow    | closeEvent      | 628  | 🚪 کاربر admin برنامه را بست.
+2026-08-07T22:46:16.857703 | INFO     | partow.LoginDialog   | log_login_success | 434  | ✅ ورود موفق: admin (ID: 1)
+2026-08-07T22:46:16.859268 | INFO     | partow.MainWindow    | on_login_successful | 120  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-07T22:51:57.277078 | INFO     | partow.MainWindow    | closeEvent      | 628  | 🚪 کاربر admin برنامه را بست.
+2026-08-07T23:10:02.866500 | INFO     | partow.LoginDialog   | log_login_success | 434  | ✅ ورود موفق: admin (ID: 1)
+2026-08-07T23:10:02.869702 | INFO     | partow.MainWindow    | on_login_successful | 120  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-07T23:33:17.383874 | INFO     | partow.MainWindow    | closeEvent      | 628  | 🚪 کاربر admin برنامه را بست.
+2026-08-07T23:33:41.005058 | INFO     | partow.LoginDialog   | log_login_success | 434  | ✅ ورود موفق: admin (ID: 1)
+2026-08-07T23:33:41.007530 | INFO     | partow.MainWindow    | on_login_successful | 120  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-08T00:07:06.972537 | INFO     | partow.MainWindow    | auto_logout     | 607  | ⏰ خروج خودکار کاربر admin به دلیل عدم فعالیت.
+2026-08-08T00:09:16.794725 | INFO     | partow.MainWindow    | closeEvent      | 628  | 🚪 کاربر admin برنامه را بست.
+2026-08-08T00:13:41.402147 | INFO     | partow.LoginDialog   | log_login_success | 434  | ✅ ورود موفق: admin (ID: 1)
+2026-08-08T00:13:41.412733 | INFO     | partow.MainWindow    | on_login_successful | 120  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-08T00:13:48.268002 | INFO     | partow.MainWindow    | closeEvent      | 629  | 🚪 کاربر admin برنامه را بست.
+2026-08-08T00:16:43.314701 | INFO     | partow.LoginDialog   | log_login_success | 434  | ✅ ورود موفق: admin (ID: 1)
+2026-08-08T00:16:43.325753 | INFO     | partow.MainWindow    | on_login_successful | 120  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-08T00:20:06.624612 | INFO     | partow.MainWindow    | closeEvent      | 629  | 🚪 کاربر admin برنامه را بست.
+2026-08-08T00:20:33.586848 | INFO     | partow.LoginDialog   | log_login_success | 434  | ✅ ورود موفق: admin (ID: 1)
+2026-08-08T00:20:33.588035 | INFO     | partow.MainWindow    | on_login_successful | 120  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-08T00:22:19.420552 | INFO     | partow.MainWindow    | closeEvent      | 629  | 🚪 کاربر admin برنامه را بست.
+2026-08-08T00:24:52.819592 | INFO     | partow.LoginDialog   | log_login_success | 434  | ✅ ورود موفق: admin (ID: 1)
+2026-08-08T00:24:52.822139 | INFO     | partow.MainWindow    | on_login_successful | 121  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-08T00:48:33.803010 | INFO     | partow.MainWindow    | closeEvent      | 653  | 🚪 کاربر admin برنامه را بست.
+2026-08-08T00:49:11.275119 | INFO     | partow.LoginDialog   | log_login_success | 434  | ✅ ورود موفق: admin (ID: 1)
+2026-08-08T00:49:11.278294 | INFO     | partow.MainWindow    | on_login_successful | 121  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-08T00:49:12.343450 | ERROR    | partow.AcademicStructurePage | load_academic_years | 666  | خطا در بارگذاری سال‌های تحصیلی: 'AcademicStructurePage' object has no attribute 'class_year_combo'
+2026-08-08T01:20:49.664483 | INFO     | partow.LoginDialog   | log_login_success | 434  | ✅ ورود موفق: admin (ID: 1)
+2026-08-08T01:20:49.665920 | INFO     | partow.MainWindow    | on_login_successful | 121  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-08T01:20:50.966563 | ERROR    | partow.AcademicStructurePage | load_academic_years | 666  | خطا در بارگذاری سال‌های تحصیلی: 'AcademicStructurePage' object has no attribute 'class_year_combo'
+2026-08-08T01:50:51.665704 | INFO     | partow.MainWindow    | auto_logout     | 632  | ⏰ خروج خودکار کاربر admin به دلیل عدم فعالیت.
+2026-08-08T02:50:51.665776 | INFO     | partow.MainWindow    | auto_logout     | 632  | ⏰ خروج خودکار کاربر admin به دلیل عدم فعالیت.
+2026-08-09T00:50:15.986122 | INFO     | partow.LoginDialog   | log_login_success | 434  | ✅ ورود موفق: admin (ID: 1)
+2026-08-09T00:50:15.989370 | INFO     | partow.MainWindow    | on_login_successful | 122  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-09T00:50:17.602927 | ERROR    | partow.AcademicStructurePage | load_academic_years | 666  | خطا در بارگذاری سال‌های تحصیلی: 'AcademicStructurePage' object has no attribute 'class_year_combo'
+2026-08-09T00:53:08.883610 | INFO     | partow.MainWindow    | closeEvent      | 702  | 🚪 کاربر admin برنامه را بست.
+2026-08-09T00:56:55.223087 | INFO     | partow.LoginDialog   | log_login_success | 434  | ✅ ورود موفق: admin (ID: 1)
+2026-08-09T00:56:55.227046 | INFO     | partow.MainWindow    | on_login_successful | 122  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-09T00:56:56.615494 | ERROR    | partow.AcademicStructurePage | load_academic_years | 666  | خطا در بارگذاری سال‌های تحصیلی: 'AcademicStructurePage' object has no attribute 'class_year_combo'
+2026-08-09T01:35:16.654784 | INFO     | partow.LoginDialog   | log_login_success | 434  | ✅ ورود موفق: admin (ID: 1)
+2026-08-09T01:35:16.658112 | INFO     | partow.MainWindow    | on_login_successful | 122  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-09T01:35:18.125220 | ERROR    | partow.AcademicStructurePage | load_academic_years | 666  | خطا در بارگذاری سال‌های تحصیلی: 'AcademicStructurePage' object has no attribute 'class_year_combo'
+2026-08-09T19:46:22.494965 | INFO     | partow.LoginDialog   | log_login_success | 434  | ✅ ورود موفق: admin (ID: 1)
+2026-08-09T19:46:22.498649 | INFO     | partow.MainWindow    | on_login_successful | 122  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-09T19:46:24.381258 | ERROR    | partow.AcademicStructurePage | load_academic_years | 666  | خطا در بارگذاری سال‌های تحصیلی: 'AcademicStructurePage' object has no attribute 'class_year_combo'
+2026-08-09T19:46:38.142629 | INFO     | partow.MainWindow    | closeEvent      | 778  | 🚪 کاربر admin برنامه را بست.
+2026-08-09T19:50:24.134077 | INFO     | partow.LoginDialog   | log_login_success | 434  | ✅ ورود موفق: admin (ID: 1)
+2026-08-09T19:50:24.136083 | INFO     | partow.MainWindow    | on_login_successful | 117  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-09T19:50:25.837337 | ERROR    | partow.AcademicStructurePage | load_academic_years | 671  | خطا در بارگذاری سال‌های تحصیلی: 'AcademicStructurePage' object has no attribute 'class_year_combo'
+2026-08-17T20:59:31.740635 | INFO     | partow.LoginDialog   | log_login_success | 434  | ✅ ورود موفق: admin (ID: 1)
+2026-08-17T20:59:31.743012 | INFO     | partow.MainWindow    | on_login_successful | 117  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-17T20:59:33.789789 | ERROR    | partow.AcademicStructurePage | load_academic_years | 671  | خطا در بارگذاری سال‌های تحصیلی: 'AcademicStructurePage' object has no attribute 'class_year_combo'
+2026-08-17T20:59:41.840139 | INFO     | partow.MainWindow    | closeEvent      | 737  | 🚪 کاربر admin برنامه را بست.
+2026-08-17T22:13:12.380438 | WARNING  | partow.LoginDialog   | log_login_failed | 456  | ⚠️ ورود ناموفق: admin
+2026-08-17T22:13:25.906277 | WARNING  | partow.LoginDialog   | log_login_failed | 456  | ⚠️ ورود ناموفق: admin
+2026-08-17T22:17:09.122796 | INFO     | partow.LoginDialog   | log_login_success | 445  | ✅ ورود موفق: admin (ID: 1)
+2026-08-17T22:17:31.332437 | INFO     | partow.ChangePasswordDialog | change_password | 386  | ✅ رمز عبور کاربر admin با موفقیت تغییر کرد.
+2026-08-17T22:17:43.352379 | INFO     | partow.LoginDialog   | log_login_success | 445  | ✅ ورود موفق: admin (ID: 1)
+2026-08-17T22:17:43.355331 | INFO     | partow.MainWindow    | on_login_successful | 126  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-17T22:17:44.964788 | ERROR    | partow.DashboardPage | load_teachers   | 525  | خطا در بارگذاری معلمان: property 'is_active' of 'Staff' object has no setter
+2026-08-17T22:17:44.966181 | ERROR    | partow.DashboardService | get_dashboard_data | 100  | خطا در دریافت داده‌های داشبورد: property 'is_active' of 'AcademicYear' object has no setter
+2026-08-17T22:17:44.967155 | ERROR    | partow.DashboardPage | load_dashboard_data | 563  | خطا در بارگذاری داده‌های داشبورد: خطا در دریافت اطلاعات: property 'is_active' of 'AcademicYear' object has no setter
+2026-08-17T22:22:01.600445 | INFO     | partow.MainWindow    | closeEvent      | 789  | 🚪 کاربر admin برنامه را بست.
+2026-08-17T22:29:58.227434 | INFO     | partow.LoginDialog   | log_login_success | 445  | ✅ ورود موفق: admin (ID: 1)
+2026-08-17T22:29:58.229177 | INFO     | partow.MainWindow    | on_login_successful | 126  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-17T22:30:05.882671 | INFO     | partow.MainWindow    | closeEvent      | 789  | 🚪 کاربر admin برنامه را بست.
+2026-08-17T22:35:18.392252 | INFO     | partow.LoginDialog   | log_login_success | 445  | ✅ ورود موفق: admin (ID: 1)
+2026-08-17T22:35:42.109988 | INFO     | partow.ChangePasswordDialog | change_password | 386  | ✅ رمز عبور کاربر admin با موفقیت تغییر کرد.
+2026-08-17T22:35:55.345402 | INFO     | partow.LoginDialog   | log_login_success | 445  | ✅ ورود موفق: admin (ID: 1)
+2026-08-17T22:35:55.348639 | INFO     | partow.MainWindow    | on_login_successful | 126  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-17T22:36:01.630958 | INFO     | partow.MainWindow    | closeEvent      | 789  | 🚪 کاربر admin برنامه را بست.
+2026-08-17T22:37:32.546827 | INFO     | partow.LoginDialog   | log_login_success | 445  | ✅ ورود موفق: admin (ID: 1)
+2026-08-17T22:37:53.983220 | INFO     | partow.ChangePasswordDialog | change_password | 386  | ✅ رمز عبور کاربر admin با موفقیت تغییر کرد.
+2026-08-17T22:38:07.845878 | INFO     | partow.LoginDialog   | log_login_success | 445  | ✅ ورود موفق: admin (ID: 1)
+2026-08-17T22:38:07.848294 | INFO     | partow.MainWindow    | on_login_successful | 126  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-17T22:38:17.399420 | INFO     | partow.MainWindow    | closeEvent      | 789  | 🚪 کاربر admin برنامه را بست.
+2026-08-17T22:54:48.380069 | INFO     | partow.LoginDialog   | log_login_success | 445  | ✅ ورود موفق: admin (ID: 1)
+2026-08-17T22:55:07.450821 | INFO     | partow.ChangePasswordDialog | change_password | 386  | ✅ رمز عبور کاربر admin با موفقیت تغییر کرد.
+2026-08-17T22:55:23.242698 | INFO     | partow.LoginDialog   | log_login_success | 445  | ✅ ورود موفق: admin (ID: 1)
+2026-08-17T22:55:23.243986 | INFO     | partow.MainWindow    | on_login_successful | 126  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-17T23:01:58.633913 | INFO     | partow.MainWindow    | closeEvent      | 789  | 🚪 کاربر admin برنامه را بست.
+2026-08-17T23:02:31.707871 | INFO     | partow.LoginDialog   | log_login_success | 445  | ✅ ورود موفق: admin (ID: 1)
+2026-08-17T23:02:31.709320 | INFO     | partow.MainWindow    | on_login_successful | 126  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-17T23:07:59.037651 | INFO     | partow.MainWindow    | closeEvent      | 789  | 🚪 کاربر admin برنامه را بست.
+2026-08-17T23:08:24.859631 | INFO     | partow.LoginDialog   | log_login_success | 445  | ✅ ورود موفق: admin (ID: 1)
+2026-08-17T23:08:24.861551 | INFO     | partow.MainWindow    | on_login_successful | 126  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-17T23:39:38.402236 | INFO     | partow.LoginDialog   | log_login_success | 445  | ✅ ورود موفق: admin (ID: 1)
+2026-08-17T23:39:38.404226 | INFO     | partow.MainWindow    | on_login_successful | 126  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-17T23:43:31.006365 | INFO     | partow.MainWindow    | closeEvent      | 789  | 🚪 کاربر admin برنامه را بست.
+2026-08-17T23:45:45.217968 | INFO     | partow.LoginDialog   | log_login_success | 445  | ✅ ورود موفق: admin (ID: 1)
+2026-08-17T23:45:45.219450 | INFO     | partow.MainWindow    | on_login_successful | 126  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-17T23:55:48.012243 | INFO     | partow.MainWindow    | closeEvent      | 789  | 🚪 کاربر admin برنامه را بست.
+2026-08-17T23:56:18.725180 | INFO     | partow.LoginDialog   | log_login_success | 445  | ✅ ورود موفق: admin (ID: 1)
+2026-08-17T23:56:18.727428 | INFO     | partow.MainWindow    | on_login_successful | 126  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-18T21:44:09.901288 | INFO     | partow.MainWindow    | auto_logout     | 768  | ⏰ خروج خودکار کاربر admin به دلیل عدم فعالیت.
+2026-08-18T22:01:14.062524 | DEBUG    | partow.ObservationService | begin_transaction | 39   | Transaction شروع شد.
+2026-08-18T22:01:14.136332 | INFO     | partow.ObservationService | _create         | 128  | مشاهده با ID 1 برای دانش‌آموز 1 ایجاد شد.
+2026-08-18T22:01:14.138739 | DEBUG    | partow.ObservationService | commit_transaction | 50   | Transaction با موفقیت تأیید شد.
+2026-08-18T22:14:17.302409 | INFO     | partow.MainWindow    | auto_logout     | 768  | ⏰ خروج خودکار کاربر admin به دلیل عدم فعالیت.
+2026-08-18T22:23:36.805428 | INFO     | partow.MainWindow    | logout          | 746  | 🚪 کاربر admin خارج شد.
+2026-08-18T23:23:52.761969 | INFO     | partow.LoginDialog   | log_login_success | 445  | ✅ ورود موفق: admin (ID: 1)
+2026-08-18T23:23:52.767912 | INFO     | partow.MainWindow    | on_login_successful | 126  | ✅ کاربر admin با نقش manager وارد شد.
+2026-08-18T23:28:55.553917 | INFO     | partow.MainWindow    | closeEvent      | 789  | 🚪 کاربر admin برنامه را بست.
+2026-08-20T23:07:29.207630 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-20T23:07:29.211330 | INFO     | partow.MainWindow    | on_login_successful | 91   | کاربر admin با نقش manager وارد شد.
+2026-08-20T23:07:33.949786 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'DummyTrendData' object has no attribute 'get'
+2026-08-20T23:07:36.119155 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'DummyTrendData' object has no attribute 'get'
+2026-08-20T23:07:37.129057 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'DummyTrendData' object has no attribute 'get'
+2026-08-20T23:07:37.911463 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'DummyTrendData' object has no attribute 'get'
+2026-08-20T23:07:38.771131 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'DummyTrendData' object has no attribute 'get'
+2026-08-20T23:07:39.577762 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'DummyTrendData' object has no attribute 'get'
+2026-08-20T23:13:01.144128 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-20T23:13:01.145471 | INFO     | partow.MainWindow    | on_login_successful | 91   | کاربر admin با نقش manager وارد شد.
+2026-08-20T23:13:05.045023 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'DummyTrendData' object has no attribute 'get'
+2026-08-20T23:13:06.763227 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'DummyTrendData' object has no attribute 'get'
+2026-08-20T23:13:07.614220 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'DummyTrendData' object has no attribute 'get'
+2026-08-20T23:13:08.339856 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'DummyTrendData' object has no attribute 'get'
+2026-08-20T23:13:09.050535 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'DummyTrendData' object has no attribute 'get'
+2026-08-20T23:13:09.754903 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'DummyTrendData' object has no attribute 'get'
+2026-08-20T23:13:25.908377 | INFO     | partow.MainWindow    | closeEvent      | 613  | 🚪 کاربر admin برنامه را بست.
+2026-08-20T23:17:14.196499 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-20T23:17:14.197299 | INFO     | partow.MainWindow    | on_login_successful | 91   | کاربر admin با نقش manager وارد شد.
+2026-08-20T23:17:18.691043 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'SimpleTrendData' object has no attribute 'get'
+2026-08-20T23:17:20.218319 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'SimpleTrendData' object has no attribute 'get'
+2026-08-20T23:17:20.853763 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'SimpleTrendData' object has no attribute 'get'
+2026-08-20T23:17:21.503086 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'SimpleTrendData' object has no attribute 'get'
+2026-08-20T23:17:22.207148 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'SimpleTrendData' object has no attribute 'get'
+2026-08-20T23:17:22.881053 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'SimpleTrendData' object has no attribute 'get'
+2026-08-20T23:17:31.108871 | INFO     | partow.MainWindow    | closeEvent      | 613  | 🚪 کاربر admin برنامه را بست.
+2026-08-20T23:18:05.424577 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-20T23:18:05.426210 | INFO     | partow.MainWindow    | on_login_successful | 91   | کاربر admin با نقش manager وارد شد.
+2026-08-20T23:18:09.593469 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'SimpleTrendData' object has no attribute 'get'
+2026-08-20T23:18:10.775556 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'SimpleTrendData' object has no attribute 'get'
+2026-08-20T23:18:11.458909 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'SimpleTrendData' object has no attribute 'get'
+2026-08-20T23:18:12.034596 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'SimpleTrendData' object has no attribute 'get'
+2026-08-20T23:18:12.656148 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'SimpleTrendData' object has no attribute 'get'
+2026-08-20T23:18:13.271294 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'SimpleTrendData' object has no attribute 'get'
+2026-08-20T23:18:20.575172 | INFO     | partow.MainWindow    | closeEvent      | 613  | 🚪 کاربر admin برنامه را بست.
+2026-08-20T23:20:49.321595 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-20T23:20:49.323530 | INFO     | partow.MainWindow    | on_login_successful | 91   | کاربر admin با نقش manager وارد شد.
+2026-08-20T23:20:53.022262 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'TrendDataWrapper' object has no attribute 'get'
+2026-08-20T23:20:54.531708 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'TrendDataWrapper' object has no attribute 'get'
+2026-08-20T23:20:55.226824 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'TrendDataWrapper' object has no attribute 'get'
+2026-08-20T23:20:55.868950 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'TrendDataWrapper' object has no attribute 'get'
+2026-08-20T23:20:56.460957 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'TrendDataWrapper' object has no attribute 'get'
+2026-08-20T23:20:57.111494 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'TrendDataWrapper' object has no attribute 'get'
+2026-08-20T23:21:03.323490 | INFO     | partow.MainWindow    | closeEvent      | 613  | 🚪 کاربر admin برنامه را بست.
+2026-08-20T23:25:05.191233 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-20T23:25:05.194646 | INFO     | partow.MainWindow    | on_login_successful | 91   | کاربر admin با نقش manager وارد شد.
+2026-08-20T23:25:09.169736 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'AnalyticsDashboardPage' object has no attribute '_update_trend_chart'
+2026-08-20T23:25:10.827441 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'AnalyticsDashboardPage' object has no attribute '_update_trend_chart'
+2026-08-20T23:25:11.623974 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'AnalyticsDashboardPage' object has no attribute '_update_trend_chart'
+2026-08-20T23:25:12.373579 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'AnalyticsDashboardPage' object has no attribute '_update_trend_chart'
+2026-08-20T23:25:13.310233 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'AnalyticsDashboardPage' object has no attribute '_update_trend_chart'
+2026-08-20T23:25:14.939304 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'AnalyticsDashboardPage' object has no attribute '_update_trend_chart'
+2026-08-20T23:25:21.986667 | INFO     | partow.MainWindow    | closeEvent      | 613  | 🚪 کاربر admin برنامه را بست.
+2026-08-20T23:46:14.572466 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-20T23:46:14.574493 | INFO     | partow.MainWindow    | on_login_successful | 91   | کاربر admin با نقش manager وارد شد.
+2026-08-20T23:46:19.835363 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'AnalyticsDashboardPage' object has no attribute '_update_trend_chart'
+2026-08-20T23:46:44.442306 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'AnalyticsDashboardPage' object has no attribute '_update_trend_chart'
+2026-08-20T23:46:57.801123 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'AnalyticsDashboardPage' object has no attribute '_update_trend_chart'
+2026-08-20T23:47:10.273011 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'AnalyticsDashboardPage' object has no attribute '_update_trend_chart'
+2026-08-20T23:47:14.234387 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'AnalyticsDashboardPage' object has no attribute '_update_trend_chart'
+2026-08-20T23:47:16.141948 | ERROR    | partow.AnalyticsDashboardPage | load_dashboard_data | 594  | خطا در بارگذاری داده‌های داشبورد: 'AnalyticsDashboardPage' object has no attribute '_update_trend_chart'
+2026-08-20T23:47:46.851212 | INFO     | partow.MainWindow    | closeEvent      | 613  | 🚪 کاربر admin برنامه را بست.
+2026-08-21T00:25:26.702924 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-21T00:25:26.705011 | INFO     | partow.MainWindow    | on_login_successful | 91   | کاربر admin با نقش manager وارد شد.
+2026-08-21T00:26:39.739360 | INFO     | partow.MainWindow    | closeEvent      | 613  | 🚪 کاربر admin برنامه را بست.
+2026-08-21T00:38:24.789359 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-21T00:38:24.790783 | INFO     | partow.MainWindow    | on_login_successful | 91   | کاربر admin با نقش manager وارد شد.
+2026-08-21T00:39:35.824383 | INFO     | partow.MainWindow    | closeEvent      | 613  | 🚪 کاربر admin برنامه را بست.
+2026-08-21T00:52:05.398031 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-21T00:52:05.399457 | INFO     | partow.MainWindow    | on_login_successful | 91   | کاربر admin با نقش manager وارد شد.
+2026-08-21T00:52:35.923144 | INFO     | partow.MainWindow    | closeEvent      | 613  | 🚪 کاربر admin برنامه را بست.
+2026-08-21T11:59:30.527997 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-21T11:59:30.529459 | INFO     | partow.MainWindow    | on_login_successful | 91   | کاربر admin با نقش manager وارد شد.
+2026-08-21T12:05:17.284814 | INFO     | partow.MainWindow    | closeEvent      | 613  | 🚪 کاربر admin برنامه را بست.
+2026-08-21T12:05:36.442549 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-21T12:05:36.444686 | INFO     | partow.MainWindow    | on_login_successful | 91   | کاربر admin با نقش manager وارد شد.
+2026-08-21T12:06:06.834862 | INFO     | partow.MainWindow    | closeEvent      | 633  | 🚪 کاربر admin برنامه را بست.
+2026-08-21T12:11:44.276818 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-21T12:11:44.278261 | INFO     | partow.MainWindow    | on_login_successful | 91   | کاربر admin با نقش manager وارد شد.
+2026-08-21T12:12:15.792670 | INFO     | partow.MainWindow    | closeEvent      | 633  | 🚪 کاربر admin برنامه را بست.
+2026-08-21T12:12:51.674325 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-21T12:13:12.583002 | INFO     | partow.ChangePasswordDialog | change_password | 359  | ✅ رمز عبور کاربر admin با موفقیت تغییر کرد.
+2026-08-21T12:13:21.107622 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-21T12:13:21.108897 | INFO     | partow.MainWindow    | on_login_successful | 91   | کاربر admin با نقش manager وارد شد.
+2026-08-21T12:13:40.039051 | INFO     | partow.MainWindow    | closeEvent      | 633  | 🚪 کاربر admin برنامه را بست.
+2026-08-21T12:18:38.919845 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-21T12:18:38.921701 | INFO     | partow.MainWindow    | on_login_successful | 91   | کاربر admin با نقش manager وارد شد.
+2026-08-21T12:30:13.828150 | INFO     | partow.MainWindow    | closeEvent      | 688  | 🚪 کاربر admin برنامه را بست.
+2026-08-21T13:54:10.165667 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-21T13:54:10.169135 | INFO     | partow.MainWindow    | on_login_successful | 90   | کاربر admin با نقش manager وارد شد.
+2026-08-21T13:54:53.652269 | INFO     | partow.MainWindow    | closeEvent      | 676  | 🚪 کاربر admin برنامه را بست.
+2026-08-21T14:15:22.119076 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-21T14:15:22.120693 | INFO     | partow.MainWindow    | on_login_successful | 90   | کاربر admin با نقش manager وارد شد.
+2026-08-21T14:19:50.108012 | DEBUG    | partow.CounselingService | begin_transaction | 39   | Transaction شروع شد.
+2026-08-21T14:19:50.166689 | INFO     | partow.CounselingService | _create         | 87   | جلسه مشاوره 1 برای دانش‌آموز 1 ایجاد شد
+2026-08-21T14:19:50.167476 | DEBUG    | partow.CounselingService | commit_transaction | 50   | Transaction با موفقیت تأیید شد.
+2026-08-21T14:31:08.951710 | INFO     | partow.MainWindow    | closeEvent      | 676  | 🚪 کاربر admin برنامه را بست.
+2026-08-21T14:32:23.265171 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-21T14:32:23.284439 | INFO     | partow.MainWindow    | on_login_successful | 90   | کاربر admin با نقش manager وارد شد.
+2026-08-21T14:42:22.893767 | INFO     | partow.MainWindow    | closeEvent      | 676  | 🚪 کاربر admin برنامه را بست.
+2026-08-21T14:42:48.685793 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-21T14:42:48.687389 | INFO     | partow.MainWindow    | on_login_successful | 90   | کاربر admin با نقش manager وارد شد.
+2026-08-21T14:49:08.271635 | INFO     | partow.MainWindow    | closeEvent      | 676  | 🚪 کاربر admin برنامه را بست.
+2026-08-21T14:49:31.844033 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-21T14:49:31.846124 | INFO     | partow.MainWindow    | on_login_successful | 90   | کاربر admin با نقش manager وارد شد.
+2026-08-21T14:50:09.424202 | INFO     | partow.MainWindow    | closeEvent      | 676  | 🚪 کاربر admin برنامه را بست.
+2026-08-21T14:52:29.111196 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-21T14:52:29.114828 | INFO     | partow.MainWindow    | on_login_successful | 90   | کاربر admin با نقش manager وارد شد.
+2026-08-21T15:02:43.742454 | INFO     | partow.MainWindow    | closeEvent      | 676  | 🚪 کاربر admin برنامه را بست.
+2026-08-21T15:03:03.401094 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-21T15:03:03.403914 | INFO     | partow.MainWindow    | on_login_successful | 92   | کاربر admin با نقش manager وارد شد.
+2026-08-21T15:03:58.765304 | DEBUG    | partow.ExtracurricularService | begin_transaction | 39   | Transaction شروع شد.
+2026-08-21T15:03:58.776940 | INFO     | partow.ExtracurricularService | _create         | 71   | فعالیت لاتبغذیغذ برای دانش‌آموز 1 ایجاد شد
+2026-08-21T15:03:58.779874 | DEBUG    | partow.ExtracurricularService | commit_transaction | 50   | Transaction با موفقیت تأیید شد.
+2026-08-21T15:04:19.781326 | DEBUG    | partow.GoalService   | begin_transaction | 39   | Transaction شروع شد.
+2026-08-21T15:04:19.837991 | INFO     | partow.GoalService   | _create         | 72   | هدف سبلتسبلتسبلت برای دانش‌آموز 1 ایجاد شد
+2026-08-21T15:04:19.838472 | DEBUG    | partow.GoalService   | commit_transaction | 50   | Transaction با موفقیت تأیید شد.
+2026-08-21T15:08:56.928014 | INFO     | partow.MainWindow    | closeEvent      | 678  | 🚪 کاربر admin برنامه را بست.
+2026-08-21T15:09:14.398496 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-21T15:09:14.399980 | INFO     | partow.MainWindow    | on_login_successful | 92   | کاربر admin با نقش manager وارد شد.
+2026-08-21T15:10:46.601558 | INFO     | partow.MainWindow    | closeEvent      | 678  | 🚪 کاربر admin برنامه را بست.
+2026-08-21T16:22:43.207826 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-21T16:22:43.209285 | INFO     | partow.MainWindow    | on_login_successful | 92   | کاربر admin با نقش manager وارد شد.
+2026-08-21T16:23:31.440090 | INFO     | partow.MainWindow    | closeEvent      | 678  | 🚪 کاربر admin برنامه را بست.
+2026-08-21T19:45:04.992754 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-21T19:45:05.018937 | INFO     | partow.MainWindow    | on_login_successful | 92   | کاربر admin با نقش manager وارد شد.
+2026-08-21T19:53:22.542923 | INFO     | partow.MainWindow    | closeEvent      | 678  | 🚪 کاربر admin برنامه را بست.
+2026-08-21T19:57:18.356610 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-21T19:57:18.361273 | INFO     | partow.MainWindow    | on_login_successful | 92   | کاربر admin با نقش manager وارد شد.
+2026-08-21T20:02:52.936872 | INFO     | partow.MainWindow    | closeEvent      | 678  | 🚪 کاربر admin برنامه را بست.
+2026-08-21T20:03:24.678218 | INFO     | partow.LoginDialog   | log_login_success | 427  | ✅ ورود موفق: admin (ID: 1)
+2026-08-21T20:03:24.682660 | INFO     | partow.MainWindow    | on_login_successful | 92   | کاربر admin با نقش manager وارد شد.
+2026-08-21T20:04:53.940434 | INFO     | partow.FollowUpForm  | load_interventions_for_student | 282  | ✅ 0 مداخله بدون پیگیری یافت شد.
+2026-08-21T20:05:34.246806 | DEBUG    | partow.ObservationService | begin_transaction | 39   | Transaction شروع شد.
+2026-08-21T20:05:34.249235 | DEBUG    | partow.ObservationService | rollback_transaction | 64   | Transaction بازگشت داده شد.
+2026-08-21T20:05:34.249581 | ERROR    | partow.ObservationService | execute_in_transaction | 89   | خطا در اجرای Transaction: توضیحات باید حداقل ۳ کاراکتر باشد
+2026-08-21T20:05:43.191350 | DEBUG    | partow.ObservationService | begin_transaction | 39   | Transaction شروع شد.
+2026-08-21T20:05:43.193678 | DEBUG    | partow.ObservationService | rollback_transaction | 64   | Transaction بازگشت داده شد.
+2026-08-21T20:05:43.194177 | ERROR    | partow.ObservationService | execute_in_transaction | 89   | خطا در اجرای Transaction: توضیحات باید حداقل ۳ کاراکتر باشد
+2026-08-21T20:05:54.119275 | DEBUG    | partow.ObservationService | begin_transaction | 39   | Transaction شروع شد.
+2026-08-21T20:05:54.121113 | DEBUG    | partow.ObservationService | rollback_transaction | 64   | Transaction بازگشت داده شد.
+2026-08-21T20:05:54.121555 | ERROR    | partow.ObservationService | execute_in_transaction | 89   | خطا در اجرای Transaction: توضیحات باید حداقل ۳ کاراکتر باشد
+2026-08-21T20:06:04.557279 | DEBUG    | partow.ObservationService | begin_transaction | 39   | Transaction شروع شد.
+2026-08-21T20:06:04.576654 | DEBUG    | partow.ObservationService | rollback_transaction | 64   | Transaction بازگشت داده شد.
+2026-08-21T20:06:04.597259 | ERROR    | partow.ObservationService | execute_in_transaction | 89   | خطا در اجرای Transaction: توضیحات باید حداقل ۳ کاراکتر باشد
+2026-08-21T20:06:28.758605 | DEBUG    | partow.ObservationService | begin_transaction | 39   | Transaction شروع شد.
+2026-08-21T20:06:28.828561 | INFO     | partow.ObservationService | _create         | 128  | مشاهده با ID 25 برای دانش‌آموز 1 ایجاد شد.
+2026-08-21T20:06:28.829073 | DEBUG    | partow.ObservationService | commit_transaction | 50   | Transaction با موفقیت تأیید شد.
+2026-08-21T20:11:51.422870 | INFO     | partow.MainWindow    | closeEvent      | 678  | 🚪 کاربر admin برنامه را بست.
+2026-08-22T19:09:49.619194 | INFO     | partow.LoginDialog   | log_login_success | 435  | ✅ ورود موفق: admin (ID: 1)
+2026-08-22T19:09:49.620118 | INFO     | partow.MainWindow    | on_login_successful | 92   | کاربر admin با نقش manager وارد شد.
+2026-08-22T19:11:08.904326 | INFO     | partow.MainWindow    | closeEvent      | 688  | 🚪 کاربر admin برنامه را بست.
+2026-08-22T19:13:59.071718 | INFO     | partow.LoginDialog   | log_login_success | 435  | ✅ ورود موفق: admin (ID: 1)
+2026-08-22T19:13:59.074764 | INFO     | partow.MainWindow    | on_login_successful | 92   | کاربر admin با نقش manager وارد شد.
+2026-08-22T19:29:26.242393 | INFO     | partow.MainWindow    | closeEvent      | 688  | 🚪 کاربر admin برنامه را بست.
+2026-08-24T21:05:54.440014 | INFO     | partow.LoginDialog   | log_login_success | 435  | ✅ ورود موفق: admin (ID: 1)
+2026-08-24T21:05:54.441449 | INFO     | partow.MainWindow    | on_login_successful | 94   | کاربر admin با نقش manager وارد شد.
+2026-09-17T17:04:53.099558 | INFO     | partow.LoginDialog   | log_login_success | 435  | ✅ ورود موفق: admin (ID: 1)
+2026-09-17T17:04:53.101255 | INFO     | partow.MainWindow    | on_login_successful | 94   | کاربر admin با نقش manager وارد شد.

@@ -1,0 +1,542 @@
+{
+  "started_at": "2026-08-21 16:08:27",
+  "finished_at": "2026-08-21 16:08:31",
+  "summary": {
+    "passed": 39,
+    "failed": 0,
+    "skipped": 3,
+    "warnings": 0,
+    "total": 42
+  },
+  "metadata": {
+    "project_root": "D:\\New folder\\cursor parto\\PARTO",
+    "python": "C:\\Users\\Webhouse\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+    "python_version": "3.14.6 (tags/v3.14.6:c63aec6, Jun 10 2026, 10:26:10) [MSC v.1944 64 bit (AMD64)]",
+    "test_script": "D:\\New folder\\cursor parto\\PARTO\\full_test.py",
+    "write_mode": true,
+    "keep_data": false,
+    "backup_files_checked": [
+      "D:\\New folder\\cursor parto\\PARTO\\utils\\backup.py",
+      "D:\\New folder\\cursor parto\\PARTO\\views\\backups\\backup_20260722_224907.partobak",
+      "D:\\New folder\\cursor parto\\PARTO\\views\\backups\\backup_20260722_224943.partobak",
+      "D:\\New folder\\cursor parto\\PARTO\\views\\backups\\pre_restore.partobak",
+      "D:\\New folder\\cursor parto\\PARTO\\views\\pages\\backup_page.py",
+      "D:\\New folder\\cursor parto\\PARTO\\views\\pages\\__pycache__\\backup_page.cpython-314.pyc",
+      "D:\\New folder\\cursor parto\\PARTO\\utils\\__pycache__\\backup.cpython-314.pyc"
+    ],
+    "python_files_checked": 174,
+    "module_inventory": {
+      "models": [
+        "models.base.BaseModel",
+        "models.student.Student",
+        "models.student_academic_profile.StudentAcademicProfile",
+        "models.observation.Observation",
+        "models.intervention.Intervention",
+        "models.followup.FollowUp",
+        "models.staff.Staff",
+        "models.academic_year.AcademicYear",
+        "models.competency.Competency",
+        "models.indicator.Indicator",
+        "models.observable_behavior.ObservableBehavior",
+        "models.counseling_session.CounselingSession",
+        "models.extracurricular_activity.ExtracurricularActivity",
+        "models.individual_goal.IndividualGoal",
+        "models.family_context.FamilyContext",
+        "models.parent_interview.ParentInterview",
+        "models.professional_interpretation.ProfessionalInterpretation",
+        "models.recommendation.Recommendation",
+        "models.saved_filter.SavedFilter",
+        "models.attachment.Attachment",
+        "models.notification.Notification",
+        "models.teacher_assignment.TeacherAssignment",
+        "models.screening.Screening",
+        "models.screening_result.ScreeningResult",
+        "models.screening_tool.ScreeningTool"
+      ],
+      "dal": [
+        "dal.student_dal.StudentDAL",
+        "dal.student_academic_profile_dal.StudentAcademicProfileDAL",
+        "dal.observation_dal.ObservationDAL",
+        "dal.intervention_dal.InterventionDAL",
+        "dal.followup_dal.FollowUpDAL",
+        "dal.competency_dal.CompetencyDAL",
+        "dal.indicator_dal.IndicatorDAL",
+        "dal.observable_behavior_dal.ObservableBehaviorDAL",
+        "dal.staff_dal.StaffDAL",
+        "dal.academic_year_dal.AcademicYearDAL",
+        "dal.teacher_assignment_dal.TeacherAssignmentDAL",
+        "dal.audit_log_dal.AuditLogDAL",
+        "dal.family_context_dal.FamilyContextDAL",
+        "dal.parent_interview_dal.ParentInterviewDAL",
+        "dal.interpretation_dal.InterpretationDAL",
+        "dal.professional_interpretation_dal.ProfessionalInterpretationDAL",
+        "dal.recommendation_dal.RecommendationDAL",
+        "dal.saved_filter_dal.SavedFilterDAL",
+        "dal.attachment_dal.AttachmentDAL",
+        "dal.notification_dal.NotificationDAL",
+        "dal.class_dal.ClassDAL",
+        "dal.screening_dal.ScreeningDAL",
+        "dal.screening_result_dal.ScreeningResultDAL",
+        "dal.screening_tool_dal.ScreeningToolDAL",
+        "dal.counseling_session_dal.CounselingSessionDAL",
+        "dal.extracurricular_dal.ExtracurricularDAL",
+        "dal.goal_dal.GoalDAL"
+      ],
+      "services": [
+        "services.student_service.StudentService",
+        "services.advanced_search_service.AdvancedSearchService",
+        "services.observation_service.ObservationService",
+        "services.intervention_service.InterventionService",
+        "services.followup_service.FollowUpService",
+        "services.counseling_service.CounselingService",
+        "services.extracurricular_service.ExtracurricularService",
+        "services.goal_service.GoalService",
+        "services.dashboard_service.DashboardService",
+        "services.class_report_service.ClassReportService",
+        "services.teacher_report_service.TeacherReportService",
+        "services.teacher_performance_service.TeacherPerformanceService",
+        "services.report_generator.ReportGenerator",
+        "services.parent_report_service.ParentReportService",
+        "services.school_report_service.SchoolReportService",
+        "services.intervention_suggester.InterventionSuggester",
+        "services.case_timeline_service.CaseTimelineService",
+        "services.reminder_service.ReminderService",
+        "services.recommendation_service.RecommendationService",
+        "services.attachment_service.AttachmentService",
+        "services.notification_service.NotificationService"
+      ]
+    },
+    "existing_tests": {
+      "runner": "unittest",
+      "files": [
+        "D:\\New folder\\cursor parto\\PARTO\\tests\\test_dal.py",
+        "D:\\New folder\\cursor parto\\PARTO\\tests\\test_models.py",
+        "D:\\New folder\\cursor parto\\PARTO\\tests\\test_services.py",
+        "D:\\New folder\\cursor parto\\PARTO\\views\\pages\\test_promotion.py"
+      ],
+      "returncode": 5,
+      "output": " ---------------------------------------------------------------------- Ran 0 tests in 0.000s  NO TESTS RAN "
+    },
+    "entrypoint": "D:\\New folder\\cursor parto\\PARTO\\main.py",
+    "database": "D:\\New folder\\cursor parto\\PARTO\\database\\partow.db",
+    "tables": [
+      "academic_years",
+      "attachments",
+      "audit_logs",
+      "classes",
+      "competencies",
+      "counseling_sessions",
+      "db_version",
+      "extracurricular_activities",
+      "family_contexts",
+      "followups",
+      "indicators",
+      "individual_goals",
+      "interventions",
+      "notifications",
+      "observable_behaviors",
+      "observations",
+      "parent_interviews",
+      "professional_interpretations",
+      "screening_results",
+      "screening_tools",
+      "screenings",
+      "staff",
+      "student_academic_profiles",
+      "students",
+      "teacher_assignments",
+      "users"
+    ],
+    "schema": [
+      "academic_years=academic_years[id, title, start_date, end_date, is_active, is_archived, created_at, updated_at, is_deleted, deleted_at, deleted_by]",
+      "attachments=attachments[id, entity_type, entity_id, file_name, file_path, file_size, file_type, created_at, created_by, is_deleted, deleted_at, deleted_by]",
+      "audit_logs=audit_logs[id, user_id, action, entity_type, entity_id, old_value, new_value, ip_address, created_at]",
+      "classes=classes[id, name, grade, teacher_id, academic_year_id, capacity, is_active, description, created_at, updated_at, is_deleted, deleted_at, deleted_by]",
+      "competencies=competencies[id, title, description, category, is_active, sort_order, created_at, updated_at, is_deleted, deleted_at, deleted_by]",
+      "counseling_sessions=counseling_sessions[id, student_profile_id, counselor_id, referred_by, session_date, session_time, duration_minutes, type, method, location, topic, goals, summary, details, interventions_discussed, recommendations, homework, outcome, follow_up_needed, next_session_date, next_session_notes, status, created_at, updated_at, is_deleted, deleted_at, deleted_by]",
+      "extracurricular_activities=extracurricular_activities[id, student_profile_id, teacher_id, title, type, description, start_date, end_date, duration_hours, location, participation_level, role, team_name, result, achievements, feedback, status, created_at, updated_at, is_deleted, deleted_at, deleted_by]",
+      "family=family_contexts[id, student_profile_id, guardian_status, guardian_notes, siblings_brothers, siblings_sisters, family_members, school_contact, contact_details, has_study_space, has_desk, parental_support, educational_notes, economic_status, economic_notes, family_stress, health_issues, other_factors, notes, recorded_by, created_at, updated_at, is_deleted, deleted_at, deleted_by]",
+      "followups=followups[id, intervention_id, staff_id, date, method, description, status, next_action_date, result_type, result_description, created_at, updated_at, is_deleted, deleted_at, deleted_by]",
+      "indicators=indicators[id, competency_id, title, description, sort_order, created_at, updated_at, is_deleted, deleted_at, deleted_by]",
+      "individual_goals=individual_goals[id, student_profile_id, created_by, assigned_to, related_competency_id, related_intervention_id, title, description, domain, priority, success_criteria, target_date, start_date, end_date, progress_percent, progress_notes, status, result, achievement_date, created_at, updated_at, is_deleted, deleted_at, deleted_by]",
+      "notifications=notifications[id, user_id, type, priority, title, message, link, entity_type, entity_id, is_read, read_at, is_dismissed, dismissed_at, scheduled_at, expires_at, related_data, created_at, updated_at, is_deleted, deleted_at]",
+      "observable_behaviors=observable_behaviors[id, indicator_id, competency_id, text, sort_order, created_at, updated_at, is_deleted, deleted_at, deleted_by]",
+      "observations=observations[id, student_profile_id, staff_id, competency_id, observation_date, location, description, antecedent, behavior, consequence, behavior_type, severity, tags, created_at, updated_at, is_deleted, deleted_at, deleted_by]",
+      "parent_interviews=parent_interviews[id, student_profile_id, staff_id, interview_date, interview_method, interviewer_name, parent_name, parent_relation, parent_phone, topic, topic_category, summary, details, key_points, result, outcome_notes, next_action, next_action_date, next_action_by, status, created_at, updated_at, is_deleted, deleted_at, deleted_by]",
+      "professional_interpretations=professional_interpretations[id, student_profile_id, staff_id, observation_id, screening_id, level, domain, title, summary, detailed_text, recommendations, next_steps, status, created_at, updated_at, is_deleted, deleted_at, deleted_by]",
+      "screening_results=screening_results[id, student_profile_id, staff_id, tool_id, execution_date, execution_context, raw_answers, raw_observations, domain_scores, total_score, notes, duration_minutes, status, created_at, updated_at, is_deleted, deleted_at, deleted_by]",
+      "screening_tools=screening_tools[id, name, version, type, description, reference, target_age_group, target_grade_range, domains, sub_domains, scoring_scale, min_score, max_score, cutoff_scores, status, is_standard, administration_time, required_training, created_at, updated_at, is_deleted, deleted_at, deleted_by]",
+      "screenings=screenings[id, student_profile_id, staff_id, tool_id, tool_name, tool_version, execution_date, execution_context, domain_scores, total_score, domain, sub_domain, status, created_at, updated_at, is_deleted, deleted_at, deleted_by]",
+      "student_files=student_academic_profiles[id, student_id, academic_year_id, grade, class_name, status, status_history, created_at, updated_at, is_deleted, deleted_at, deleted_by]",
+      "students=students[id, first_name, last_name, national_code, birth_date, father_name, guardian_name, guardian_phone, address, is_active, created_at, updated_at, is_deleted, deleted_at, deleted_by]",
+      "teacher_assignments=teacher_assignments[id, student_id, staff_id, academic_year_id, grade, class_name, is_active, assigned_date, created_at, updated_at, is_deleted, deleted_at, deleted_by]",
+      "users=users[id, staff_id, username, password_hash, role, is_active, must_change_password, last_login, created_at, updated_at, is_deleted, deleted_at, deleted_by]"
+    ],
+    "foreign_keys": 1,
+    "connection_parameter_test": [
+      {
+        "params": "None",
+        "value": 1
+      },
+      {
+        "params": "7",
+        "value": 7
+      },
+      {
+        "params": "(8,)",
+        "value": 8
+      },
+      {
+        "params": "(None,)",
+        "value": null
+      }
+    ],
+    "analytics_dal_smoke": {
+      "get_observations_distribution_by_type": "dict",
+      "get_student_distribution_by_grade": "list",
+      "get_interventions_distribution_by_status": "dict",
+      "get_followups_distribution_by_status": "dict",
+      "get_intervention_success_rate": "dict",
+      "get_followup_completion_rate": "dict",
+      "get_students_without_observations": "list"
+    },
+    "timeline_counts": {
+      "observations": 6,
+      "parent_interviews": 1,
+      "screenings": 1,
+      "followups": 1,
+      "counseling_sessions": 1,
+      "extracurricular_activities": 1,
+      "individual_goals": 1
+    },
+    "observation_years": [
+      "2020",
+      "2021",
+      "2022",
+      "2023",
+      "2024",
+      "2025"
+    ],
+    "pdf": {
+      "full_test_internal_report.pdf": {
+        "engine": "reportlab",
+        "pages": 4,
+        "bytes": 28038,
+        "parent_report": false
+      },
+      "full_test_parent_report.pdf": {
+        "engine": "reportlab",
+        "pages": 4,
+        "bytes": 27760,
+        "parent_report": true
+      },
+      "full_test_empty_report.pdf": {
+        "engine": "reportlab",
+        "pages": 4,
+        "bytes": 27760,
+        "parent_report": true
+      }
+    },
+    "parent_report_redaction": {
+      "national_code_excluded": true,
+      "guardian_phone_excluded": true,
+      "address_excluded": true
+    }
+  },
+  "tests": [
+    {
+      "name": "بررسی Syntax تمام فایل‌های Python",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.622,
+      "time": "2026-08-21 16:08:28"
+    },
+    {
+      "name": "بررسی ماژول‌ها و کلاس‌های اصلی",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 1.136,
+      "time": "2026-08-21 16:08:29"
+    },
+    {
+      "name": "اجرای تست‌های موجود پروژه",
+      "status": "SKIP",
+      "detail": "تست موجودی برای اجرا پیدا نشد (unittest)",
+      "duration_seconds": 0.855,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "بررسی entrypoint برنامه",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.001,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "اتصال و خواندن دیتابیس",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.004,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "بررسی ساختار دیتابیس",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.004,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "خواندن integrity دیتابیس",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.001,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "آزمون پارامترهای SQLite",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.0,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "آزمون خواندنی متدهای تحلیلی DAL",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.004,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "اعتبارسنجی مدل‌ها و ورودی‌های اشتباه",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.001,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "اعتبارسنجی تاریخ",
+      "status": "SKIP",
+      "detail": "validator تاریخ در پروژه پیدا نشد؛ parser پایه بررسی شد",
+      "duration_seconds": 0.038,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "آزمون Login",
+      "status": "SKIP",
+      "detail": "Auth/Login service در نام‌های متداول پیدا نشد؛ با --login-call module:function مسیر تابع را مشخص کنید",
+      "duration_seconds": 0.002,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "StudentDAL.create",
+      "status": "PASS",
+      "detail": "id=5",
+      "duration_seconds": 0.0,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "ثبت دانش‌آموز آزمایشی",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.007,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "خواندن و بررسی دانش‌آموز",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.0,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "ثبت پرونده‌های سالانه برای تاریخچه",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.069,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "ثبت/خواندن اطلاعات خانواده",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.007,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "CompetencyDAL.create",
+      "status": "PASS",
+      "detail": "id=32",
+      "duration_seconds": 0.0,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "ثبت شایستگی آزمایشی",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.006,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "ثبت شاخص و رفتار قابل مشاهده",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.012,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "ثبت شش مشاهده در تاریخ‌های مختلف",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.045,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "ثبت مصاحبه والدین",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.006,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "ثبت Screening آزمایشی",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.006,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "ثبت مداخله آزمایشی",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.007,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "ثبت اقدام/پیگیری",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.007,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "ثبت نتیجه پیگیری",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.011,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "ثبت جلسه مشاوره",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.007,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "ثبت فعالیت فوق‌برنامه",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.008,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "ثبت هدف فردی",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.008,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "بررسی روند چندساله دانش‌آموز",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.007,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "بررسی ارتباط Observation با شایستگی/شاخص/رفتار",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.009,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "Soft Delete و Restore دانش‌آموز",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.016,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "Soft Delete و Restore شایستگی",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.016,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "رفتار برنامه با داده خالی",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.001,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "بررسی رکوردهای تکراری آزمایشی",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.002,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "بررسی orphan در روابط",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.009,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "بررسی foreign key دیتابیس",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.0,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "محدوده امتیاز Screening",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.001,
+      "time": "2026-08-21 16:08:30"
+    },
+    {
+      "name": "تولید PDF فارسی داخلی، والدین و چندصفحه‌ای",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.552,
+      "time": "2026-08-21 16:08:31"
+    },
+    {
+      "name": "پاک‌سازی داده‌های آزمایشی",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.023,
+      "time": "2026-08-21 16:08:31"
+    },
+    {
+      "name": "عدم تغییر ناخواسته ساختار دیتابیس",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.001,
+      "time": "2026-08-21 16:08:31"
+    },
+    {
+      "name": "عدم تغییر فایل‌های backup موجود",
+      "status": "PASS",
+      "detail": "",
+      "duration_seconds": 0.014,
+      "time": "2026-08-21 16:08:31"
+    }
+  ]
+}

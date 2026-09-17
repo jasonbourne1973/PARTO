@@ -1,0 +1,64 @@
+گزارش اجرای full_test.py
+======================================================================
+شروع: 2026-08-21 15:56:39
+پایان: 2026-08-21 15:56:45
+ریشه پروژه: D:\New folder\cursor parto\PARTO
+دیتابیس: D:\New folder\cursor parto\PARTO\database\partow.db
+
+خلاصه:
+موفق: 37
+خطا: 3
+رد شده/اجرا نشده: 2
+هشدار: 0
+
+جزئیات:
+[PASS] بررسی Syntax تمام فایل‌های Python :: 
+[PASS] بررسی ماژول‌ها و کلاس‌های اصلی :: 
+[FAIL] اجرای تست‌های موجود پروژه :: RuntimeError: تست‌های موجود پروژه شکست خوردند (returncode=5):  ---------------------------------------------------------------------- Ran 0 tests in 0.000s  NO TESTS RAN 
+[PASS] بررسی entrypoint برنامه :: 
+[PASS] اتصال و خواندن دیتابیس :: 
+[PASS] بررسی ساختار دیتابیس :: 
+[PASS] خواندن integrity دیتابیس :: 
+[FAIL] آزمون پارامترهای SQLite :: ProgrammingError: Incorrect number of bindings supplied. The current statement uses 1, and there are 0 supplied.
+[PASS] آزمون خواندنی متدهای تحلیلی DAL :: 
+[FAIL] اعتبارسنجی مدل‌ها و ورودی‌های اشتباه :: کد ملی/شماره تماس نامعتبر توسط مدل رد نشد
+[SKIP] اعتبارسنجی تاریخ :: validator تاریخ در پروژه پیدا نشد؛ parser پایه بررسی شد
+[SKIP] آزمون Login :: برای Login واقعی --username و --password یا متغیرهای PARTO_TEST_USERNAME/PARTO_TEST_PASSWORD را بدهید
+[PASS] StudentDAL.create :: id=2
+[PASS] ثبت دانش‌آموز آزمایشی :: 
+[PASS] خواندن و بررسی دانش‌آموز :: 
+[PASS] ثبت پرونده‌های سالانه برای تاریخچه :: 
+[PASS] ثبت/خواندن اطلاعات خانواده :: 
+[PASS] CompetencyDAL.create :: id=29
+[PASS] ثبت شایستگی آزمایشی :: 
+[PASS] ثبت شاخص و رفتار قابل مشاهده :: 
+[PASS] ثبت شش مشاهده در تاریخ‌های مختلف :: 
+[PASS] ثبت مصاحبه والدین :: 
+[PASS] ثبت Screening آزمایشی :: 
+[PASS] ثبت مداخله آزمایشی :: 
+[PASS] ثبت اقدام/پیگیری :: 
+[PASS] ثبت نتیجه پیگیری :: 
+[PASS] ثبت جلسه مشاوره :: 
+[PASS] ثبت فعالیت فوق‌برنامه :: 
+[PASS] ثبت هدف فردی :: 
+[PASS] بررسی روند چندساله دانش‌آموز :: 
+[PASS] بررسی ارتباط Observation با شایستگی/شاخص/رفتار :: 
+[PASS] Soft Delete و Restore دانش‌آموز :: 
+[PASS] Soft Delete و Restore شایستگی :: 
+[PASS] رفتار برنامه با داده خالی :: 
+[PASS] بررسی رکوردهای تکراری آزمایشی :: 
+[PASS] بررسی orphan در روابط :: 
+[PASS] بررسی foreign key دیتابیس :: 
+[PASS] محدوده امتیاز Screening :: 
+[PASS] تولید PDF فارسی داخلی، والدین و چندصفحه‌ای :: 
+[PASS] پاک‌سازی داده‌های آزمایشی :: 
+[PASS] عدم تغییر ناخواسته ساختار دیتابیس :: 
+[PASS] عدم تغییر فایل‌های backup موجود :: 
+
+شناسه‌های داده آزمایشی:
+{"student": 2, "academic_year": 7, "student_profile": 7, "competency": 29, "indicator": 1, "behavior": 1, "observations": [1, 2, 3, 4, 5, 6], "parent_interview": 1, "screening": 1, "intervention": 1, "followup": 1, "counseling_session": 2, "activity": 2, "goal": 2}
+
+فایل‌های PDF:
+D:\New folder\cursor parto\PARTO\full_test_artifacts\full_test_internal_report.pdf
+D:\New folder\cursor parto\PARTO\full_test_artifacts\full_test_parent_report.pdf
+D:\New folder\cursor parto\PARTO\full_test_artifacts\full_test_empty_report.pdf

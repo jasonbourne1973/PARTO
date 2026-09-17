@@ -1,0 +1,64 @@
+گزارش اجرای full_test.py
+======================================================================
+شروع: 2026-08-21 16:08:27
+پایان: 2026-08-21 16:08:31
+ریشه پروژه: D:\New folder\cursor parto\PARTO
+دیتابیس: D:\New folder\cursor parto\PARTO\database\partow.db
+
+خلاصه:
+موفق: 39
+خطا: 0
+رد شده/اجرا نشده: 3
+هشدار: 0
+
+جزئیات:
+[PASS] بررسی Syntax تمام فایل‌های Python :: 
+[PASS] بررسی ماژول‌ها و کلاس‌های اصلی :: 
+[SKIP] اجرای تست‌های موجود پروژه :: تست موجودی برای اجرا پیدا نشد (unittest)
+[PASS] بررسی entrypoint برنامه :: 
+[PASS] اتصال و خواندن دیتابیس :: 
+[PASS] بررسی ساختار دیتابیس :: 
+[PASS] خواندن integrity دیتابیس :: 
+[PASS] آزمون پارامترهای SQLite :: 
+[PASS] آزمون خواندنی متدهای تحلیلی DAL :: 
+[PASS] اعتبارسنجی مدل‌ها و ورودی‌های اشتباه :: 
+[SKIP] اعتبارسنجی تاریخ :: validator تاریخ در پروژه پیدا نشد؛ parser پایه بررسی شد
+[SKIP] آزمون Login :: Auth/Login service در نام‌های متداول پیدا نشد؛ با --login-call module:function مسیر تابع را مشخص کنید
+[PASS] StudentDAL.create :: id=5
+[PASS] ثبت دانش‌آموز آزمایشی :: 
+[PASS] خواندن و بررسی دانش‌آموز :: 
+[PASS] ثبت پرونده‌های سالانه برای تاریخچه :: 
+[PASS] ثبت/خواندن اطلاعات خانواده :: 
+[PASS] CompetencyDAL.create :: id=32
+[PASS] ثبت شایستگی آزمایشی :: 
+[PASS] ثبت شاخص و رفتار قابل مشاهده :: 
+[PASS] ثبت شش مشاهده در تاریخ‌های مختلف :: 
+[PASS] ثبت مصاحبه والدین :: 
+[PASS] ثبت Screening آزمایشی :: 
+[PASS] ثبت مداخله آزمایشی :: 
+[PASS] ثبت اقدام/پیگیری :: 
+[PASS] ثبت نتیجه پیگیری :: 
+[PASS] ثبت جلسه مشاوره :: 
+[PASS] ثبت فعالیت فوق‌برنامه :: 
+[PASS] ثبت هدف فردی :: 
+[PASS] بررسی روند چندساله دانش‌آموز :: 
+[PASS] بررسی ارتباط Observation با شایستگی/شاخص/رفتار :: 
+[PASS] Soft Delete و Restore دانش‌آموز :: 
+[PASS] Soft Delete و Restore شایستگی :: 
+[PASS] رفتار برنامه با داده خالی :: 
+[PASS] بررسی رکوردهای تکراری آزمایشی :: 
+[PASS] بررسی orphan در روابط :: 
+[PASS] بررسی foreign key دیتابیس :: 
+[PASS] محدوده امتیاز Screening :: 
+[PASS] تولید PDF فارسی داخلی، والدین و چندصفحه‌ای :: 
+[PASS] پاک‌سازی داده‌های آزمایشی :: 
+[PASS] عدم تغییر ناخواسته ساختار دیتابیس :: 
+[PASS] عدم تغییر فایل‌های backup موجود :: 
+
+شناسه‌های داده آزمایشی:
+{"student": 5, "academic_year": 25, "student_profile": 25, "competency": 32, "indicator": 4, "behavior": 4, "observations": [19, 20, 21, 22, 23, 24], "parent_interview": 4, "screening": 4, "intervention": 4, "followup": 4, "counseling_session": 5, "activity": 5, "goal": 5}
+
+فایل‌های PDF:
+D:\New folder\cursor parto\PARTO\full_test_artifacts\full_test_internal_report.pdf
+D:\New folder\cursor parto\PARTO\full_test_artifacts\full_test_parent_report.pdf
+D:\New folder\cursor parto\PARTO\full_test_artifacts\full_test_empty_report.pdf
