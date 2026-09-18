@@ -208,10 +208,34 @@ class CounselingService(BaseService):
     
     def get_session_stats(self, profile_id):
         """دریافت آمار جلسات یک دانش‌آموز"""
+        # ===== اصلاح (بازرسی دوم) =====
+        # نسخه قبلی:
+        #     student = self.profile_dal.get_by_id(profile_id)
+        #     if student:
+        #         stats['student_name'] = student.student_name
+        #
+        # دو اشکال:
+        #   ۱) profile_dal یک «پرونده سالانه» (StudentAcademicProfile)
+        #      برمی‌گرداند، نه دانش‌آموز. نام متغیر هم گمراه‌کننده بود.
+        #   ۲) مدل StudentAcademicProfile صفت student_name ندارد
+        #      (فیلدهایش: student_id، academic_year_id، grade، class_name،
+        #       status و ...). اجرای واقعی:
+        #
+        #         AttributeError: 'StudentAcademicProfile' object
+        #                         has no attribute 'student_name'
+        #
+        # یعنی get_session_stats برای هر پرونده‌ای که وجود داشته باشد
+        # استثنا می‌داد (فقط وقتی پرونده پیدا نمی‌شد، بی‌صدا کار می‌کرد).
+        #
+        # حالا دقیقاً همان الگوی درستِ GoalService.get_goal_stats و
+        # ExtracurricularService.get_activity_stats استفاده می‌شود:
+        # پرونده → student_id → دانش‌آموز → full_name (که property است).
         stats = self.session_dal.get_session_stats(profile_id)
-        student = self.profile_dal.get_by_id(profile_id)
-        if student:
-            stats['student_name'] = student.student_name
+        profile = self.profile_dal.get_by_id(profile_id)
+        if profile:
+            student = self.student_dal.get_by_id(profile.student_id)
+            if student:
+                stats['student_name'] = student.full_name
         return stats
     
     def _validate_session_data(self, data, is_update=False):

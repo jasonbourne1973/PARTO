@@ -122,32 +122,61 @@ class DashboardService(BaseService):
             dict: داده‌های تحلیلی
         """
         try:
+            # ===== اصلاح =====
+            # قبلاً پارامتر teacher_id پذیرفته می‌شد ولی هرگز به کوئری‌ها
+            # پاس داده نمی‌شد. نتیجه: وقتی کاربر در داشبورد یک معلم خاص را
+            # انتخاب می‌کرد، نیمی از پنل‌ها (نمودارها و داده‌های تحلیلی)
+            # آمار «کل مدرسه» را نشان می‌دادند بدون هیچ هشداری. حالا
+            # فیلتر معلم به همهٔ کوئری‌های این بخش اعمال می‌شود.
+            #
+            # برای جدول‌های observations/interventions/followups فیلتر
+            # مستقیم روی staff_id است؛ برای دانش‌آموزان، نسبت معلم-دانش‌آموز
+            # از جدول teacher_assignments گرفته می‌شود.
+
             # دریافت توزیع مشاهدات
-            obs_distribution = self.observation_dal.get_observations_distribution_by_type()
+            obs_distribution = self.observation_dal.get_observations_distribution_by_type(
+                staff_id=teacher_id
+            )
             
             # دریافت توزیع دانش‌آموزان بر اساس پایه
-            grade_distribution = self.student_dal.get_student_distribution_by_grade(year_id)
+            grade_distribution = self.student_dal.get_student_distribution_by_grade(
+                year_id, staff_id=teacher_id
+            )
             
             # دریافت توزیع مداخلات
-            inter_status = self.intervention_dal.get_interventions_distribution_by_status()
+            inter_status = self.intervention_dal.get_interventions_distribution_by_status(
+                staff_id=teacher_id
+            )
             
             # دریافت توزیع پیگیری‌ها
-            follow_status = self.followup_dal.get_followups_distribution_by_status()
+            follow_status = self.followup_dal.get_followups_distribution_by_status(
+                staff_id=teacher_id
+            )
             
             # دریافت تعداد پیگیری‌های معوق
-            overdue_count = self.followup_dal.get_overdue_followups_count()
+            overdue_count = self.followup_dal.get_overdue_followups_count(
+                staff_id=teacher_id
+            )
             
             # دریافت نرخ موفقیت مداخلات
-            inter_success = self.intervention_dal.get_intervention_success_rate()
+            inter_success = self.intervention_dal.get_intervention_success_rate(
+                staff_id=teacher_id
+            )
             
             # دریافت نرخ تکمیل پیگیری‌ها
-            follow_completion = self.followup_dal.get_followup_completion_rate()
+            follow_completion = self.followup_dal.get_followup_completion_rate(
+                staff_id=teacher_id
+            )
             
             # دریافت پرکاربردترین شایستگی‌ها
-            top_competencies = self.observation_dal.get_observations_by_competency(limit=5)
+            top_competencies = self.observation_dal.get_observations_by_competency(
+                limit=5, staff_id=teacher_id
+            )
             
             # دریافت دانش‌آموزان بدون مشاهده
-            students_without_obs = self.student_dal.get_students_without_observations(year_id)
+            students_without_obs = self.student_dal.get_students_without_observations(
+                year_id, staff_id=teacher_id
+            )
             
             return {
                 'observation_distribution': obs_distribution,

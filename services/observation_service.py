@@ -90,6 +90,16 @@ class ObservationService(BaseService):
             observation.student_profile_id = profile.id
             observation.staff_id = staff_id
             observation.competency_id = competency_id
+            # ===== اصلاح مهم: ساختار سه‌لایه =====
+            # فرم ثبت مشاهده (views/dialogs/observation_form.py) این دو
+            # کلید را در data می‌فرستد:
+            #     'indicator_id': self.selected_indicator_id,
+            #     'observable_behavior_id': self.selected_behavior_id,
+            # ولی این سرویس هیچ‌وقت آن‌ها را روی مدل ست نمی‌کرد، پس
+            # انتخاب کاربر از درخت شایستگی ← شاخص ← رفتار قابل مشاهده
+            # بی‌صدا دور ریخته می‌شد و در دیتابیس NULL می‌ماند.
+            observation.indicator_id = data.get('indicator_id')
+            observation.observable_behavior_id = data.get('observable_behavior_id')
             observation.observation_date = data.get('observation_date', '').strip()
             observation.location = data.get('location', '').strip()
             observation.antecedent = data.get('antecedent', '').strip()
@@ -178,6 +188,11 @@ class ObservationService(BaseService):
             
             observation.staff_id = data.get('staff_id', observation.staff_id)
             observation.competency_id = data.get('competency_id', observation.competency_id)
+            # اصلاح: شاخص و رفتار قابل مشاهده هم در ویرایش به‌روز می‌شوند
+            observation.indicator_id = data.get('indicator_id', observation.indicator_id)
+            observation.observable_behavior_id = data.get(
+                'observable_behavior_id', observation.observable_behavior_id
+            )
             observation.observation_date = data.get('observation_date', observation.observation_date).strip()
             observation.location = data.get('location', observation.location).strip()
             observation.antecedent = data.get('antecedent', observation.antecedent).strip()

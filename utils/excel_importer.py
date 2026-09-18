@@ -5,6 +5,7 @@
 import os
 import sys
 from datetime import datetime
+import jdatetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -105,8 +106,21 @@ class ExcelImporter:
                 ws.column_dimensions[chr(64 + col) if col <= 26 else f"A{chr(64 + col - 26)}"].width = width
             
             # ===== فوتر =====
+            # ===== اصلاح =====
+            # قبلاً «datetime.now().strftime('%Y/%m/%d %H:%M')» نوشته می‌شد
+            # یعنی تاریخ «میلادی» با فرمت «شمسی» - کاربر 2026/09/18 را
+            # به‌عنوان «1405/09/18» می‌خواند: سه ماه جلوتر! حالا مثل
+            # بقیهٔ گزارش‌های پروژه از تقویم جلالی استفاده می‌شود.
             row += 2
-            footer_cell = ws.cell(row=row, column=1, value=f"تاریخ خروجی: {datetime.now().strftime('%Y/%m/%d %H:%M')}")
+            try:
+                j_now = jdatetime.datetime.now()
+                jalali_stamp = (
+                    f"{j_now.year:04d}/{j_now.month:02d}/{j_now.day:02d} "
+                    f"{j_now.hour:02d}:{j_now.minute:02d}"
+                )
+            except Exception:
+                jalali_stamp = datetime.now().strftime('%Y/%m/%d %H:%M')
+            footer_cell = ws.cell(row=row, column=1, value=f"تاریخ خروجی: {jalali_stamp}")
             footer_cell.font = Font(name='B Nazanin', size=10, italic=True)
             footer_cell.alignment = Alignment(horizontal='left')
             

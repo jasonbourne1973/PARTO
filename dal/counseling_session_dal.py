@@ -133,7 +133,16 @@ class CounselingSessionDAL:
         """دریافت جلسات آینده"""
         import jdatetime
         from datetime import timedelta
-        
+
+        # ===== اصلاح (بازرسی دوم) =====
+        # اگر فراخوانی‌کننده صریحاً None بدهد (مثلاً از یک فیلد خالی UI یا
+        # یک dict که کلیدش وجود ندارد) این خطا می‌آمد:
+        #     TypeError: unsupported type for timedelta days component: NoneType
+        # مقدار پیش‌فرض فقط وقتی استفاده می‌شود که آرگومان «داده نشود»،
+        # پس None صریح از آن عبور می‌کرد. حالا به پیش‌فرض برمی‌گردیم.
+        if not days:
+            days = 7
+
         today = jdatetime.date.today()
         end_date = today + timedelta(days=days)
         today_str = f"{today.year}/{today.month:02d}/{today.day:02d}"

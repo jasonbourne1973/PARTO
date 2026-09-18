@@ -105,6 +105,73 @@ class BaseService:
                 raise
             raise ServiceError(f"خطا در عملیات: {str(e)}") from e
 
+    # ============================================================
+    # Audit Log / مدیریت خطا / اعتبارسنجی
+    # ============================================================
+    #
+    # ===== اصلاح بحرانی =====
+    # این سه متد (log_audit، handle_error، validate_model) با تورفتگی
+    # اشتباه **داخل کلاس _TransactionContext** تعریف شده بودند، در
+    # حالی که بدنه‌شان از self.db و self.logger و self.error_handler
+    # استفاده می‌کند؛ یعنی فقط روی BaseService معنا دارند.
+    #
+    # نتیجه در زمان اجرا:
+    #     AttributeError: 'StudentService' object has no attribute 'validate_model'
+    #     AttributeError: 'ObservationService' object has no attribute 'log_audit'
+    #
+    # چون این فراخوان‌ها داخل execute_in_transaction بودند، خطا به
+    # ServiceError تبدیل می‌شد و تراکنش rollback می‌کرد. یعنی عملاً
+    # «ثبت دانش‌آموز»، «ثبت مشاهده»، «ثبت مداخله»، «ثبت پیگیری» و
+    # «ثبت پیوست» همه شکست می‌خوردند و هیچ داده‌ای ذخیره نمی‌شد.
+    #
+    # تست روی کد قبلی:
+    #     hasattr(BaseService, "log_audit")      → False
+    #     hasattr(BaseService, "validate_model") → False
+    # حالا هر سه متد به BaseService برگردانده شده‌اند.
+
+    def log_audit(self, user_id, action, entity_type, entity_id=None,
+                  old_value=None, new_value=None, ip_address=None):
+        """ثبت Audit Log"""
+        try:
+            from utils.security import AuditLogger
+            audit_logger = AuditLogger(self.db)
+            return audit_logger.log(user_id, action, entity_type, entity_id,
+                                   old_value, new_value, ip_address)
+        except Exception as e:
+            self.logger.warning(f"خطا در ثبت Audit Log: {e}")
+            return False
+
+    def handle_error(self, error, user_message=None, log_level='error'):
+        """
+        مدیریت یک خطا
+
+        Args:
+            error: شیء خطا
+            user_message: پیام نمایشی به کاربر
+            log_level: سطح لاگ ('error', 'warning', 'info')
+        """
+        return self.error_handler.handle(error, user_message, log_level)
+
+    def validate_model(self, model):
+        """
+        اعتبارسنجی یک مدل
+
+        Args:
+            model: مدل مورد نظر
+
+        Returns:
+            bool: آیا مدل معتبر است؟
+
+        Raises:
+            ServiceError: در صورت عدم اعتبار
+        """
+        errors = model.validate()
+        if errors:
+            error_msg = "\n".join(errors)
+            self.logger.warning(f"خطای اعتبارسنجی: {error_msg}")
+            raise ServiceError(f"خطا در اعتبارسنجی:\n{error_msg}")
+        return True
+
     def transaction(self):
         """
         استفاده به شکل with (روش پیشنهادی برای کد جدید)
@@ -133,46 +200,3 @@ class _TransactionContext:
             self._service.rollback_transaction()
         # خطا را بلعیده نمی‌کنیم؛ به بالادست propagate می‌شود
         return False
-    
-    def log_audit(self, user_id, action, entity_type, entity_id=None,
-                  old_value=None, new_value=None, ip_address=None):
-        """ثبت Audit Log"""
-        try:
-            from utils.security import AuditLogger
-            audit_logger = AuditLogger(self.db)
-            return audit_logger.log(user_id, action, entity_type, entity_id,
-                                   old_value, new_value, ip_address)
-        except Exception as e:
-            self.logger.warning(f"خطا در ثبت Audit Log: {e}")
-            return False
-    
-    def handle_error(self, error, user_message=None, log_level='error'):
-        """
-        مدیریت یک خطا
-        
-        Args:
-            error: شیء خطا
-            user_message: پیام نمایشی به کاربر
-            log_level: سطح لاگ ('error', 'warning', 'info')
-        """
-        return self.error_handler.handle(error, user_message, log_level)
-    
-    def validate_model(self, model):
-        """
-        اعتبارسنجی یک مدل
-        
-        Args:
-            model: مدل مورد نظر
-            
-        Returns:
-            bool: آیا مدل معتبر است؟
-            
-        Raises:
-            ServiceError: در صورت عدم اعتبار
-        """
-        errors = model.validate()
-        if errors:
-            error_msg = "\n".join(errors)
-            self.logger.warning(f"خطای اعتبارسنجی: {error_msg}")
-            raise ServiceError(f"خطا در اعتبارسنجی:\n{error_msg}")
-        return True

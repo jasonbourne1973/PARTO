@@ -226,6 +226,131 @@ def is_leap_year(year):
         return year in _LEAP_YEARS
 
 
+def format_timestamp(value, with_time=True, fallback="—"):
+    """
+    تبدیل هر مهر زمانیِ ذخیره‌شده به رشتهٔ شمسی، آمادهٔ نمایش در UI
+
+    ===== چرا لازم بود =====
+    برنامه کاملاً فارسی و شمسی است، ولی مهرهای زمانی از دو منبع
+    متفاوت و با دو فرمت متفاوت در دیتابیس می‌نشینند:
+
+      ۱) `TEXT DEFAULT CURRENT_TIMESTAMP` در SQLite
+         → «2026-09-18 19:47:37»  میلادی و «UTC» (با جداکننده فاصله)
+         ساختهٔ created_at/updated_at در همهٔ جدول‌ها.
+
+      ۲) `datetime.now().isoformat()` در پایتون
+         → «2026-09-18T19:47:37.123456»  میلادی و «محلی» (با جداکنندهٔ T)
+         ساختهٔ last_login، deleted_at در بعضی DALها و metadata پشتیبان‌ها.
+
+    این مقدارها خام به کاربر نشان داده می‌شدند:
+
+        📅 تاریخ آپلود: 2026-09-18 19:47:37
+
+    یعنی هم تقویم میلادی در برنامه‌ای که همه‌چیزش شمسی است، هم ساعت
+    UTC که برای کاربر ایرانی ۳ ساعت و ۳۰ دقیقه عقب‌تر از زمان واقعی
+    است - و بین ساعت ۰۰:۰۰ تا ۰۳:۳۰ تهران، حتی «روز» هم یک روز
+    عقب‌تر نمایش داده می‌شد.
+
+    ===== این تابع چه می‌کند =====
+    - مقدار UTC (جداکننده فاصله) را به زمان محلیِ همان رایانه می‌برد
+      و بعد شمسی می‌کند؛ چون منبعش CURRENT_TIMESTAMP است.
+    - مقدار محلی (جداکنندهٔ T) را فقط شمسی می‌کند و ساعتش را دست
+      نمی‌زند؛ چون منبعش datetime.now() بوده و از قبل محلی است.
+    - مقدار از قبل شمسی (سال ۱۳۰۰ تا ۱۵۰۰) را دست‌نخورده و فقط
+      یکدست برمی‌گرداند، تا تبدیل دوباره تاریخش را خراب نکند.
+    - هرگز استثنا نمی‌دهد: اگر مقداری شناخته نشد یا jdatetime نصب
+      نباشد، همان مقدار اصلی برمی‌گردد. نمایشِ تاریخ میلادی بهتر از
+      خالی‌ماندن سلول یا کرش‌کردن صفحه است.
+
+    Args:
+        value: رشتهٔ مهر زمانی (یا None)
+        with_time: اگر False، فقط تاریخ برمی‌گردد
+        fallback: مقدار بازگشتی برای None یا رشتهٔ خالی
+
+    Returns:
+        str: مثلاً «1405/06/27 23:17»
+
+    Example:
+        >>> format_timestamp("2026-09-18 19:47:37")   # UTC از SQLite
+        '1405/06/27 23:17'                            # در تهران
+        >>> format_timestamp("1405/06/27")             # از قبل شمسی
+        '1405/06/27'
+    """
+    if value is None:
+        return fallback
+
+    text = normalize_digits(str(value)).strip()
+    if not text:
+        return fallback
+
+    # الگوی هر دو فرمت: «YYYY-MM-DD[ T]HH:MM[:SS[.ffffff]]»
+    match = re.match(
+        r'^(\d{4})[-/](\d{1,2})[-/](\d{1,2})'
+        r'(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?)?'
+        r'(Z|[+-]\d{2}:?\d{2})?$',
+        text
+    )
+    if not match:
+        return text          # شکل ناشناخته: دست نمی‌زنیم
+
+    year = int(match.group(1))
+
+    # ===== مقدار از قبل شمسی =====
+    # سال میلادیِ این برنامه‌ها ۲۰۲۰–۲۱۰۰ است و سال شمسی ۱۳۰۰–۱۵۰۰،
+    # پس این دو بازه هم‌پوشانی ندارند و تشخیص قطعی است.
+    if 1300 <= year <= 1500:
+        base = f"{year:04d}/{int(match.group(2)):02d}/{int(match.group(3)):02d}"
+        if with_time and match.group(4):
+            return f"{base} {int(match.group(4)):02d}:{match.group(5)}"
+        return base
+
+    # ===== مقدار میلادی: تبدیل به شمسی =====
+    try:
+        from datetime import datetime, timezone
+
+        hour = int(match.group(4)) if match.group(4) else None
+        minute = int(match.group(5)) if match.group(5) else 0
+        second = int(match.group(6)) if match.group(6) else 0
+
+        if hour is None:
+            naive = datetime(year, int(match.group(2)), int(match.group(3)))
+        else:
+            naive = datetime(
+                year, int(match.group(2)), int(match.group(3)),
+                hour, minute, second
+            )
+
+        offset = match.group(7)
+        if offset in ('Z', 'z'):
+            # صراحتاً UTC
+            naive = naive.replace(tzinfo=timezone.utc).astimezone().replace(tzinfo=None)
+        elif offset:
+            # صراحتاً منطقهٔ زمانی دارد (مثلاً «+03:30»): به زمان محلی می‌بریم
+            sign = 1 if offset[0] == '+' else -1
+            body = offset[1:].replace(':', '')
+            from datetime import timedelta
+            hours = int(body[:2]) if body[:2].isdigit() else 0
+            minutes = int(body[2:]) if body[2:].isdigit() else 0
+            delta = timedelta(hours=hours, minutes=minutes) * sign
+            naive = naive.replace(tzinfo=timezone(delta)).astimezone().replace(tzinfo=None)
+        elif 'T' not in text and hour is not None:
+            # جداکننده فاصله ⇒ منبعش CURRENT_TIMESTAMP است ⇒ UTC
+            naive = naive.replace(tzinfo=timezone.utc).astimezone().replace(tzinfo=None)
+        # جداکنندهٔ T ⇒ datetime.now().isoformat() ⇒ از قبل محلی است
+
+        import jdatetime
+
+        jalali = jdatetime.datetime.fromgregorian(datetime=naive)
+        base = f"{jalali.year:04d}/{jalali.month:02d}/{jalali.day:02d}"
+        if with_time and hour is not None:
+            return f"{base} {jalali.hour:02d}:{jalali.minute:02d}"
+        return base
+
+    except Exception:
+        # jdatetime نصب نیست یا مقدار خارج از بازه بود: همان اصلی
+        return text
+
+
 def to_db_date(value):
     """
     تبدیل هر ورودی به فرمت تاریخ دیتابیس

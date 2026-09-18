@@ -6,3 +6,6 @@ Pillow>=10.0.0
 reportlab>=4.0.0
 arabic-reshaper>=2.1.0
 python-bidi>=0.4.0
+# مستقیماً در ۸ ماژول (نمودارها و صفحات) import می‌شود؛
+# قبلاً فقط به‌صورت غیرمستقیم از طریق matplotlib نصب می‌شد
+numpy>=1.24.0

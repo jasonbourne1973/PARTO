@@ -21,6 +21,7 @@ from services.dashboard_service import DashboardService
 from dal.staff_dal import StaffDAL
 from utils.logger import get_logger
 from utils.chart_helper import ChartHelper
+from utils.persian_date import format_timestamp
 from views.pages.analytics_dashboard import AnalyticsDashboardPage
 
 import matplotlib
@@ -741,7 +742,15 @@ class DashboardPage(QWidget):
             self.activity_table.setRowCount(min(len(logs), 6))
 
             for row, log in enumerate(logs[:6]):
-                self.activity_table.setItem(row, 0, QTableWidgetItem(log.get('created_at', '')))
+                # created_at از «CURRENT_TIMESTAMP» می‌آید یعنی میلادی و UTC.
+                # بدون تبدیل، کاربر در ایران ساعت را ۳ ساعت و ۳۰ دقیقه عقب‌تر
+                # از زمان واقعی و تاریخ را میلادی می‌دید (و بین ۰۰:۰۰ تا ۰۳:۳۰
+                # تهران، روز هم یک روز عقب‌تر بود). format_timestamp هر دو را
+                # به شمسیِ زمان محلی می‌برد.
+                self.activity_table.setItem(
+                    row, 0,
+                    QTableWidgetItem(format_timestamp(log.get('created_at')))
+                )
                 self.activity_table.setItem(row, 1, QTableWidgetItem(f"👤 {log.get('user_name', 'سیستم')}"))
 
                 act_raw = log.get('action', '')

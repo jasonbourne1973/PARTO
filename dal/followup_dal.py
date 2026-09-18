@@ -263,13 +263,15 @@ class FollowUpDAL:
     # متدهای تحلیلی برای داشبورد
     # ============================================================
 
-    def get_followups_distribution_by_status(self, start_date=None, end_date=None):
+    def get_followups_distribution_by_status(self, start_date=None, end_date=None, staff_id=None):
         """
         دریافت توزیع پیگیری‌ها بر اساس وضعیت
 
         Args:
             start_date: تاریخ شروع (اختیاری)
             end_date: تاریخ پایان (اختیاری)
+            staff_id: اگر داده شود فقط پیگیری‌های ثبت‌شدهٔ همین معلم
+                شمرده می‌شود (فیلتر انتخاب معلم در داشبورد)
 
         Returns:
             dict: {
@@ -304,6 +306,9 @@ class FollowUpDAL:
             if end_date:
                 query += " AND date <= ?"
                 params.append(end_date)
+            if staff_id:
+                query += " AND staff_id = ?"
+                params.append(staff_id)
 
             cursor = self.db.execute_query(query, params)
             row = cursor.fetchone()
@@ -321,13 +326,15 @@ class FollowUpDAL:
             print(f"خطا در دریافت توزیع پیگیری‌ها: {e}")
             return {'pending': 0, 'done': 0, 'continued': 0, 'closed': 0, 'cancelled': 0, 'total': 0}
 
-    def get_overdue_followups_count(self, start_date=None, end_date=None):
+    def get_overdue_followups_count(self, start_date=None, end_date=None, staff_id=None):
         """
         دریافت تعداد پیگیری‌های معوق
 
         Args:
             start_date: تاریخ شروع (اختیاری)
             end_date: تاریخ پایان (اختیاری)
+            staff_id: اگر داده شود فقط پیگیری‌های ثبت‌شدهٔ همین معلم
+                شمرده می‌شود (فیلتر انتخاب معلم در داشبورد)
 
         Returns:
             int: تعداد پیگیری‌های معوق
@@ -356,6 +363,9 @@ class FollowUpDAL:
             if end_date:
                 query += " AND date <= ?"
                 params.append(end_date)
+            if staff_id:
+                query += " AND staff_id = ?"
+                params.append(staff_id)
 
             cursor.execute(query, params)
             row = cursor.fetchone()
@@ -603,13 +613,15 @@ class FollowUpDAL:
             pass
         return date_str
 
-    def get_followup_completion_rate(self, start_date=None, end_date=None):
+    def get_followup_completion_rate(self, start_date=None, end_date=None, staff_id=None):
         """
         دریافت نرخ تکمیل پیگیری‌ها
 
         Args:
             start_date: تاریخ شروع (اختیاری)
             end_date: تاریخ پایان (اختیاری)
+            staff_id: اگر داده شود فقط پیگیری‌های ثبت‌شدهٔ همین معلم
+                شمرده می‌شود (فیلتر انتخاب معلم در داشبورد)
 
         Returns:
             dict: {
@@ -639,6 +651,9 @@ class FollowUpDAL:
             if end_date:
                 query += " AND date <= ?"
                 params.append(end_date)
+            if staff_id:
+                query += " AND staff_id = ?"
+                params.append(staff_id)
 
             cursor = self.db.execute_query(query, params)
             row = cursor.fetchone()
@@ -657,3 +672,92 @@ class FollowUpDAL:
         except Exception as e:
             print(f"خطا در دریافت نرخ تکمیل پیگیری‌ها: {e}")
             return {'total': 0, 'completed': 0, 'pending': 0, 'completion_rate': 0}
+
+    # ============================================================
+    # جست‌وجوی متن آزاد
+    # ============================================================
+    # ===== اصلاح (باگ گزارش‌شده در بازرسی دوم) =====
+    # FollowUpService.search_followups / search_followups_by_student / search_followups_by_teacher
+    # سه متد این DAL را صدا می‌زدند که هیچ‌کدام وجود نداشتند:
+    #
+    #     AttributeError: 'FollowUpDAL' object has no attribute 'search'
+    #
+    # سرویس آن را به ServiceError تبدیل می‌کرد و در نتیجه کادر جست‌وجوی
+    # صفحه پیگیری‌ها (views/pages/followups_page.py:218-222) همیشه با پیام
+    # «مشکل در جستجو: ...» شکست می‌خورد. یعنی جست‌وجو در این صفحه
+    # از ابتدا کار نمی‌کرد و هیچ داده‌ای برنمی‌گشت.
+    #
+    # حالا هر سه متد پیاده‌سازی شده‌اند. نکته‌ها:
+    #   - «بر اساس معلم» یعنی followups.staff_id (همان معنایی که
+    #     FollowUpService.get_followups_by_teacher در فیلتر پایتونی استفاده می‌کند).
+    #   - «بر اساس دانش‌آموز» با JOIN روی پرونده سالانه انجام می‌شود
+    #     (همان الگوی get_by_student).
+    #   - کاراکترهای ویژه LIKE فرار داده می‌شوند تا جست‌وجوی «٪» یا «_»
+    #     به‌جای wildcard، خودِ همان نویسه را پیدا کند.
+    #   - رکوردهای حذف منطقی‌شده برنمی‌گردند (مگر include_deleted=True).
+    # نکته: جدول followups ستون student_profile_id ندارد؛ وابستگی از طریق
+    #       followups.intervention_id → interventions.student_profile_id است.
+    #       (همان الگوی get_by_student_profile در همین فایل)
+
+    @staticmethod
+    def _escape_like(text):
+        """ساخت الگوی LIKE امن (فرار کاراکترهای ویژه) برای جست‌وجوی متن آزاد"""
+        s = '' if text is None else str(text)
+        s = s.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+        return '%' + s + '%'
+
+    _LIKE = "LIKE ? ESCAPE '\\'"
+    _SEARCH_COLUMNS = ('description', 'method', 'result_description', 'result_type', 'status')
+
+    def search(self, search_term, limit=None, include_deleted=False):
+        """جست‌وجوی متن آزاد در همه پیگیری‌ها"""
+        return self._search_text(search_term, limit=limit, include_deleted=include_deleted)
+
+    def search_by_student(self, student_id, search_term, limit=None, include_deleted=False):
+        """جست‌وجوی متن آزاد در پیگیری‌های یک دانش‌آموز"""
+        return self._search_text(search_term, student_id=student_id, limit=limit,
+                                 include_deleted=include_deleted)
+
+    def search_by_teacher(self, teacher_id, search_term, limit=None, include_deleted=False):
+        """جست‌وجوی متن آزاد در پیگیری‌های یک معلم"""
+        return self._search_text(search_term, teacher_id=teacher_id, limit=limit,
+                                 include_deleted=include_deleted)
+
+    def _search_text(self, search_term, student_id=None, teacher_id=None,
+                     limit=None, include_deleted=False):
+        """پیاده‌سازی مشترک جست‌وجو"""
+        if search_term is None or not str(search_term).strip():
+            return []
+
+        term = self._escape_like(search_term)
+        like = " OR ".join("f.%s %s" % (c, self._LIKE) for c in self._SEARCH_COLUMNS)
+
+        joins = ""
+        where = ["(%s)" % like]
+        params = [term] * len(self._SEARCH_COLUMNS)
+
+        if student_id is not None:
+            joins += (" JOIN interventions i ON f.intervention_id = i.id"
+                      " JOIN student_academic_profiles sap ON i.student_profile_id = sap.id")
+            where.append("sap.student_id = ?")
+            params.append(student_id)
+            if not include_deleted:
+                where.append("i.is_deleted = 0")
+
+        if teacher_id is not None:
+            where.append("f.staff_id = ?")
+            params.append(teacher_id)
+
+        if not include_deleted:
+            where.append("f.is_deleted = 0")
+
+        query = "SELECT f.* FROM followups f%s WHERE %s" % (joins, " AND ".join(where))
+        query += " ORDER BY f.date DESC"
+
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+
+        cursor = self.db.execute_query(query, params)
+        rows = cursor.fetchall()
+        return [self._row_to_followup(row) for row in rows]

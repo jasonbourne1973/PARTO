@@ -19,6 +19,41 @@ try:
 except ImportError:
     REPORTLAB_AVAILABLE = False
     print("⚠️ reportlab نصب نیست. pip install reportlab")
+    # ===== اصلاح (بازرسی دوم) =====
+    # try/except بالا برای این بود که برنامه «بدون reportlab هم بالا بیاید»
+    # و فقط موقع گرفتن خروجی PDF خطای خوانا بدهد. اما این قصد با یک خط
+    # خنثی می‌شد:
+    #
+    #     def add_image(self, image_data, width=14*cm, height=9*cm):
+    #
+    # مقدار پیش‌فرض آرگومان «در زمان import» ارزیابی می‌شود، پس وقتی
+    # reportlab نصب نباشد:
+    #
+    #     NameError: name 'cm' is not defined
+    #
+    # و چون utils.persian_pdf را این ماژول‌ها import می‌کنند:
+    #     services/report_generator، services/parent_report_service،
+    #     services/school_report_service، services/teacher_report_service
+    # و آن‌ها هم توسط صفحه‌های گزارش import می‌شوند ⇒ کل برنامه با یک
+    # NameError بی‌ربط بالا نمی‌آمد (نه پیام «reportlab نصب نیست»).
+    #
+    # اجرای واقعی روی محیط بدون reportlab (قبل از این اصلاح):
+    #     import services.report_generator
+    #     → ModuleNotFoundError/NameError: name 'cm' is not defined
+    #
+    # راه‌حل: همان مقادیر عددی reportlab به عنوان جایگزین تعریف می‌شوند
+    # (reportlab: cm = 28.346456692913385 و inch = 72.0 نقطه). اگر
+    # reportlab نصب باشد، import واقعی موفق است و این شاخه اصلاً اجرا
+    # نمی‌شود؛ اگر نصب نباشد، import ماژول سالم می‌ماند و build()
+    # پایین خطای خوانا می‌دهد.
+    cm = 28.346456692913385   # ۱ سانتی‌متر بر حسب نقطه (point)
+    inch = 72.0
+
+# پیام یکپارچه برای نبودِ reportlab (در __init__ و _load_font استفاده می‌شود)
+REPORTLAB_MISSING_MSG = (
+    "کتابخانه reportlab نصب نیست و خروجی PDF گرفته نمی‌شود. "
+    "نصب: pip install reportlab"
+)
 
 try:
     import arabic_reshaper
@@ -53,6 +88,24 @@ class PersianPDF:
         self.font_name = None
         self.font_loaded = False
         self.font_error = None
+
+        # ===== اصلاح (بازرسی دوم) =====
+        # اگر reportlab نصب نباشد، _create_styles() با
+        #     NameError: name 'getSampleStyleSheet' is not defined
+        # و build() با
+        #     NameError: name 'SimpleDocTemplate' is not defined
+        # می‌شکست. هر دو بی‌ربط و گیج‌کننده‌اند.
+        #
+        # حالا همان اول، با پیام خوانا و قابل‌عمل شکست می‌خوریم تا
+        # سرویس‌های گزارش‌ساز (که داخل try/except هستند) همان پیام را
+        # به کاربر نشان دهند:
+        #     «خطا در تولید PDF: کتابخانه reportlab نصب نیست ...»
+        # و مهم‌تر: import ماژول (که با cm در مقدار پیش‌فرض add_image
+        # می‌ترکید) دیگر برنامه را از بالا آمدن نمی‌اندازد.
+        if not REPORTLAB_AVAILABLE:
+            self.font_error = REPORTLAB_MISSING_MSG
+            raise RuntimeError(self.font_error)
+
         self._load_font()
         self._create_styles()
     
@@ -64,6 +117,18 @@ class PersianPDF:
     
     def _load_font(self):
         """بارگذاری فونت فارسی از مسیر پروژه - بدون وابستگی به ویندوز"""
+        # ===== اصلاح (بازرسی دوم) =====
+        # اگر reportlab نصب نباشد، pdfmetrics/TTFont تعریف نشده‌اند و خطای
+        # واقعی «name 'pdfmetrics' is not defined» بود — پیامی که کاربر
+        # نمی‌فهمد. حالا همان اول، پیام خوانا در font_error گذاشته می‌شود
+        # تا _create_styles آن را با RuntimeError بالا بدهد و سرویس‌های
+        # گزارش‌ساز (که داخل try هستند) به کاربر بگویند:
+        # «reportlab نصب نیست؛ pip install reportlab».
+        if not REPORTLAB_AVAILABLE:
+            self.font_loaded = False
+            self.font_error = REPORTLAB_MISSING_MSG
+            return
+
         project_root = self._get_project_root()
         
         # لیست فونت‌های موجود در assets/fonts/
@@ -444,6 +509,13 @@ class PersianPDF:
         if not output_path:
             raise ValueError("مسیر فایل مشخص نشده است.")
         
+        # ===== اصلاح (بازرسی دوم) =====
+        # گارد صریح reportlab: بدون آن، SimpleDocTemplate تعریف‌نشده بود و
+        # NameError می‌داد. (در حالت عادی __init__ زودتر شکست می‌خورد، اما
+        # اگر کسی نمونه را از راه دیگری ساخته باشد، پیام خوانا می‌گیرد.)
+        if not REPORTLAB_AVAILABLE:
+            raise RuntimeError(REPORTLAB_MISSING_MSG)
+
         # اگر فونت بارگذاری نشده، خطا بده
         if not self.font_loaded:
             raise RuntimeError(self.font_error)

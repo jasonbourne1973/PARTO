@@ -138,7 +138,7 @@ class ChangePasswordDialog(QDialog):
         form_layout.addRow(self.current_password_label, self.current_password_input)
 
         self.new_password_input = QLineEdit()
-        self.new_password_input.setPlaceholderText("رمز عبور جدید (حداقل ۶ کاراکتر)")
+        self.new_password_input.setPlaceholderText("رمز عبور جدید (حداقل ۸ کاراکتر)")
         self.new_password_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.new_password_input.setMinimumHeight(36)
         self.new_password_input.setStyleSheet("""
@@ -154,7 +154,7 @@ class ChangePasswordDialog(QDialog):
     color: #FFE8A3;
     background-color: #0B2E4F; border: 2px solid #F4C542; }
         """)
-        TooltipManager.set_tooltip(self.new_password_input, "رمز عبور جدید باید حداقل ۶ کاراکتر و شامل حروف و اعداد باشد.")
+        TooltipManager.set_tooltip(self.new_password_input, "رمز عبور جدید باید حداقل ۸ کاراکتر باشد و شامل حروف بزرگ، کوچک، اعداد و یک نویسهٔ خاص (!@#$%^&*) باشد.")
         form_layout.addRow("رمز جدید:", self.new_password_input)
 
         self.confirm_password_input = QLineEdit()

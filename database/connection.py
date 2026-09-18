@@ -76,6 +76,37 @@ class DatabaseConnection:
 
             self._connection.create_function("get_current_user_id", 0, get_current_user_id)
 
+            # ===== 🔴 اصلاح (بازرسی سوم) — ترتیب اعتبارسنجی کاربر جاری =====
+            # تریگرهای حسابرسی، شناسهٔ کاربر جاری را در audit_logs.user_id
+            # می‌نویسند و آن ستون به staff.id کلید خارجی دارد:
+            #
+            #     CREATE TRIGGER trg_<table>_insert_audit AFTER INSERT ...
+            #         INSERT INTO audit_logs (user_id, ...) VALUES
+            #             (get_current_user_id(), ...);
+            #
+            # اعتبارسنجیِ _current_user_id قبلاً «بعد از»
+            # _initialize_database() انجام می‌شد (پایین‌تر:
+            # `if self._current_user_id: self.set_current_user(...)`).
+            # ولی INSERTهای خودِ seed «داخل» _initialize_database() اجرا
+            # می‌شوند. یعنی اگر شناسهٔ کاربر جاری در staff وجود نداشت،
+            # همان seed با خطای گمراه‌کنندهٔ زیر شکست می‌خورد و
+            # دیتابیس اصلاً ساخته نمی‌شد:
+            #
+            #     sqlite3.IntegrityError: FOREIGN KEY constraint failed
+            #
+            # سناریوی واقعی: شناسهٔ کاربری که قبلاً لاگین کرده و حالا
+            # عضو کادرش حذف شده (یا دیتابیس تازه/جابه‌جاشده) — آن‌وقت
+            # «هر» نوشتنی در برنامه با همان خطا شکست می‌خورد.
+            # (نکتهٔ خودِ نویسنده در get_current_user_id هم به همین FK
+            # اشاره دارد، ولی فقط جلوی مقدار 0 را گرفته بود، نه شناسهٔ
+            # ناموجود.)
+            #
+            # حالا اعتبارسنجی «قبل از» مقداردهی اولیه انجام می‌شود و اگر
+            # جدول staff هنوز ساخته نشده باشد، شناسهٔ درخواستی نگه داشته
+            # می‌شود تا بعد از seed دوباره و کامل اعتبارسنجی شود.
+            pending_user_id = self._current_user_id
+            state = self._validate_current_user()
+
             # اجرای Migration به جای ایجاد مستقیم جداول
             self._initialize_database()
 
@@ -85,15 +116,60 @@ class DatabaseConnection:
             self._ensure_feature_tables()
 
             # اگر کاربری قبلاً set شده بود، بعد از seed اعتبارسنجی‌اش کن
-            if self._current_user_id:
+            if state == self._USER_CHECK_DEFERRED and pending_user_id:
+                self.set_current_user(pending_user_id)
+            elif self._current_user_id:
                 self.set_current_user(self._current_user_id)
 
         else:
             # برای اطمینان
             self._connection.execute("PRAGMA foreign_keys = ON")
+            self._validate_current_user()
             self._ensure_feature_tables()
 
         return self._connection
+
+    # نتیجهٔ _validate_current_user
+    _USER_CHECK_OK = "ok"            # شناسه معتبر است
+    _USER_CHECK_CLEARED = "cleared"  # شناسه نامعتبر بود و None شد
+    _USER_CHECK_DEFERRED = "deferred"  # جدول staff هنوز نبود؛ بعداً بررسی کن
+
+    def _validate_current_user(self):
+        """
+        اطمینان از اینکه _current_user_id به یک ردیف واقعیِ staff اشاره می‌کند
+
+        چرا لازم است: تریگرهای حسابرسی این مقدار را در audit_logs.user_id
+        می‌نویسند که به staff.id کلید خارجی دارد. شناسهٔ ناموجود یعنی
+        شکستِ «هر» INSERT با خطای FOREIGN KEY constraint failed.
+
+        این متد برخلاف set_current_user در برابر «جدول staff هنوز وجود
+        ندارد» مقاوم است، چون ممکن است قبل از ساخته‌شدن دیتابیس صدا شود.
+        """
+        if not self._current_user_id:
+            return self._USER_CHECK_OK
+        if self._connection is None:
+            return self._USER_CHECK_DEFERRED
+
+        requested = self._current_user_id
+        try:
+            row = self._connection.execute(
+                "SELECT id FROM staff WHERE id = ?", (requested,)
+            ).fetchone()
+        except sqlite3.Error:
+            # جدول staff هنوز ساخته نشده (اولین مقداردهی اولیهٔ دیتابیس).
+            # موقتاً None می‌کنیم تا INSERTهای seed شکست نخورند؛
+            # فراخوان بعد از _initialize_database() دوباره و کامل
+            # اعتبارسنجی می‌کند.
+            self._current_user_id = None
+            return self._USER_CHECK_DEFERRED
+
+        if row is None:
+            print(f"⚠️ user_id={requested} در جدول staff وجود ندارد؛ "
+                  "Audit Log با NULL ثبت می‌شود تا نوشتن رکوردها شکست نخورد.")
+            self._current_user_id = None
+            return self._USER_CHECK_CLEARED
+
+        return self._USER_CHECK_OK
     
     def _ensure_feature_tables(self):
         """ایجاد جداول قابلیت‌های جدید در دیتابیس‌های قدیمی.
@@ -285,8 +361,121 @@ class DatabaseConnection:
             # ارتقاء دیتابیس
             self._migrate_database(current_version, DB_VERSION)
         # else: دیتابیس به‌روز است
-        
+
+        # ===== اصلاح بحرانی =====
+        # ترمیم ساختار، فارغ از شماره نسخه‌ای که در db_version ثبت شده.
+        # توضیح کامل در docstring متد _heal_schema آمده است.
+        self._heal_schema()
+
         self._initialized = True
+
+    # ماژول‌های migration که کاملاً «چندباراجراشدنی» (idempotent) هستند:
+    # یعنی هر دستورشان یا IF NOT EXISTS دارد یا قبلش وجود ستون/جدول/داده
+    # بررسی می‌شود. این‌ها را می‌توان در هر اجرا با خیال راحت صدا زد.
+    _IDEMPOTENT_MIGRATIONS = ("migration_v7",)
+
+    def _heal_schema(self):
+        """
+        ترمیم ساختار دیتابیس بدون توجه به شماره نسخه ثبت‌شده
+
+        ===== چرا این متد لازم است؟ (باگ بحرانی نصب تازه) =====
+        مسیر قبلی _initialize_database برای یک دیتابیس **تازه** این بود:
+
+            _create_all_tables()   ← ۲۵ جدول «مدل نهایی»
+            _create_indexes()
+            _create_audit_triggers()
+            _seed_default_data()
+            _set_db_version(7)     ← نسخه ۷ مُهر می‌خورد!
+
+        یعنی هیچ‌کدام از فایل‌های database/migrations/migration_vN.py
+        اجرا نمی‌شدند، اما شماره نسخه روی ۷ تنظیم می‌شد. از آن به بعد
+        `current_version == DB_VERSION` بود و برنامه همیشه می‌گفت
+        «دیتابیس به‌روز است» ⇒ آن سه جدول و آن ستون‌ها **هرگز** ساخته
+        نمی‌شدند.
+
+        نتیجه روی هر نصب تازه (و همین دیتابیس موجود در مخزن که
+        version=7 دارد):
+
+            ❌ no such table: recommendations      → پیشنهادها
+            ❌ no such table: saved_filters        → فیلترهای ذخیره‌شده
+            ❌ no such table: backups              → صفحه پشتیبان‌گیری
+            ❌ no such column: attachments.updated_at → ویرایش پیوست
+            ❌ table observations has no column named indicator_id
+               و observable_behavior_id → ساختار سه‌لایه
+               (شایستگی ← شاخص ← رفتار قابل مشاهده) ذخیره نمی‌شد
+            ❌ indicators / observable_behaviors / screening_tools خالی
+               در حالی که لاگ می‌گفت «۲۸ شایستگی با شاخص‌های
+               مشاهده‌پذیر ایجاد شد»
+
+        بدتر اینکه این خطاها بلعیده می‌شدند؛ مثلاً خروجی واقعی
+        RecommendationService روی نصب تازه این بود:
+
+            ERROR | خطا در ذخیره پیشنهاد: no such table: recommendations
+            INFO  | 0 پیشنهاد برای دانش‌آموز ... تولید شد.
+
+        یعنی کاربر فکر می‌کرد «پیشنهادی پیدا نشد»، نه اینکه قابلیتی خراب است.
+
+        ===== رفتار جدید =====
+        بعد از هر مسیر ساخت/ارتقاء، migration های idempotent اجرا می‌شوند
+        تا هر شیء مفقود ساخته شود. اجرای چندباره‌شان بی‌خطر است (تست شد:
+        دو بار پشت سر هم بدون خطا و بدون ساخت داده تکراری).
+        """
+        import importlib
+
+        # بررسی سریع: اگر همه چیز سر جایش است، کاری نکن.
+        # این کار هم زمان راه‌اندازی را کم می‌کند و هم جلوی لاگ
+        # اضافی در هر اجرای برنامه را می‌گیرد.
+        try:
+            cursor = self._connection.cursor()
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name IN "
+                "('recommendations', 'saved_filters', 'backups')"
+            )
+            have_tables = {row[0] for row in cursor.fetchall()}
+            cursor.execute("PRAGMA table_info(attachments)")
+            attach_cols = {row[1] for row in cursor.fetchall()}
+            cursor.execute("PRAGMA table_info(observations)")
+            obs_cols = {row[1] for row in cursor.fetchall()}
+
+            missing = (
+                {"recommendations", "saved_filters", "backups"} - have_tables
+            ) | (
+                {"updated_at"} - attach_cols
+            ) | (
+                {"indicator_id", "observable_behavior_id"} - obs_cols
+            )
+            if not missing:
+                return
+            print(f"🩺 ساختار دیتابیس ناقص است؛ ترمیم می‌شود: {sorted(missing)}")
+        except Exception as e:
+            # اگر همین بررسی هم شکست خورد، ترمیم را اجرا می‌کنیم
+            print(f"⚠️ بررسی ساختار دیتابیس ممکن نشد: {e}")
+
+        for module_name in self._IDEMPOTENT_MIGRATIONS:
+            try:
+                module = importlib.import_module(
+                    f"database.migrations.{module_name}"
+                )
+            except Exception as e:
+                print(f"⚠️ بارگذاری {module_name} برای ترمیم ساختار ممکن نشد: {e}")
+                continue
+
+            upgrade = getattr(module, "upgrade", None)
+            if not callable(upgrade):
+                continue
+
+            try:
+                upgrade(self._connection)
+                self._connection.commit()
+            except Exception as e:
+                # برنامه به خاطر ترمیم ساختار نباید بالا نیاید؛
+                # خطا ثبت می‌شود تا در لاگ قابل پیگیری باشد.
+                print(f"⚠️ ترمیم ساختار ({module_name}) کامل نشد: {e}")
+                try:
+                    self._connection.rollback()
+                except Exception:
+                    pass
+
     
     def _get_db_version(self):
         """دریافت نسخه فعلی دیتابیس"""
@@ -327,22 +516,58 @@ class DatabaseConnection:
         self._connection.commit()
     
     def _migrate_database(self, from_version, to_version):
-        """انجام Migration بین نسخه‌ها"""
+        """انجام Migration بین نسخه‌ها
+
+        ===== اصلاح مهم =====
+        نسخه قبلی فقط یک دیکشنری دستی داشت:
+
+            migrations = {1: self._migrate_to_v1}
+
+        بنابراین برای ارتقاء از نسخه ۲ به ۷ هیچ کاری انجام نمی‌شد جز
+        اینکه در پایان `_set_db_version(7)` صدا زده می‌شد! یعنی دیتابیس
+        قدیمی بدون دریافت هیچ‌کدام از تغییرات v2..v7، مُهر نسخه ۷
+        می‌خورد و برای همیشه ناقص می‌ماند — در حالی که کلاس
+        `MigrationManager` (database/migrations/manager.py) با تابع
+        `_discover_migrations()` همه فایل‌های migration_vN.py را پیدا و
+        اجرا می‌کند. آن کلاس درست کار می‌کرد ولی هیچ‌وقت از اینجا
+        صدا زده نمی‌شد.
+
+        حالا اول از MigrationManager واقعی استفاده می‌شود و اگر به هر
+        دلیلی شکست خورد، مسیر قدیمی به عنوان fallback اجرا می‌شود تا
+        برنامه بالا بیاید (به‌علاوه _heal_schema ساختار را ترمیم می‌کند).
+        """
         print(f"🔄 ارتقاء دیتابیس از نسخه {from_version} به {to_version}")
-        
-        # Migration های مختلف بر اساس نسخه
+
+        try:
+            from database.migrations.manager import MigrationManager
+
+            MigrationManager.migrate(self._connection, to_version)
+            self._connection.commit()
+            self._set_db_version(to_version)
+            return
+        except Exception as e:
+            print(f"⚠️ ارتقاء با MigrationManager کامل نشد: {e}")
+            try:
+                self._connection.rollback()
+            except Exception:
+                pass
+
+        # ===== مسیر جایگزین (fallback) =====
         migrations = {
             1: self._migrate_to_v1,
-            # نسخه‌های بعدی را اینجا اضافه کنید
         }
-        
+
         for version in range(from_version + 1, to_version + 1):
             if version in migrations:
-                migrations[version]()
-                self._set_db_version(version)
-                print(f"✅ ارتقاء به نسخه {version} انجام شد")
-        
+                try:
+                    migrations[version]()
+                    self._set_db_version(version)
+                    print(f"✅ ارتقاء به نسخه {version} انجام شد")
+                except Exception as e:
+                    print(f"⚠️ ارتقاء به نسخه {version} ناموفق بود: {e}")
+
         self._set_db_version(to_version)
+
     
     def _migrate_to_v1(self):
         """Migration به نسخه 1 - ایجاد جداول اولیه"""

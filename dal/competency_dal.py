@@ -431,7 +431,7 @@ class CompetencyDAL:
 
             query += " GROUP BY o.competency_id ORDER BY avg_severity DESC"
 
-            cursor.execute(query, params if params else None)
+            cursor.execute(query, tuple(params))  # اصلاح: None می‌داد «parameters are of unsupported type»
             rows = cursor.fetchall()
 
             result = []

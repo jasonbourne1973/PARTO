@@ -317,7 +317,7 @@ class RecommendationDAL:
                 query += " AND created_at <= ?"
                 params.append(end_date)
             
-            cursor.execute(query, params if params else None)
+            cursor.execute(query, tuple(params))  # اصلاح: None می‌داد «parameters are of unsupported type»
             row = cursor.fetchone()
             
             return {

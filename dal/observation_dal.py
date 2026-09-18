@@ -14,21 +14,29 @@ class ObservationDAL:
         self.db = DatabaseConnection()
     
     def create(self, observation):
-        """ایجاد مشاهده جدید"""
+        """ایجاد مشاهده جدید
+
+        نکته: ستون‌های indicator_id و observable_behavior_id هم ذخیره
+        می‌شوند (ساختار سه‌لایه شایستگی ← شاخص ← رفتار قابل مشاهده).
+        توضیح کامل باگ قبلی در docstring متد `_row_to_observation` آمده است.
+        """
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
         cursor.execute("""
             INSERT INTO observations (
                 student_profile_id, staff_id, competency_id,
+                indicator_id, observable_behavior_id,
                 observation_date, location, description,
                 antecedent, behavior, consequence,
                 behavior_type, severity, tags
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             observation.student_profile_id,
             observation.staff_id,
             observation.competency_id,
+            getattr(observation, 'indicator_id', None),
+            getattr(observation, 'observable_behavior_id', None),
             observation.observation_date,
             observation.location,
             observation.description,
@@ -181,6 +189,7 @@ class ObservationDAL:
         cursor.execute("""
             UPDATE observations SET
                 student_profile_id = ?, staff_id = ?, competency_id = ?,
+                indicator_id = ?, observable_behavior_id = ?,
                 observation_date = ?, location = ?, description = ?,
                 antecedent = ?, behavior = ?, consequence = ?,
                 behavior_type = ?, severity = ?, tags = ?,
@@ -190,6 +199,8 @@ class ObservationDAL:
             observation.student_profile_id,
             observation.staff_id,
             observation.competency_id,
+            getattr(observation, 'indicator_id', None),
+            getattr(observation, 'observable_behavior_id', None),
             observation.observation_date,
             observation.location,
             observation.description,
@@ -593,14 +604,19 @@ class ObservationDAL:
     # متدهای تحلیلی برای داشبورد
     # ============================================================
 
-    def get_observations_distribution_by_type(self, start_date=None, end_date=None):
-        """دریافت توزیع مشاهدات بر اساس نوع رفتار"""
+    def get_observations_distribution_by_type(self, start_date=None, end_date=None, staff_id=None):
+        """دریافت توزیع مشاهدات بر اساس نوع رفتار
+
+        Args:
+            staff_id: اگر داده شود، فقط مشاهداتِ ثبت‌شدهٔ همین معلم شمرده
+                می‌شود (فیلتر انتخاب معلم در داشبورد).
+        """
         try:
             conn = self.db.get_connection()
             cursor = conn.cursor()
 
             query = """
-                SELECT 
+                SELECT
                     COUNT(*) as total,
                     SUM(CASE WHEN behavior_type = 'مثبت' THEN 1 ELSE 0 END) as positive,
                     SUM(CASE WHEN behavior_type = 'منفی' THEN 1 ELSE 0 END) as negative,
@@ -616,8 +632,11 @@ class ObservationDAL:
             if end_date:
                 query += " AND observation_date <= ?"
                 params.append(end_date)
+            if staff_id:
+                query += " AND staff_id = ?"
+                params.append(staff_id)
 
-            cursor.execute(query, params if params else None)
+            cursor.execute(query, tuple(params))  # اصلاح: None می‌داد «parameters are of unsupported type»
             row = cursor.fetchone()
 
             total = row['total'] if row else 0
@@ -702,7 +721,7 @@ class ObservationDAL:
                 query += " AND observation_date <= ?"
                 params.append(end_date)
 
-            cursor.execute(query, params if params else None)
+            cursor.execute(query, tuple(params))  # اصلاح: None می‌داد «parameters are of unsupported type»
             rows = cursor.fetchall()
 
             if not rows:
@@ -756,8 +775,13 @@ class ObservationDAL:
             print(f"خطا در دریافت مشاهدات در بازه‌های زمانی: {e}")
             return []
 
-    def get_observations_by_competency(self, start_date=None, end_date=None, limit=10):
-        """دریافت مشاهدات گروه‌بندی شده بر اساس شایستگی"""
+    def get_observations_by_competency(self, start_date=None, end_date=None, limit=10, staff_id=None):
+        """دریافت مشاهدات گروه‌بندی شده بر اساس شایستگی
+
+        Args:
+            staff_id: اگر داده شود، فقط مشاهداتِ ثبت‌شدهٔ همین معلم شمرده
+                می‌شود (فیلتر انتخاب معلم در داشبورد).
+        """
         try:
             conn = self.db.get_connection()
             cursor = conn.cursor()
@@ -777,6 +801,9 @@ class ObservationDAL:
             if end_date:
                 query += " AND o.observation_date <= ?"
                 params.append(end_date)
+            if staff_id:
+                query += " AND o.staff_id = ?"
+                params.append(staff_id)
 
             query += " GROUP BY o.competency_id ORDER BY count DESC LIMIT ?"
             params.append(limit)
@@ -807,6 +834,14 @@ class ObservationDAL:
 
             conn = self.db.get_connection()
             cursor = conn.cursor()
+
+            # ===== اصلاح (بازرسی دوم) =====
+            # days=None (اگر صریحاً پاس داده شود) باعث
+            #     TypeError: unsupported type for timedelta days component: NoneType
+            # می‌شد و چون کل متد داخل try است، خطا فقط چاپ و نتیجه خالی
+            # برمی‌گشت («خلاصه روزانه» بی‌صدا خالی می‌ماند).
+            if not days:
+                days = 30
 
             today = jdatetime.date.today()
             start_date = today - timedelta(days=days)
@@ -1147,6 +1182,36 @@ class ObservationDAL:
         observation.student_profile_id = row['student_profile_id']
         observation.staff_id = row['staff_id']
         observation.competency_id = row['competency_id']
+
+        # ===== اصلاح مهم: ساختار سه‌لایه =====
+        # ستون‌های indicator_id و observable_behavior_id توسط
+        # migration_v7 به جدول observations اضافه شده‌اند و مدل
+        # Observation هم این دو فیلد را دارد، ولی این DAL هیچ‌وقت
+        # آن‌ها را نه می‌نوشت و نه می‌خواند.
+        #
+        # نتیجه واقعی: فرم ثبت مشاهده (views/dialogs/observation_form.py)
+        # انتخاب کاربر از درخت «شایستگی ← شاخص ← رفتار قابل مشاهده» را
+        # داخل data می‌فرستاد (کلیدهای indicator_id و
+        # observable_behavior_id) ولی در دیتابیس NULL ذخیره می‌شد. وقتی
+        # کاربر همان مشاهده را برای ویرایش باز می‌کرد، کد سعی می‌کرد
+        # انتخاب قبلی را از obs.indicator_id برگرداند و همیشه None
+        # می‌گرفت ⇒ انتخاب کاربر بی‌صدا از بین می‌رفت.
+        #
+        # از getattr روی row.keys() استفاده می‌شود تا اگر دیتابیس قدیمی
+        # هنوز این ستون‌ها را نداشت (قبل از ترمیم ساختار) برنامه crash
+        # نکند.
+        try:
+            available = set(row.keys())
+        except Exception:
+            available = set()
+        observation.indicator_id = (
+            row['indicator_id'] if 'indicator_id' in available else None
+        )
+        observation.observable_behavior_id = (
+            row['observable_behavior_id']
+            if 'observable_behavior_id' in available else None
+        )
+
         observation.observation_date = row['observation_date']
         observation.location = row['location']
         observation.description = row['description']
@@ -1165,3 +1230,87 @@ class ObservationDAL:
         observation.deleted_by = row['deleted_by']
         
         return observation
+
+    # ============================================================
+    # جست‌وجوی متن آزاد
+    # ============================================================
+    # ===== اصلاح (باگ گزارش‌شده در بازرسی دوم) =====
+    # ObservationService.search_observations / search_observations_by_student / search_observations_by_teacher
+    # سه متد این DAL را صدا می‌زدند که هیچ‌کدام وجود نداشتند:
+    #
+    #     AttributeError: 'ObservationDAL' object has no attribute 'search'
+    #
+    # سرویس آن را به ServiceError تبدیل می‌کرد و در نتیجه کادر جست‌وجوی
+    # صفحه مشاهدات (views/pages/observations_page.py:380-388) همیشه با پیام
+    # «مشکل در جستجو: ...» شکست می‌خورد. یعنی جست‌وجو در این صفحه
+    # از ابتدا کار نمی‌کرد و هیچ داده‌ای برنمی‌گشت.
+    #
+    # حالا هر سه متد پیاده‌سازی شده‌اند. نکته‌ها:
+    #   - «بر اساس معلم» یعنی observations.staff_id (همان معنایی که
+    #     ObservationService.get_observations_by_teacher در فیلتر پایتونی استفاده می‌کند).
+    #   - «بر اساس دانش‌آموز» با JOIN روی پرونده سالانه انجام می‌شود
+    #     (همان الگوی get_by_student).
+    #   - کاراکترهای ویژه LIKE فرار داده می‌شوند تا جست‌وجوی «٪» یا «_»
+    #     به‌جای wildcard، خودِ همان نویسه را پیدا کند.
+    #   - رکوردهای حذف منطقی‌شده برنمی‌گردند (مگر include_deleted=True).
+
+    @staticmethod
+    def _escape_like(text):
+        """ساخت الگوی LIKE امن (فرار کاراکترهای ویژه) برای جست‌وجوی متن آزاد"""
+        s = '' if text is None else str(text)
+        s = s.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+        return '%' + s + '%'
+
+    _LIKE = "LIKE ? ESCAPE '\\'"
+    _SEARCH_COLUMNS = ('description', 'behavior', 'location', 'antecedent',
+                       'consequence', 'tags', 'behavior_type')
+
+    def search(self, search_term, limit=None, include_deleted=False):
+        """جست‌وجوی متن آزاد در همه مشاهدات"""
+        return self._search_text(search_term, limit=limit, include_deleted=include_deleted)
+
+    def search_by_student(self, student_id, search_term, limit=None, include_deleted=False):
+        """جست‌وجوی متن آزاد در مشاهدات یک دانش‌آموز"""
+        return self._search_text(search_term, student_id=student_id, limit=limit,
+                                 include_deleted=include_deleted)
+
+    def search_by_teacher(self, teacher_id, search_term, limit=None, include_deleted=False):
+        """جست‌وجوی متن آزاد در مشاهدات ثبت‌شده توسط یک معلم"""
+        return self._search_text(search_term, teacher_id=teacher_id, limit=limit,
+                                 include_deleted=include_deleted)
+
+    def _search_text(self, search_term, student_id=None, teacher_id=None,
+                     limit=None, include_deleted=False):
+        """پیاده‌سازی مشترک جست‌وجو (ساختار کوئری همانند get_by_student)"""
+        if search_term is None or not str(search_term).strip():
+            return []
+
+        term = self._escape_like(search_term)
+        like = " OR ".join("o.%s %s" % (c, self._LIKE) for c in self._SEARCH_COLUMNS)
+
+        joins = ""
+        where = ["(%s)" % like]
+        params = [term] * len(self._SEARCH_COLUMNS)
+
+        if student_id is not None:
+            joins += " JOIN student_academic_profiles sap ON o.student_profile_id = sap.id"
+            where.append("sap.student_id = ?")
+            params.append(student_id)
+
+        if teacher_id is not None:
+            where.append("o.staff_id = ?")
+            params.append(teacher_id)
+
+        if not include_deleted:
+            where.append("o.is_deleted = 0")
+
+        query = "SELECT o.* FROM observations o%s WHERE %s" % (joins, " AND ".join(where))
+        query += " ORDER BY o.observation_date DESC"
+
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+
+        cursor = self.db.execute_query(query, params)
+        rows = cursor.fetchall()
+        return [self._row_to_observation(row) for row in rows]

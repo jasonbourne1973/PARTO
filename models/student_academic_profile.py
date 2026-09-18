@@ -18,13 +18,29 @@ class StudentAcademicProfile(BaseModel):
     STATUS_GRADUATED = "graduated"
     STATUS_TRANSFERRED = "transferred"
     STATUS_DROPPED = "dropped"
-    
+    # ===== اصلاح (بازرسی سوم) =====
+    # StudentAcademicProfileDAL.delete() و .archive() هر دو به
+    # StudentAcademicProfile.STATUS_ARCHIVED ارجاع می‌دادند ولی این ثابت
+    # روی مدل تعریف نشده بود (و روی BaseModel هم نیست):
+    #
+    #   AttributeError: type object 'StudentAcademicProfile'
+    #                   has no attribute 'STATUS_ARCHIVED'
+    #
+    # یعنی «حذف» و «بایگانی» پروندهٔ تحصیلی از روز اول ۱۰۰٪ شکست
+    # می‌خورد. همین باعث شد هیچ پرونده‌ای هرگز وضعیت 'archived' نگیرد —
+    # و در نتیجه فیلتر قدیمی get_active_by_student که
+    # `NOT IN ('archived','closed')` بود عملاً هیچ رکوردی را فیلتر
+    # نمی‌کرد (واژگان مرده). اسکن سیستماتیک همهٔ ارجاع‌های
+    # «ثابت کلاسی» در پروژه: از ۱۲۷ ارجاع، فقط همین ۲ مورد خراب بودند.
+    STATUS_ARCHIVED = "archived"
+
     STATUS_CHOICES = [
         (STATUS_ACTIVE, "فعال"),
         (STATUS_INACTIVE, "غیرفعال"),
         (STATUS_GRADUATED, "فارغ‌التحصیل"),
         (STATUS_TRANSFERRED, "انتقالی"),
         (STATUS_DROPPED, "انصراف داده"),
+        (STATUS_ARCHIVED, "بایگانی‌شده"),
     ]
     
     def __init__(self):
@@ -66,6 +82,7 @@ class StudentAcademicProfile(BaseModel):
             self.STATUS_GRADUATED: "فارغ‌التحصیل",
             self.STATUS_TRANSFERRED: "انتقالی",
             self.STATUS_DROPPED: "انصراف داده",
+            self.STATUS_ARCHIVED: "بایگانی‌شده",
         }
         return status_map.get(self.status, self.status)
     
