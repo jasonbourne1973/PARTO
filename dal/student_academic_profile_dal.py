@@ -128,6 +128,15 @@ class StudentAcademicProfileDAL:
         #      دانش‌آموز در یک سال دو پرونده وجود داشته باشد (داده‌های
         #      قدیمی)، اولین پرونده — که تاریخچه و مشاهده‌ها به آن وصل
         #      است — برگردانده می‌شود تا نتیجه پایدار بماند.
+        #
+        # ===== افزوده (بازرسی سوم) =====
+        # 'archived' به لیست سیاه اضافه شد. دلیلش این است که در همین دور
+        # متدهای delete()/archive() پرونده اصلاح شدند و حالا واقعاً
+        # STATUS_ARCHIVED را ست می‌کنند (قبلاً به خاطر نبودِ این ثابت روی
+        # مدل، هر دو با AttributeError شکست می‌خوردند و هیچ پرونده‌ای
+        # هیچ‌وقت 'archived' نمی‌شد). پس از این به بعد این وضعیت واقعاً
+        # در دیتابیس وجود دارد و پروندهٔ بایگانی‌شده نباید «فعال» شمرده
+        # شود.
         cursor = self.db.execute_query("""
             SELECT sap.* FROM student_academic_profiles sap
             JOIN academic_years ay ON sap.academic_year_id = ay.id
@@ -137,7 +146,7 @@ class StudentAcademicProfileDAL:
               AND ay.is_archived = 0
               AND sap.is_deleted = 0
               AND COALESCE(sap.status, 'active')
-                  NOT IN ('graduated', 'dropped', 'transferred')
+                  NOT IN ('graduated', 'dropped', 'transferred', 'archived')
             ORDER BY sap.id ASC
             LIMIT 1
         """, (student_id,))
@@ -211,6 +220,23 @@ class StudentAcademicProfileDAL:
         conn = self.db.get_connection()
         cursor = conn.cursor()
 
+        # ===== اصلاح (بازرسی سوم) — جلوگیری از «واژگان مرده» =====
+        # این متد هیچ اعتبارسنجی‌ای نداشت؛ هر رشته‌ای به عنوان وضعیت
+        # پذیرفته و در دیتابیس نوشته می‌شد. ریشهٔ دو باگ قبلی همین بود:
+        #   • promotion_page وضعیت "closed" می‌گذاشت که در STATUS_CHOICES
+        #     مدل نیست ⇒ validate() ردش می‌کرد.
+        #   • get_active_by_student با 'archived'/'closed' فیلتر می‌کرد که
+        #     هیچ‌وقت ست نمی‌شدند ⇒ شرط هیچ رکوردی را فیلتر نمی‌کرد.
+        # حالا هر وضعیت ناشناخته بلافاصله و با پیام روشن رد می‌شود،
+        # به‌جای اینکه بی‌صدا در دیتابیس بنشیند و سال‌ها بعد باعث
+        # آمار غلط شود.
+        valid = [s[0] for s in StudentAcademicProfile.STATUS_CHOICES]
+        if new_status not in valid:
+            raise ValueError(
+                f"وضعیت نامعتبر برای پروندهٔ تحصیلی: {new_status!r}. "
+                f"مقدارهای مجاز: {', '.join(valid)}"
+            )
+
         try:
             cursor.execute("""
                 SELECT status, status_history
@@ -250,17 +276,151 @@ class StudentAcademicProfileDAL:
             conn.rollback()
             raise Exception(f"خطا در تغییر وضعیت پرونده: {e}")
 
-    def delete(self, profile_id):
-        """حذف منطقی پرونده (بایگانی)"""
+    def delete(self, profile_id, user_id=None):
+        """
+        حذف منطقی پروندهٔ تحصیلی
+
+        ===== 🔴 اصلاح (بازرسی سوم) =====
+        نسخهٔ قبلی فقط این بود:
+
+            return self.update_status(
+                profile_id, StudentAcademicProfile.STATUS_ARCHIVED, ...)
+
+        دو مشکل داشت:
+          ۱) STATUS_ARCHIVED روی مدل تعریف نشده بود ⇒ همیشه
+             AttributeError ⇒ «حذف پرونده» از روز اول کار نمی‌کرد.
+          ۲) حتی اگر کار می‌کرد، فقط وضعیت را عوض می‌کرد و is_deleted را
+             دست نمی‌زد. یعنی برخلاف بقیهٔ موجودیت‌های برنامه:
+               • get_by_id/get_all که `is_deleted = 0` فیلتر می‌کنند
+                 همچنان رکورد «حذف‌شده» را برمی‌گرداندند
+               • تریگر trg_student_academic_profiles_soft_delete_audit
+                 هرگز اجرا نمی‌شد ⇒ حذف در گزارش حسابرسی ثبت نمی‌شد
+               • deleted_at و deleted_by خالی می‌ماندند
+
+        حالا هم is_deleted=1 می‌شود (مثل بقیهٔ DALها، با ثبت زمان و
+        کاربر و اجرای تریگر حسابرسی) و هم وضعیت به 'archived' می‌رود و
+        در تاریخچهٔ وضعیت ثبت می‌شود.
+        """
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("""
+                SELECT status, status_history
+                FROM student_academic_profiles
+                WHERE id = ? AND is_deleted = 0
+            """, (profile_id,))
+            row = cursor.fetchone()
+            if not row:
+                return False
+
+            old_status = row['status']
+            try:
+                history = json.loads(row['status_history'] or "[]")
+            except Exception:
+                history = []
+            history.append({
+                'from': old_status,
+                'to': StudentAcademicProfile.STATUS_ARCHIVED,
+                'date': datetime.now().isoformat(),
+                'note': "حذف منطقی توسط کاربر"
+            })
+
+            now = datetime.now().isoformat()
+            cursor.execute("""
+                UPDATE student_academic_profiles SET
+                    is_deleted = 1,
+                    deleted_at = ?,
+                    deleted_by = ?,
+                    status = ?,
+                    status_history = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND is_deleted = 0
+            """, (
+                now,
+                user_id,
+                StudentAcademicProfile.STATUS_ARCHIVED,
+                json.dumps(history, ensure_ascii=False),
+                profile_id
+            ))
+
+            affected = cursor.rowcount
+            conn.commit()
+            return affected > 0
+
+        except sqlite3.Error as e:
+            conn.rollback()
+            raise Exception(f"خطا در حذف پرونده تحصیلی: {e}")
+
+    def restore(self, profile_id, user_id=None):
+        """
+        بازگرداندن پروندهٔ حذف‌شده (تا پیش از این وجود نداشت)
+
+        وضعیت به 'inactive' برمی‌گردد و نه 'active': بازگرداندن یک
+        پرونده به معنی فعال‌کردن دوبارهٔ دانش‌آموز در سال جاری نیست و
+        باید آگاهانه و جداگانه انجام شود (وگرنه یک پروندهٔ حذف‌شده
+        می‌توانست ناگهان در داشبورد و لیست ارتقاء ظاهر شود).
+        """
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("""
+                SELECT status, status_history
+                FROM student_academic_profiles
+                WHERE id = ? AND is_deleted = 1
+            """, (profile_id,))
+            row = cursor.fetchone()
+            if not row:
+                return False
+
+            try:
+                history = json.loads(row['status_history'] or "[]")
+            except Exception:
+                history = []
+            history.append({
+                'from': row['status'],
+                'to': StudentAcademicProfile.STATUS_INACTIVE,
+                'date': datetime.now().isoformat(),
+                'note': "بازگردانی از حذف منطقی"
+            })
+
+            cursor.execute("""
+                UPDATE student_academic_profiles SET
+                    is_deleted = 0,
+                    deleted_at = NULL,
+                    deleted_by = NULL,
+                    status = ?,
+                    status_history = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND is_deleted = 1
+            """, (
+                StudentAcademicProfile.STATUS_INACTIVE,
+                json.dumps(history, ensure_ascii=False),
+                profile_id
+            ))
+
+            affected = cursor.rowcount
+            conn.commit()
+            return affected > 0
+
+        except sqlite3.Error as e:
+            conn.rollback()
+            raise Exception(f"خطا در بازگردانی پرونده تحصیلی: {e}")
+
+    def archive(self, profile_id):
+        """
+        بایگانی کردن پرونده (بدون حذف منطقی)
+
+        تفاوتش با delete(): اینجا is_deleted دست نمی‌خورد، پس پرونده
+        همچنان در فهرست‌ها و گزارش‌های تاریخی دیده می‌شود و فقط
+        «پروندهٔ فعال» محسوب نمی‌شود. مناسب پایان سال تحصیلی.
+        """
         return self.update_status(
             profile_id,
             StudentAcademicProfile.STATUS_ARCHIVED,
-            "حذف منطقی توسط کاربر"
+            "بایگانی شد"
         )
-
-    def archive(self, profile_id):
-        """بایگانی کردن پرونده"""
-        return self.update_status(profile_id, StudentAcademicProfile.STATUS_ARCHIVED, "بایگانی شد")
 
     # ============================================================
     # متدهای چندساله برای گزارش روند

@@ -527,7 +527,16 @@ class PromotionPage(QWidget):
                 st = getattr(latest, 'status', None)
                 terminal = (StudentAcademicProfile.STATUS_GRADUATED,
                             StudentAcademicProfile.STATUS_DROPPED,
-                            StudentAcademicProfile.STATUS_TRANSFERRED)
+                            StudentAcademicProfile.STATUS_TRANSFERRED,
+                            # ===== افزوده (بازرسی سوم) =====
+                            # STATUS_ARCHIVED حالا واقعاً وجود دارد و توسط
+                            # archive()/delete() پرونده ست می‌شود (قبلاً
+                            # ارجاع به ثابتِ ناموجود بود و هر دو متد با
+                            # AttributeError شکست می‌خوردند). پروندهٔ
+                            # بایگانی‌شده نباید بی‌صدا ارتقاء یابد؛
+                            # برچسب فارسی‌اش هم از همان STATUS_CHOICES
+                            # می‌آید («بایگانی‌شده»).
+                            StudentAcademicProfile.STATUS_ARCHIVED)
                 if st in terminal:
                     labels = dict(StudentAcademicProfile.STATUS_CHOICES)
                     raise ValueError(

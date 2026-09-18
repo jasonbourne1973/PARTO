@@ -508,18 +508,39 @@ class SettingsPage(QWidget):
     
     def delete_staff(self, staff):
         """حذف عضو کادر"""
+        # ===== اصلاح (بازرسی سوم) =====
+        # پیام قبلی فقط می‌پرسید «آیا از حذف … اطمینان دارید؟».
+        # در حالی که StaffDAL.delete در آن زمان DELETE فیزیکی انجام
+        # می‌داد و به خاطر ON DELETE CASCADE روی یازده جدول، همهٔ
+        # مشاهده‌ها، مداخلات، پیگیری‌ها، جلسات مشاوره، مصاحبه‌های
+        # والدین و انتساب‌های آن فرد **برای همیشه** پاک می‌شدند —
+        # یعنی تاریخچهٔ رشد دانش‌آموزان بی‌خبر از بین می‌رفت.
+        #
+        # delete() حالا حذف منطقی می‌کند (is_deleted=1 + is_active=0) و
+        # همهٔ سوابق حفظ می‌شوند. پیام هم اصلاح شد تا کاربر بداند
+        # دقیقاً چه اتفاقی می‌افتد.
         reply = QMessageBox.question(
             self,
             "تأیید حذف",
-            f"آیا از حذف {staff.full_name} اطمینان دارید؟",
+            f"آیا از حذف «{staff.full_name}» اطمینان دارید؟\n\n"
+            "با این کار:\n"
+            "• این فرد از فهرست‌ها و از انتخاب معلم در فرم‌ها برداشته می‌شود\n"
+            "• ورود او به برنامه غیرفعال می‌شود\n"
+            "• همهٔ سوابقش (مشاهده‌ها، مداخلات، پیگیری‌ها، جلسات و…) "
+            "حفظ می‌شود و نامش در گزارش‌های قبلی باقی می‌ماند\n\n"
+            "این حذف قابل بازگرداندن است.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                self.staff_dal.delete(staff.id)
+                actor = getattr(self.db, '_current_user_id', None)
+                self.staff_dal.delete(staff.id, user_id=actor)
                 self.load_staff()
                 self.load_staff_for_users()
                 QMessageBox.information(self, "موفقیت", f"{staff.full_name} با موفقیت حذف شد.")
+            except ValueError as e:
+                # حساب «سیستم» حذف‌شدنی نیست؛ پیام توضیحیِ خودش را نشان بده
+                QMessageBox.warning(self, "امکان حذف نیست", str(e))
             except Exception as e:
                 QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
     

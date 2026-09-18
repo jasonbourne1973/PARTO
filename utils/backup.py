@@ -165,6 +165,101 @@ class BackupManager:
                 'message': f"❌ خطا در ایجاد Backup: {str(e)}"
             }
     
+    def _quiesce_database(self):
+        """
+        آماده‌سازی دیتابیس برای بازنویسیِ امن فایل
+
+        ===== 🔴 چرا این متد لازم است؟ (باگ بحرانی بازیابی) =====
+        دیتابیس برنامه در حالت WAL اجرا می‌شود:
+
+            PRAGMA journal_mode = WAL     (در database/connection.py)
+
+        یعنی فایل‌های partow.db-wal و partow.db-shm کنار partow.db
+        وجود دارند و تراکنش‌های ثبت‌شدهٔ checkpoint‌نشده داخل -wal
+        هستند. هنگام بازکردن دیتابیس، SQLite محتوای -wal را روی فایل
+        اصلی «بازپخش» می‌کند.
+
+        نسخهٔ قبلی restore_backup فقط این را انجام می‌داد:
+
+            shutil.copy2(db_backup, self.db_path)
+
+        یعنی فایل .db با نسخهٔ پشتیبان جایگزین می‌شد، ولی -wal و -shm
+        دست‌نخورده می‌ماندند. نتیجه: WAL قدیمی (مربوط به وضعیتِ قبل از
+        بازیابی، شامل همان حذف‌هایی که کاربر می‌خواست برگرداند) روی
+        دیتابیسِ بازیابی‌شده بازپخش می‌شد و **بازیابی عملاً بی‌اثر
+        می‌ماند** — در حالی که متد `{'success': True}` و پیام
+        «✅ بازیابی با موفقیت انجام شد» برمی‌گرداند.
+
+        تست عملی (قبل از اصلاح):
+            ۳ دانش‌آموز ثبت شد ← پشتیبان گرفته شد ← همه حذف شدند
+            ← restore_backup() → success=True
+            ← تعداد دانش‌آموز: ۰   (انتظار: ۳)
+            ← اندازهٔ -wal باقی‌مانده: ۱٫۹ مگابایت
+
+        با اجرای همین روش درست (بستن اتصال + پاک‌کردن -wal/-shm + کپی)
+        نتیجهٔ همان تست ۳ شد.
+
+        علاوه بر این، بازنویسی فایل .db زیر پای یک اتصال **باز** SQLite
+        رفتار تعریف‌نشده است؛ پس اول اتصال بسته می‌شود.
+        """
+        # ۱) checkpoint و بستن اتصال باز
+        try:
+            from database.connection import DatabaseConnection
+            inst = getattr(DatabaseConnection, '_instance', None)
+            conn = getattr(inst, '_connection', None) if inst is not None else None
+            if conn is not None:
+                try:
+                    conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                except sqlite3.Error:
+                    pass
+                try:
+                    inst.close()      # _connection = None و _initialized = False
+                except Exception:
+                    pass
+        except Exception as e:
+            self.logger.warning(f"بستن اتصال دیتابیس قبل از بازیابی ممکن نشد: {e}")
+
+        # ۲) پاک کردن فایل‌های ژورنال
+        return self._remove_journal_files()
+
+    def _remove_journal_files(self):
+        """حذف partow.db-wal و partow.db-shm کنار دیتابیس"""
+        removed = []
+        for ext in ('-wal', '-shm'):
+            path = self.db_path + ext
+            try:
+                if os.path.exists(path):
+                    os.remove(path)
+                    removed.append(os.path.basename(path))
+            except OSError as e:
+                self.logger.warning(f"حذف {os.path.basename(path)} ممکن نشد: {e}")
+        return removed
+
+    def _verify_restored_database(self):
+        """
+        راستی‌آزمایی اینکه دیتابیس بازیابی‌شده واقعاً سالم و خواندنی است
+
+        بدون این بررسی، متد حتی وقتی کپی هیچ اثری نکرده بود هم
+        `success: True` برمی‌گرداند.
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            try:
+                result = conn.execute("PRAGMA integrity_check").fetchone()
+                tables = conn.execute(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'"
+                ).fetchone()[0]
+            finally:
+                conn.close()
+        except sqlite3.Error as e:
+            return False, f"دیتابیس بازیابی‌شده باز نمی‌شود: {e}"
+
+        if not result or result[0] != 'ok':
+            return False, f"دیتابیس بازیابی‌شده سالم نیست: {result}"
+        if tables < 10:
+            return False, f"دیتابیس بازیابی‌شده فقط {tables} جدول دارد"
+        return True, f"{tables} جدول، integrity_check = ok"
+
     def restore_backup(self, backup_file, user_id=None, user_name=None):
         """
         بازیابی از فایل پشتیبان با تأیید و ثبت
@@ -253,8 +348,40 @@ class BackupManager:
             
             # بازیابی دیتابیس
             db_backup = os.path.join(extract_dir, "database", "partow.db")
-            if os.path.exists(db_backup):
-                shutil.copy2(db_backup, self.db_path)
+            if not os.path.exists(db_backup):
+                # ===== اصلاح (بازرسی سوم) =====
+                # قبلاً اگر فایل پشتیبان هیچ دیتابیسی نداشت، این شاخه
+                # بی‌صدا رد می‌شد و متد در پایان `success: True` با پیام
+                # «بازیابی با موفقیت انجام شد» برمی‌گرداند — یعنی یک
+                # موفقیت دروغین برای عملیاتی که هیچ کاری نکرده بود.
+                shutil.rmtree(extract_dir, ignore_errors=True)
+                return {
+                    'success': False,
+                    'message': "❌ فایل پشتیبان شامل دیتابیس نیست؛ "
+                               "بازیابی انجام نشد."
+                }
+
+            # ===== 🔴 اصلاح بحرانی (بازرسی سوم) =====
+            # ۱) اتصال باز بسته و فایل‌های ژورنال WAL پاک می‌شوند، وگرنه
+            #    WAL قدیمی روی دیتابیس بازیابی‌شده بازپخش می‌شود و
+            #    بازیابی بی‌اثر می‌ماند (توضیح کامل در _quiesce_database).
+            journal_removed = self._quiesce_database()
+
+            # ۲) جایگزینی فایل دیتابیس
+            shutil.copy2(db_backup, self.db_path)
+
+            # ۳) ژورنال‌های احتمالیِ باقی‌مانده دوباره پاک شوند
+            journal_removed += self._remove_journal_files()
+
+            # ۴) راستی‌آزمایی اینکه بازیابی واقعاً اثر کرده
+            healthy, detail = self._verify_restored_database()
+            if not healthy:
+                return {
+                    'success': False,
+                    'message': f"❌ بازیابی کامل نشد: {detail}\n\n"
+                               f"پشتیبانِ وضعیت قبلی در این فایل نگه داشته شد: "
+                               f"{pre_restore.get('file')}"
+                }
             
             # بازیابی فایل‌های پیوست
             attachments_backup = os.path.join(extract_dir, "attachments")
@@ -271,9 +398,16 @@ class BackupManager:
             
             return {
                 'success': True,
-                'message': f"✅ بازیابی با موفقیت از {backup_file} انجام شد.",
+                'message': (
+                    f"✅ بازیابی با موفقیت از {os.path.basename(backup_file)} "
+                    f"انجام شد.\n({detail})\n\n"
+                    "برای اطمینان، برنامه را یک بار ببندید و دوباره باز کنید "
+                    "تا همهٔ صفحه‌ها دادهٔ بازیابی‌شده را نشان دهند."
+                ),
                 'pre_restore_file': pre_restore.get('file'),
-                'checksum': checksum
+                'checksum': checksum,
+                'journal_removed': journal_removed,
+                'detail': detail
             }
             
         except Exception as e:

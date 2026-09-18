@@ -76,6 +76,37 @@ class DatabaseConnection:
 
             self._connection.create_function("get_current_user_id", 0, get_current_user_id)
 
+            # ===== 🔴 اصلاح (بازرسی سوم) — ترتیب اعتبارسنجی کاربر جاری =====
+            # تریگرهای حسابرسی، شناسهٔ کاربر جاری را در audit_logs.user_id
+            # می‌نویسند و آن ستون به staff.id کلید خارجی دارد:
+            #
+            #     CREATE TRIGGER trg_<table>_insert_audit AFTER INSERT ...
+            #         INSERT INTO audit_logs (user_id, ...) VALUES
+            #             (get_current_user_id(), ...);
+            #
+            # اعتبارسنجیِ _current_user_id قبلاً «بعد از»
+            # _initialize_database() انجام می‌شد (پایین‌تر:
+            # `if self._current_user_id: self.set_current_user(...)`).
+            # ولی INSERTهای خودِ seed «داخل» _initialize_database() اجرا
+            # می‌شوند. یعنی اگر شناسهٔ کاربر جاری در staff وجود نداشت،
+            # همان seed با خطای گمراه‌کنندهٔ زیر شکست می‌خورد و
+            # دیتابیس اصلاً ساخته نمی‌شد:
+            #
+            #     sqlite3.IntegrityError: FOREIGN KEY constraint failed
+            #
+            # سناریوی واقعی: شناسهٔ کاربری که قبلاً لاگین کرده و حالا
+            # عضو کادرش حذف شده (یا دیتابیس تازه/جابه‌جاشده) — آن‌وقت
+            # «هر» نوشتنی در برنامه با همان خطا شکست می‌خورد.
+            # (نکتهٔ خودِ نویسنده در get_current_user_id هم به همین FK
+            # اشاره دارد، ولی فقط جلوی مقدار 0 را گرفته بود، نه شناسهٔ
+            # ناموجود.)
+            #
+            # حالا اعتبارسنجی «قبل از» مقداردهی اولیه انجام می‌شود و اگر
+            # جدول staff هنوز ساخته نشده باشد، شناسهٔ درخواستی نگه داشته
+            # می‌شود تا بعد از seed دوباره و کامل اعتبارسنجی شود.
+            pending_user_id = self._current_user_id
+            state = self._validate_current_user()
+
             # اجرای Migration به جای ایجاد مستقیم جداول
             self._initialize_database()
 
@@ -85,15 +116,60 @@ class DatabaseConnection:
             self._ensure_feature_tables()
 
             # اگر کاربری قبلاً set شده بود، بعد از seed اعتبارسنجی‌اش کن
-            if self._current_user_id:
+            if state == self._USER_CHECK_DEFERRED and pending_user_id:
+                self.set_current_user(pending_user_id)
+            elif self._current_user_id:
                 self.set_current_user(self._current_user_id)
 
         else:
             # برای اطمینان
             self._connection.execute("PRAGMA foreign_keys = ON")
+            self._validate_current_user()
             self._ensure_feature_tables()
 
         return self._connection
+
+    # نتیجهٔ _validate_current_user
+    _USER_CHECK_OK = "ok"            # شناسه معتبر است
+    _USER_CHECK_CLEARED = "cleared"  # شناسه نامعتبر بود و None شد
+    _USER_CHECK_DEFERRED = "deferred"  # جدول staff هنوز نبود؛ بعداً بررسی کن
+
+    def _validate_current_user(self):
+        """
+        اطمینان از اینکه _current_user_id به یک ردیف واقعیِ staff اشاره می‌کند
+
+        چرا لازم است: تریگرهای حسابرسی این مقدار را در audit_logs.user_id
+        می‌نویسند که به staff.id کلید خارجی دارد. شناسهٔ ناموجود یعنی
+        شکستِ «هر» INSERT با خطای FOREIGN KEY constraint failed.
+
+        این متد برخلاف set_current_user در برابر «جدول staff هنوز وجود
+        ندارد» مقاوم است، چون ممکن است قبل از ساخته‌شدن دیتابیس صدا شود.
+        """
+        if not self._current_user_id:
+            return self._USER_CHECK_OK
+        if self._connection is None:
+            return self._USER_CHECK_DEFERRED
+
+        requested = self._current_user_id
+        try:
+            row = self._connection.execute(
+                "SELECT id FROM staff WHERE id = ?", (requested,)
+            ).fetchone()
+        except sqlite3.Error:
+            # جدول staff هنوز ساخته نشده (اولین مقداردهی اولیهٔ دیتابیس).
+            # موقتاً None می‌کنیم تا INSERTهای seed شکست نخورند؛
+            # فراخوان بعد از _initialize_database() دوباره و کامل
+            # اعتبارسنجی می‌کند.
+            self._current_user_id = None
+            return self._USER_CHECK_DEFERRED
+
+        if row is None:
+            print(f"⚠️ user_id={requested} در جدول staff وجود ندارد؛ "
+                  "Audit Log با NULL ثبت می‌شود تا نوشتن رکوردها شکست نخورد.")
+            self._current_user_id = None
+            return self._USER_CHECK_CLEARED
+
+        return self._USER_CHECK_OK
     
     def _ensure_feature_tables(self):
         """ایجاد جداول قابلیت‌های جدید در دیتابیس‌های قدیمی.
