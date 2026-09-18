@@ -131,7 +131,7 @@ class LoginDialog(QDialog):
     background-color: #0B2E4F; border: 2px solid #F4C542; }
         """)
         # تنظیم Tooltip
-        TooltipManager.set_tooltip(self.password_input, "رمز عبور خود را وارد کنید. (حداقل ۶ کاراکتر)")
+        TooltipManager.set_tooltip(self.password_input, "رمز عبور خود را وارد کنید.")
         form_layout.addRow("رمز عبور:", self.password_input)
 
         main_layout.addLayout(form_layout)

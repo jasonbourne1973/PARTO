@@ -586,7 +586,7 @@ class SettingsPage(QWidget):
         
         form_layout.addWidget(QLabel("رمز عبور:"), 2, 0)
         self.password_input = QLineEdit()
-        self.password_input.setPlaceholderText("رمز عبور (حداقل ۶ کاراکتر)")
+        self.password_input.setPlaceholderText("رمز عبور (حداقل ۸ کاراکتر)")
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
         form_layout.addWidget(self.password_input, 2, 1)
         
