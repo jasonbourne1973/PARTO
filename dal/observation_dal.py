@@ -819,6 +819,14 @@ class ObservationDAL:
             conn = self.db.get_connection()
             cursor = conn.cursor()
 
+            # ===== اصلاح (بازرسی دوم) =====
+            # days=None (اگر صریحاً پاس داده شود) باعث
+            #     TypeError: unsupported type for timedelta days component: NoneType
+            # می‌شد و چون کل متد داخل try است، خطا فقط چاپ و نتیجه خالی
+            # برمی‌گشت («خلاصه روزانه» بی‌صدا خالی می‌ماند).
+            if not days:
+                days = 30
+
             today = jdatetime.date.today()
             start_date = today - timedelta(days=days)
             start_date_str = f"{start_date.year}/{start_date.month:02d}/{start_date.day:02d}"
@@ -1206,3 +1214,87 @@ class ObservationDAL:
         observation.deleted_by = row['deleted_by']
         
         return observation
+
+    # ============================================================
+    # جست‌وجوی متن آزاد
+    # ============================================================
+    # ===== اصلاح (باگ گزارش‌شده در بازرسی دوم) =====
+    # ObservationService.search_observations / search_observations_by_student / search_observations_by_teacher
+    # سه متد این DAL را صدا می‌زدند که هیچ‌کدام وجود نداشتند:
+    #
+    #     AttributeError: 'ObservationDAL' object has no attribute 'search'
+    #
+    # سرویس آن را به ServiceError تبدیل می‌کرد و در نتیجه کادر جست‌وجوی
+    # صفحه مشاهدات (views/pages/observations_page.py:380-388) همیشه با پیام
+    # «مشکل در جستجو: ...» شکست می‌خورد. یعنی جست‌وجو در این صفحه
+    # از ابتدا کار نمی‌کرد و هیچ داده‌ای برنمی‌گشت.
+    #
+    # حالا هر سه متد پیاده‌سازی شده‌اند. نکته‌ها:
+    #   - «بر اساس معلم» یعنی observations.staff_id (همان معنایی که
+    #     ObservationService.get_observations_by_teacher در فیلتر پایتونی استفاده می‌کند).
+    #   - «بر اساس دانش‌آموز» با JOIN روی پرونده سالانه انجام می‌شود
+    #     (همان الگوی get_by_student).
+    #   - کاراکترهای ویژه LIKE فرار داده می‌شوند تا جست‌وجوی «٪» یا «_»
+    #     به‌جای wildcard، خودِ همان نویسه را پیدا کند.
+    #   - رکوردهای حذف منطقی‌شده برنمی‌گردند (مگر include_deleted=True).
+
+    @staticmethod
+    def _escape_like(text):
+        """ساخت الگوی LIKE امن (فرار کاراکترهای ویژه) برای جست‌وجوی متن آزاد"""
+        s = '' if text is None else str(text)
+        s = s.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+        return '%' + s + '%'
+
+    _LIKE = "LIKE ? ESCAPE '\\'"
+    _SEARCH_COLUMNS = ('description', 'behavior', 'location', 'antecedent',
+                       'consequence', 'tags', 'behavior_type')
+
+    def search(self, search_term, limit=None, include_deleted=False):
+        """جست‌وجوی متن آزاد در همه مشاهدات"""
+        return self._search_text(search_term, limit=limit, include_deleted=include_deleted)
+
+    def search_by_student(self, student_id, search_term, limit=None, include_deleted=False):
+        """جست‌وجوی متن آزاد در مشاهدات یک دانش‌آموز"""
+        return self._search_text(search_term, student_id=student_id, limit=limit,
+                                 include_deleted=include_deleted)
+
+    def search_by_teacher(self, teacher_id, search_term, limit=None, include_deleted=False):
+        """جست‌وجوی متن آزاد در مشاهدات ثبت‌شده توسط یک معلم"""
+        return self._search_text(search_term, teacher_id=teacher_id, limit=limit,
+                                 include_deleted=include_deleted)
+
+    def _search_text(self, search_term, student_id=None, teacher_id=None,
+                     limit=None, include_deleted=False):
+        """پیاده‌سازی مشترک جست‌وجو (ساختار کوئری همانند get_by_student)"""
+        if search_term is None or not str(search_term).strip():
+            return []
+
+        term = self._escape_like(search_term)
+        like = " OR ".join("o.%s %s" % (c, self._LIKE) for c in self._SEARCH_COLUMNS)
+
+        joins = ""
+        where = ["(%s)" % like]
+        params = [term] * len(self._SEARCH_COLUMNS)
+
+        if student_id is not None:
+            joins += " JOIN student_academic_profiles sap ON o.student_profile_id = sap.id"
+            where.append("sap.student_id = ?")
+            params.append(student_id)
+
+        if teacher_id is not None:
+            where.append("o.staff_id = ?")
+            params.append(teacher_id)
+
+        if not include_deleted:
+            where.append("o.is_deleted = 0")
+
+        query = "SELECT o.* FROM observations o%s WHERE %s" % (joins, " AND ".join(where))
+        query += " ORDER BY o.observation_date DESC"
+
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+
+        cursor = self.db.execute_query(query, params)
+        rows = cursor.fetchall()
+        return [self._row_to_observation(row) for row in rows]

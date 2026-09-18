@@ -76,7 +76,7 @@ class ReportTemplate:
             lines.append("  ██║     ██║  ██║██║  ██║   ██║   ╚██████╔╝███████╗")
             lines.append("  ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚══════╝")
             lines.append("")
-            lines.append("  سامانه پرونده ارزيابي و رشد توانمندي دانش آموز")
+            lines.append("  سامانه پرونده ارزیابی و رشد توانمندی دانش آموز")
             lines.append("")
         
         # عنوان - حذف Emoji
@@ -98,7 +98,7 @@ class ReportTemplate:
             except:
                 date_str = datetime.now().strftime("%Y/%m/%d")
             
-            lines.append(f"  تاريخ گزارش: {date_str}")
+            lines.append(f"  تاریخ گزارش: {date_str}")
         
         # خط جداکننده پایین
         lines.append("")
@@ -127,15 +127,15 @@ class ReportTemplate:
         lines.append("")
         
         # اطلاعات سیستم - بدون Emoji
-        lines.append("  PARTO - سامانه مديريت پرونده دانش آموزان")
-        lines.append("  پشتيباني: support@partow.ir")
+        lines.append("  PARTO - سامانه مدیریت پرونده دانش آموزان")
+        lines.append("  پشتیبانی: support@partow.ir")
         lines.append("  www.partow.ir")
         lines.append("")
         
         # امضا
         if include_signature:
             lines.append("  ──────────────────────────────────────────────")
-            lines.append("  امضاي مسئول: ___________________")
+            lines.append("  امضای مسئول: ___________________")
             lines.append("  ──────────────────────────────────────────────")
         
         lines.append("")
@@ -256,7 +256,7 @@ class ReportTemplate:
         lines.append("")
         
         # تعداد رکوردها
-        lines.append(f"  تعداد ركوردها: {len(cleaned_rows)}")
+        lines.append(f"  تعداد رکوردها: {len(cleaned_rows)}")
         lines.append("")
         
         return "\n".join(lines)
@@ -301,7 +301,7 @@ class ReportTemplate:
         lines.append("")
         lines.append("━" * 60)
         lines.append("")
-        lines.append("متاديتاي گزارش")
+        lines.append("متادیتای گزارش")
         lines.append("")
         
         items = [
@@ -310,10 +310,10 @@ class ReportTemplate:
         ]
         
         if date_range:
-            items.append(("بازه زماني", ReportTemplate._remove_emoji(date_range)))
+            items.append(("بازه زمانی", ReportTemplate._remove_emoji(date_range)))
         
         if generated_by:
-            items.append(("توليد شده توسط", ReportTemplate._remove_emoji(generated_by)))
+            items.append(("تولید شده توسط", ReportTemplate._remove_emoji(generated_by)))
         
         # زمان تولید
         try:
@@ -322,7 +322,7 @@ class ReportTemplate:
         except:
             time_str = datetime.now().strftime("%Y/%m/%d %H:%M")
         
-        items.append(("زمان توليد", time_str))
+        items.append(("زمان تولید", time_str))
         
         for key, value in items:
             lines.append(f"  * {key}: {value}")

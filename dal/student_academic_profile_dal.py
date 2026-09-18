@@ -102,6 +102,32 @@ class StudentAcademicProfileDAL:
 
     def get_active_by_student(self, student_id):
         """دریافت پرونده فعال یک دانش‌آموز (سال جاری)"""
+        # ===== اصلاح (بازرسی دوم) =====
+        # فیلتر وضعیت با واژگانی نوشته شده بود که در برنامه وجود ندارند:
+        #
+        #     AND sap.status NOT IN ('archived', 'closed')
+        #
+        # مقدارهای واقعیِ مدل StudentAcademicProfile عبارت‌اند از:
+        #     active / inactive / graduated / transferred / dropped
+        # و هیچ کجای پروژه 'archived' یا 'closed' روی پرونده ست نمی‌شود
+        # (grep: صفر نتیجه). یعنی این شرط «هیچ رکوردی را فیلتر نمی‌کرد».
+        #
+        # نتیجه عملی: دانش‌آموز فارغ‌التحصیل یا انصرافی/انتقالی هم
+        # «پرونده فعال» داشت و در داشبورد، گزارش کلاس و لیست ارتقاء
+        # مانند دانش‌آموز فعال رفتار می‌کرد.
+        #
+        # دو نکته برای ایمنی:
+        #   ۱) COALESCE: اگر در دیتابیس قدیمی status مقدار NULL یا ''
+        #      داشته باشد، رکورد «حذف» نشود (NOT IN روی NULL همیشه
+        #      NULL می‌دهد و رکورد بی‌صدا از نتیجه بیرون می‌افتاد).
+        #   ۲) 'inactive' عمداً در لیست سیاه نیست: صفحه ارتقاء پرونده
+        #      سال قبل را inactive می‌کند و همان پرونده باید برای
+        #      خواندن سابقه/گزارش سال قبل پیدا شود. فیلتر «سال فعال»
+        #      (ay.is_active = 1) همان کار را درست انجام می‌دهد.
+        #   ۳) ORDER BY: LIMIT 1 بدون ORDER BY نامعین بود. اگر برای یک
+        #      دانش‌آموز در یک سال دو پرونده وجود داشته باشد (داده‌های
+        #      قدیمی)، اولین پرونده — که تاریخچه و مشاهده‌ها به آن وصل
+        #      است — برگردانده می‌شود تا نتیجه پایدار بماند.
         cursor = self.db.execute_query("""
             SELECT sap.* FROM student_academic_profiles sap
             JOIN academic_years ay ON sap.academic_year_id = ay.id
@@ -110,7 +136,9 @@ class StudentAcademicProfileDAL:
               AND ay.is_deleted = 0
               AND ay.is_archived = 0
               AND sap.is_deleted = 0
-              AND sap.status NOT IN ('archived', 'closed')
+              AND COALESCE(sap.status, 'active')
+                  NOT IN ('graduated', 'dropped', 'transferred')
+            ORDER BY sap.id ASC
             LIMIT 1
         """, (student_id,))
         row = cursor.fetchone()

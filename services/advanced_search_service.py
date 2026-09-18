@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.base_service import BaseService
 from dal.student_dal import StudentDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.observation_dal import ObservationDAL
 from dal.intervention_dal import InterventionDAL
 from dal.followup_dal import FollowUpDAL
@@ -33,6 +34,22 @@ class AdvancedSearchService(BaseService):
     def __init__(self):
         super().__init__()
         self.student_dal = StudentDAL()
+        # ===== اصلاح (بازرسی دوم) =====
+        # search_observations در خط ~۱۶۷ از `self.profile_dal` استفاده می‌کند:
+        #
+        #     profile = self.profile_dal.get_active_by_student(params['student_id'])
+        #
+        # ولی __init__ هرگز آن را نمی‌ساخت. نتیجه (اجرای واقعی):
+        #
+        #     AdvancedSearchService().search_observations({'student_id': 1})
+        #     → AttributeError: 'AdvancedSearchService' object has no attribute 'profile_dal'
+        #     → ServiceError: خطا در جستجو: ...
+        #
+        # یعنی «فیلتر کردن مشاهدات بر اساس دانش‌آموز» در جست‌وجوی پیشرفته
+        # همیشه شکست می‌خورد. جالب اینکه متد search_students در همین فایل
+        # یک StudentAcademicProfileDAL محلی می‌ساخت (الگوی درست) — فقط این
+        # یکی صفت جا افتاده بود (همان الگوی باگ گزارش معلم).
+        self.profile_dal = StudentAcademicProfileDAL()
         self.observation_dal = ObservationDAL()
         self.intervention_dal = InterventionDAL()
         self.followup_dal = FollowUpDAL()
@@ -125,14 +142,14 @@ class AdvancedSearchService(BaseService):
     def _get_student_status(self, student_id, academic_year_id=None):
         """دریافت وضعیت دانش‌آموز"""
         try:
-            from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-            profile_dal = StudentAcademicProfileDAL()
+            # از همان self.profile_dal استفاده می‌شود (ساخت DAL محلی در هر
+            # فراخوانی لازم نیست؛ تازه‌سازی هم بالا انجام شده است)
             if academic_year_id:
-                profile = profile_dal.get_by_student_and_year(student_id, academic_year_id)
+                profile = self.profile_dal.get_by_student_and_year(student_id, academic_year_id)
             else:
-                profile = profile_dal.get_active_by_student(student_id)
+                profile = self.profile_dal.get_active_by_student(student_id)
             return profile.status if profile else 'inactive'
-        except:
+        except Exception:
             return 'inactive'
     
     # ============================================================

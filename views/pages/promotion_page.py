@@ -415,24 +415,28 @@ class PromotionPage(QWidget):
         می‌شد که start_date و end_date آن None بود و validate() هم
         هیچ‌وقت صدا زده نمی‌شد.
         """
+        # ===== اصلاح (بازرسی دوم) =====
+        # نسخه قبلی:
+        #     try:
+        #         existing = self.academic_year_dal.get_by_title(year_title)
+        #         ...
+        #     except AttributeError:
+        #         pass          # «متد در این نسخه DAL وجود ندارد»
+        #     for y in (self.academic_year_dal.get_all() or []):  # حلقه جایگزین
+        #
+        # متد get_by_title واقعاً وجود نداشت، پس همیشه شاخه حلقه اجرا
+        # می‌شد. اما get_all() به‌طور پیش‌فرض سال‌های بایگانی‌شده را
+        # برنمی‌گرداند ⇒ اگر سال مقصد قبلاً ساخته و بایگانی شده بود،
+        # پیدا نمی‌شد و یک سال تحصیلی «تکراری» با همان عنوان ساخته می‌شد.
+        #
+        # حالا get_by_title در AcademicYearDAL پیاده‌سازی شده (شامل
+        # سال‌های بایگانی‌شده) و مستقیم صدا زده می‌شود.
         # ۱) سال با همین عنوان از قبل هست؟
-        try:
-            existing = self.academic_year_dal.get_by_title(year_title)
-            if existing:
-                return existing
-        except AttributeError:
-            pass  # متد در این نسخه DAL وجود ندارد
+        existing = self.academic_year_dal.get_by_title(year_title)
+        if existing:
+            return existing
 
-        # ۲) در لیست سال‌ها بگرد
-        try:
-            for y in (self.academic_year_dal.get_all() or []):
-                title = getattr(y, 'title', None)
-                if title == year_title:
-                    return y
-        except Exception:
-            pass
-
-        # ۳) نبود؛ بساز — ولی با تاریخ‌های واقعی و اعتبارسنجی
+        # ۲) نبود؛ بساز — ولی با تاریخ‌های واقعی و اعتبارسنجی
         from models.academic_year import AcademicYear
         new_year = AcademicYear()
         new_year.title = year_title
@@ -490,13 +494,52 @@ class PromotionPage(QWidget):
             # غیرفعال) گرفته می‌شود و اگر هیچ‌کدام نبود، کار با خطا
             # متوقف می‌شود تا کاربر خودش پایه را تعیین کند.
             last_grade = None
-            try:
-                for old_profile in (self.profile_dal.get_by_student(student.id) or []):
-                    g = getattr(old_profile, 'grade', None)
-                    if g:
-                        last_grade = max(last_grade or 0, g)
-            except AttributeError:
-                pass
+            # ===== اصلاح (بازرسی دوم) =====
+            # نسخه قبلی `self.profile_dal.get_by_student(student.id)` را صدا
+            # می‌زد. چنین متدی در StudentAcademicProfileDAL وجود ندارد
+            # (متدهای واقعی: get_by_student_and_year، get_active_by_student،
+            # get_all_profiles_for_student و ...). نتیجه:
+            #
+            #     AttributeError → except AttributeError: pass
+            #     ⇒ حلقه هرگز اجرا نمی‌شد ⇒ last_grade همیشه None می‌ماند
+            #     ⇒ ValueError پایین «همیشه» پرتاب می‌شد
+            #
+            # یعنی دانش‌آموزی که پرونده فعال ندارد ولی سابقه‌اش در سامانه
+            # هست (مثلاً پارسال فارغ‌التحصیل/انتقالی شده) هرگز قابل ارتقاء
+            # نبود و کاربر پیام گمراه‌کننده «ابتدا پایه را در فرم دانش‌آموز
+            # مشخص کنید» می‌دید — با اینکه پایه در سابقه موجود بود.
+            # گارد except AttributeError این خرابی را کاملاً پنهان می‌کرد.
+            history = self.profile_dal.get_all_profiles_for_student(student.id) or []
+
+            # ===== اصلاح (بازرسی دوم) — جلوی ثبت‌نام دوباره =====
+            # get_active_by_student دیگر پرونده «فارغ‌التحصیل/انصرافی/
+            # انتقالی» را برنمی‌گرداند (واژگان مرده 'archived'/'closed'
+            # اصلاح شد). بدون این گارد، چنین دانش‌آموزی وارد همین شاخه
+            # می‌شد، پایه‌اش از سابقه پیدا می‌شد (مثلاً ۶) و یک پرونده
+            # جدید با پایه min(6+1, 6)=6 در سال جدید ساخته می‌شد —
+            # یعنی دانش‌آموز فارغ‌التحصیل، بی‌صدا و خودکار، دوباره در
+            # پایه ششم ثبت‌نام می‌شد.
+            #
+            # لیست get_all_profiles_for_student بر اساس شروع سال تحصیلی
+            # مرتب است، پس آخرین عنصر = تازه‌ترین پرونده.
+            latest = history[-1] if history else None
+            if latest is not None:
+                st = getattr(latest, 'status', None)
+                terminal = (StudentAcademicProfile.STATUS_GRADUATED,
+                            StudentAcademicProfile.STATUS_DROPPED,
+                            StudentAcademicProfile.STATUS_TRANSFERRED)
+                if st in terminal:
+                    labels = dict(StudentAcademicProfile.STATUS_CHOICES)
+                    raise ValueError(
+                        f"پرونده این دانش‌آموز «{labels.get(st, st)}» است و "
+                        "ارتقاء داده نمی‌شود. اگر این وضعیت اشتباه است، "
+                        "ابتدا پرونده را فعال کنید."
+                    )
+
+            for old_profile in history:
+                g = getattr(old_profile, 'grade', None)
+                if g:
+                    last_grade = max(last_grade or 0, g)
 
             if not last_grade:
                 raise ValueError(
@@ -514,12 +557,26 @@ class PromotionPage(QWidget):
             return True
 
         # پرونده از قبل در سال مقصد ساخته شده؟ (جلوگیری از اجرای دوباره)
-        try:
-            for existing in (self.profile_dal.get_by_student(student.id) or []):
-                if getattr(existing, 'academic_year_id', None) == target_year.id:
-                    return False   # قبلاً ارتقاء یافته؛ دوباره نساز
-        except AttributeError:
-            pass
+        # ===== اصلاح (بازرسی دوم) =====
+        # این گارد هم دقیقاً به همان متد ناموجود get_by_student تکیه بود:
+        #
+        #     try:
+        #         for existing in (self.profile_dal.get_by_student(student.id) or []):
+        #             if existing.academic_year_id == target_year.id:
+        #                 return False        # قبلاً ارتقاء یافته
+        #     except AttributeError:
+        #         pass                        # ← بی‌صدا رد می‌شد
+        #
+        # یعنی «بررسی اجرای دوباره» هرگز انجام نمی‌شد. نتیجه: اگر کاربر
+        # دکمه ارتقاء را دو بار می‌زد (یا همان گروه را دوباره انتخاب
+        # می‌کرد)، برای هر دانش‌آموز یک پرونده «تکراری» در همان سال
+        # تحصیلی ساخته می‌شد. چون مشاهده‌ها/مداخله‌ها به profile_id وصل
+        # هستند، پرونده تکراری یعنی تاریخچه دوپاره و آمار غلط.
+        #
+        # حالا از متد واقعی و دقیق get_by_student_and_year استفاده می‌شود
+        # که خودش هم is_deleted = 0 را در نظر می‌گیرد.
+        if self.profile_dal.get_by_student_and_year(student.id, target_year.id):
+            return False   # قبلاً ارتقاء یافته؛ دوباره نساز
 
         current_grade = profile.grade or 1
 

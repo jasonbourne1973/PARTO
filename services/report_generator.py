@@ -432,9 +432,9 @@ class ReportGenerator:
             
             info_items = [
                 f"نام دانش آموز: {student.full_name}",
-                f"پايه: {profile.grade_display}",
-                f"كلاس: {profile.class_name or '-'}",
-                f"سال تحصيلي: {academic_year.title if academic_year else '-'}",
+                f"پایه: {profile.grade_display}",
+                f"کلاس: {profile.class_name or '-'}",
+                f"سال تحصیلی: {academic_year.title if academic_year else '-'}",
                 f"شناسه پرونده: {profile.id}",
             ]
             
@@ -443,11 +443,11 @@ class ReportGenerator:
             pdf.add_spacer(0.3)
             
             # ===== خلاصه آماری =====
-            pdf.add_subtitle("خلاصه آماري")
+            pdf.add_subtitle("خلاصه آماری")
             stats_items = [
                 f"* تعداد مشاهدات: {report['observations_count']}",
                 f"* تعداد مداخلات: {report['interventions_count']}",
-                f"* تعداد پيگيري‌ها: {report['followups_count']}",
+                f"* تعداد پیگیری‌ها: {report['followups_count']}",
             ]
             for item in stats_items:
                 pdf.add_text(item)
@@ -458,32 +458,32 @@ class ReportGenerator:
             if report['strengths']:
                 for strength in report['strengths']:
                     pdf.add_strength(
-                        f"{strength['competency']} (ميانگين شدت: {strength['avg_severity']})"
+                        f"{strength['competency']} (میانگین شدت: {strength['avg_severity']})"
                     )
             else:
-                pdf.add_text("* موردي يافت نشد.")
+                pdf.add_text("* موردی یافت نشد.")
             pdf.add_spacer(0.3)
             
             # ===== زمینه‌های نیازمند حمایت =====
-            pdf.add_subtitle("زمينه‌هاي نيازمند حمايت")
+            pdf.add_subtitle("زمینه‌های نیازمند حمایت")
             if report['weaknesses']:
                 for weakness in report['weaknesses']:
                     pdf.add_weakness(
-                        f"{weakness['competency']} (ميانگين شدت: {weakness['avg_severity']})"
+                        f"{weakness['competency']} (میانگین شدت: {weakness['avg_severity']})"
                     )
             else:
-                pdf.add_text("* موردي يافت نشد.")
+                pdf.add_text("* موردی یافت نشد.")
             pdf.add_spacer(0.3)
             
             # ===== پیشنهادات =====
-            pdf.add_subtitle("پيشنهادات")
+            pdf.add_subtitle("پیشنهادات")
             
             pdf.add_bold("به معلم:")
             for rec in report['recommendations']['teacher']:
                 pdf.add_text(f"* {rec}")
             pdf.add_spacer(0.2)
             
-            pdf.add_bold("به والدين:")
+            pdf.add_bold("به والدین:")
             for rec in report['recommendations']['parents']:
                 pdf.add_text(f"* {rec}")
             pdf.add_spacer(0.2)
@@ -495,26 +495,26 @@ class ReportGenerator:
             
             # ===== روند تغییرات =====
             if report['trend_data']:
-                pdf.add_subtitle("روند تغييرات")
+                pdf.add_subtitle("روند تغییرات")
                 for item in report['trend_data']:
                     pdf.add_text(
-                        f"* {item['month']}: {item['count']} مشاهده (ميانگين شدت: {item['avg_severity']})"
+                        f"* {item['month']}: {item['count']} مشاهده (میانگین شدت: {item['avg_severity']})"
                     )
             pdf.add_spacer(0.3)
             
             # ===== مقایسه نیمسال‌ها =====
             if report['semester_stats']:
                 stats = report['semester_stats']
-                pdf.add_subtitle("مقايسه نيمسال‌ها")
-                pdf.add_text(f"* نيمسال اول: {stats['first']['count']} مشاهده (ميانگين شدت: {stats['first']['avg_severity']})")
-                pdf.add_text(f"* نيمسال دوم: {stats['second']['count']} مشاهده (ميانگين شدت: {stats['second']['avg_severity']})")
-                pdf.add_text(f"* روند كلي: {stats['trend']}")
+                pdf.add_subtitle("مقایسه نیمسال‌ها")
+                pdf.add_text(f"* نیمسال اول: {stats['first']['count']} مشاهده (میانگین شدت: {stats['first']['avg_severity']})")
+                pdf.add_text(f"* نیمسال دوم: {stats['second']['count']} مشاهده (میانگین شدت: {stats['second']['avg_severity']})")
+                pdf.add_text(f"* روند کلی: {stats['trend']}")
             pdf.add_spacer(0.3)
             
             # ===== جدول مشاهدات =====
             if report['observations']:
-                pdf.add_subtitle("ليست مشاهدات")
-                table_data = [["رديف", "تاريخ", "محيط", "نوع", "شدت"]]
+                pdf.add_subtitle("لیست مشاهدات")
+                table_data = [["ردیف", "تاریخ", "محیط", "نوع", "شدت"]]
                 for idx, obs in enumerate(report['observations'][:20], 1):
                     severity_str = ""
                     if obs.severity:
@@ -523,7 +523,7 @@ class ReportGenerator:
                         str(idx),
                         obs.observation_date or "",
                         obs.location or "",
-                        obs.behavior_type or "خنثي",
+                        obs.behavior_type or "خنثی",
                         severity_str
                     ])
                 pdf.add_table(table_data)
@@ -543,9 +543,9 @@ class ReportGenerator:
                 from datetime import datetime
                 date_str = datetime.now().strftime("%Y/%m/%d")
             
-            pdf.add_text(f"تاريخ تهيه گزارش: {date_str}")
-            pdf.add_text("PARTO - سامانه مديريت پرونده دانش آموزان")
-            pdf.add_text("پشتيباني: support@partow.ir")
+            pdf.add_text(f"تاریخ تهیه گزارش: {date_str}")
+            pdf.add_text("PARTO - سامانه مدیریت پرونده دانش آموزان")
+            pdf.add_text("پشتیبانی: support@partow.ir")
             
             # ساخت PDF
             pdf.build(file_path)

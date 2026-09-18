@@ -657,3 +657,86 @@ class InterventionDAL:
         except Exception as e:
             print(f"خطا در دریافت انواع مداخلات پیشنهادی: {e}")
             return ['encouragement', 'individual_talk']
+
+    # ============================================================
+    # جست‌وجوی متن آزاد
+    # ============================================================
+    # ===== اصلاح (باگ گزارش‌شده در بازرسی دوم) =====
+    # InterventionService.search_interventions / search_interventions_by_student / search_interventions_by_teacher
+    # سه متد این DAL را صدا می‌زدند که هیچ‌کدام وجود نداشتند:
+    #
+    #     AttributeError: 'InterventionDAL' object has no attribute 'search'
+    #
+    # سرویس آن را به ServiceError تبدیل می‌کرد و در نتیجه کادر جست‌وجوی
+    # صفحه مداخلات (views/pages/interventions_page.py:251-259) همیشه با پیام
+    # «مشکل در جستجو: ...» شکست می‌خورد. یعنی جست‌وجو در این صفحه
+    # از ابتدا کار نمی‌کرد و هیچ داده‌ای برنمی‌گشت.
+    #
+    # حالا هر سه متد پیاده‌سازی شده‌اند. نکته‌ها:
+    #   - «بر اساس معلم» یعنی interventions.staff_id (همان معنایی که
+    #     InterventionService.get_interventions_by_teacher در فیلتر پایتونی استفاده می‌کند).
+    #   - «بر اساس دانش‌آموز» با JOIN روی پرونده سالانه انجام می‌شود
+    #     (همان الگوی get_by_student).
+    #   - کاراکترهای ویژه LIKE فرار داده می‌شوند تا جست‌وجوی «٪» یا «_»
+    #     به‌جای wildcard، خودِ همان نویسه را پیدا کند.
+    #   - رکوردهای حذف منطقی‌شده برنمی‌گردند (مگر include_deleted=True).
+
+    @staticmethod
+    def _escape_like(text):
+        """ساخت الگوی LIKE امن (فرار کاراکترهای ویژه) برای جست‌وجوی متن آزاد"""
+        s = '' if text is None else str(text)
+        s = s.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+        return '%' + s + '%'
+
+    _LIKE = "LIKE ? ESCAPE '\\'"
+    _SEARCH_COLUMNS = ('description', 'goal', 'result', 'type', 'status')
+
+    def search(self, search_term, limit=None, include_deleted=False):
+        """جست‌وجوی متن آزاد در همه مداخلات"""
+        return self._search_text(search_term, limit=limit, include_deleted=include_deleted)
+
+    def search_by_student(self, student_id, search_term, limit=None, include_deleted=False):
+        """جست‌وجوی متن آزاد در مداخلات یک دانش‌آموز"""
+        return self._search_text(search_term, student_id=student_id, limit=limit,
+                                 include_deleted=include_deleted)
+
+    def search_by_teacher(self, teacher_id, search_term, limit=None, include_deleted=False):
+        """جست‌وجوی متن آزاد در مداخلات یک معلم"""
+        return self._search_text(search_term, teacher_id=teacher_id, limit=limit,
+                                 include_deleted=include_deleted)
+
+    def _search_text(self, search_term, student_id=None, teacher_id=None,
+                     limit=None, include_deleted=False):
+        """پیاده‌سازی مشترک جست‌وجو (ساختار کوئری همانند get_by_student)"""
+        if search_term is None or not str(search_term).strip():
+            return []
+
+        term = self._escape_like(search_term)
+        like = " OR ".join("i.%s %s" % (c, self._LIKE) for c in self._SEARCH_COLUMNS)
+
+        joins = ""
+        where = ["(%s)" % like]
+        params = [term] * len(self._SEARCH_COLUMNS)
+
+        if student_id is not None:
+            joins += " JOIN student_academic_profiles sap ON i.student_profile_id = sap.id"
+            where.append("sap.student_id = ?")
+            params.append(student_id)
+
+        if teacher_id is not None:
+            where.append("i.staff_id = ?")
+            params.append(teacher_id)
+
+        if not include_deleted:
+            where.append("i.is_deleted = 0")
+
+        query = "SELECT i.* FROM interventions i%s WHERE %s" % (joins, " AND ".join(where))
+        query += " ORDER BY i.date DESC"
+
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+
+        cursor = self.db.execute_query(query, params)
+        rows = cursor.fetchall()
+        return [self._row_to_intervention(row) for row in rows]

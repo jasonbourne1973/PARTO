@@ -7,9 +7,27 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.utils import get_column_letter
+# ===== اصلاح (بازرسی دوم) =====
+# این importها «بدون گارد» در سطح ماژول بودند. اگر openpyxl نصب نبود:
+#
+#     import services.teacher_report_service
+#     → ModuleNotFoundError: No module named 'openpyxl'
+#
+# و چون صفحه گزارش معلم این ماژول را import می‌کند، کل برنامه بالا
+# نمی‌آمد (به‌جای پیام «openpyxl نصب نیست»). همین الگو در
+# services/class_report_service.py درست پیاده شده بود (import داخل متد
+# با except ImportError و پیام راهنما) — اینجا هم همان رفتار گرفته شد.
+try:
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    OPENPYXL_AVAILABLE = True
+except ImportError:
+    OPENPYXL_AVAILABLE = False
+    Workbook = Font = PatternFill = Alignment = Border = Side = None
+    get_column_letter = None
+    print("⚠️ openpyxl نصب نیست. pip install openpyxl")
+
 from utils.persian_pdf import PersianPDF
 import jdatetime
 from datetime import datetime
@@ -33,15 +51,15 @@ class TeacherReportService:
             pdf = PersianPDF(file_path)
             
             # ===== عنوان =====
-            pdf.add_title("گزارش عملكرد معلم")
+            pdf.add_title("گزارش عملکرد معلم")
             pdf.add_spacer(0.2)
             
             # ===== اطلاعات معلم =====
             info_items = [
                 f"نام معلم: {report_data.get('teacher_name', 'نامشخص')}",
                 f"تعداد دانش آموزان: {report_data.get('total_students', 0)} نفر",
-                f"بازه زماني: {report_data.get('start_date', '')} تا {report_data.get('end_date', '')}",
-                f"سال تحصيلي: {report_data.get('year_title', 'همه سال‌ها')}",
+                f"بازه زمانی: {report_data.get('start_date', '')} تا {report_data.get('end_date', '')}",
+                f"سال تحصیلی: {report_data.get('year_title', 'همه سال‌ها')}",
             ]
             
             for item in info_items:
@@ -49,7 +67,7 @@ class TeacherReportService:
             pdf.add_spacer(0.3)
             
             # ===== آمار کلی =====
-            pdf.add_subtitle("آمار كلي")
+            pdf.add_subtitle("آمار کلی")
             total = report_data.get('total_observations', 0)
             positive = report_data.get('positive_observations', 0)
             negative = report_data.get('negative_observations', 0)
@@ -57,12 +75,12 @@ class TeacherReportService:
             positive_percent = (positive / total * 100) if total > 0 else 0
             
             stats_items = [
-                f"* كل مشاهدات: {total}",
+                f"* کل مشاهدات: {total}",
                 f"* مشاهدات مثبت: {positive} ({positive_percent:.0f}%)",
-                f"* مشاهدات منفي: {negative} ({negative/total*100 if total > 0 else 0:.0f}%)",
-                f"* مشاهدات خنثي: {neutral} ({neutral/total*100 if total > 0 else 0:.0f}%)",
+                f"* مشاهدات منفی: {negative} ({negative/total*100 if total > 0 else 0:.0f}%)",
+                f"* مشاهدات خنثی: {neutral} ({neutral/total*100 if total > 0 else 0:.0f}%)",
                 f"* مداخلات ثبت شده: {report_data.get('total_interventions', 0)}",
-                f"* پيگيري‌هاي باز: {report_data.get('pending_followups', 0)}",
+                f"* پیگیری‌های باز: {report_data.get('pending_followups', 0)}",
             ]
             
             for item in stats_items:
@@ -70,21 +88,21 @@ class TeacherReportService:
             pdf.add_spacer(0.3)
             
             # ===== تحلیل وضعیت =====
-            pdf.add_subtitle("تحليل وضعيت كلاس")
+            pdf.add_subtitle("تحلیل وضعیت کلاس")
             if positive_percent >= 60:
-                status_text = "وضعيت كلاس مطلوب است. فضاي آموزشي مثبت و سازنده حاكم است."
+                status_text = "وضعیت کلاس مطلوب است. فضای آموزشی مثبت و سازنده حاکم است."
             elif positive_percent >= 40:
-                status_text = "وضعيت كلاس متوسط است. با تلاش بيشتر مي‌توان به بهبود كمك كرد."
+                status_text = "وضعیت کلاس متوسط است. با تلاش بیشتر می‌توان به بهبود کمک کرد."
             else:
-                status_text = "وضعيت كلاس نيازمند توجه ويژه است. بررسي و تغيير رويكرد توصيه مي‌شود."
+                status_text = "وضعیت کلاس نیازمند توجه ویژه است. بررسی و تغییر رویکرد توصیه می‌شود."
             pdf.add_text(status_text)
             pdf.add_spacer(0.3)
             
             # ===== شایستگی‌ها =====
             stats = report_data.get('competency_stats', {})
             if stats:
-                pdf.add_subtitle("وضعيت شايستگي‌ها")
-                table_data = [["شايستگي", "ميانگين شدت", "تعداد", "وضعيت"]]
+                pdf.add_subtitle("وضعیت شایستگی‌ها")
+                table_data = [["شایستگی", "میانگین شدت", "تعداد", "وضعیت"]]
                 for name, stat in list(stats.items())[:15]:
                     avg = stat.get('avg_severity', 0)
                     if avg >= 3.5:
@@ -102,8 +120,8 @@ class TeacherReportService:
             # ===== لیست دانش‌آموزان =====
             students_data = report_data.get('students_data', [])
             if students_data:
-                pdf.add_subtitle("ليست دانش آموزان")
-                table_data = [["رديف", "دانش آموز", "پايه", "كلاس", "مشاهدات", "وضعيت"]]
+                pdf.add_subtitle("لیست دانش آموزان")
+                table_data = [["ردیف", "دانش آموز", "پایه", "کلاس", "مشاهدات", "وضعیت"]]
                 for idx, s in enumerate(students_data[:20], 1):
                     table_data.append([
                         str(idx),
@@ -118,7 +136,7 @@ class TeacherReportService:
             
             # ===== پیشنهادات =====
             recs = report_data.get('recommendations', {})
-            pdf.add_subtitle("پيشنهادات")
+            pdf.add_subtitle("پیشنهادات")
             
             pdf.add_bold("به معلم:")
             for rec in recs.get('teacher', []):
@@ -129,7 +147,7 @@ class TeacherReportService:
             for rec in recs.get('counselor', []):
                 pdf.add_text(f"* {rec}")
             if not recs.get('counselor'):
-                pdf.add_text("وضعيت عمومي مطلوب است. نياز به مداخله خاصي نيست.")
+                pdf.add_text("وضعیت عمومی مطلوب است. نیاز به مداخله خاصی نیست.")
             pdf.add_spacer(0.3)
             
             # ===== متادیتا =====
@@ -140,9 +158,9 @@ class TeacherReportService:
             except:
                 date_str = datetime.now().strftime("%Y/%m/%d")
             
-            pdf.add_text(f"تاريخ تهيه گزارش: {date_str}")
-            pdf.add_text("PARTO - سامانه مديريت پرونده دانش آموزان")
-            pdf.add_text("پشتيباني: support@partow.ir")
+            pdf.add_text(f"تاریخ تهیه گزارش: {date_str}")
+            pdf.add_text("PARTO - سامانه مدیریت پرونده دانش آموزان")
+            pdf.add_text("پشتیبانی: support@partow.ir")
             
             # ساخت PDF
             pdf.build(file_path)
@@ -152,6 +170,11 @@ class TeacherReportService:
     
     def export_to_excel(self, report_data, file_path):
         """خروجی گزارش معلم به Excel - بدون Emoji"""
+        # اگر openpyxl نصب نباشد، به‌جای NameError یک پیام خوانا بده
+        if not OPENPYXL_AVAILABLE:
+            raise Exception("کتابخانه openpyxl نصب نیست و خروجی Excel گرفته نمی‌شود. "
+                            "نصب: pip install openpyxl")
+
         wb = Workbook()
         
         # ===== برگه 1: خلاصه =====
