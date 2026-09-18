@@ -263,13 +263,15 @@ class FollowUpDAL:
     # متدهای تحلیلی برای داشبورد
     # ============================================================
 
-    def get_followups_distribution_by_status(self, start_date=None, end_date=None):
+    def get_followups_distribution_by_status(self, start_date=None, end_date=None, staff_id=None):
         """
         دریافت توزیع پیگیری‌ها بر اساس وضعیت
 
         Args:
             start_date: تاریخ شروع (اختیاری)
             end_date: تاریخ پایان (اختیاری)
+            staff_id: اگر داده شود فقط پیگیری‌های ثبت‌شدهٔ همین معلم
+                شمرده می‌شود (فیلتر انتخاب معلم در داشبورد)
 
         Returns:
             dict: {
@@ -304,6 +306,9 @@ class FollowUpDAL:
             if end_date:
                 query += " AND date <= ?"
                 params.append(end_date)
+            if staff_id:
+                query += " AND staff_id = ?"
+                params.append(staff_id)
 
             cursor = self.db.execute_query(query, params)
             row = cursor.fetchone()
@@ -321,13 +326,15 @@ class FollowUpDAL:
             print(f"خطا در دریافت توزیع پیگیری‌ها: {e}")
             return {'pending': 0, 'done': 0, 'continued': 0, 'closed': 0, 'cancelled': 0, 'total': 0}
 
-    def get_overdue_followups_count(self, start_date=None, end_date=None):
+    def get_overdue_followups_count(self, start_date=None, end_date=None, staff_id=None):
         """
         دریافت تعداد پیگیری‌های معوق
 
         Args:
             start_date: تاریخ شروع (اختیاری)
             end_date: تاریخ پایان (اختیاری)
+            staff_id: اگر داده شود فقط پیگیری‌های ثبت‌شدهٔ همین معلم
+                شمرده می‌شود (فیلتر انتخاب معلم در داشبورد)
 
         Returns:
             int: تعداد پیگیری‌های معوق
@@ -356,6 +363,9 @@ class FollowUpDAL:
             if end_date:
                 query += " AND date <= ?"
                 params.append(end_date)
+            if staff_id:
+                query += " AND staff_id = ?"
+                params.append(staff_id)
 
             cursor.execute(query, params)
             row = cursor.fetchone()
@@ -603,13 +613,15 @@ class FollowUpDAL:
             pass
         return date_str
 
-    def get_followup_completion_rate(self, start_date=None, end_date=None):
+    def get_followup_completion_rate(self, start_date=None, end_date=None, staff_id=None):
         """
         دریافت نرخ تکمیل پیگیری‌ها
 
         Args:
             start_date: تاریخ شروع (اختیاری)
             end_date: تاریخ پایان (اختیاری)
+            staff_id: اگر داده شود فقط پیگیری‌های ثبت‌شدهٔ همین معلم
+                شمرده می‌شود (فیلتر انتخاب معلم در داشبورد)
 
         Returns:
             dict: {
@@ -639,6 +651,9 @@ class FollowUpDAL:
             if end_date:
                 query += " AND date <= ?"
                 params.append(end_date)
+            if staff_id:
+                query += " AND staff_id = ?"
+                params.append(staff_id)
 
             cursor = self.db.execute_query(query, params)
             row = cursor.fetchone()

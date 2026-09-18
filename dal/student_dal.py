@@ -296,12 +296,15 @@ class StudentDAL:
     # متدهای تحلیلی برای داشبورد
     # ============================================================
 
-    def get_student_distribution_by_grade(self, academic_year_id=None):
+    def get_student_distribution_by_grade(self, academic_year_id=None, staff_id=None):
         """
         دریافت توزیع دانش‌آموزان بر اساس پایه
 
         Args:
             academic_year_id: شناسه سال تحصیلی (اختیاری)
+            staff_id: اگر داده شود، فقط دانش‌آموزانِ نسبت‌داده‌شده به همین
+                معلم (از طریق teacher_assignments) شمرده می‌شوند - فیلتر
+                انتخاب معلم در داشبورد.
 
         Returns:
             list: [
@@ -331,6 +334,18 @@ class StudentDAL:
             if academic_year_id:
                 query += " AND sap.academic_year_id = ?"
                 params.append(academic_year_id)
+
+            if staff_id:
+                query += """
+                AND EXISTS (
+                    SELECT 1 FROM teacher_assignments ta
+                    WHERE ta.student_id = s.id
+                    AND ta.staff_id = ?
+                    AND ta.is_deleted = 0
+                    AND ta.is_active = 1
+                )
+                """
+                params.append(staff_id)
 
             query += " GROUP BY sap.grade ORDER BY sap.grade"
 
@@ -430,12 +445,15 @@ class StudentDAL:
             print(f"خطا در دریافت تعداد دانش‌آموزان بر اساس وضعیت: {e}")
             return {'active': 0, 'inactive': 0, 'graduated': 0, 'transferred': 0, 'dropped': 0, 'total': 0}
 
-    def get_students_without_observations(self, academic_year_id=None):
+    def get_students_without_observations(self, academic_year_id=None, staff_id=None):
         """
         دریافت دانش‌آموزانی که هیچ مشاهده‌ای ندارند
 
         Args:
             academic_year_id: شناسه سال تحصیلی (اختیاری)
+            staff_id: اگر داده شود، فقط دانش‌آموزانی که «به همین معلم
+                نسبت داده شده‌اند» (از طریق teacher_assignments) و هنوز
+                مشاهده‌ای ندارند برمی‌گردند - فیلتر انتخاب معلم در داشبورد.
 
         Returns:
             list: لیست دانش‌آموزان بدون مشاهده
@@ -483,6 +501,19 @@ class StudentDAL:
             if academic_year_id:
                 query += " AND sap.academic_year_id = ?"
                 params.append(academic_year_id)
+
+            if staff_id:
+                # فقط دانش‌آموزانی که در سال جاری به این معلم نسبت داده شده‌اند
+                query += """
+                AND EXISTS (
+                    SELECT 1 FROM teacher_assignments ta
+                    WHERE ta.student_id = s.id
+                    AND ta.staff_id = ?
+                    AND ta.is_deleted = 0
+                    AND ta.is_active = 1
+                )
+                """
+                params.append(staff_id)
 
             query += " ORDER BY s.last_name, s.first_name"
 

@@ -604,14 +604,19 @@ class ObservationDAL:
     # متدهای تحلیلی برای داشبورد
     # ============================================================
 
-    def get_observations_distribution_by_type(self, start_date=None, end_date=None):
-        """دریافت توزیع مشاهدات بر اساس نوع رفتار"""
+    def get_observations_distribution_by_type(self, start_date=None, end_date=None, staff_id=None):
+        """دریافت توزیع مشاهدات بر اساس نوع رفتار
+
+        Args:
+            staff_id: اگر داده شود، فقط مشاهداتِ ثبت‌شدهٔ همین معلم شمرده
+                می‌شود (فیلتر انتخاب معلم در داشبورد).
+        """
         try:
             conn = self.db.get_connection()
             cursor = conn.cursor()
 
             query = """
-                SELECT 
+                SELECT
                     COUNT(*) as total,
                     SUM(CASE WHEN behavior_type = 'مثبت' THEN 1 ELSE 0 END) as positive,
                     SUM(CASE WHEN behavior_type = 'منفی' THEN 1 ELSE 0 END) as negative,
@@ -627,6 +632,9 @@ class ObservationDAL:
             if end_date:
                 query += " AND observation_date <= ?"
                 params.append(end_date)
+            if staff_id:
+                query += " AND staff_id = ?"
+                params.append(staff_id)
 
             cursor.execute(query, tuple(params))  # اصلاح: None می‌داد «parameters are of unsupported type»
             row = cursor.fetchone()
@@ -767,8 +775,13 @@ class ObservationDAL:
             print(f"خطا در دریافت مشاهدات در بازه‌های زمانی: {e}")
             return []
 
-    def get_observations_by_competency(self, start_date=None, end_date=None, limit=10):
-        """دریافت مشاهدات گروه‌بندی شده بر اساس شایستگی"""
+    def get_observations_by_competency(self, start_date=None, end_date=None, limit=10, staff_id=None):
+        """دریافت مشاهدات گروه‌بندی شده بر اساس شایستگی
+
+        Args:
+            staff_id: اگر داده شود، فقط مشاهداتِ ثبت‌شدهٔ همین معلم شمرده
+                می‌شود (فیلتر انتخاب معلم در داشبورد).
+        """
         try:
             conn = self.db.get_connection()
             cursor = conn.cursor()
@@ -788,6 +801,9 @@ class ObservationDAL:
             if end_date:
                 query += " AND o.observation_date <= ?"
                 params.append(end_date)
+            if staff_id:
+                query += " AND o.staff_id = ?"
+                params.append(staff_id)
 
             query += " GROUP BY o.competency_id ORDER BY count DESC LIMIT ?"
             params.append(limit)

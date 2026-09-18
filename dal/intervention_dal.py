@@ -289,8 +289,13 @@ class InterventionDAL:
     # متدهای تحلیلی برای داشبورد
     # ============================================================
 
-    def get_interventions_distribution_by_status(self, start_date=None, end_date=None):
-        """دریافت توزیع مداخلات بر اساس وضعیت"""
+    def get_interventions_distribution_by_status(self, start_date=None, end_date=None, staff_id=None):
+        """دریافت توزیع مداخلات بر اساس وضعیت
+
+        Args:
+            staff_id: اگر داده شود، فقط مداخلاتِ ثبت‌شدهٔ همین معلم شمرده
+                می‌شود (فیلتر انتخاب معلم در داشبورد).
+        """
         try:
             conn = self.db.get_connection()
             cursor = conn.cursor()
@@ -314,6 +319,9 @@ class InterventionDAL:
             if end_date:
                 query += " AND date <= ?"
                 params.append(end_date)
+            if staff_id:
+                query += " AND staff_id = ?"
+                params.append(staff_id)
 
             cursor = self.db.execute_query(query, params)
             row = cursor.fetchone()
@@ -518,8 +526,13 @@ class InterventionDAL:
             pass
         return date_str
 
-    def get_intervention_success_rate(self, start_date=None, end_date=None):
-        """دریافت نرخ موفقیت مداخلات"""
+    def get_intervention_success_rate(self, start_date=None, end_date=None, staff_id=None):
+        """دریافت نرخ موفقیت مداخلات
+
+        Args:
+            staff_id: اگر داده شود، فقط مداخلاتِ ثبت‌شدهٔ همین معلم شمرده
+                می‌شود (فیلتر انتخاب معلم در داشبورد).
+        """
         try:
             conn = self.db.get_connection()
             cursor = conn.cursor()
@@ -541,6 +554,9 @@ class InterventionDAL:
             if end_date:
                 query += " AND date <= ?"
                 params.append(end_date)
+            if staff_id:
+                query += " AND staff_id = ?"
+                params.append(staff_id)
 
             cursor = self.db.execute_query(query, params)
             row = cursor.fetchone()

@@ -11,6 +11,7 @@ from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QColor
 
 from utils.backup import BackupManager
+from utils.persian_date import format_timestamp
 from config.settings import DB_PATH, ATTACHMENTS_DIR
 import os
 
@@ -176,7 +177,15 @@ class BackupPage(QWidget):
             
             for row, backup in enumerate(backups):
                 self.table.setItem(row, 0, QTableWidgetItem(backup['name']))
-                self.table.setItem(row, 1, QTableWidgetItem(backup['created_at']))
+                # created_at از metadata خودِ فایل پشتیبان می‌آید:
+                # «datetime.now().isoformat()» یعنی میلادیِ محلی با جداکنندهٔ «T»
+                # (و اگر metadata نداشته باشد، mtime فایل). در برنامه‌ای که
+                # همه‌چیزش شمسی است، نمایش «2026-09-18T19:47:37.123456» هم
+                # تقویمش غلط است هم برای کاربر بی‌معنی.
+                self.table.setItem(
+                    row, 1,
+                    QTableWidgetItem(format_timestamp(backup.get('created_at')))
+                )
                 self.table.setItem(row, 2, QTableWidgetItem(backup['size_display']))
                 
                 # وضعیت
