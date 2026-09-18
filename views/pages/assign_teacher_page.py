@@ -20,6 +20,12 @@ from dal.student_dal import StudentDAL
 from dal.staff_dal import StaffDAL
 from dal.academic_year_dal import AcademicYearDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
+# ===== اصلاح =====
+# در جدول «دانش‌آموزان بدون معلم» از `self.profile_dal` استفاده می‌شد
+# ولی این ویژگی هیچ‌جا در __init__ ساخته نمی‌شد. نتیجه: hasattr همیشه
+# False بود و ستون‌های «پایه» و «کلاس» برای همه دانش‌آموزان به ترتیب
+# «نامشخص» و خالی نمایش داده می‌شدند.
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from models.teacher_assignment import TeacherAssignment
 from views.dialogs.assign_teacher_dialog import AssignTeacherDialog
 import jdatetime
@@ -37,6 +43,9 @@ class AssignTeacherPage(QWidget):
         self.staff_dal = StaffDAL()
         self.academic_year_dal = AcademicYearDAL()
         self.assignment_dal = TeacherAssignmentDAL()
+        # ===== اصلاح =====
+        # بدون این خط ستون پایه/کلاس در جدول دانش‌آموزان بدون معلم خالی می‌ماند.
+        self.profile_dal = StudentAcademicProfileDAL()
         
         self.students = []
         self.all_teachers = []

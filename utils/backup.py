@@ -20,6 +20,29 @@ class BackupManager:
         self.attachments_dir = attachments_dir
         self.backup_dir = backup_dir
         self.encrypt = encrypt  # فعلاً غیرفعال است
+
+        # ===== اصلاح مهم =====
+        # بدنه این کلاس در ۱۰ نقطه از `self.logger` استفاده می‌کند
+        # (create_backup، restore_backup، پاکسازی pre_restore و ...) ولی
+        # `__init__` هرگز آن را مقداردهی نمی‌کرد. نتیجه:
+        #
+        #     AttributeError: 'BackupManager' object has no attribute 'logger'
+        #
+        # و چون این فراخوان‌ها داخل except هستند، خطای اصلی (مثلاً
+        # «فایل checksum یافت نشد») با یک AttributeError بی‌ربط عوض
+        # می‌شد؛ در create_backup هم کل عملیات به عنوان «پشتیبان‌گیری
+        # ناموفق» گزارش می‌شد در حالی که مشکل چیز دیگری بود.
+        #
+        # از همان logger استاندارد پروژه استفاده می‌شود تا پیام‌ها در
+        # logs/partow.log هم ثبت شوند. اگر به هر دلیل در دسترس نبود،
+        # یک logger بی‌صدا جایگزین می‌شود تا پشتیبان‌گیری هرگز به خاطر
+        # لاگ از کار نیفتد.
+        try:
+            from utils.logger import get_logger
+            self.logger = get_logger(self.__class__.__name__)
+        except Exception:  # pragma: no cover - مسیر اضطراری
+            import logging
+            self.logger = logging.getLogger(self.__class__.__name__)
         
         # ایجاد پوشه Backup اگر وجود ندارد
         if not os.path.exists(backup_dir):

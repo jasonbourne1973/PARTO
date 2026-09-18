@@ -25,6 +25,13 @@ from dal.observation_dal import ObservationDAL
 from dal.intervention_dal import InterventionDAL
 from dal.followup_dal import FollowUpDAL
 from dal.competency_dal import CompetencyDAL
+# ===== اصلاح =====
+# در متد گزارش‌گیری از `self.profile_dal` استفاده می‌شد ولی این ویژگی
+# هیچ‌جا در __init__ ساخته نمی‌شد؛ بنابراین hasattr همیشه False بود و
+# `profile` همیشه None می‌ماند ⇒ بلوک `if profile:` هرگز اجرا نمی‌شد و
+# گزارش معلم برای همه دانش‌آموزان «صفر مشاهده/مداخله/پیگیری» نشان
+# می‌داد (بدون هیچ پیام خطایی).
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from services.teacher_report_service import TeacherReportService
 from utils.shamsi_date_input import ShamsiDateInput
 
@@ -50,6 +57,10 @@ class TeacherReportPage(QWidget):
         self.intervention_dal = InterventionDAL()
         self.followup_dal = FollowUpDAL()
         self.competency_dal = CompetencyDAL()
+        # ===== اصلاح =====
+        # بدون این خط، `hasattr(self, 'profile_dal')` در متد گزارش‌گیری
+        # همیشه False بود و گزارش معلم خالی برمی‌گشت.
+        self.profile_dal = StudentAcademicProfileDAL()
         self.report_service = TeacherReportService()
         
         self.current_teacher_id = None

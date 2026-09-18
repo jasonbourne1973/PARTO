@@ -16,7 +16,18 @@ from dal.intervention_dal import InterventionDAL
 from dal.followup_dal import FollowUpDAL
 from dal.competency_dal import CompetencyDAL
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from utils.persian_calendar import PersianCalendarWidget
+# ===== اصلاح =====
+# نسخه قبلی اینجا این خط را داشت:
+#     from utils.persian_calendar import PersianCalendarWidget
+#
+# `PersianCalendarWidget` یک ویجت Qt است و در این فایل **هرگز استفاده
+# نمی‌شد** (grep روی کل فایل فقط همین خط import را نشان می‌داد).
+# همین یک خط بی‌مصرف باعث می‌شد کل لایه سرویس به PySide6 وابسته شود:
+#     services/trend_analysis_service
+#         → utils/persian_calendar → PySide6.QtWidgets
+# و چون `student_service.py` هم `TrendAnalysisService` را import می‌کند،
+# نتیجه این بود که هر استفاده بدون رابط گرافیکی از سرویس‌ها (تست‌ها،
+# اسکریپت‌ها، تولید گزارش از خط فرمان) با خطای import Qt از کار می‌افتاد.
 import jdatetime
 
 

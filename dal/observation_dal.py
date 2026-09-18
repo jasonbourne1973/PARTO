@@ -14,21 +14,29 @@ class ObservationDAL:
         self.db = DatabaseConnection()
     
     def create(self, observation):
-        """ایجاد مشاهده جدید"""
+        """ایجاد مشاهده جدید
+
+        نکته: ستون‌های indicator_id و observable_behavior_id هم ذخیره
+        می‌شوند (ساختار سه‌لایه شایستگی ← شاخص ← رفتار قابل مشاهده).
+        توضیح کامل باگ قبلی در docstring متد `_row_to_observation` آمده است.
+        """
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
         cursor.execute("""
             INSERT INTO observations (
                 student_profile_id, staff_id, competency_id,
+                indicator_id, observable_behavior_id,
                 observation_date, location, description,
                 antecedent, behavior, consequence,
                 behavior_type, severity, tags
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             observation.student_profile_id,
             observation.staff_id,
             observation.competency_id,
+            getattr(observation, 'indicator_id', None),
+            getattr(observation, 'observable_behavior_id', None),
             observation.observation_date,
             observation.location,
             observation.description,
@@ -181,6 +189,7 @@ class ObservationDAL:
         cursor.execute("""
             UPDATE observations SET
                 student_profile_id = ?, staff_id = ?, competency_id = ?,
+                indicator_id = ?, observable_behavior_id = ?,
                 observation_date = ?, location = ?, description = ?,
                 antecedent = ?, behavior = ?, consequence = ?,
                 behavior_type = ?, severity = ?, tags = ?,
@@ -190,6 +199,8 @@ class ObservationDAL:
             observation.student_profile_id,
             observation.staff_id,
             observation.competency_id,
+            getattr(observation, 'indicator_id', None),
+            getattr(observation, 'observable_behavior_id', None),
             observation.observation_date,
             observation.location,
             observation.description,
@@ -617,7 +628,7 @@ class ObservationDAL:
                 query += " AND observation_date <= ?"
                 params.append(end_date)
 
-            cursor.execute(query, params if params else None)
+            cursor.execute(query, tuple(params))  # اصلاح: None می‌داد «parameters are of unsupported type»
             row = cursor.fetchone()
 
             total = row['total'] if row else 0
@@ -702,7 +713,7 @@ class ObservationDAL:
                 query += " AND observation_date <= ?"
                 params.append(end_date)
 
-            cursor.execute(query, params if params else None)
+            cursor.execute(query, tuple(params))  # اصلاح: None می‌داد «parameters are of unsupported type»
             rows = cursor.fetchall()
 
             if not rows:
@@ -1147,6 +1158,36 @@ class ObservationDAL:
         observation.student_profile_id = row['student_profile_id']
         observation.staff_id = row['staff_id']
         observation.competency_id = row['competency_id']
+
+        # ===== اصلاح مهم: ساختار سه‌لایه =====
+        # ستون‌های indicator_id و observable_behavior_id توسط
+        # migration_v7 به جدول observations اضافه شده‌اند و مدل
+        # Observation هم این دو فیلد را دارد، ولی این DAL هیچ‌وقت
+        # آن‌ها را نه می‌نوشت و نه می‌خواند.
+        #
+        # نتیجه واقعی: فرم ثبت مشاهده (views/dialogs/observation_form.py)
+        # انتخاب کاربر از درخت «شایستگی ← شاخص ← رفتار قابل مشاهده» را
+        # داخل data می‌فرستاد (کلیدهای indicator_id و
+        # observable_behavior_id) ولی در دیتابیس NULL ذخیره می‌شد. وقتی
+        # کاربر همان مشاهده را برای ویرایش باز می‌کرد، کد سعی می‌کرد
+        # انتخاب قبلی را از obs.indicator_id برگرداند و همیشه None
+        # می‌گرفت ⇒ انتخاب کاربر بی‌صدا از بین می‌رفت.
+        #
+        # از getattr روی row.keys() استفاده می‌شود تا اگر دیتابیس قدیمی
+        # هنوز این ستون‌ها را نداشت (قبل از ترمیم ساختار) برنامه crash
+        # نکند.
+        try:
+            available = set(row.keys())
+        except Exception:
+            available = set()
+        observation.indicator_id = (
+            row['indicator_id'] if 'indicator_id' in available else None
+        )
+        observation.observable_behavior_id = (
+            row['observable_behavior_id']
+            if 'observable_behavior_id' in available else None
+        )
+
         observation.observation_date = row['observation_date']
         observation.location = row['location']
         observation.description = row['description']

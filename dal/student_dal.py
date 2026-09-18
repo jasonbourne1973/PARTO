@@ -334,7 +334,7 @@ class StudentDAL:
 
             query += " GROUP BY sap.grade ORDER BY sap.grade"
 
-            cursor.execute(query, params if params else None)
+            cursor.execute(query, tuple(params))  # اصلاح: None می‌داد «parameters are of unsupported type»
             rows = cursor.fetchall()
 
             total = sum(row['count'] for row in rows) if rows else 0
@@ -395,7 +395,7 @@ class StudentDAL:
 
             query += " GROUP BY sap.status"
 
-            cursor.execute(query, params if params else None)
+            cursor.execute(query, tuple(params))  # اصلاح: None می‌داد «parameters are of unsupported type»
             rows = cursor.fetchall()
 
             result = {
@@ -486,7 +486,7 @@ class StudentDAL:
 
             query += " ORDER BY s.last_name, s.first_name"
 
-            cursor.execute(query, params if params else None)
+            cursor.execute(query, tuple(params))  # اصلاح: None می‌داد «parameters are of unsupported type»
             rows = cursor.fetchall()
 
             result = []
