@@ -31,6 +31,10 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 APP_DIRS = ('dal', 'services', 'views', 'models', 'utils', 'database', 'config')
 SCOPE = APP_DIRS + ('main.py', 'tests')
 
+# چند بررسی (مقایسه با HEAD و فایل‌های ردیابی‌شده) نیاز به مخزن git دارند؛
+# در یک کپی ساده (tar بدون .git) به‌جای «شکست»، رد می‌شوند.
+HAS_GIT = os.path.isdir(os.path.join(ROOT, '.git'))
+
 RUFF = os.path.join(os.path.dirname(sys.executable), 'ruff')
 if not os.path.exists(RUFF):
     RUFF = 'ruff'
@@ -143,8 +147,10 @@ def class_literals(src):
     return out
 
 
-changed = subprocess.run(['git', 'diff', '--name-only', 'HEAD', '--', '*.py'],
-                         capture_output=True, text=True, cwd=ROOT).stdout.split()
+changed = []
+if HAS_GIT:
+    changed = subprocess.run(['git', 'diff', '--name-only', 'HEAD', '--', '*.py'],
+                             capture_output=True, text=True, cwd=ROOT).stdout.split()
 compared, mismatch = 0, []
 for rel in changed:
     path = os.path.join(ROOT, rel)
@@ -157,8 +163,11 @@ for rel in changed:
     for key, val in before.items():
         if key in after and after[key] != val:
             mismatch.append(f"{rel}:{key}")
-check("B", f"مقدار ثابت‌های کلاس در {compared} فایل تغییریافته دست‌نخورده است",
-      not mismatch, str(mismatch[:3]))
+if HAS_GIT:
+    check("B", f"مقدار ثابت‌های کلاس در {compared} فایل تغییریافته دست‌نخورده است",
+          not mismatch, str(mismatch[:3]))
+else:
+    print("  ⏭️ [B] مقایسه با HEAD رد شد (بدون مخزن git)")
 
 # ClassVar نباید به فیلد dataclass تبدیل شود
 import dataclasses
@@ -287,16 +296,21 @@ print("=" * 76)
 print("بخش D: بهداشت مخزن")
 print("=" * 76)
 
+tracked = []
 leftovers = [f for f in os.listdir(ROOT) if re.match(r'patch_.*\.py$', f)]
 check("D", "هیچ اسکریپت وصلهٔ یک‌بارمصرفی نمانده", not leftovers, str(leftovers))
 check("D", "پوشهٔ reports/temp (نسخهٔ تکراری) حذف شده",
       not os.path.exists(os.path.join(ROOT, 'reports')))
 
-tracked = subprocess.run(['git', 'ls-files'], capture_output=True, text=True,
-                         cwd=ROOT).stdout.splitlines()
-junk = [f for f in tracked if f.endswith(('.pyc', '.pyo', '.db-wal', '.db-shm'))
-        or '__pycache__' in f]
-check("D", "هیچ فایل موقت ردیابی‌شده‌ای وجود ندارد", not junk, str(junk[:4]))
+if HAS_GIT:
+    tracked = subprocess.run(['git', 'ls-files'], capture_output=True, text=True,
+                             cwd=ROOT).stdout.splitlines()
+    junk = [f for f in tracked if f.endswith(('.pyc', '.pyo', '.db-wal', '.db-shm'))
+            or '__pycache__' in f]
+    check("D", "هیچ فایل موقت ردیابی‌شده‌ای وجود ندارد", not junk, str(junk[:4]))
+else:
+    tracked = []
+    print("  ⏭️ [D] فهرست فایل‌های ردیابی‌شده رد شد (بدون مخزن git)")
 
 
 def silent_swallows(path):
@@ -389,9 +403,12 @@ check("E", "verify_fixes6 (مرز خطای سرویس‌ها) سبز است", r6
 r = ruff('check', '--select', 'I001', *SCOPE)
 check("E", "ترتیب importها یکدست است", r.returncode == 0, str(findings(r.stdout)[:3]))
 
-check("E", "بدون .gitignore فایل جانبی، DB اصلی ردیابی‌نشده نیست",
-      'database/partow.db' in tracked and not [f for f in tracked if f.endswith('-wal')],
-      "")
+if HAS_GIT:
+    check("E", "فایل‌های جانبی SQLite در مخزن ردیابی نمی‌شوند",
+          'database/partow.db' in tracked
+          and not [f for f in tracked if f.endswith('-wal')], "")
+else:
+    print("  ⏭️ [E] بررسی ردیابی SQLite رد شد (بدون مخزن git)")
 
 # ================================================================
 shutil.rmtree(TMP, ignore_errors=True)
