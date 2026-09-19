@@ -2,6 +2,8 @@
 مدل ابزار غربالگری (Screening Tool)
 """
 
+from typing import ClassVar
+
 from models.base import BaseModel
 
 
@@ -24,7 +26,7 @@ class ScreeningTool(BaseModel):
     STATUS_INACTIVE = "inactive"
     STATUS_DEPRECATED = "deprecated"
     
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (STATUS_ACTIVE, "فعال"),
         (STATUS_INACTIVE, "غیرفعال"),
         (STATUS_DEPRECATED, "منسوخ شده"),
@@ -37,7 +39,7 @@ class ScreeningTool(BaseModel):
     TYPE_INTERVIEW = "interview"
     TYPE_OBSERVATION = "observation"
     
-    TYPE_CHOICES = [
+    TYPE_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (TYPE_QUESTIONNAIRE, "پرسشنامه"),
         (TYPE_CHECKLIST, "چک‌لیست"),
         (TYPE_SCALE, "مقیاس"),

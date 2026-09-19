@@ -52,10 +52,9 @@ class ReminderService:
                 today_str = utc_now().strftime("%Y/%m/%d")
             
             for followup in all_pending:
-                if followup.next_action_date:
-                    # مقایسه تاریخ‌ها
-                    if followup.next_action_date < today_str:
-                        overdue.append(followup)
+                # بازرسی دهم: شرط‌های تودرتو با «and» ادغام شدند
+                if followup.next_action_date and followup.next_action_date < today_str:
+                    overdue.append(followup)
             
             return overdue
         except Exception as e:
@@ -76,10 +75,9 @@ class ReminderService:
                 today_str = utc_now().strftime("%Y/%m/%d")
             
             for followup in all_pending:
-                if followup.next_action_date:
-                    # محاسبه تفاوت تاریخ‌ها (ساده)
-                    if followup.next_action_date > today_str:
-                        due_soon.append(followup)
+                # بازرسی دهم: شرط‌های تودرتو با «and» ادغام شدند
+                if followup.next_action_date and followup.next_action_date > today_str:
+                    due_soon.append(followup)
             
             return due_soon[:10]  # حداکثر 10 مورد
         except Exception as e:

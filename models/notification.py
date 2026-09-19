@@ -2,6 +2,8 @@
 مدل اعلان‌ها و یادآوری‌ها
 """
 
+from typing import ClassVar
+
 from models.base import BaseModel
 from utils.time_utils import utc_now_iso
 
@@ -23,7 +25,7 @@ class Notification(BaseModel):
     TYPE_SYSTEM = "system"              # اعلان سیستمی
     TYPE_INFO = "info"                  # اطلاع‌رسانی
     
-    TYPE_CHOICES = [
+    TYPE_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (TYPE_REMINDER, "یادآوری"),
         (TYPE_OVERDUE, "معوق شده"),
         (TYPE_SYSTEM, "سیستمی"),
@@ -35,7 +37,7 @@ class Notification(BaseModel):
     PRIORITY_MEDIUM = "medium"
     PRIORITY_LOW = "low"
     
-    PRIORITY_CHOICES = [
+    PRIORITY_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (PRIORITY_HIGH, "بالا"),
         (PRIORITY_MEDIUM, "متوسط"),
         (PRIORITY_LOW, "پایین"),

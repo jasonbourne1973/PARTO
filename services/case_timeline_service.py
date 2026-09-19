@@ -7,6 +7,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from typing import ClassVar
+
 from dal.competency_dal import CompetencyDAL
 from dal.followup_dal import FollowUpDAL
 from dal.intervention_dal import InterventionDAL
@@ -32,19 +34,19 @@ class CaseTimelineService:
     EVENT_INTERVENTION = "intervention"
     EVENT_FOLLOWUP = "followup"
     
-    EVENT_TYPE_DISPLAY = {
+    EVENT_TYPE_DISPLAY: ClassVar[dict[str, str]] = {
         EVENT_OBSERVATION: "📝 مشاهده",
         EVENT_INTERVENTION: "🛠️ مداخله",
         EVENT_FOLLOWUP: "🔔 پیگیری",
     }
     
-    EVENT_ICON = {
+    EVENT_ICON: ClassVar[dict[str, str]] = {
         EVENT_OBSERVATION: "📝",
         EVENT_INTERVENTION: "🛠️",
         EVENT_FOLLOWUP: "🔔",
     }
     
-    EVENT_COLOR = {
+    EVENT_COLOR: ClassVar[dict[str, str]] = {
         EVENT_OBSERVATION: "#3498db",   # آبی
         EVENT_INTERVENTION: "#e67e22",  # نارنجی
         EVENT_FOLLOWUP: "#8e44ad",      # بنفش

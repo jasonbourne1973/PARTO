@@ -526,10 +526,7 @@ class SessionManager:
     
     def has_any_permission(self, token, permissions):
         """بررسی دسترسی کاربر به حداقل یکی از مجوزها"""
-        for perm in permissions:
-            if self.has_permission(token, perm):
-                return True
-        return False
+        return any(self.has_permission(token, perm) for perm in permissions)
     
     def get_all_sessions(self):
         """دریافت لیست همه جلسات فعال"""

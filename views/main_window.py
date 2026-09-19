@@ -775,7 +775,7 @@ class MainWindow(QMainWindow):
             self.close()
             import subprocess
             import sys
-            subprocess.Popen([sys.executable] + sys.argv)
+            subprocess.Popen([sys.executable, *sys.argv])
             sys.exit(0)
 
     def auto_logout(self):

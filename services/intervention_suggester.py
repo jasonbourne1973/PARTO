@@ -7,6 +7,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from typing import ClassVar
+
 from dal.competency_dal import CompetencyDAL
 from dal.intervention_dal import InterventionDAL
 from dal.observation_dal import ObservationDAL
@@ -33,7 +35,7 @@ class InterventionSuggester(BaseService):
     # نسخه قبلی دو دسته از CompetencyCategory را نداشت:
     # 'behavioral' و 'cognitive'. شایستگی‌های این دو دسته هیچ
     # پیشنهاد دسته‌بندی‌شده‌ای نمی‌گرفتند.
-    COMPETENCY_INTERVENTION_MAP = {
+    COMPETENCY_INTERVENTION_MAP: ClassVar[dict[str, str]] = {
         'emotional': ['individual_talk', 'counseling', 'encouragement'],
         'social': ['group_activity', 'group_talk', 'peer_helper'],
         'educational': ['encouragement', 'responsibility', 'seat_change'],
@@ -60,7 +62,7 @@ class InterventionSuggester(BaseService):
     #
     # حالا هر دو شکل پذیرفته می‌شود تا اگر جایی مقدار انگلیسی هم
     # رسید، کار کند.
-    BEHAVIOR_INTERVENTION_MAP = {
+    BEHAVIOR_INTERVENTION_MAP: ClassVar[dict[str, str]] = {
         'مثبت': ['encouragement', 'responsibility'],
         'منفی': ['individual_talk', 'warning', 'counseling'],
         'خنثی': ['encouragement', 'group_activity'],

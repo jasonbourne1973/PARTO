@@ -537,8 +537,8 @@ class TeacherPerformancePage(QWidget):
         competency_stats = report.get('competency_stats', {})
         self.competency_table.setRowCount(len(competency_stats))
         
-        row = 0
-        for name, stats in competency_stats.items():
+        # بازرسی دهم: به‌جای شمارندهٔ دستی، enumerate
+        for row, (name, stats) in enumerate(competency_stats.items()):
             self.competency_table.setItem(row, 0, QTableWidgetItem(name))
             self.competency_table.setItem(row, 1, QTableWidgetItem(str(stats.get('count', 0))))
             self.competency_table.setItem(row, 2, QTableWidgetItem(str(stats.get('avg_severity', 0))))
@@ -562,7 +562,6 @@ class TeacherPerformancePage(QWidget):
             item.setForeground(color)
             self.competency_table.setItem(row, 4, item)
             self.competency_table.setRowHeight(row, 30)
-            row += 1
     
     def draw_chart(self, report):
         """رسم نمودارها"""

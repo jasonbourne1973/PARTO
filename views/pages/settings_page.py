@@ -482,7 +482,7 @@ class SettingsPage(QWidget):
             staff_list = self.staff_dal.get_all(include_inactive=True)
             self.staff_table.setRowCount(len(staff_list))
             
-            role_map = {value: display for value, display in STAFF_ROLES}
+            role_map = dict(STAFF_ROLES)
             
             for row, staff in enumerate(staff_list):
                 self.staff_table.setItem(row, 0, QTableWidgetItem(str(staff.id)))
@@ -780,7 +780,7 @@ class SettingsPage(QWidget):
             
             self.user_table.setRowCount(len(rows))
             
-            role_map = {value: display for value, display in STAFF_ROLES}
+            role_map = dict(STAFF_ROLES)
             
             for row, user in enumerate(rows):
                 self.user_table.setItem(row, 0, QTableWidgetItem(str(user['id'])))

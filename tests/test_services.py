@@ -106,13 +106,13 @@ class TestObservationService(unittest.TestCase):
         # شدت کمتر از 1
         invalid_data = self.test_data.copy()
         invalid_data['severity'] = 0
-        is_valid, errors = self.service.validate_observation(invalid_data)
+        is_valid, _errors = self.service.validate_observation(invalid_data)
         self.assertFalse(is_valid)
         
         # شدت بیشتر از 5
         invalid_data = self.test_data.copy()
         invalid_data['severity'] = 6
-        is_valid, errors = self.service.validate_observation(invalid_data)
+        is_valid, _errors = self.service.validate_observation(invalid_data)
         self.assertFalse(is_valid)
 
 
@@ -158,14 +158,14 @@ class TestInterventionService(unittest.TestCase):
         # وضعیت نامعتبر
         invalid_data = self.test_data.copy()
         invalid_data['status'] = 'invalid_status'
-        is_valid, errors = self.service.validate_intervention(invalid_data)
+        is_valid, _errors = self.service.validate_intervention(invalid_data)
         self.assertFalse(is_valid)
         
         # وضعیت معتبر
         for status in ['planned', 'in_progress', 'done', 'completed', 'cancelled']:
             valid_data = self.test_data.copy()
             valid_data['status'] = status
-            is_valid, errors = self.service.validate_intervention(valid_data)
+            is_valid, _errors = self.service.validate_intervention(valid_data)
             self.assertTrue(is_valid)
 
 
@@ -210,7 +210,7 @@ class TestFollowUpService(unittest.TestCase):
         # تاریخ نامعتبر
         invalid_data = self.test_data.copy()
         invalid_data['date'] = '1405/13/17'
-        is_valid, errors = self.service.validate_followup(invalid_data)
+        is_valid, _errors = self.service.validate_followup(invalid_data)
         self.assertFalse(is_valid)
     
     def test_validate_status(self):
@@ -218,14 +218,14 @@ class TestFollowUpService(unittest.TestCase):
         # وضعیت نامعتبر
         invalid_data = self.test_data.copy()
         invalid_data['status'] = 'invalid_status'
-        is_valid, errors = self.service.validate_followup(invalid_data)
+        is_valid, _errors = self.service.validate_followup(invalid_data)
         self.assertFalse(is_valid)
         
         # وضعیت معتبر
         for status in ['pending', 'done', 'continued', 'closed', 'cancelled']:
             valid_data = self.test_data.copy()
             valid_data['status'] = status
-            is_valid, errors = self.service.validate_followup(valid_data)
+            is_valid, _errors = self.service.validate_followup(valid_data)
             self.assertTrue(is_valid)
 
 
@@ -270,14 +270,12 @@ class TestDashboardService(unittest.TestCase):
     def test_get_dashboard_data(self):
         """تست دریافت داده‌های داشبورد"""
         # تست دریافت داده بدون فیلتر
-        try:
-            data = self.service.get_dashboard_data()
-            self.assertIsNotNone(data)
-            self.assertIn('general_stats', data)
-            self.assertIn('management_indicators', data)
-        except Exception:
-            # اگر دیتابیس خالی باشد، خطا می‌دهد
-            pass
+        # بازرسی دهم: try/except پوشاننده حذف شد تا assert ها واقعاً
+        # سنجیده شوند (دیتابیس موقت در setUp آماده می‌شود).
+        data = self.service.get_dashboard_data()
+        self.assertIsNotNone(data)
+        self.assertIn('general_stats', data)
+        self.assertIn('management_indicators', data)
 
 
 class TestCaseTimelineService(unittest.TestCase):
@@ -295,11 +293,9 @@ class TestCaseTimelineService(unittest.TestCase):
         
         # تست با شناسه معتبر (اگر وجود داشته باشد)
         # در محیط تست ممکن است داده نباشد
-        try:
-            events = self.service.get_timeline(1)
-            self.assertIsInstance(events, list)
-        except Exception:
-            pass
+        # بازرسی دهم: try/except پوشاننده حذف شد
+        events = self.service.get_timeline(1)
+        self.assertIsInstance(events, list)
 
 
 def run_tests():

@@ -3,7 +3,7 @@
 """
 
 from collections import defaultdict
-from typing import Dict, List
+from typing import Optional
 
 import jdatetime
 
@@ -12,7 +12,7 @@ class AnalyticsHelpers:
     """ابزارهای کمکی برای تحلیل داده‌ها"""
     
     @staticmethod
-    def group_by_period(items: List[Dict], date_field: str, period: str = 'monthly') -> Dict:
+    def group_by_period(items: list[dict], date_field: str, period: str = 'monthly') -> dict:
         """
         گروه‌بندی آیتم‌ها بر اساس بازه زمانی
         
@@ -52,7 +52,7 @@ class AnalyticsHelpers:
         return dict(sorted(grouped.items()))
     
     @staticmethod
-    def calculate_trend(grouped_data: Dict, value_field: str) -> List[Dict]:
+    def calculate_trend(grouped_data: dict, value_field: str) -> list[dict]:
         """
         محاسبه روند از داده‌های گروه‌بندی شده
         
@@ -85,8 +85,9 @@ class AnalyticsHelpers:
         return round((value / total * 100), 1) if total > 0 else 0
     
     @staticmethod
-    def filter_by_date_range(items: List[Dict], date_field: str, 
-                            start_date: str = None, end_date: str = None) -> List[Dict]:
+    def filter_by_date_range(items: list[dict], date_field: str,
+                            start_date: Optional[str] = None,
+                            end_date: Optional[str] = None) -> list[dict]:
         """فیلتر آیتم‌ها بر اساس بازه زمانی"""
         if not start_date and not end_date:
             return items
@@ -122,13 +123,13 @@ class AnalyticsHelpers:
             return None, None
     
     @staticmethod
-    def calculate_avg_severity(items: List[Dict], severity_field: str = 'severity') -> float:
+    def calculate_avg_severity(items: list[dict], severity_field: str = 'severity') -> float:
         """محاسبه میانگین شدت"""
         severities = [item.get(severity_field, 1) for item in items if item.get(severity_field)]
         return round(sum(severities) / len(severities), 1) if severities else 0
     
     @staticmethod
-    def get_top_items(items: List[Dict], key_field: str, value_field: str, limit: int = 5) -> List[Dict]:
+    def get_top_items(items: list[dict], key_field: str, value_field: str, limit: int = 5) -> list[dict]:
         """دریافت آیتم‌های برتر"""
         sorted_items = sorted(items, key=lambda x: x.get(value_field, 0), reverse=True)
         return sorted_items[:limit]

@@ -19,6 +19,7 @@
 
 import os
 import sqlite3
+from typing import ClassVar
 
 from database.connection import DatabaseConnection
 from models.base import BaseModel
@@ -35,7 +36,7 @@ class BackupRecord(BaseModel):
     KIND_AUTO = 'auto'              # زمان‌بند خودکار گرفته
     KIND_PRE_RESTORE = 'pre_restore'  # قبل از بازیابی گرفته شده
 
-    KINDS = [KIND_MANUAL, KIND_AUTO, KIND_PRE_RESTORE]
+    KINDS: ClassVar[list] = [KIND_MANUAL, KIND_AUTO, KIND_PRE_RESTORE]
 
     def __init__(self):
         super().__init__()

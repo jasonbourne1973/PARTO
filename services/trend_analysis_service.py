@@ -481,7 +481,7 @@ class TrendAnalysisService(BaseService):
                 'name': name,
                 'count': len(data),
                 'avg_severity': round(avg_severity, 1),
-                'years': sorted(set(item['year'] for item in data))
+                'years': sorted({item['year'] for item in data})
             })
         
         # مرتب‌سازی بر اساس تعداد و میانگین شدت

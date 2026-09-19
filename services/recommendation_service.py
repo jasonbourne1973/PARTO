@@ -163,7 +163,7 @@ class RecommendationService(BaseService):
             
             # شایستگی‌های بدون مشاهده
             all_competencies = self.competency_dal.get_all(include_inactive=False)
-            observed_comp_ids = set(o.competency_id for o in observations if o.competency_id)
+            observed_comp_ids = {o.competency_id for o in observations if o.competency_id}
             unobserved_competencies = [c for c in all_competencies if c.id not in observed_comp_ids]
             
             # محاسبه نسبت‌ها

@@ -115,7 +115,7 @@ class ChartHelper:
             colors = ['#8BC34A', '#C62828', '#F4D35E', '#0B2E4F', '#66BB6A']
         
         labels_fa = [ChartHelper._farsi(str(label)) for label in labels]
-        wedges, texts, autotexts = ax.pie(
+        _wedges, _texts, autotexts = ax.pie(
             values, 
             labels=labels_fa,
             colors=colors[:len(labels)],
@@ -270,10 +270,7 @@ class ChartHelper:
         ax = fig.add_subplot(111)
         ax.set_facecolor('#0B2E4F')
         
-        if isinstance(data, dict):
-            items = list(data.items())
-        else:
-            items = data
+        items = list(data.items()) if isinstance(data, dict) else data
         
         if not items:
             return ChartHelper._create_empty_chart("داده‌ای برای نمایش وجود ندارد")
@@ -408,9 +405,9 @@ class ChartHelper:
             'inactive': '#D9C36A'
         }
         
-        labels = [ChartHelper._farsi(str(k)) for k in status_data.keys()]
+        labels = [ChartHelper._farsi(str(k)) for k in status_data]
         values = list(status_data.values())
-        colors = [status_colors.get(k, '#D9C36A') for k in status_data.keys()]
+        colors = [status_colors.get(k, '#D9C36A') for k in status_data]
         
         # مرتب‌سازی بر اساس مقدار
         sorted_data = sorted(zip(labels, values, colors), key=lambda x: x[1], reverse=True)

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 راستی‌آزمایی دور نهم بازرسی — شکست‌های بی‌صدا، استثناهای لایهٔ داده،
 یکدست‌سازی تاریخ‌های موجود و تنظیمات lint
@@ -143,7 +142,7 @@ try:
         RUFF = 'ruff'
 
     def ruff(*args):
-        return subprocess.run([RUFF] + list(args), capture_output=True, text=True, cwd=ROOT)
+        return subprocess.run([RUFF, *list(args)], capture_output=True, text=True, cwd=ROOT)
 
     r = ruff('check', '--select', 'BLE001', '--output-format=concise', 'dal')
     dal_ble = [ln for ln in r.stdout.splitlines()
@@ -156,6 +155,7 @@ try:
 
     # نگهبان: خطاهای برنامه‌نویسی دیگر قورت داده نمی‌شوند
     import inspect
+
     from dal.student_dal import StudentDAL
     src = inspect.getsource(StudentDAL)
     check("B", "StudentDAL استثناهای مشخص می‌گیرد",
@@ -191,13 +191,13 @@ try:
     check("C", "هیچ کپی محلی از فهرست ماه‌ها نمانده",
           not duplicates, str(duplicates))
 
-    from utils.persian_date import PersianDate
     from dal.followup_dal import FollowUpDAL
     from dal.intervention_dal import InterventionDAL
     from dal.observation_dal import ObservationDAL
     from dal.teacher_assignment_dal import TeacherAssignmentDAL
     from utils.analytics_helpers import AnalyticsHelpers
     from utils.persian_calendar import TimeGrouper
+    from utils.persian_date import PersianDate
 
     samples = ['1405/06/26', '1405/01/05', '1405/12/01']
     expected = [PersianDate.get_month_label(s) for s in samples]
@@ -301,8 +301,11 @@ try:
 
     # نگهبان: بازصدورها هنوز کار می‌کنند
     try:
-        from config.settings import GRADES as g1, STAFF_ROLES as g2, GRADE_NAMES as g3
-        from models import UserRole as ur, StaffRole as sr
+        from config.settings import GRADE_NAMES as g3
+        from config.settings import GRADES as g1
+        from config.settings import STAFF_ROLES as g2
+        from models import StaffRole as sr
+        from models import UserRole as ur
         exports_ok = all([g1, g2, g3]) and ur is not None and sr is not None
     except Exception as e:
         exports_ok = False

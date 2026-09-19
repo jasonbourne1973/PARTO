@@ -241,9 +241,8 @@ class ExtracurricularService(BaseService):
         """اعتبارسنجی داده‌های فعالیت"""
         errors = []
         
-        if not is_update:
-            if not data.get('student_profile_id'):
-                errors.append("پرونده دانش‌آموز باید انتخاب شود")
+        if not is_update and not data.get('student_profile_id'):
+            errors.append("پرونده دانش‌آموز باید انتخاب شود")
         
         title = self.clean_text(data.get('title'))
         if not title:

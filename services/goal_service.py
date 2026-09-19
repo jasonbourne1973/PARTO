@@ -236,9 +236,8 @@ class GoalService(BaseService):
         """اعتبارسنجی داده‌های هدف"""
         errors = []
         
-        if not is_update:
-            if not data.get('student_profile_id'):
-                errors.append("پرونده دانش‌آموز باید انتخاب شود")
+        if not is_update and not data.get('student_profile_id'):
+            errors.append("پرونده دانش‌آموز باید انتخاب شود")
         
         title = self.clean_text(data.get('title'))
         if not title:
@@ -250,7 +249,7 @@ class GoalService(BaseService):
         start_date, err = self.check_date(data.get('start_date'), "تاریخ شروع")
         if err:
             errors.append(err)
-        target_date, err = self.check_date(data.get('target_date'), "تاریخ هدف")
+        _, err = self.check_date(data.get('target_date'), "تاریخ هدف")
         if err:
             errors.append(err)
         end_date, err = self.check_date(data.get('end_date'), "تاریخ پایان")

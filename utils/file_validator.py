@@ -3,7 +3,7 @@
 """
 
 import hashlib
-from typing import List, Optional, Tuple
+from typing import ClassVar, Optional
 
 from utils.logger import get_logger
 
@@ -44,7 +44,7 @@ class FileValidator:
     """
     
     # انواع فایل‌های مجاز با MIME type
-    ALLOWED_MIME_TYPES = {
+    ALLOWED_MIME_TYPES: ClassVar[dict[str, str]] = {
         # تصاویر
         'image/jpeg': 'image',
         'image/png': 'image',
@@ -106,7 +106,7 @@ class FileValidator:
     }
     
     # پسوندهای مجاز
-    ALLOWED_EXTENSIONS = {
+    ALLOWED_EXTENSIONS: ClassVar[dict[str, str]] = {
         'image': ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'tiff', 'ico'],
         'document': ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'odt', 'ods', 'odp'],
         'audio': ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'wma'],
@@ -116,7 +116,7 @@ class FileValidator:
     }
     
     # حداکثر حجم بر اساس نوع (بایت)
-    MAX_SIZE_BY_TYPE = {
+    MAX_SIZE_BY_TYPE: ClassVar[dict[str, str]] = {
         'image': 10 * 1024 * 1024,      # 10 MB
         'document': 20 * 1024 * 1024,   # 20 MB
         'audio': 30 * 1024 * 1024,      # 30 MB
@@ -134,7 +134,7 @@ class FileValidator:
 
     # امضاهای آغازین فایل‌ها (magic number) برای زمانی که
     # python-magic در دسترس نیست. کلید = MIME، مقدار = لیست امضا.
-    SIGNATURES = {
+    SIGNATURES: ClassVar[dict[str, str]] = {
         'image/jpeg': [b'\xff\xd8\xff'],
         'image/png': [b'\x89PNG\r\n\x1a\n'],
         'image/gif': [b'GIF87a', b'GIF89a'],
@@ -161,7 +161,7 @@ class FileValidator:
 
     # نگاشت MIME امضامحور به MIMEهای مورد انتظارِ پروژه
     # (چند MIME متفاوت می‌توانند یک دستهٔ یکسان باشند)
-    MIME_ALIASES = {
+    MIME_ALIASES: ClassVar[dict[str, str]] = {
         'application/zip': 'application/zip',
         'application/x-rar-compressed': 'application/x-rar-compressed',
         'application/x-7z-compressed': 'application/x-7z-compressed',
@@ -174,7 +174,7 @@ class FileValidator:
 
     # امضاهای خطرناک: فایل اجرایی/اسکریپت با هر پسوندی رد می‌شود.
     # اینها را نمی‌توان «از پسوند» حدس زد؛ تشخیص محتوایی لازم است.
-    DANGEROUS_SIGNATURES = {
+    DANGEROUS_SIGNATURES: ClassVar[dict[str, str]] = {
         'فایل اجرایی ویندوز (PE)': b'MZ',
         'فایل اجرایی لینوکس (ELF)': b'\x7fELF',
         'کلاس جاوا': b'\xca\xfe\xba\xbe',
@@ -283,7 +283,7 @@ class FileValidator:
 
     @classmethod
     def validate_file(cls, file_data: bytes, file_name: str, 
-                      allowed_types: Optional[List[str]] = None) -> Tuple[bool, str, dict]:
+                      allowed_types: Optional[list[str]] = None) -> tuple[bool, str, dict]:
         """
         اعتبارسنجی کامل فایل
         
@@ -385,7 +385,7 @@ class FileValidator:
         return True, "فایل معتبر است", info
     
     @classmethod
-    def validate_extension(cls, file_name: str) -> Tuple[bool, str, str]:
+    def validate_extension(cls, file_name: str) -> tuple[bool, str, str]:
         """
         اعتبارسنجی پسوند فایل
         
@@ -407,7 +407,7 @@ class FileValidator:
         return False, "unknown", ext
     
     @classmethod
-    def validate_size(cls, file_data: bytes, max_size: Optional[int] = None) -> Tuple[bool, str]:
+    def validate_size(cls, file_data: bytes, max_size: Optional[int] = None) -> tuple[bool, str]:
         """
         اعتبارسنجی حجم فایل
         
@@ -502,14 +502,10 @@ class FileValidator:
         
         # فقط 10 کیلوبایت اول را بررسی کن
         sample = file_data[:10240]
-        for pattern in suspicious_patterns:
-            if pattern in sample:
-                return True
-        
-        return False
+        return any(pattern in sample for pattern in suspicious_patterns)
     
     @classmethod
-    def get_allowed_extensions(cls) -> List[str]:
+    def get_allowed_extensions(cls) -> list[str]:
         """دریافت لیست تمام پسوندهای مجاز"""
         all_extensions = []
         for extensions in cls.ALLOWED_EXTENSIONS.values():
@@ -517,7 +513,7 @@ class FileValidator:
         return all_extensions
     
     @classmethod
-    def get_extensions_by_category(cls, category: str) -> List[str]:
+    def get_extensions_by_category(cls, category: str) -> list[str]:
         """دریافت پسوندهای یک دسته خاص"""
         return cls.ALLOWED_EXTENSIONS.get(category, [])
     

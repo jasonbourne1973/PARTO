@@ -348,7 +348,7 @@ class CompetencyDAL:
             cursor.execute(query, params)
             rows = cursor.fetchall()
 
-            used_comp_ids = set(row['competency_id'] for row in rows)
+            used_comp_ids = {row['competency_id'] for row in rows}
             used_competencies = len(used_comp_ids)
             unused_competencies = len(comp_ids) - used_competencies
 
@@ -548,7 +548,7 @@ class CompetencyDAL:
             
             # دریافت مشاهدات دانش‌آموز
             observations = obs_dal.get_by_student_profile(profile_id)
-            observed_comp_ids = set(o.competency_id for o in observations if o.competency_id)
+            observed_comp_ids = {o.competency_id for o in observations if o.competency_id}
             
             # شایستگی‌های بدون مشاهده
             unobserved = [c for c in all_comps if c.id not in observed_comp_ids]

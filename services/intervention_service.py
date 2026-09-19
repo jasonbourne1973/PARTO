@@ -7,6 +7,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from typing import ClassVar
+
 from dal.academic_year_dal import AcademicYearDAL
 from dal.intervention_dal import InterventionDAL
 from dal.observation_dal import ObservationDAL
@@ -29,7 +31,7 @@ class InterventionService(BaseService):
     """
     
     # وضعیت‌های مجاز مداخله
-    VALID_STATUSES = ['planned', 'in_progress', 'done', 'completed', 'cancelled']
+    VALID_STATUSES: ClassVar[list[str]] = ['planned', 'in_progress', 'done', 'completed', 'cancelled']
     
     def __init__(self):
         super().__init__()

@@ -49,14 +49,13 @@ class TestStudentDAL(unittest.TestCase):
     
     def test_create_student(self):
         """تست ایجاد دانش‌آموز"""
-        try:
-            student = self.dal.create(self.test_student)
-            self.assertIsNotNone(student.id)
-            self.assertEqual(student.first_name, 'تست')
-            self.assertEqual(student.last_name, 'دانش‌آموز')
-        except Exception:
-            # ممکن است دیتابیس وجود نداشته باشد
-            pass
+        # بازرسی دهم: این تست قبلاً کل بدنه را در try/except pass گذاشته
+        # بود؛ یعنی حتی اگر assert ها شکست بخورند، تست سبز می‌شد. حالا
+        # واقعاً بررسی می‌کند (دیتابیس موقت در setUp ساخته می‌شود).
+        student = self.dal.create(self.test_student)
+        self.assertIsNotNone(student.id)
+        self.assertEqual(student.first_name, 'تست')
+        self.assertEqual(student.last_name, 'دانش‌آموز')
     
     def test_validate_student(self):
         """تست اعتبارسنجی دانش‌آموز"""
@@ -112,12 +111,9 @@ class TestAcademicYearDAL(unittest.TestCase):
     
     def test_get_active(self):
         """تست دریافت سال فعال"""
-        try:
-            year = self.dal.get_active()
-            # اگر سالی وجود نداشته باشد، None برمی‌گرداند
-            self.assertTrue(year is None or hasattr(year, 'id'))
-        except Exception:
-            pass
+        # بازرسی دهم: بدون try/except پوشاننده تا تست واقعاً بسنجد
+        year = self.dal.get_active()
+        self.assertTrue(year is None or hasattr(year, 'id'))
 
 
 def run_tests():

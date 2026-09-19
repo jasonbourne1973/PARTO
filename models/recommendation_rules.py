@@ -5,7 +5,7 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Optional
 
 
 class RulePriority(Enum):
@@ -50,7 +50,7 @@ class RecommendationRule:
     condition: Callable
     action: Callable
     suggested_intervention_type: Optional[str] = None
-    tags: List[str] = None
+    tags: list[str] = None
     
     def __post_init__(self):
         if self.tags is None:
@@ -83,9 +83,9 @@ class RecommendationResult:
     suggested_action: str
     suggested_intervention_type: Optional[str] = None
     related_competency_id: Optional[int] = None
-    related_observation_ids: Optional[List[int]] = None
+    related_observation_ids: Optional[list[int]] = None
     score: int = 50
-    metadata: Dict = None
+    metadata: dict = None
     
     def __post_init__(self):
         if self.metadata is None:
@@ -472,7 +472,7 @@ class RuleManager:
         self.rules = get_default_rules()
         self._rule_map = {rule.id: rule for rule in self.rules}
     
-    def get_all_rules(self) -> List[RecommendationRule]:
+    def get_all_rules(self) -> list[RecommendationRule]:
         """دریافت همه قوانین"""
         return self.rules.copy()
     
@@ -480,15 +480,15 @@ class RuleManager:
         """دریافت قانون با شناسه"""
         return self._rule_map.get(rule_id)
     
-    def get_rules_by_category(self, category: RecommendationCategory) -> List[RecommendationRule]:
+    def get_rules_by_category(self, category: RecommendationCategory) -> list[RecommendationRule]:
         """دریافت قوانین بر اساس دسته‌بندی"""
         return [r for r in self.rules if r.category == category]
     
-    def get_rules_by_priority(self, priority: RulePriority) -> List[RecommendationRule]:
+    def get_rules_by_priority(self, priority: RulePriority) -> list[RecommendationRule]:
         """دریافت قوانین بر اساس اولویت"""
         return [r for r in self.rules if r.priority == priority]
     
-    def evaluate_rules(self, data: Dict) -> List[RecommendationResult]:
+    def evaluate_rules(self, data: dict) -> list[RecommendationResult]:
         """
         ارزیابی قوانین بر اساس داده‌ها
         
@@ -514,7 +514,7 @@ class RuleManager:
         
         return results
     
-    def get_top_recommendations(self, data: Dict, limit: int = 5) -> List[RecommendationResult]:
+    def get_top_recommendations(self, data: dict, limit: int = 5) -> list[RecommendationResult]:
         """
         دریافت بهترین پیشنهادات
         
@@ -541,7 +541,7 @@ class RuleManager:
             return True
         return False
     
-    def get_rules_summary(self) -> Dict:
+    def get_rules_summary(self) -> dict:
         """دریافت خلاصه قوانین"""
         summary = {
             'total': len(self.rules),

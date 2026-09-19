@@ -45,11 +45,13 @@ DB_DIR = os.path.join(TMP, "database")
 os.makedirs(DB_DIR, exist_ok=True)
 DB = os.path.join(DB_DIR, "partow.db")
 
-import config.settings as settings          # noqa: E402
+import config.settings as settings
+
 settings.DB_PATH = DB
 settings.ATTACHMENTS_DIR = os.path.join(TMP, "attachments")
 
-import database.connection as dbc           # noqa: E402
+import database.connection as dbc
+
 dbc.DB_PATH = DB
 
 RESULTS = []
@@ -86,30 +88,30 @@ print("=" * 74)
 with contextlib.redirect_stdout(io.StringIO()):
     conn = dbc.DatabaseConnection().get_connection()
 
-from dal.staff_dal import StaffDAL                            # noqa: E402
-from dal.academic_year_dal import AcademicYearDAL             # noqa: E402
-from dal.student_academic_profile_dal import (                # noqa: E402
+from dal.academic_year_dal import AcademicYearDAL
+from dal.counseling_session_dal import CounselingSessionDAL
+from dal.observation_dal import ObservationDAL
+from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import (
     StudentAcademicProfileDAL,
 )
-from dal.counseling_session_dal import CounselingSessionDAL   # noqa: E402
-from dal.observation_dal import ObservationDAL                # noqa: E402
-from models.academic_year import AcademicYear                 # noqa: E402
-from models.student_academic_profile import (                 # noqa: E402
+from models.academic_year import AcademicYear
+from models.counseling_session import CounselingSession
+from models.student_academic_profile import (
     StudentAcademicProfile,
 )
-from models.counseling_session import CounselingSession       # noqa: E402
-from services.student_service import StudentService           # noqa: E402
-from services.observation_service import ObservationService   # noqa: E402
-from services.intervention_service import InterventionService  # noqa: E402
-from services.followup_service import FollowUpService         # noqa: E402
-from services.counseling_service import CounselingService     # noqa: E402
-from services.advanced_search_service import (                # noqa: E402
+from services.advanced_search_service import (
     AdvancedSearchService,
 )
-from services.teacher_performance_service import (            # noqa: E402
+from services.counseling_service import CounselingService
+from services.followup_service import FollowUpService
+from services.intervention_service import InterventionService
+from services.observation_service import ObservationService
+from services.student_service import StudentService
+from services.teacher_performance_service import (
     TeacherPerformanceService,
 )
-from services.teacher_report_service import TeacherReportService  # noqa: E402
+from services.teacher_report_service import TeacherReportService
 
 CTX = {}
 

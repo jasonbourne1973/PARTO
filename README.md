@@ -63,7 +63,10 @@ python verify_fixes6.py     # دور ۶  — ۳۴ بررسی
 python verify_fixes7.py     # دور ۷  — ۳۰ بررسی
 python verify_fixes8.py     # دور ۸  — ۶۲ بررسی
 python verify_fixes9.py     # دور ۹  — ۳۸ بررسی
+python verify_fixes10.py    # دور ۱۰ — ۳۷ بررسی (پاکی lint و صحت ClassVar)
 ```
+
+جمعِ ۱۰ مجموعه: **۳۶۱ بررسی** — همه باید سبز باشند.
 
 پاک‌سازی سبک کد: `ruff check` (تنظیمات در `ruff.toml`).
 
@@ -100,7 +103,11 @@ PARTO/
    نگاشت ردیف را می‌گیرد (`KeyError/TypeError/…`) تا خطاهای برنامه‌نویسی
    پنهان نشوند؛ در عوض `services/` و `views/` به‌عنوان «مرز» عمداً هر شکستی
    را به پیام گویا/`QMessageBox` تبدیل می‌کنند.
-5. **حذف منطقی:** همهٔ موجودیت‌ها `is_deleted`/`deleted_at` دارند و
+6. **پاکی lint:** `ruff check .` روی کل درخت **صفر یافته** می‌دهد. استثنای
+   `BLE001` در `services/`، `views/`، `database/`، `utils/`، `models/` و
+   `main.py` عمدی است و در `ruff.toml` با عنوان «سیاست مرز خطا» مستند شده؛
+   `dal/` از این استثنا بیرون است.
+7. **حذف منطقی:** همهٔ موجودیت‌ها `is_deleted`/`deleted_at` دارند و
    کوئری‌ها به‌صورت پیش‌فرض رکوردهای حذف‌شده را برنمی‌گردانند.
 
 ## گزارش بازرسی‌ها
@@ -112,11 +119,13 @@ PARTO/
 | ۷ | `docs/review_report_7_fa.md` |
 | ۸ | `docs/review_report_8_fa.md` |
 | ۹ | `docs/review_report_9_fa.md` |
+| ۱۰ | `docs/review_report_10_fa.md` |
 
 ## نسخه
 
 - `APP_VERSION` در `config/settings.py` (اکنون **27.2.3**)
-- `DB_VERSION` در `config/settings.py` (اکنون **۸** — ایندکس‌گذاری کلیدهای خارجی)
+- `DB_VERSION` در `config/settings.py` (اکنون **۹** — ایندکس‌گذاری کلیدهای خارجی + یکدست‌سازی تاریخ‌های موجود)
+- کیفیت کد: `ruff check .` → **صفر یافته** (تنظیمات مستند در `ruff.toml`)
 
 ## پروانه
 

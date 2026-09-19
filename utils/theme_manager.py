@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Dict, Optional
+from typing import ClassVar, Optional
 
 from PySide6.QtCore import QEvent, QObject, QSettings
 from PySide6.QtWidgets import QApplication, QWidget
@@ -51,7 +51,7 @@ class ThemeManager:
         "#111111",  # متن مشکی
     )
 
-    THEMES: Dict[str, Dict[str, str]] = {
+    THEMES: ClassVar[dict[str, dict[str, str]]] = {
         "royal": {
             "title": "آبی سلطنتی و طلایی",
             "#0B2E4F": "#0B2E4F",

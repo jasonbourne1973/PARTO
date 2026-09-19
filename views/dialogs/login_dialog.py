@@ -316,7 +316,9 @@ class LoginDialog(QDialog):
                 # ===== اصلاح: پنج مقدار، هر کدام برای کار خودش =====
                 # staff_id → Audit Log و set_current_user
                 # db_user_id → UPDATE روی جدول users
-                staff_id, user_role, full_name, must_change_password, db_user_id = user
+                # full_name عمداً استفاده نمی‌شود؛ نام نمایشی از خودِ
+                # رکورد کادر (پنجرهٔ اصلی) خوانده می‌شود.
+                staff_id, user_role, _full_name, must_change_password, db_user_id = user
                 user_id = staff_id
                 self.current_user_id = user_id
 

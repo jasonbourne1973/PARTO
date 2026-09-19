@@ -2,6 +2,8 @@
 مدل اطلاعات زمینه‌ای خانواده (Family Context)
 """
 
+from typing import ClassVar
+
 from models.base import BaseModel
 
 
@@ -20,7 +22,7 @@ class FamilyContext(BaseModel):
     GUARDIAN_GRANDPARENTS = "grandparents"
     GUARDIAN_OTHER = "other"
     
-    GUARDIAN_CHOICES = [
+    GUARDIAN_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (GUARDIAN_BOTH, "هر دو والدین"),
         (GUARDIAN_MOTHER, "فقط مادر"),
         (GUARDIAN_FATHER, "فقط پدر"),
@@ -34,7 +36,7 @@ class FamilyContext(BaseModel):
     CONTACT_POOR = "poor"
     CONTACT_IRREGULAR = "irregular"
     
-    CONTACT_CHOICES = [
+    CONTACT_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (CONTACT_GOOD, "خوب و مستمر"),
         (CONTACT_MODERATE, "متوسط"),
         (CONTACT_POOR, "ضعیف"),

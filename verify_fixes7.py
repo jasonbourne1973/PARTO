@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 راستی‌آزمایی دور هفتم بازرسی — رفع موارد باقی‌مانده
 
@@ -110,8 +109,8 @@ try:
     print("بخش B: چرخهٔ کاربران از مسیر رابط کاربری")
     print("=" * 76)
 
-    from dal.user_dal import UserDAL
     from dal.staff_dal import StaffDAL
+    from dal.user_dal import UserDAL
     from models.staff import Staff
     from models.user import User
 
@@ -187,8 +186,8 @@ try:
     print("بخش C: اعتبارسنجی محتوای فایل پیوست")
     print("=" * 76)
 
-    from utils.file_validator import FileValidator, MAGIC_AVAILABLE
     from utils.file_validator import MAGIC_AVAILABLE as _magic
+    from utils.file_validator import FileValidator
 
     check("C", "utils.file_validator بدون python-magic هم import می‌شود",
           FileValidator is not None,
@@ -215,7 +214,7 @@ try:
     print("بخش D: یکسان‌سازی نام موجودیت در Audit Log")
     print("=" * 76)
 
-    from utils.security import normalize_entity_type, AUDIT_ENTITY_ALIASES
+    from utils.security import AUDIT_ENTITY_ALIASES, normalize_entity_type
 
     check("D", "نگاشت نام موجودیت مرکزی وجود دارد",
           AUDIT_ENTITY_ALIASES.get('student') == 'students')
@@ -226,7 +225,6 @@ try:
 
     # ردیف واقعی: ساخت دانش‌آموز (تریگر می‌نویسد) و خواندن با نام مفرد
     from services.student_service import StudentService
-    from utils.persian_date import PersianDate
 
     db.set_current_user(1)
     ss = StudentService()
@@ -251,8 +249,8 @@ try:
     print("بخش E: کنترل دسترسی نقش‌های کادر")
     print("=" * 76)
 
-    from utils.security import ROLE_PERMISSIONS, get_role_permissions
     from models.enums import StaffRole
+    from utils.security import ROLE_PERMISSIONS, get_role_permissions
 
     staff_roles = {r.value for r in StaffRole}
     missing = sorted(staff_roles - set(ROLE_PERMISSIONS))

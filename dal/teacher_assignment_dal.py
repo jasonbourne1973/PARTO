@@ -288,7 +288,7 @@ class TeacherAssignmentDAL:
                 AND o.staff_id = ?
                 AND o.is_deleted = 0
             """
-            obs_params = list(student_ids) + [staff_id]
+            obs_params = [*list(student_ids), staff_id]
             
             if start_date:
                 obs_query += " AND o.observation_date >= ?"
@@ -317,7 +317,7 @@ class TeacherAssignmentDAL:
                 AND i.staff_id = ?
                 AND i.is_deleted = 0
             """
-            inter_params = list(student_ids) + [staff_id]
+            inter_params = [*list(student_ids), staff_id]
             
             if start_date:
                 inter_query += " AND i.date >= ?"
@@ -340,7 +340,7 @@ class TeacherAssignmentDAL:
                 AND f.staff_id = ?
                 AND f.is_deleted = 0
             """
-            follow_params = list(student_ids) + [staff_id]
+            follow_params = [*list(student_ids), staff_id]
             
             if start_date:
                 follow_query += " AND f.date >= ?"
@@ -623,9 +623,10 @@ class TeacherAssignmentDAL:
         assignment.deleted_at = row['deleted_at']
         assignment.deleted_by = row['deleted_by']
         
-        # ✅ اصلاح: استفاده از دسترسی مستقیم به جای متد get()
-        assignment.student_name = row['student_name'] if 'student_name' in row.keys() else None
-        assignment.teacher_name = row['teacher_name'] if 'teacher_name' in row.keys() else None
-        assignment.academic_year_title = row['academic_year_title'] if 'academic_year_title' in row.keys() else None
+        # ستون‌های JOIN شده ممکن است در همهٔ کوئری‌ها نباشند؛
+        # row.get مقدار پیش‌فرض None می‌دهد (بازرسی دهم: ساده‌سازی SIM401)
+        assignment.student_name = row.get('student_name')
+        assignment.teacher_name = row.get('teacher_name')
+        assignment.academic_year_title = row.get('academic_year_title')
         
         return assignment

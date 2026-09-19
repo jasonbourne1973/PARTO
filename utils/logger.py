@@ -7,6 +7,7 @@ import logging
 import os
 import sys
 from logging.handlers import RotatingFileHandler
+from typing import ClassVar
 
 from utils.time_utils import utc_now_iso
 
@@ -90,7 +91,7 @@ class Logger:
     """مدیریت لاگ‌های برنامه"""
     
     _instance = None
-    _loggers = {}
+    _loggers: ClassVar[dict[str, str]] = {}
     
     def __new__(cls):
         if cls._instance is None:

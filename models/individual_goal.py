@@ -3,6 +3,8 @@
 تعیین و پیگیری اهداف تربیتی و آموزشی برای هر دانش‌آموز
 """
 
+from typing import ClassVar
+
 from models.base import BaseModel
 from utils.time_utils import utc_now_iso
 
@@ -27,7 +29,7 @@ class IndividualGoal(BaseModel):
     STATUS_ABANDONED = "abandoned"      # رها شده
     STATUS_REVIEW = "review"            # نیاز به بازبینی
     
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (STATUS_DRAFT, "پیش‌نویس"),
         (STATUS_ACTIVE, "فعال"),
         (STATUS_IN_PROGRESS, "در حال پیشرفت"),
@@ -42,7 +44,7 @@ class IndividualGoal(BaseModel):
     PRIORITY_MEDIUM = "medium"
     PRIORITY_LOW = "low"
     
-    PRIORITY_CHOICES = [
+    PRIORITY_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (PRIORITY_HIGH, "بالا"),
         (PRIORITY_MEDIUM, "متوسط"),
         (PRIORITY_LOW, "پایین"),
@@ -57,7 +59,7 @@ class IndividualGoal(BaseModel):
     DOMAIN_SKILL = "skill"                  # مهارتی
     DOMAIN_OTHER = "other"                  # سایر
     
-    DOMAIN_CHOICES = [
+    DOMAIN_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (DOMAIN_EDUCATIONAL, "آموزشی"),
         (DOMAIN_BEHAVIORAL, "رفتاری"),
         (DOMAIN_SOCIAL, "اجتماعی"),

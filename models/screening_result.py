@@ -2,6 +2,8 @@
 مدل نتیجه غربالگری (Screening Result)
 """
 
+from typing import ClassVar
+
 from models.base import BaseModel
 
 
@@ -25,7 +27,7 @@ class ScreeningResult(BaseModel):
     STATUS_IN_PROGRESS = "in_progress"
     STATUS_INVALID = "invalid"
     
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (STATUS_PENDING, "در انتظار تکمیل"),
         (STATUS_COMPLETED, "تکمیل شده"),
         (STATUS_IN_PROGRESS, "در حال اجرا"),

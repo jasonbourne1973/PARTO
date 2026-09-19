@@ -9,6 +9,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from typing import ClassVar
+
 from config.settings import ATTACHMENTS_DIR
 from dal.attachment_dal import AttachmentDAL
 from models.attachment import Attachment
@@ -27,7 +29,7 @@ class AttachmentService(BaseService):
     """
     
     # انواع فایل‌های مجاز
-    ALLOWED_FILE_TYPES = {
+    ALLOWED_FILE_TYPES: ClassVar[dict[str, str]] = {
         'image': ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'tiff', 'ico'],
         'document': ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'odt', 'ods', 'odp'],
         'audio': ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'wma'],

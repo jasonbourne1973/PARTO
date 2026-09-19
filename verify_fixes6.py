@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 راستی‌آزمایی دور ششم بازرسی — ~۲۵ بررسی
 
@@ -15,15 +14,11 @@
 اجرا:  python3 verify_fixes6.py
 """
 
-import ast
 import contextlib
 import io
 import os
-import py_compile
-import re
 import shutil
 import subprocess
-import sqlite3
 import sys
 import tempfile
 
@@ -68,9 +63,9 @@ try:
     print("بخش A: پایداری تراکنش — «تراکنش سرگردان»")
     print("=" * 76)
 
-    from utils.persian_date import PersianDate
-    from models.staff import Staff
     from dal.staff_dal import StaffDAL
+    from models.staff import Staff
+    from utils.persian_date import PersianDate
 
     db.set_current_user(1)
     st = Staff()
@@ -80,8 +75,8 @@ try:
     with contextlib.redirect_stdout(io.StringIO()):
         st = StaffDAL().create(st)
 
-    from services.student_service import StudentService
     from services.observation_service import ObservationService
+    from services.student_service import StudentService
 
     TODAY = PersianDate.get_today()
     ss = StudentService()
@@ -398,7 +393,7 @@ try:
     print("=" * 76)
 
     from utils.security import (
-        Permission, ROLE_PERMISSIONS, get_role_permissions, UserRole, SessionManager,
+        get_role_permissions,
     )
 
     manager_perms = get_role_permissions('manager')

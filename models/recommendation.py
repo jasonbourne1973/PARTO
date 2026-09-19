@@ -2,6 +2,8 @@
 مدل پیشنهادات - ذخیره پیشنهادات تولیدشده در دیتابیس
 """
 
+from typing import ClassVar
+
 from models.base import BaseModel
 from utils.time_utils import utc_now_iso
 
@@ -25,7 +27,7 @@ class Recommendation(BaseModel):
     STATUS_COMPLETED = "completed"      # تکمیل شده
     STATUS_ARCHIVED = "archived"        # بایگانی شده
     
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (STATUS_PENDING, "در انتظار بررسی"),
         (STATUS_ACCEPTED, "پذیرفته شده"),
         (STATUS_REJECTED, "رد شده"),

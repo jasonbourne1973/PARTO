@@ -211,10 +211,7 @@ class ChangePasswordDialog(QDialog):
         button_layout = QHBoxLayout()
         button_layout.setSpacing(10)
 
-        if self.is_first_login:
-            save_text = "تغییر رمز و ورود"
-        else:
-            save_text = "تغییر رمز عبور"
+        save_text = "تغییر رمز و ورود" if self.is_first_login else "تغییر رمز عبور"
 
         self.save_btn = QPushButton(save_text)
         self.save_btn.setMinimumHeight(40)

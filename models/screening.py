@@ -2,6 +2,8 @@
 مدل غربالگری (Screening) - یکپارچه با ابزارها و نتایج
 """
 
+from typing import ClassVar
+
 from models.base import BaseModel
 
 
@@ -23,7 +25,7 @@ class Screening(BaseModel):
     STATUS_IN_PROGRESS = "in_progress"
     STATUS_CANCELLED = "cancelled"
     
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (STATUS_PENDING, "در انتظار"),
         (STATUS_COMPLETED, "تکمیل شده"),
         (STATUS_IN_PROGRESS, "در حال اجرا"),

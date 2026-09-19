@@ -618,7 +618,8 @@ class StudentsPage(QWidget):
             importer = ExcelImporter()
             
             # ایمپورت
-            success, message, imported_count, errors = importer.import_students_from_excel(
+            # imported_count داخل message گزارش می‌شود
+            success, message, _imported_count, errors = importer.import_students_from_excel(
                 file_path, year_id
             )
             

@@ -2,6 +2,8 @@
 مدل پرونده سالانه دانش‌آموز - با ارتباط به FamilyContext و ParentInterview
 """
 
+from typing import ClassVar
+
 from models.base import BaseModel
 
 
@@ -34,7 +36,7 @@ class StudentAcademicProfile(BaseModel):
     # «ثابت کلاسی» در پروژه: از ۱۲۷ ارجاع، فقط همین ۲ مورد خراب بودند.
     STATUS_ARCHIVED = "archived"
 
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (STATUS_ACTIVE, "فعال"),
         (STATUS_INACTIVE, "غیرفعال"),
         (STATUS_GRADUATED, "فارغ‌التحصیل"),

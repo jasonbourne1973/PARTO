@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 راستی‌آزمایی دور هشتم بازرسی — زمان UTC، اعتبارسنجی تاریخ، ایندکس‌ها و بهداشت مخزن
 
@@ -108,9 +107,13 @@ try:
     check("A", "هیچ زمان محلی naive باقی نمانده", not naive, str(naive[:4]))
 
     # ۲) رفتار واقعی توابع زمان
-    from utils.time_utils import (utc_now, utc_now_iso, utc_shift_iso,
-                                  utc_shift_sql, parse_timestamp, age_days,
-                                  is_older_than)
+    from utils.time_utils import (
+        age_days,
+        is_older_than,
+        parse_timestamp,
+        utc_now_iso,
+        utc_shift_iso,
+    )
     iso = utc_now_iso()
     check("A", "utc_now_iso با +00:00 ذخیره می‌شود", iso.endswith('+00:00'), iso)
     check("A", "utc_shift_iso(days=-1) گذشته است",
@@ -130,8 +133,8 @@ try:
 
     # ۳) بررسی کاربردی: پاک‌سازی اعلان‌های قدیمی (باگ فرمت مخلوط)
     from dal.notification_dal import NotificationDAL
-    from models.notification import Notification
     from dal.staff_dal import StaffDAL
+    from models.notification import Notification
     from models.staff import Staff
 
     st = Staff()
@@ -402,7 +405,7 @@ try:
         RUFF = 'ruff'
 
     def ruff(*args):
-        return subprocess.run([RUFF] + list(args), capture_output=True, text=True,
+        return subprocess.run([RUFF, *list(args)], capture_output=True, text=True,
                               cwd=os.path.dirname(os.path.abspath(__file__)))
 
     r = ruff('check', '--select', 'F', 'dal', 'services', 'views', 'models',
@@ -420,15 +423,18 @@ try:
 
     # بازصدورها: باید همچنان کار کنند
     try:
-        from config.settings import (GRADES as G1, STAFF_ROLES as G2,
-                                     GRADE_NAMES as G3, LIVING_STATUSES as G4)
+        from config.settings import GRADE_NAMES as G3
+        from config.settings import GRADES as G1
+        from config.settings import LIVING_STATUSES as G4
+        from config.settings import STAFF_ROLES as G2
         ok_export = all([G1, G2, G3, G4])
     except Exception as e:
         ok_export = False
         print("     خطا:", e)
     check("E", "config.settings بازصدورهای constants را حفظ کرده", ok_export)
     try:
-        from models import UserRole as UR, StaffRole as SR
+        from models import StaffRole as SR
+        from models import UserRole as UR
         ok_models = UR is not None and SR is not None
     except Exception as e:
         ok_models = False
@@ -489,12 +495,13 @@ try:
     check("E", "UserDAL.create کاربر را می‌سازد", u is not None and u.id is not None)
 
     # متدهای زمانی مدل‌ها نباید NameError بدهند (رگرسیون بازرسی هشتم)
+    from datetime import datetime as _dt
+
+    from models.analytics_models import AnalyticsDashboardData as AnalyticsSummary
     from models.base import BaseModel
+    from models.individual_goal import IndividualGoal
     from models.notification import Notification
     from models.recommendation import Recommendation
-    from models.individual_goal import IndividualGoal
-    from models.analytics_models import AnalyticsDashboardData as AnalyticsSummary
-    from datetime import datetime as _dt
 
     try:
         n = Notification()

@@ -584,8 +584,8 @@ class ClassReportPage(QWidget):
         comp_stats = data.get('competency_stats', {})
         self.competency_table.setRowCount(len(comp_stats))
         
-        row = 0
-        for name, stats in comp_stats.items():
+        # بازرسی دهم: به‌جای شمارندهٔ دستی، enumerate
+        for row, (name, stats) in enumerate(comp_stats.items()):
             self.competency_table.setItem(row, 0, QTableWidgetItem(name))
             self.competency_table.setItem(row, 1, QTableWidgetItem(str(stats.get('count', 0))))
             self.competency_table.setItem(row, 2, QTableWidgetItem(str(stats.get('avg_severity', 0))))
@@ -610,7 +610,6 @@ class ClassReportPage(QWidget):
             item.setForeground(color)
             self.competency_table.setItem(row, 5, item)
             self.competency_table.setRowHeight(row, 30)
-            row += 1
     
     def display_students(self, data):
         """نمایش لیست دانش‌آموزان"""

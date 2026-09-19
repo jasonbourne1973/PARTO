@@ -645,7 +645,7 @@ class AnalyticsDashboardPage(QWidget):
                 'completed': 'تکمیل شده',
                 'cancelled': 'لغو شده'
             }
-            labels = [status_map.get(k, k) for k in inter_status.keys() if k != 'total']
+            labels = [status_map.get(k, k) for k in inter_status if k != 'total']
             values = [v for k, v in inter_status.items() if k != 'total']
             canvas = ChartHelper.create_pie_chart(labels, values, None, "وضعیت مداخلات")
         else:
@@ -663,7 +663,7 @@ class AnalyticsDashboardPage(QWidget):
                 'closed': 'مختومه',
                 'cancelled': 'لغو شده'
             }
-            labels = [status_map.get(k, k) for k in follow_status.keys() if k != 'total']
+            labels = [status_map.get(k, k) for k in follow_status if k != 'total']
             values = [v for k, v in follow_status.items() if k != 'total']
             canvas = ChartHelper.create_pie_chart(labels, values, None, "وضعیت پیگیری‌ها")
         else:

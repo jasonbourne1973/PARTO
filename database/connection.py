@@ -2,6 +2,7 @@
 مدیریت اتصال به دیتابیس SQLite - نسخه اصلاح شده با Migration
 """
 
+import contextlib
 import os
 import sqlite3
 
@@ -475,12 +476,10 @@ class DatabaseConnection:
                 # برنامه به خاطر ترمیم ساختار نباید بالا نیاید؛
                 # خطا ثبت می‌شود تا در لاگ قابل پیگیری باشد.
                 print(f"⚠️ ترمیم ساختار ({module_name}) کامل نشد: {e}")
-                try:
+                # اگر rollback هم ممکن نبود، اتصال در گام بعدی بازسازی
+                # می‌شود؛ بالا آمدن برنامه اولویت دارد.
+                with contextlib.suppress(Exception):
                     self._connection.rollback()
-                except Exception:  # noqa: S110 - بالاآمدن برنامه اولویت دارد
-                    # اگر rollback هم ممکن نبود، اتصال در گام بعدی
-                    # بازسازی می‌شود؛ بالا آمدن برنامه اولویت دارد.
-                    pass
 
     
     def _get_db_version(self):
@@ -553,12 +552,10 @@ class DatabaseConnection:
             return
         except Exception as e:
             print(f"⚠️ ارتقاء با MigrationManager کامل نشد: {e}")
-            try:
+            # مسیر جایگزینِ migration در ادامه اجرا می‌شود؛ شکست
+            # rollback مانع آن نیست.
+            with contextlib.suppress(Exception):
                 self._connection.rollback()
-            except Exception:  # noqa: S110 - مسیر جایگزین ادامه می‌یابد
-                # مسیر جایگزینِ migration در ادامه اجرا می‌شود؛
-                # شکست rollback مانع آن نیست.
-                pass
 
         # ===== مسیر جایگزین (fallback) =====
         migrations = {
@@ -1561,11 +1558,9 @@ class DatabaseConnection:
         if hasattr(value, "value") and value.value is not value:
             return DatabaseConnection._adapt_sqlite_value(value.value)
         if hasattr(value, "isoformat"):
-            try:
+            # شیء شبیه‌تاریخ ولی با isoformat خراب → ادامه با str(value)
+            with contextlib.suppress(Exception):
                 return value.isoformat()
-            except Exception:  # noqa: S110 - بازگشت به str(value)
-                # شیء شبیه‌تاریخ ولی با isoformat خراب → رشتهٔ امن
-                pass
         # جلوگیری از خطای «parameters are of unsupported type» برای اشیایی
         # مثل Path یا مقادیر سفارشی؛ DALها معمولاً این مقادیر را متنی می‌خواهند.
         return str(value)
@@ -1661,20 +1656,16 @@ class DatabaseConnection:
         نگرفته باشد. کار نیمه‌تمام آن‌جا نباید ذخیره شود، پس
         rollback می‌کنیم و در لاگ هشدار می‌دهیم.
         """
-        try:
+        # شکست rollback هم پذیرفته است؛ هشدار زیر به کاربر می‌رسد.
+        with contextlib.suppress(Exception):
             if self._connection:
                 self._connection.rollback()
-        except Exception:  # noqa: S110 - هشدار زیر به کاربر می‌رسد
-            # شکست rollback هم پذیرفته است؛ هشدار زیر به کاربر می‌رسد.
-            pass
-        try:
+        # حتی چاپ هشدار هم ممکن است شکست بخورد (کنسول بسته)
+        with contextlib.suppress(Exception):
             print(
                 "⚠️ تراکنشِ بازِ جاافتاده بسته شد (rollback). "
                 "یعنی یک نوشتن قبلی نیمه‌کاره مانده بود."
             )
-        except Exception:  # noqa: S110 - کنسول ممکن است بسته باشد
-            # حتی چاپ هشدار هم ممکن است شکست بخورد (کنسول بسته)
-            pass
 
 
     def discard_pending_writes(self):

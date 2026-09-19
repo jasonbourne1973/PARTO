@@ -193,7 +193,7 @@ def _build_key(prefix, func, args, kwargs):
 
     # برای متدها، self را حذف کن و نام کلاس را جایگزین کن
     if args and _is_method(func, args[0]):
-        call_args = (f"<{type(args[0]).__name__}>",) + args[1:]
+        call_args = (f"<{type(args[0]).__name__}>", *args[1:])
 
     arg_parts = [_stable_repr(value) for value in call_args]
     kwarg_parts = [

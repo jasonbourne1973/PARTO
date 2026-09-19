@@ -2,6 +2,7 @@
 PARTOW - ورودی اصلی برنامه - نسخه دیباگ
 """
 
+import contextlib
 import os
 import sys
 import traceback
@@ -56,13 +57,11 @@ def main():
             sys.exit(0)
         
         # ===== تنظیم آیکون پنجره اصلی =====
-        try:
+        # نبود/خرابی فایل آیکون نباید بالا آمدن برنامه را متوقف کند
+        with contextlib.suppress(Exception):
             from config.settings import LOGO_ICON_PATH
             if os.path.exists(LOGO_ICON_PATH):
                 window.setWindowIcon(QIcon(LOGO_ICON_PATH))
-        except Exception:  # noqa: S110 - نبود آیکون نباید اجرا را متوقف کند
-            # نبود/خرابی فایل آیکون نباید بالا آمدن برنامه را متوقف کند
-            pass
         
         print("🔵 مرحله 6: نمایش پنجره...")
         window.show()

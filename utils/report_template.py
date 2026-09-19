@@ -274,10 +274,7 @@ class ReportTemplate:
         lines.append(f"│ {title:^56} │")
         lines.append("├" + "─" * 58 + "┤")
         
-        if isinstance(items, dict):
-            items_list = items.items()
-        else:
-            items_list = items
+        items_list = items.items() if isinstance(items, dict) else items
         
         for key, value in items_list:
             key_str = ReportTemplate._remove_emoji(str(key)) if key else ""

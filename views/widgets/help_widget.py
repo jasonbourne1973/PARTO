@@ -208,10 +208,12 @@ class HelpWidget(QFrame):
     def eventFilter(self, watched, event):
         """باز کردن راهنما با کلیک روی نوار زرد، آیکون یا عنوان."""
         targets = getattr(self, "_help_click_targets", ())
-        if watched in targets and event.type() == QEvent.Type.MouseButtonRelease:
-            if event.button() == Qt.MouseButton.LeftButton:
-                self.show_full_help()
-                return True
+        # بازرسی دهم: شرط‌های تودرتو با «and» ادغام شدند
+        if (watched in targets
+                and event.type() == QEvent.Type.MouseButtonRelease
+                and event.button() == Qt.MouseButton.LeftButton):
+            self.show_full_help()
+            return True
         return super().eventFilter(watched, event)
 
     def add_help_button(self, widget: QWidget):

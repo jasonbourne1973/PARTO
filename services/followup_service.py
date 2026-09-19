@@ -7,6 +7,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from typing import ClassVar
+
 from dal.academic_year_dal import AcademicYearDAL
 from dal.followup_dal import FollowUpDAL
 from dal.intervention_dal import InterventionDAL
@@ -28,10 +30,10 @@ class FollowUpService(BaseService):
     """
     
     # وضعیت‌های مجاز پیگیری
-    VALID_STATUSES = ['pending', 'done', 'continued', 'closed', 'cancelled']
+    VALID_STATUSES: ClassVar[list[str]] = ['pending', 'done', 'continued', 'closed', 'cancelled']
     
     # نوع‌های نتیجه مجاز
-    VALID_RESULT_TYPES = ['improved', 'no_change', 'continued', 'new_status', 'insufficient', 'needs_more']
+    VALID_RESULT_TYPES: ClassVar[list[str]] = ['improved', 'no_change', 'continued', 'new_status', 'insufficient', 'needs_more']
     
     def __init__(self):
         super().__init__()
