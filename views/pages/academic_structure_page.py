@@ -832,7 +832,7 @@ class AcademicStructurePage(QWidget):
                 self.class_table.setRowHeight(row, 35)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری کلاس‌ها:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری کلاس‌ها:\n{e!s}")
     
     def add_class(self):
         """افزودن کلاس جدید"""
@@ -869,7 +869,7 @@ class AcademicStructurePage(QWidget):
             QMessageBox.information(self, "موفقیت", f"✅ کلاس {name} با موفقیت اضافه شد.")
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در افزودن کلاس:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در افزودن کلاس:\n{e!s}")
     
     def edit_class(self, class_obj):
         """ویرایش کلاس"""
@@ -895,7 +895,7 @@ class AcademicStructurePage(QWidget):
                 self.load_classes()
                 QMessageBox.information(self, "موفقیت", "✅ کلاس با موفقیت حذف شد.")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
     # ============================================================
     # متدهای تب اختصاص معلم
@@ -953,7 +953,7 @@ class AcademicStructurePage(QWidget):
                 self.assign_table.setRowHeight(row, 40)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری انتساب‌ها:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری انتساب‌ها:\n{e!s}")
     
     def open_assign_dialog(self):
         """باز کردن دیالوگ اختصاص معلم"""
@@ -987,7 +987,7 @@ class AcademicStructurePage(QWidget):
                 self.load_teacher_students()
                 QMessageBox.information(self, "موفقیت", "✅ اختصاص معلم با موفقیت حذف شد.")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
     # ============================================================
     # متدهای تب دانش‌آموزان معلم
@@ -1028,7 +1028,7 @@ class AcademicStructurePage(QWidget):
                 self.ts_students_table.setRowHeight(row, 35)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{e!s}")
     
     def on_ts_student_double_clicked(self, item):
         """وقتی دانش‌آموز دابل‌کلیک می‌شود"""

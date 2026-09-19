@@ -3,6 +3,7 @@
 """
 
 import json
+import sqlite3
 
 from database.connection import DatabaseConnection
 from models.screening_tool import ScreeningTool
@@ -236,7 +237,7 @@ class ScreeningToolDAL:
         if row['domains']:
             try:
                 tool.domains = json.loads(row['domains'])
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 tool.domains = None
         else:
             tool.domains = None
@@ -244,7 +245,7 @@ class ScreeningToolDAL:
         if row['sub_domains']:
             try:
                 tool.sub_domains = json.loads(row['sub_domains'])
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 tool.sub_domains = None
         else:
             tool.sub_domains = None
@@ -252,7 +253,7 @@ class ScreeningToolDAL:
         if row['scoring_scale']:
             try:
                 tool.scoring_scale = json.loads(row['scoring_scale'])
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 tool.scoring_scale = None
         else:
             tool.scoring_scale = None
@@ -263,7 +264,7 @@ class ScreeningToolDAL:
         if row['cutoff_scores']:
             try:
                 tool.cutoff_scores = json.loads(row['cutoff_scores'])
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 tool.cutoff_scores = None
         else:
             tool.cutoff_scores = None

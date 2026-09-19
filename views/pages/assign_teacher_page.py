@@ -356,7 +356,7 @@ class AssignTeacherPage(QWidget):
             self.students = self.student_dal.get_all()
             self.display_no_teacher_students()
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{e!s}")
     
     def load_assignments(self):
         """بارگذاری انتساب‌های معلم"""
@@ -506,7 +506,7 @@ class AssignTeacherPage(QWidget):
                 self.no_teacher_table.setRowHeight(row, 35)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{e!s}")
     
     def clear_search(self):
         """پاک کردن جستجو"""
@@ -577,4 +577,4 @@ class AssignTeacherPage(QWidget):
                 self.load_students()
                 QMessageBox.information(self, "موفقیت", "اختصاص معلم با موفقیت حذف شد.")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")

@@ -243,7 +243,7 @@ class FollowUpsPage(QWidget):
             self.display_followups(self.followups)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{e!s}")
     
     def clear_search(self):
         """پاک کردن جستجو"""
@@ -257,7 +257,7 @@ class FollowUpsPage(QWidget):
             self.followups = self.followup_service.get_all_followups(limit=100)
             self.display_followups(self.followups)
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری پیگیری‌ها:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری پیگیری‌ها:\n{e!s}")
     
     def filter_followups(self):
         """فیلتر پیگیری‌ها بر اساس وضعیت و معلم"""
@@ -382,4 +382,4 @@ class FollowUpsPage(QWidget):
                 self.filter_followups()
                 QMessageBox.information(self, "موفقیت", "پیگیری با موفقیت حذف شد")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")

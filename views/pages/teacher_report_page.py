@@ -525,7 +525,7 @@ class TeacherReportPage(QWidget):
             QMessageBox.information(self, "موفقیت", "گزارش با موفقیت تولید شد.")
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در تولید گزارش:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در تولید گزارش:\n{e!s}")
         
         finally:
             self.progress_bar.setVisible(False)
@@ -947,7 +947,7 @@ class TeacherReportPage(QWidget):
             self.report_service.export_to_excel(self.current_report, file_path)
             QMessageBox.information(self, "موفقیت", f"فایل Excel با موفقیت در {file_path} ذخیره شد.")
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در خروجی Excel:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در خروجی Excel:\n{e!s}")
     
     def export_pdf(self):
         """خروجی PDF گزارش معلم"""
@@ -971,4 +971,4 @@ class TeacherReportPage(QWidget):
             self.report_service.export_to_pdf(self.current_report, file_path)
             QMessageBox.information(self, "موفقیت", f"فایل PDF با موفقیت در {file_path} ذخیره شد.")
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در خروجی PDF:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در خروجی PDF:\n{e!s}")

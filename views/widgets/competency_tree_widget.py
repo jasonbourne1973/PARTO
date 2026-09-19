@@ -279,7 +279,7 @@ class CompetencyTreeWidget(QWidget):
             
         except Exception as e:
             logger.error(f"❌ خطا در بارگذاری شایستگی‌ها: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری:\n{e!s}")
     
     def search_competencies(self):
         """جستجو در شایستگی‌ها"""

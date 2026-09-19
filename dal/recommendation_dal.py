@@ -3,6 +3,7 @@
 """
 
 import json
+import sqlite3
 
 from database.connection import DatabaseConnection
 from models.recommendation import Recommendation
@@ -334,7 +335,7 @@ class RecommendationDAL:
                 'high': row['high'] if row else 0
             }
             
-        except Exception as e:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
             logger.error(f"خطا در دریافت آمار پیشنهادها: {e}")
             return {'total': 0, 'pending': 0, 'accepted': 0, 'rejected': 0, 'implemented': 0, 'critical': 0, 'high': 0}
     
@@ -357,7 +358,7 @@ class RecommendationDAL:
         if row['related_observation_ids']:
             try:
                 recommendation.related_observation_ids = json.loads(row['related_observation_ids'])
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 recommendation.related_observation_ids = None
         else:
             recommendation.related_observation_ids = None
@@ -367,7 +368,7 @@ class RecommendationDAL:
         if row['metadata']:
             try:
                 recommendation.metadata = json.loads(row['metadata'])
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 recommendation.metadata = None
         else:
             recommendation.metadata = None

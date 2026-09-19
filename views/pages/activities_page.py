@@ -161,7 +161,7 @@ class ActivitiesPage(QWidget):
             self.activities = self.extracurricular_service.get_all_activities()
             self.display_activities(self.activities)
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری فعالیت‌ها:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری فعالیت‌ها:\n{e!s}")
     
     def filter_activities(self):
         """فیلتر فعالیت‌ها"""
@@ -298,4 +298,4 @@ class ActivitiesPage(QWidget):
                 self.load_activities()
                 QMessageBox.information(self, "موفقیت", "فعالیت با موفقیت حذف شد")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")

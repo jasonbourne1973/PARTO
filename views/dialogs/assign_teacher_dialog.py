@@ -276,7 +276,7 @@ class AssignTeacherDialog(QDialog):
                 self.date_input.set_date(assignment.assigned_date)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{e!s}")
     
     def save_assignment(self):
         """ذخیره انتساب معلم"""
@@ -347,4 +347,4 @@ class AssignTeacherDialog(QDialog):
             self.accept()
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{e!s}")

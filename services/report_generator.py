@@ -555,7 +555,7 @@ class ReportGenerator:
             return True, f"فایل PDF با موفقیت در {file_path} ذخیره شد."
             
         except Exception as e:
-            return False, f"خطا در ساخت فایل PDF: {str(e)}"
+            return False, f"خطا در ساخت فایل PDF: {e!s}"
     
     # ============================================================
     # خروجی Excel (موجود)
@@ -743,4 +743,4 @@ class ReportGenerator:
             return True, f"فایل با موفقیت در {file_path} ذخیره شد."
             
         except Exception as e:
-            return False, f"خطا در ساخت فایل Excel: {str(e)}"
+            return False, f"خطا در ساخت فایل Excel: {e!s}"

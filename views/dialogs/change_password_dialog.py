@@ -384,7 +384,7 @@ class ChangePasswordDialog(QDialog):
 
         except Exception as e:
             self.logger.error(f"خطا در تغییر رمز عبور: {e}")
-            self.show_error(f"❌ خطا در تغییر رمز عبور:\n{str(e)}")
+            self.show_error(f"❌ خطا در تغییر رمز عبور:\n{e!s}")
     
     def show_error(self, message):
         """نمایش پیام خطا"""

@@ -48,6 +48,8 @@ def _resolve_log_dir():
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         candidates.append(os.path.join(project_root, 'logs'))
     except NameError:
+        # ماژول بدون __file__ بارگذاری شده (محیط‌های خاص)؛ این پوشه
+        # در دسترس نیست و از گزینه‌های قبلی استفاده می‌کنیم.
         pass
 
     for candidate in candidates:
@@ -92,7 +94,7 @@ class Logger:
     
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(Logger, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
             cls._instance._initialize()
         return cls._instance
     

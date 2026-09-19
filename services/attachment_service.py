@@ -163,7 +163,7 @@ class AttachmentService(BaseService):
             return attachment
         except Exception as e:
             self.logger.error(f"خطا در دریافت پیوست: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_attachments_by_entity(self, entity_type, entity_id):
         """دریافت پیوست‌های یک موجودیت"""
@@ -174,7 +174,7 @@ class AttachmentService(BaseService):
             return attachments
         except Exception as e:
             self.logger.error(f"خطا در دریافت پیوست‌ها: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def delete_attachment(self, attachment_id, user_id=None, ip_address=None):
         """حذف پیوست"""
@@ -216,7 +216,7 @@ class AttachmentService(BaseService):
             return True
         except Exception as e:
             self.logger.error(f"خطا در حذف پیوست‌ها: {e}")
-            raise ServiceError(f"خطا در حذف: {str(e)}")
+            raise ServiceError(f"خطا در حذف: {e!s}")
     
     def get_attachment_path(self, attachment_id):
         """دریافت مسیر فیزیکی فایل پیوست"""
@@ -233,7 +233,7 @@ class AttachmentService(BaseService):
                 return f.read()
         except Exception as e:
             self.logger.error(f"خطا در خواندن فایل: {e}")
-            raise ServiceError(f"خطا در خواندن فایل: {str(e)}")
+            raise ServiceError(f"خطا در خواندن فایل: {e!s}")
     
     def get_attachments_summary(self, entity_type, entity_id):
         """دریافت خلاصه پیوست‌های یک موجودیت"""

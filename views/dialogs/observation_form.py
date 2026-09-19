@@ -664,7 +664,7 @@ class ObservationForm(QDialog):
             for student in students:
                 self.student_combo.addItem(student.full_name, student.id)
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{e!s}")
 
     def load_staff(self):
         try:
@@ -817,7 +817,7 @@ class ObservationForm(QDialog):
                     self.selected_behavior_text = obs.observable_behavior_text
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{e!s}")
     
     def get_behavior_text(self):
         """دریافت متن رفتار با حذف فاصله‌های اضافی"""
@@ -897,7 +897,7 @@ class ObservationForm(QDialog):
             QMessageBox.critical(self, "خطا", str(e))
         except Exception as e:
             self.logger.error(f"خطا در ذخیره مشاهده: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{e!s}")
     
     def keyPressEvent(self, event):
         """مدیریت کلیدهای میانبر"""

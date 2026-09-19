@@ -302,7 +302,7 @@ class InterventionService(BaseService):
             return intervention
         except Exception as e:
             self.logger.error(f"خطا در دریافت مداخله: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_interventions_by_student(self, student_id, year_id=None, limit=None):
         """
@@ -338,7 +338,7 @@ class InterventionService(BaseService):
             return interventions
         except Exception as e:
             self.logger.error(f"خطا در دریافت مداخلات دانش‌آموز: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_interventions_by_teacher(self, teacher_id, year_id=None, limit=None):
         """
@@ -378,7 +378,7 @@ class InterventionService(BaseService):
             return interventions
         except Exception as e:
             self.logger.error(f"خطا در دریافت مداخلات معلم: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_all_interventions(self, limit=None, include_staff_info=False):
         """
@@ -400,7 +400,7 @@ class InterventionService(BaseService):
             return interventions
         except Exception as e:
             self.logger.error(f"خطا در دریافت همه مداخلات: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def update_status(self, intervention_id, new_status, user_id=None, ip_address=None):
         """
@@ -496,7 +496,7 @@ class InterventionService(BaseService):
             }
         except Exception as e:
             self.logger.error(f"خطا در دریافت خلاصه مداخلات: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_available_observations_for_intervention(self, student_id):
         """
@@ -716,7 +716,7 @@ class InterventionService(BaseService):
             return interventions
         except Exception as e:
             self.logger.error(f"خطا در جستجوی مداخلات: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")
     
     def search_interventions_by_student(self, student_id, search_term):
         """
@@ -736,7 +736,7 @@ class InterventionService(BaseService):
             return interventions
         except Exception as e:
             self.logger.error(f"خطا در جستجوی مداخلات دانش‌آموز: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")
     
     def search_interventions_by_teacher(self, teacher_id, search_term):
         """
@@ -756,4 +756,4 @@ class InterventionService(BaseService):
             return interventions
         except Exception as e:
             self.logger.error(f"خطا در جستجوی مداخلات معلم: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")

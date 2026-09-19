@@ -23,7 +23,6 @@ Audit Log که از to_dict استفاده می‌کرد، وضعیت فعال/�
 from utils.time_utils import utc_now_iso
 
 
-
 class BaseModel:
     """مدل پایه با فیلدهای مشترک و Soft Delete یکپارچه"""
 

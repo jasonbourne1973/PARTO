@@ -102,7 +102,7 @@ class TeacherPerformanceService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در دریافت گزارش عملکرد معلم: {e}")
-            raise ServiceError(f"خطا در دریافت گزارش: {str(e)}")
+            raise ServiceError(f"خطا در دریافت گزارش: {e!s}")
     
     def get_all_teachers_performance(self, start_date=None, end_date=None):
         """
@@ -129,7 +129,7 @@ class TeacherPerformanceService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در دریافت گزارش همه معلمان: {e}")
-            raise ServiceError(f"خطا در دریافت گزارش: {str(e)}")
+            raise ServiceError(f"خطا در دریافت گزارش: {e!s}")
     
     def _calculate_competency_stats(self, observations):
         """محاسبه آمار شایستگی‌ها"""
@@ -312,4 +312,4 @@ class TeacherPerformanceService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در خروجی PDF: {e}")
-            return False, f"خطا: {str(e)}"
+            return False, f"خطا: {e!s}"

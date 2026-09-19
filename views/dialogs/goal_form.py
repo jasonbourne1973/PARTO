@@ -475,7 +475,7 @@ class GoalForm(QDialog):
             self.result_input.setText(goal.result or "")
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{e!s}")
     
     def save_goal(self):
         """ذخیره هدف"""
@@ -534,4 +534,4 @@ class GoalForm(QDialog):
             QMessageBox.warning(self, "خطا در اعتبارسنجی", str(e))
         except Exception as e:
             self.logger.error(f"خطا در ذخیره هدف: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{e!s}")

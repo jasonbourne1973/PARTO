@@ -22,7 +22,10 @@ import sqlite3
 
 from database.connection import DatabaseConnection
 from models.base import BaseModel
+from utils.logger import get_logger
 from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class BackupRecord(BaseModel):
@@ -338,9 +341,10 @@ class BackupDAL:
         if delete_file and record.file_path and os.path.exists(record.file_path):
             try:
                 os.remove(record.file_path)
-            except OSError:
-                # پاک نشدن فایل نباید عملیات را شکست دهد
-                pass
+            except OSError as e:
+                # پاک نشدن فایل (قفل بودن/نبود دسترسی) نباید حذف
+                # رکورد پشتیبان را شکست دهد؛ ولی باید قابل ردیابی باشد.
+                logger.debug(f"فایل پشتیبان حذف نشد ({record.file_path}): {e}")
 
         return True
 
@@ -374,8 +378,9 @@ class BackupDAL:
                 and os.path.exists(record.file_path)):
             try:
                 os.remove(record.file_path)
-            except OSError:
-                pass
+            except OSError as e:
+                # همان دلیل بالا: رکورد حذف شده، فایل دست‌نخورده مانده
+                logger.debug(f"فایل پشتیبان حذف نشد ({record.file_path}): {e}")
 
         return cursor.rowcount > 0
 

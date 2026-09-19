@@ -345,7 +345,7 @@ class IndicatorsPage(QWidget):
                 QMessageBox.information(self, "نتیجه جستجو", msg)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{e!s}")
     
     def clear_search(self):
         """پاک کردن جستجو و نمایش همه"""
@@ -400,7 +400,7 @@ class IndicatorsPage(QWidget):
             
         except Exception as e:
             logger.error(f"❌ خطا در بارگذاری شایستگی‌ها: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری شایستگی‌ها:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری شایستگی‌ها:\n{e!s}")
     
     def _get_category_display(self, category):
         """نمایش نام دسته به فارسی"""
@@ -488,7 +488,7 @@ class IndicatorsPage(QWidget):
             
         except Exception as e:
             logger.error(f"❌ خطا در محاسبه شایستگی‌ها: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در محاسبه شایستگی‌ها:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در محاسبه شایستگی‌ها:\n{e!s}")
     
     def update_tree_scores(self, competencies, observations):
         """به‌روزرسانی امتیازها در درخت با وضعیت "داده ناکافی" """

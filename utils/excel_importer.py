@@ -134,7 +134,7 @@ class ExcelImporter:
             
         except Exception as e:
             self.logger.error(f"خطا در خروجی Excel: {e}")
-            return False, f"خطا در خروجی Excel: {str(e)}"
+            return False, f"خطا در خروجی Excel: {e!s}"
     
     def import_students_from_excel(self, file_path, academic_year_id=None):
         """
@@ -280,7 +280,7 @@ class ExcelImporter:
                     self.profile_dal.create(profile)
                     
                 except Exception as e:
-                    errors.append(f"ردیف {row}: {str(e)}")
+                    errors.append(f"ردیف {row}: {e!s}")
                     continue
             
             # ===== خلاصه =====
@@ -292,7 +292,7 @@ class ExcelImporter:
             
         except Exception as e:
             self.logger.error(f"خطا در ایمپورت Excel: {e}")
-            return False, f"خطا در ایمپورت: {str(e)}", 0, []
+            return False, f"خطا در ایمپورت: {e!s}", 0, []
     
     def create_sample_excel(self, file_path):
         """
@@ -335,4 +335,4 @@ class ExcelImporter:
             return True, f"فایل نمونه با موفقیت در {file_path} ایجاد شد."
             
         except Exception as e:
-            return False, f"خطا در ایجاد فایل نمونه: {str(e)}"
+            return False, f"خطا در ایجاد فایل نمونه: {e!s}"

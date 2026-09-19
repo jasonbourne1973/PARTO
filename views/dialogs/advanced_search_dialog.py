@@ -243,7 +243,7 @@ class AdvancedSearchDialog(QDialog):
                 QMessageBox.information(self, "نتیجه", "هیچ دانش‌آموزی با این معیارها یافت نشد.")
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{e!s}")
     
     def display_results(self, results):
         """نمایش نتایج جستجو"""

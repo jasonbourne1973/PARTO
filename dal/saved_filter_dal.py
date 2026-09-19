@@ -3,6 +3,7 @@
 """
 
 import json
+import sqlite3
 
 from database.connection import DatabaseConnection
 from models.saved_filter import SavedFilter
@@ -251,7 +252,7 @@ class SavedFilterDAL:
         if row['filter_params']:
             try:
                 saved_filter.filter_params = json.loads(row['filter_params'])
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 saved_filter.filter_params = {}
         else:
             saved_filter.filter_params = {}

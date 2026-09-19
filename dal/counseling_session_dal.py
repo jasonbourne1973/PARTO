@@ -3,6 +3,7 @@
 """
 
 import json
+import sqlite3
 
 from database.connection import DatabaseConnection
 from models.counseling_session import CounselingSession
@@ -337,7 +338,7 @@ class CounselingSessionDAL:
         if row['goals']:
             try:
                 session.goals = json.loads(row['goals'])
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 session.goals = None
         else:
             session.goals = None
@@ -348,7 +349,7 @@ class CounselingSessionDAL:
         if row['interventions_discussed']:
             try:
                 session.interventions_discussed = json.loads(row['interventions_discussed'])
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 session.interventions_discussed = None
         else:
             session.interventions_discussed = None
@@ -356,7 +357,7 @@ class CounselingSessionDAL:
         if row['recommendations']:
             try:
                 session.recommendations = json.loads(row['recommendations'])
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 session.recommendations = None
         else:
             session.recommendations = None
@@ -364,7 +365,7 @@ class CounselingSessionDAL:
         if row['homework']:
             try:
                 session.homework = json.loads(row['homework'])
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 session.homework = None
         else:
             session.homework = None

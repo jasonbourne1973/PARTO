@@ -121,7 +121,7 @@ class AdvancedSearchService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در جستجوی دانش‌آموزان: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")
     
     def _has_observation(self, student_id, academic_year_id=None):
         """بررسی وجود مشاهده برای دانش‌آموز"""
@@ -230,7 +230,7 @@ class AdvancedSearchService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در جستجوی مشاهدات: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")
     
     # ============================================================
     # مدیریت فیلترهای ذخیره‌شده
@@ -278,7 +278,7 @@ class AdvancedSearchService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در ذخیره فیلتر: {e}")
-            raise ServiceError(f"خطا در ذخیره فیلتر: {str(e)}")
+            raise ServiceError(f"خطا در ذخیره فیلتر: {e!s}")
     
     def get_user_filters(self, user_id, filter_type=None):
         """دریافت فیلترهای یک کاربر"""
@@ -331,7 +331,7 @@ class AdvancedSearchService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در اعمال فیلتر: {e}")
-            raise ServiceError(f"خطا در اعمال فیلتر: {str(e)}")
+            raise ServiceError(f"خطا در اعمال فیلتر: {e!s}")
     
     def delete_filter(self, filter_id, user_id=None):
         """حذف فیلتر"""
@@ -348,7 +348,7 @@ class AdvancedSearchService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در حذف فیلتر: {e}")
-            raise ServiceError(f"خطا در حذف فیلتر: {str(e)}")
+            raise ServiceError(f"خطا در حذف فیلتر: {e!s}")
     
     def update_filter(self, filter_id, data, user_id=None):
         """به‌روزرسانی فیلتر"""
@@ -378,7 +378,7 @@ class AdvancedSearchService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در به‌روزرسانی فیلتر: {e}")
-            raise ServiceError(f"خطا در به‌روزرسانی فیلتر: {str(e)}")
+            raise ServiceError(f"خطا در به‌روزرسانی فیلتر: {e!s}")
     
     def get_filter_suggestions(self, filter_type, user_id=None):
         """

@@ -75,20 +75,9 @@ class AnalyticsHelpers:
     
     @staticmethod
     def get_persian_month_label(date_str: str) -> str:
-        """دریافت برچسب فارسی ماه"""
-        if not date_str or len(date_str) < 7:
-            return date_str
-        try:
-            month_names = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-                          "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
-            parts = date_str.split('/')
-            if len(parts) >= 2:
-                month = int(parts[1])
-                if 1 <= month <= 12:
-                    return f"{month_names[month-1]} {parts[0]}"
-        except Exception:
-            pass
-        return date_str
+        """دریافت برچسب فارسی ماه — پیاده‌سازی مشترک در utils.persian_date"""
+        from utils.persian_date import PersianDate
+        return PersianDate.get_month_label(date_str)
     
     @staticmethod
     def calculate_percentage(value: int, total: int) -> float:

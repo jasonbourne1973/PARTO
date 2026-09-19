@@ -359,7 +359,7 @@ class ExportAIDialog(QDialog):
                     self.data_count_label.setText("هیچ داده‌ای یافت نشد")
                     
         except Exception as e:
-            self.data_count_label.setText(f"خطا: {str(e)}")
+            self.data_count_label.setText(f"خطا: {e!s}")
     
     def _get_standard_prompt(self):
         """دریافت پرامپت استاندارد برای هوش مصنوعی"""
@@ -473,7 +473,7 @@ class ExportAIDialog(QDialog):
             self.accept()
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در خروجی:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در خروجی:\n{e!s}")
     
     def _collect_data(self):
         """جمع‌آوری تمام داده‌های مورد نیاز"""

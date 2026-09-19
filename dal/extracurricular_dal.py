@@ -3,6 +3,7 @@
 """
 
 import json
+import sqlite3
 
 from database.connection import DatabaseConnection
 from models.extracurricular_activity import ExtracurricularActivity
@@ -292,7 +293,7 @@ class ExtracurricularDAL:
         if row['achievements']:
             try:
                 activity.achievements = json.loads(row['achievements'])
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 activity.achievements = None
         else:
             activity.achievements = None

@@ -3,6 +3,7 @@
 """
 
 import json
+import sqlite3
 
 from database.connection import DatabaseConnection
 from models.screening import Screening
@@ -214,7 +215,7 @@ class ScreeningDAL:
         if row['domain_scores']:
             try:
                 screening.domain_scores = json.loads(row['domain_scores'])
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 screening.domain_scores = None
         else:
             screening.domain_scores = None

@@ -393,7 +393,7 @@ class ReportsPage(QWidget):
                 QMessageBox.information(self, "نتیجه جستجو", msg)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{e!s}")
     
     def clear_search(self):
         """پاک کردن جستجو و نمایش همه"""
@@ -460,7 +460,7 @@ class ReportsPage(QWidget):
                 self.insufficient_data_label.setVisible(False)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در تولید گزارش:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در تولید گزارش:\n{e!s}")
     
     def clear_report(self):
         """پاک کردن گزارش"""
@@ -1187,7 +1187,7 @@ class ReportsPage(QWidget):
             QMessageBox.information(self, "گزارش والدین", text)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در تولید گزارش والدین:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در تولید گزارش والدین:\n{e!s}")
     
     # ===== خروجی Excel =====
     def export_excel(self):
@@ -1218,7 +1218,7 @@ class ReportsPage(QWidget):
                 QMessageBox.critical(self, "خطا", message)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در خروجی Excel:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در خروجی Excel:\n{e!s}")
 
     def export_pdf(self):
         """خروجی PDF کامل"""
@@ -1248,7 +1248,7 @@ class ReportsPage(QWidget):
                 QMessageBox.critical(self, "خطا", message)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در خروجی PDF:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در خروجی PDF:\n{e!s}")
 
     def export_for_ai(self):
         """خروجی داده برای هوش مصنوعی"""

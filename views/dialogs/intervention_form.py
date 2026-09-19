@@ -303,7 +303,7 @@ class InterventionForm(QDialog):
             for student in students:
                 self.student_combo.addItem(student.full_name, student.id)
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{e!s}")
 
     def load_staff(self):
         try:
@@ -407,7 +407,7 @@ class InterventionForm(QDialog):
                 self.status_combo.setCurrentIndex(status_index)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{e!s}")
     
     def save_intervention(self):
         """ذخیره مداخله با استفاده از سرویس"""
@@ -463,4 +463,4 @@ class InterventionForm(QDialog):
             QMessageBox.critical(self, "خطا", str(e))
         except Exception as e:
             self.logger.error(f"خطا در ذخیره مداخله: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{e!s}")

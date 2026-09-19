@@ -2,6 +2,8 @@
 لایه دسترسی به داده Audit Log (تاریخچه تغییرات)
 """
 
+import sqlite3
+
 from database.connection import DatabaseConnection
 from utils.logger import get_logger
 
@@ -97,7 +99,7 @@ class AuditLogDAL:
                 })
             
             return logs
-        except Exception as e:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
             logger.error(f"⚠️ خطا در دریافت Audit Log: {e}")
             return []
     
@@ -137,6 +139,6 @@ class AuditLogDAL:
                     'date': row['date'],
                 })
             return results
-        except Exception as e:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
             logger.error(f"⚠️ خطا در دریافت خلاصه فعالیت‌ها: {e}")
             return []

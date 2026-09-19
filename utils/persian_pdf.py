@@ -329,7 +329,6 @@ class PersianPDF:
                 text = arabic_reshaper.reshape(text)
             except Exception as e:
                 logger.error(f"⚠️ خطا در reshape: {e}")
-                pass
         
         # مرحله ۲: راست‌چین کردن
         if BIDI_AVAILABLE:
@@ -337,7 +336,6 @@ class PersianPDF:
                 text = get_display(text)
             except Exception as e:
                 logger.error(f"⚠️ خطا در get_display: {e}")
-                pass
         
         return text
     

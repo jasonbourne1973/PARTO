@@ -22,8 +22,11 @@ import sqlite3
 
 from database.connection import DatabaseConnection
 from models.user import User
+from utils.logger import get_logger
 from utils.security import Security
 from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class UserDAL:
@@ -139,7 +142,7 @@ class UserDAL:
         except sqlite3.IntegrityError as e:
             conn.rollback()
             raise Exception(f"نام کاربری تکراری است یا داده نامعتبر: {e}")
-        except Exception:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
             conn.rollback()
             raise
 
@@ -398,7 +401,7 @@ class UserDAL:
         except sqlite3.IntegrityError as e:
             conn.rollback()
             raise Exception(f"نام کاربری تکراری است یا داده نامعتبر: {e}")
-        except Exception:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
             conn.rollback()
             raise
 
@@ -669,7 +672,8 @@ class UserDAL:
             try:
                 from utils.security import normalize_entity_type
                 entity_type = normalize_entity_type(entity_type)
-            except Exception:
+            except (ImportError, AttributeError):
+                # نسخهٔ قدیمیِ security بدون این تابع → نام خام حفظ می‌شود
                 pass
             cursor.execute("""
                 INSERT INTO audit_logs (
@@ -682,9 +686,10 @@ class UserDAL:
                 entity_id,
                 json.dumps(payload, ensure_ascii=False)
             ))
-        except Exception:
-            # ثبت نشدن Audit نباید باعث شکست عملیات اصلی شود
-            pass
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            # ثبت نشدن Audit نباید باعث شکست عملیات اصلی شود، ولی
+            # بی‌صدا هم نباید بماند (وگرنه ردیابی رویدادها ممکن نیست).
+            logger.debug(f"ثبت Audit ناموفق بود: {e}")
 
     def _row_to_user(self, row):
         """تبدیل ردیف دیتابیس به مدل User"""

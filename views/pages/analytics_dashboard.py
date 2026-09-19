@@ -600,7 +600,7 @@ class AnalyticsDashboardPage(QWidget):
             
         except Exception as e:
             self.logger.error(f"خطا در بارگذاری داده‌های داشبورد: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری داده‌ها:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری داده‌ها:\n{e!s}")
     
     def _update_kpi_cards(self):
         """به‌روزرسانی کارت‌های آماری"""

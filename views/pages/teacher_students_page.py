@@ -516,7 +516,7 @@ class TeacherStudentsPage(QWidget):
                 self.on_student_selected(self.students_table.item(0, 0))
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{e!s}")
     
     def on_student_selected(self, item):
         """وقتی دانش‌آموز انتخاب می‌شود"""

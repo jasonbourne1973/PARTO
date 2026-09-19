@@ -2,6 +2,8 @@
 لایه دسترسی به داده کلاس‌ها - با متدهای آماری
 """
 
+import sqlite3
+
 from database.connection import DatabaseConnection
 from models.class_model import ClassModel
 from utils.logger import get_logger
@@ -285,7 +287,7 @@ class ClassDAL:
                 'student_ids': student_ids
             }
             
-        except Exception as e:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
             logger.error(f"خطا در دریافت آمار مشاهدات کلاس: {e}")
             return None
     
@@ -381,7 +383,7 @@ class ClassDAL:
             
             return stats
             
-        except Exception as e:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
             logger.error(f"خطا در دریافت آمار شایستگی‌های کلاس: {e}")
             return {}
     
@@ -490,7 +492,7 @@ class ClassDAL:
             
             return result
             
-        except Exception as e:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
             logger.error(f"خطا در دریافت آمار دانش‌آموزان کلاس: {e}")
             return []
     

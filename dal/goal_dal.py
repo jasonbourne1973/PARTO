@@ -3,6 +3,7 @@
 """
 
 import json
+import sqlite3
 
 from database.connection import DatabaseConnection
 from models.individual_goal import IndividualGoal
@@ -346,7 +347,7 @@ class GoalDAL:
         if row['success_criteria']:
             try:
                 goal.success_criteria = json.loads(row['success_criteria'])
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 goal.success_criteria = None
         else:
             goal.success_criteria = None

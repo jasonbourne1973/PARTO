@@ -2,9 +2,8 @@
 مدل پیشنهادات - ذخیره پیشنهادات تولیدشده در دیتابیس
 """
 
-from utils.time_utils import utc_now_iso
-
 from models.base import BaseModel
+from utils.time_utils import utc_now_iso
 
 
 class Recommendation(BaseModel):

@@ -35,7 +35,8 @@ class TimeGrouper:
             parts = date_str.split('/')
             if len(parts) == 3:
                 return f"{parts[0]}/{parts[1]}"
-        except Exception:
+        except (AttributeError, IndexError, TypeError):
+            # ورودی نامعتبر (مثلاً None) → کلید ندارد
             pass
         return None
     
@@ -52,7 +53,8 @@ class TimeGrouper:
                 day = int(parts[2])
                 week_num = (day - 1) // 7 + 1
                 return f"{year}/{month:02d}/W{week_num}"
-        except Exception:
+        except (ValueError, IndexError, TypeError):
+            # اجزای تاریخ عددی نیستند → کلید هفته ساخته نمی‌شود
             pass
         return None
     
@@ -65,26 +67,18 @@ class TimeGrouper:
             parts = date_str.split('/')
             if len(parts) == 3:
                 return f"{parts[0]}/{parts[1]}/{parts[2]}"
-        except Exception:
+        except (AttributeError, IndexError, TypeError):
+            # ورودی نامعتبر (None/عدد) → کلید روز ساخته نمی‌شود
             pass
         return None
     
     @staticmethod
     def get_month_label(month_key):
-        """دریافت برچسب فارسی ماه"""
+        """دریافت برچسب فارسی ماه — منبع واحد: utils.persian_date"""
         if not month_key:
             return ""
-        try:
-            parts = month_key.split('/')
-            if len(parts) == 2:
-                month_names = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-                               "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
-                month_num = int(parts[1])
-                if 1 <= month_num <= 12:
-                    return f"{month_names[month_num-1]} {parts[0]}"
-        except Exception:
-            pass
-        return month_key
+        from utils.persian_date import PersianDate
+        return PersianDate.get_month_label(month_key)
     
     @staticmethod
     def get_week_label(week_key):
@@ -95,12 +89,12 @@ class TimeGrouper:
             parts = week_key.split('/')
             if len(parts) == 3:
                 week_num = parts[2].replace('W', '')
-                month_names = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-                               "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
                 month_num = int(parts[1])
                 if 1 <= month_num <= 12:
-                    return f"هفته {week_num} {month_names[month_num-1]}"
-        except Exception:
+                    from utils.persian_date import PersianDate
+                    return f"هفته {week_num} {PersianDate.month_name(month_num)}"
+        except (ValueError, IndexError, TypeError):
+            # کلید هفتهٔ نامعتبر → همان کلید خام برگردانده می‌شود
             pass
         return week_key
     
@@ -239,7 +233,8 @@ class PersianCalendarWidget(QWidget):
                 self.selected_day = int(parts[2])
                 self.update_calendar()
                 return True
-        except Exception:
+        except (ValueError, IndexError, TypeError):
+            # تاریخ نامعتبر برای ویجت → انتخاب تغییر نمی‌کند
             pass
         return False
     
@@ -258,9 +253,9 @@ class PersianCalendarWidget(QWidget):
                 widget.deleteLater()
         
         # بروزرسانی عنوان
-        month_names = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-                       "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
-        self.month_year_label.setText(f"{month_names[self.current_month-1]} {self.current_year}")
+        from utils.persian_date import PersianDate
+        self.month_year_label.setText(
+            f"{PersianDate.month_name(self.current_month)} {self.current_year}")
         
         # محاسبه روز اول ماه
         try:

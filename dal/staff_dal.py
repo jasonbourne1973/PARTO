@@ -329,5 +329,7 @@ class StaffDAL:
             staff.deleted_at = row['deleted_at']
             staff.deleted_by = row['deleted_by']
         except (IndexError, KeyError):
+            # ردیف/کوئری بدون این ستون‌ها: مقادیر پیش‌فرض مدل (None)
+            # حفظ می‌شود و بقیهٔ اطلاعات بارگذاری می‌شود.
             pass
         return staff

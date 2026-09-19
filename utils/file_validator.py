@@ -5,6 +5,10 @@
 import hashlib
 from typing import List, Optional, Tuple
 
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 # ===== اصلاح (بازرسی هفتم — اولویت ۳) =====
 # python-magic اختیاری است.
 #
@@ -257,9 +261,10 @@ class FileValidator:
         if MAGIC_AVAILABLE:
             try:
                 return magic.from_buffer(file_data, mime=True)
-            except Exception:
-                # حتی وقتی نصب است ممکن است روی بعضی داده‌ها خطا بدهد
-                pass
+            except Exception as magic_error:
+                # libmagic روی بعضی داده‌ها/نسخه‌ها خطا می‌دهد؛ در آن
+                # صورت به تشخیص امضای بایتی می‌رویم (مسیر همیشه موجود).
+                logger.debug(f"libmagic پاسخ نداد: {magic_error}")
         return cls._detect_mime_by_signature(file_data)
 
     @classmethod

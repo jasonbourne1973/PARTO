@@ -243,7 +243,8 @@ class HelpWidget(QFrame):
             value = getattr(help_messages, constant_name, None)
             if value:
                 return str(value)
-        except Exception:
+        except (ImportError, AttributeError):
+            # نصب قدیمی بدون ماژول help_messages → متن پیش‌فرض
             pass
         return fallback
 

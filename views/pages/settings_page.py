@@ -310,7 +310,7 @@ class SettingsPage(QWidget):
                 self.year_table.setRowHeight(row, 35)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری سال‌های تحصیلی:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری سال‌های تحصیلی:\n{e!s}")
     
     def add_academic_year(self):
         """افزودن سال تحصیلی جدید"""
@@ -330,7 +330,7 @@ class SettingsPage(QWidget):
             self.load_academic_years()
             QMessageBox.information(self, "موفقیت", f"سال تحصیلی {title} با موفقیت اضافه شد.")
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در افزودن سال:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در افزودن سال:\n{e!s}")
     
     def activate_year(self, year):
         """فعال کردن یک سال تحصیلی"""
@@ -346,7 +346,7 @@ class SettingsPage(QWidget):
                 self.load_academic_years()
                 QMessageBox.information(self, "موفقیت", f"سال {year.title} با موفقیت فعال شد.")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در فعال‌سازی:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در فعال‌سازی:\n{e!s}")
     
     def archive_year(self, year):
         """بایگانی کردن یک سال تحصیلی"""
@@ -362,7 +362,7 @@ class SettingsPage(QWidget):
                 self.load_academic_years()
                 QMessageBox.information(self, "موفقیت", f"سال {year.title} با موفقیت بایگانی شد.")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در بایگانی:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در بایگانی:\n{e!s}")
     
     def delete_year(self, year):
         """حذف سال تحصیلی"""
@@ -378,7 +378,7 @@ class SettingsPage(QWidget):
                 self.load_academic_years()
                 QMessageBox.information(self, "موفقیت", f"سال {year.title} با موفقیت حذف شد.")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
     def create_staff_tab(self):
         """ایجاد تب کادر مدرسه"""
@@ -527,7 +527,7 @@ class SettingsPage(QWidget):
                 self.staff_table.setRowHeight(row, 35)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری کادر مدرسه:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری کادر مدرسه:\n{e!s}")
     
     def add_staff(self):
         """افزودن عضو جدید به کادر"""
@@ -550,7 +550,7 @@ class SettingsPage(QWidget):
             self.load_staff_for_users()
             QMessageBox.information(self, "موفقیت", f"عضو {full_name} با موفقیت اضافه شد.")
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در افزودن عضو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در افزودن عضو:\n{e!s}")
     
     def toggle_staff_status(self, staff):
         """تغییر وضعیت فعال/غیرفعال عضو کادر"""
@@ -570,7 +570,7 @@ class SettingsPage(QWidget):
                 self.load_staff()
                 QMessageBox.information(self, "موفقیت", f"وضعیت {staff.full_name} با موفقیت تغییر کرد.")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در تغییر وضعیت:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در تغییر وضعیت:\n{e!s}")
     
     def delete_staff(self, staff):
         """حذف عضو کادر"""
@@ -608,7 +608,7 @@ class SettingsPage(QWidget):
                 # حساب «سیستم» حذف‌شدنی نیست؛ پیام توضیحیِ خودش را نشان بده
                 QMessageBox.warning(self, "امکان حذف نیست", str(e))
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
     def create_users_tab(self):
         """ایجاد تب مدیریت کاربران"""
@@ -833,7 +833,7 @@ class SettingsPage(QWidget):
                 self.user_table.setRowHeight(row, 35)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری کاربران:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری کاربران:\n{e!s}")
     
     def add_user(self):
         """افزودن کاربر جدید"""
@@ -917,7 +917,7 @@ class SettingsPage(QWidget):
             # پیام‌های اعتبارسنجی DAL از قبل فارسی و گویا هستند
             QMessageBox.warning(self, "خطا", str(e))
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در افزودن کاربر:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در افزودن کاربر:\n{e!s}")
     
     def toggle_user_status(self, user):
         """تغییر وضعیت کاربر"""
@@ -949,7 +949,7 @@ class SettingsPage(QWidget):
                 QMessageBox.information(self, "موفقیت", f"وضعیت کاربر {user['username']} با موفقیت تغییر کرد.")
 
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در تغییر وضعیت:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در تغییر وضعیت:\n{e!s}")
     
     def reset_user_password(self, user):
         """ریست رمز عبور کاربر"""
@@ -984,7 +984,7 @@ class SettingsPage(QWidget):
                 )
 
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در ریست رمز:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در ریست رمز:\n{e!s}")
     
     def delete_user(self, user):
         """حذف کاربر (Soft Delete)"""
@@ -1017,7 +1017,7 @@ class SettingsPage(QWidget):
                 )
 
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
 
     def restore_user(self, user):
         """
@@ -1070,7 +1070,7 @@ class SettingsPage(QWidget):
             )
 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بازگرداندن:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بازگرداندن:\n{e!s}")
     
     # ===== اطلاعات مدرسه =====
     
@@ -1364,7 +1364,7 @@ class SettingsPage(QWidget):
             QMessageBox.information(self, "موفقیت", f"پشتیبان‌گیری خودکار هر {interval} ساعت فعال شد.")
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در فعال‌سازی پشتیبان‌گیری خودکار:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در فعال‌سازی پشتیبان‌گیری خودکار:\n{e!s}")
     
     def stop_auto_backup(self):
         """توقف پشتیبان‌گیری خودکار"""
@@ -1382,7 +1382,7 @@ class SettingsPage(QWidget):
             QMessageBox.information(self, "موفقیت", "پشتیبان‌گیری خودکار متوقف شد.")
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در توقف پشتیبان‌گیری خودکار:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در توقف پشتیبان‌گیری خودکار:\n{e!s}")
 
     def create_classes_tab(self):
         """ایجاد تب مدیریت کلاس‌ها"""
@@ -1591,7 +1591,7 @@ class SettingsPage(QWidget):
                 self.class_table.setRowHeight(row, 35)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری کلاس‌ها:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری کلاس‌ها:\n{e!s}")
     
     def add_class(self):
         """افزودن کلاس جدید"""
@@ -1631,7 +1631,7 @@ class SettingsPage(QWidget):
             QMessageBox.information(self, "موفقیت", f"کلاس {name} با موفقیت اضافه شد.")
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در افزودن کلاس:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در افزودن کلاس:\n{e!s}")
     
     def edit_class(self, class_obj):
         """ویرایش کلاس"""
@@ -1659,4 +1659,4 @@ class SettingsPage(QWidget):
                 self.load_classes()
                 QMessageBox.information(self, "موفقیت", "کلاس با موفقیت حذف شد.")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")

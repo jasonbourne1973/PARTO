@@ -339,4 +339,4 @@ class StudentForm(QDialog):
             self.accept()
 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره اطلاعات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره اطلاعات:\n{e!s}")

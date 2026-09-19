@@ -63,7 +63,7 @@ class BaseService:
         except Exception as e:
             self.logger.error(f"خطا در تأیید Transaction: {e}")
             self.rollback_transaction()
-            raise ServiceError(f"خطا در ذخیره‌سازی: {str(e)}")
+            raise ServiceError(f"خطا در ذخیره‌سازی: {e!s}")
 
     def rollback_transaction(self):
         """بازگشت Transaction (همه لایه‌های تودرتو)"""
@@ -103,7 +103,7 @@ class BaseService:
             # همان پیام به کاربر می‌رسد نه «خطا در عملیات: ...».
             if isinstance(e, ServiceError):
                 raise
-            raise ServiceError(f"خطا در عملیات: {str(e)}") from e
+            raise ServiceError(f"خطا در عملیات: {e!s}") from e
 
     # ============================================================
     # Audit Log / مدیریت خطا / اعتبارسنجی

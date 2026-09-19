@@ -60,7 +60,8 @@ def main():
             from config.settings import LOGO_ICON_PATH
             if os.path.exists(LOGO_ICON_PATH):
                 window.setWindowIcon(QIcon(LOGO_ICON_PATH))
-        except Exception:
+        except Exception:  # noqa: S110 - نبود آیکون نباید اجرا را متوقف کند
+            # نبود/خرابی فایل آیکون نباید بالا آمدن برنامه را متوقف کند
             pass
         
         print("🔵 مرحله 6: نمایش پنجره...")
@@ -76,7 +77,7 @@ def main():
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Icon.Critical)
         msg.setWindowTitle("خطا")
-        msg.setText(f"خطا در اجرای برنامه:\n{str(e)}")
+        msg.setText(f"خطا در اجرای برنامه:\n{e!s}")
         msg.exec()
         sys.exit(1)
 

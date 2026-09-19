@@ -235,7 +235,7 @@ class GoalsPage(QWidget):
             self.goals = self.goal_service.get_all_goals()
             self.display_goals(self.goals)
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اهداف:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اهداف:\n{e!s}")
     
     def filter_goals(self):
         """فیلتر اهداف"""
@@ -417,7 +417,7 @@ class GoalsPage(QWidget):
                 self.load_goals()
                 QMessageBox.information(self, "موفقیت", "هدف با موفقیت حذف شد")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
     def view_student_profile(self):
         """مشاهده پرونده دانش‌آموز"""

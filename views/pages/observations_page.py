@@ -422,7 +422,7 @@ class ObservationsPage(QWidget):
             self.display_observations(self.observations)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{e!s}")
     
     def clear_search(self):
         """پاک کردن جستجو و نمایش همه"""
@@ -441,7 +441,7 @@ class ObservationsPage(QWidget):
             self.observations = self.observation_service.get_all_observations(limit=100, include_staff_info=True)
             self.display_observations(self.observations)
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری مشاهدات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری مشاهدات:\n{e!s}")
     
     def filter_observations(self):
         """فیلتر مشاهدات بر اساس دانش‌آموز و معلم"""
@@ -585,7 +585,7 @@ class ObservationsPage(QWidget):
                 self.filter_observations()
                 QMessageBox.information(self, "موفقیت", "مشاهده با موفقیت حذف شد")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
     def on_item_double_clicked(self, item):
         """ویرایش مشاهده با دابل کلیک"""

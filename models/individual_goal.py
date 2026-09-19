@@ -3,9 +3,8 @@
 تعیین و پیگیری اهداف تربیتی و آموزشی برای هر دانش‌آموز
 """
 
-from utils.time_utils import utc_now_iso
-
 from models.base import BaseModel
+from utils.time_utils import utc_now_iso
 
 
 class IndividualGoal(BaseModel):

@@ -76,7 +76,7 @@ class StudentAcademicProfileDAL:
             conn.rollback()
             raise Exception(f"خطای دیتابیس هنگام ایجاد پرونده سالانه: {e}")
 
-        except Exception:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
             conn.rollback()
             raise
 
@@ -255,7 +255,7 @@ class StudentAcademicProfileDAL:
 
             try:
                 history = json.loads(old_history)
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 history = []
 
             history.append({
@@ -320,7 +320,7 @@ class StudentAcademicProfileDAL:
             old_status = row['status']
             try:
                 history = json.loads(row['status_history'] or "[]")
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 history = []
             history.append({
                 'from': old_status,
@@ -379,7 +379,7 @@ class StudentAcademicProfileDAL:
 
             try:
                 history = json.loads(row['status_history'] or "[]")
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 history = []
             history.append({
                 'from': row['status'],

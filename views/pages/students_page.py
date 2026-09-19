@@ -29,9 +29,12 @@ from PySide6.QtWidgets import (
 from dal.academic_year_dal import AcademicYearDAL
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.student_dal import StudentDAL
+from utils.logger import get_logger
 from utils.time_utils import utc_now
 from views.dialogs.student_form import StudentForm
 from views.pages.student_profile_page import StudentProfilePage
+
+logger = get_logger(__name__)
 
 
 class StudentsPage(QWidget):
@@ -345,7 +348,7 @@ class StudentsPage(QWidget):
             self.display_students(self.students)
             self.update_pagination_controls()
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{e!s}")
     
     def update_pagination_controls(self):
         """به‌روزرسانی کنترل‌های Pagination"""
@@ -374,8 +377,9 @@ class StudentsPage(QWidget):
                     'grade': profile.grade_display,
                     'class': profile.class_name or ''
                 }
-        except Exception:
-            pass
+        except Exception as e:
+            # نبود پروندهٔ فعال برای این سال → ستون‌های پایه/کلاس خالی
+            logger.debug(f"پروندهٔ سالانهٔ دانش‌آموز {student_id} خوانده نشد: {e}")
         return {'grade': '-', 'class': '-'}
     
     def display_students(self, students):
@@ -473,7 +477,7 @@ class StudentsPage(QWidget):
             self.display_students(self.students)
             self.update_pagination_controls()
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{e!s}")
     
     def open_advanced_search(self):
         """باز کردن دیالوگ جستجوی پیشرفته"""
@@ -506,7 +510,7 @@ class StudentsPage(QWidget):
                 self.load_students()
                 QMessageBox.information(self, "موفقیت", "دانش‌آموز با موفقیت ثبت شد")
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در باز کردن فرم:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در باز کردن فرم:\n{e!s}")
     
     def edit_student(self, student):
         """ویرایش دانش‌آموز"""
@@ -530,7 +534,7 @@ class StudentsPage(QWidget):
                 self.load_students()
                 QMessageBox.information(self, "موفقیت", "دانش‌آموز با موفقیت حذف شد")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
     # ===== متدهای جدید برای Excel =====
     
@@ -565,7 +569,7 @@ class StudentsPage(QWidget):
                 QMessageBox.critical(self, "خطا", message)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در خروجی:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در خروجی:\n{e!s}")
     
     def import_from_excel(self):
         """ایمپورت دانش‌آموزان از Excel"""
@@ -633,7 +637,7 @@ class StudentsPage(QWidget):
                 QMessageBox.critical(self, "خطا", message)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در ایمپورت:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ایمپورت:\n{e!s}")
     
     def download_sample_excel(self):
         """دانلود فایل نمونه Excel"""
@@ -658,4 +662,4 @@ class StudentsPage(QWidget):
                 QMessageBox.critical(self, "خطا", message)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در ایجاد فایل نمونه:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ایجاد فایل نمونه:\n{e!s}")

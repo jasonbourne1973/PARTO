@@ -14,6 +14,9 @@ from dal.observation_dal import ObservationDAL
 from dal.staff_dal import StaffDAL
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.student_dal import StudentDAL
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class CaseTimelineService:
@@ -315,6 +318,7 @@ class CaseTimelineService:
             if profile:
                 student = self.student_dal.get_by_id(profile.student_id)
                 return student.full_name if student else "نامشخص"
-        except Exception:
-            pass
+        except Exception as e:
+            # نبود پرونده/دانش‌آموز نباید ساخت تایم‌لاین را متوقف کند
+            logger.debug(f"نام دانش‌آموز برای پرونده {profile_id} خوانده نشد: {e}")
         return "نامشخص"

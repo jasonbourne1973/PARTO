@@ -32,7 +32,7 @@ class DatabaseConnection:
     
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(DatabaseConnection, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
         return cls._instance
     
     def get_connection(self, user_id=None):
@@ -477,7 +477,9 @@ class DatabaseConnection:
                 print(f"⚠️ ترمیم ساختار ({module_name}) کامل نشد: {e}")
                 try:
                     self._connection.rollback()
-                except Exception:
+                except Exception:  # noqa: S110 - بالاآمدن برنامه اولویت دارد
+                    # اگر rollback هم ممکن نبود، اتصال در گام بعدی
+                    # بازسازی می‌شود؛ بالا آمدن برنامه اولویت دارد.
                     pass
 
     
@@ -553,7 +555,9 @@ class DatabaseConnection:
             print(f"⚠️ ارتقاء با MigrationManager کامل نشد: {e}")
             try:
                 self._connection.rollback()
-            except Exception:
+            except Exception:  # noqa: S110 - مسیر جایگزین ادامه می‌یابد
+                # مسیر جایگزینِ migration در ادامه اجرا می‌شود؛
+                # شکست rollback مانع آن نیست.
                 pass
 
         # ===== مسیر جایگزین (fallback) =====
@@ -1559,7 +1563,8 @@ class DatabaseConnection:
         if hasattr(value, "isoformat"):
             try:
                 return value.isoformat()
-            except Exception:
+            except Exception:  # noqa: S110 - بازگشت به str(value)
+                # شیء شبیه‌تاریخ ولی با isoformat خراب → رشتهٔ امن
                 pass
         # جلوگیری از خطای «parameters are of unsupported type» برای اشیایی
         # مثل Path یا مقادیر سفارشی؛ DALها معمولاً این مقادیر را متنی می‌خواهند.
@@ -1659,14 +1664,16 @@ class DatabaseConnection:
         try:
             if self._connection:
                 self._connection.rollback()
-        except Exception:  # pragma: no cover - مسیر اضطراری
+        except Exception:  # noqa: S110 - هشدار زیر به کاربر می‌رسد
+            # شکست rollback هم پذیرفته است؛ هشدار زیر به کاربر می‌رسد.
             pass
         try:
             print(
                 "⚠️ تراکنشِ بازِ جاافتاده بسته شد (rollback). "
                 "یعنی یک نوشتن قبلی نیمه‌کاره مانده بود."
             )
-        except Exception:  # pragma: no cover
+        except Exception:  # noqa: S110 - کنسول ممکن است بسته باشد
+            # حتی چاپ هشدار هم ممکن است شکست بخورد (کنسول بسته)
             pass
 
 

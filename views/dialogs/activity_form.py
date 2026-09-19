@@ -451,7 +451,7 @@ class ActivityForm(QDialog):
                 self.status_combo.setCurrentIndex(status_index)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{e!s}")
     
     def save_activity(self):
         """ذخیره فعالیت"""
@@ -515,4 +515,4 @@ class ActivityForm(QDialog):
             QMessageBox.warning(self, "خطا در اعتبارسنجی", str(e))
         except Exception as e:
             self.logger.error(f"خطا در ذخیره فعالیت: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{e!s}")

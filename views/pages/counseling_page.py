@@ -246,7 +246,7 @@ class CounselingPage(QWidget):
             self.sessions = self.counseling_service.get_all_sessions()
             self.display_sessions(self.sessions)
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری جلسات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری جلسات:\n{e!s}")
     
     def filter_sessions(self):
         """فیلتر جلسات"""
@@ -410,7 +410,7 @@ class CounselingPage(QWidget):
                 self.load_sessions()
                 QMessageBox.information(self, "موفقیت", "جلسه با موفقیت حذف شد")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
     def view_student_profile(self):
         """مشاهده پرونده دانش‌آموز"""

@@ -360,7 +360,7 @@ class FollowUpForm(QDialog):
             self.description_input.setText(follow.description or "")
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{e!s}")
     
     def save_followup(self):
         """ذخیره پیگیری با استفاده از سرویس"""
@@ -415,4 +415,4 @@ class FollowUpForm(QDialog):
             QMessageBox.critical(self, "خطا", str(e))
         except Exception as e:
             self.logger.error(f"خطا در ذخیره پیگیری: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{e!s}")

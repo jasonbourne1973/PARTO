@@ -56,7 +56,7 @@ class StudentDAL:
             conn.rollback()
             raise Exception(f"خطا در ثبت دانش‌آموز: {e}")
 
-        except Exception:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
             conn.rollback()
             raise
 
@@ -152,7 +152,7 @@ class StudentDAL:
             conn.rollback()
             raise Exception(f"خطا در ویرایش دانش‌آموز: {e}")
 
-        except Exception:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
             conn.rollback()
             raise
 
@@ -279,7 +279,7 @@ class StudentDAL:
                 if student:
                     results.append(student)
             return results
-        except Exception as e:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
             logger.error(f"خطا در جستجوی پیشرفته: {e}")
             return []
 
@@ -372,7 +372,7 @@ class StudentDAL:
 
             return result
 
-        except Exception as e:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
             logger.error(f"خطا در دریافت توزیع دانش‌آموزان: {e}")
             return []
 
@@ -444,7 +444,7 @@ class StudentDAL:
             result['total'] = total
             return result
 
-        except Exception as e:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
             logger.error(f"خطا در دریافت تعداد دانش‌آموزان بر اساس وضعیت: {e}")
             return {'active': 0, 'inactive': 0, 'graduated': 0, 'transferred': 0, 'dropped': 0, 'total': 0}
 
@@ -536,7 +536,7 @@ class StudentDAL:
 
             return result
 
-        except Exception as e:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
             logger.error(f"خطا در دریافت دانش‌آموزان بدون مشاهده: {e}")
             return []
 
@@ -655,7 +655,7 @@ class StudentDAL:
                 'last_observation_date': obs_row['last_date'] if obs_row else None
             }
 
-        except Exception as e:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
             logger.error(f"خطا در دریافت خلاصه فعالیت‌های دانش‌آموز: {e}")
             return {
                 'observations_count': 0,

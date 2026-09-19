@@ -253,7 +253,7 @@ class TrendAnalysisService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در دریافت خلاصه پیشرفت: {e}")
-            return {'has_data': False, 'message': f'خطا: {str(e)}'}
+            return {'has_data': False, 'message': f'خطا: {e!s}'}
 
     # ============================================================
     # متدهای تحلیل چندساله (جدید)

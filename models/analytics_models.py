@@ -2,10 +2,10 @@
 مدل‌های تحلیل داده برای داشبورد تحلیلی
 """
 
-from utils.time_utils import utc_now_iso
-
 from dataclasses import dataclass
 from typing import List
+
+from utils.time_utils import utc_now_iso
 
 
 @dataclass

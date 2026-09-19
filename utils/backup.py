@@ -166,7 +166,7 @@ class BackupManager:
         except Exception as e:
             return {
                 'success': False,
-                'message': f"❌ خطا در ایجاد Backup: {str(e)}"
+                'message': f"❌ خطا در ایجاد Backup: {e!s}"
             }
     
     def _quiesce_database(self):
@@ -214,12 +214,14 @@ class BackupManager:
             if conn is not None:
                 try:
                     conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-                except sqlite3.Error:
-                    pass
+                except sqlite3.Error as e:
+                    # checkpoint نشدن مانع بازیابی نیست؛ WAL هنگام بستن
+                    # اتصال کنار گذاشته می‌شود.
+                    logger.debug(f"wal_checkpoint انجام نشد: {e}")
                 try:
                     inst.close()      # _connection = None و _initialized = False
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"بستن اتصال پیش از بازیابی ناموفق بود: {e}")
         except Exception as e:
             self.logger.warning(f"بستن اتصال دیتابیس قبل از بازیابی ممکن نشد: {e}")
 
@@ -289,7 +291,7 @@ class BackupManager:
             sidecar = backup_file + '.sha256'
             if os.path.exists(sidecar):
                 try:
-                    with open(sidecar, 'r', encoding='utf-8') as f:
+                    with open(sidecar, encoding='utf-8') as f:
                         expected = f.read().strip()
                 except OSError as e:
                     expected = None
@@ -417,7 +419,7 @@ class BackupManager:
         except Exception as e:
             return {
                 'success': False,
-                'message': f"❌ خطا در بازیابی: {str(e)}"
+                'message': f"❌ خطا در بازیابی: {e!s}"
             }
     
     def _cleanup_pre_restore_files(self):
@@ -494,7 +496,7 @@ class BackupManager:
                 return True, "✅ فایل پشتیبان با موفقیت حذف شد."
             return False, "❌ فایل پشتیبان وجود ندارد."
         except Exception as e:
-            return False, f"❌ خطا در حذف فایل: {str(e)}"
+            return False, f"❌ خطا در حذف فایل: {e!s}"
     
     def _count_attachments(self):
         """تعداد فایل‌های پیوست"""

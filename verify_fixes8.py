@@ -289,14 +289,16 @@ try:
     print("بخش C: ایندکس‌گذاری کلیدهای خارجی (migration v8)")
     print("=" * 76)
 
-    check("C", "DB_VERSION = 8", settings.DB_VERSION == 8, str(settings.DB_VERSION))
+    check("C", "DB_VERSION حداقل ۸ است (دور هشتم نسخه را به ۸ برد)",
+          settings.DB_VERSION >= 8, str(settings.DB_VERSION))
     check("C", "migration_v8.py وجود دارد",
           os.path.exists('database/migrations/migration_v8.py'))
     check("C", "migration_v8 در فهرست ترمیمی ثبت شده",
           'migration_v8' in read('database/connection.py'))
 
     ver = conn.execute("SELECT version FROM db_version").fetchone()[0]
-    check("C", "نسخهٔ دیتابیس ساخته‌شده ۸ است", ver == 8, str(ver))
+    check("C", "نسخهٔ دیتابیس ساخته‌شده با DB_VERSION هم‌خوان است",
+          ver == settings.DB_VERSION, f"{ver} != {settings.DB_VERSION}")
 
     def fk_without_index(cx):
         indexed = {}

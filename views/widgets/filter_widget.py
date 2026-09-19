@@ -400,7 +400,7 @@ class FilterWidget(QWidget):
             
         except Exception as e:
             self.logger.error(f"خطا در بارگذاری فیلترها: {e}")
-            QMessageBox.warning(self, "خطا", f"مشکل در بارگذاری فیلترها:\n{str(e)}")
+            QMessageBox.warning(self, "خطا", f"مشکل در بارگذاری فیلترها:\n{e!s}")
     
     def display_filters(self):
         """نمایش فیلترها"""
@@ -436,7 +436,7 @@ class FilterWidget(QWidget):
             self.load_filters()
             QMessageBox.information(self, "موفقیت", "فیلتر با موفقیت حذف شد")
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در حذف فیلتر:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در حذف فیلتر:\n{e!s}")
     
     def on_type_changed(self):
         """وقتی نوع فیلتر تغییر می‌کند"""
@@ -503,7 +503,7 @@ class FilterWidget(QWidget):
                 self.load_filters()
                 QMessageBox.information(self, "موفقیت", "فیلتر با موفقیت ذخیره شد")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در ذخیره فیلتر:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در ذخیره فیلتر:\n{e!s}")
     
     def _get_current_filter_params(self):
         """دریافت پارامترهای فیلتر فعلی"""

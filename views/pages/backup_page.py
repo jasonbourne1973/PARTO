@@ -224,7 +224,7 @@ class BackupPage(QWidget):
                 self.table.setRowHeight(row, 35)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری Backupها:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری Backupها:\n{e!s}")
     
     def create_backup(self):
         """ایجاد پشتیبان جدید"""

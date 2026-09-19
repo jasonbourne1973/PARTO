@@ -305,7 +305,7 @@ class ObservationService(BaseService):
             return observation
         except Exception as e:
             self.logger.error(f"خطا در دریافت مشاهده: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_observations_by_student(self, student_id, year_id=None, limit=None):
         """
@@ -341,7 +341,7 @@ class ObservationService(BaseService):
             return observations
         except Exception as e:
             self.logger.error(f"خطا در دریافت مشاهدات دانش‌آموز: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_observations_by_teacher(self, teacher_id, year_id=None, limit=None):
         """
@@ -381,7 +381,7 @@ class ObservationService(BaseService):
             return observations
         except Exception as e:
             self.logger.error(f"خطا در دریافت مشاهدات معلم: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_all_observations(self, limit=None, include_staff_info=False):
         """
@@ -403,7 +403,7 @@ class ObservationService(BaseService):
             return observations
         except Exception as e:
             self.logger.error(f"خطا در دریافت همه مشاهدات: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_observations_by_date_range(self, student_id, start_date, end_date):
         """
@@ -430,7 +430,7 @@ class ObservationService(BaseService):
             return observations
         except Exception as e:
             self.logger.error(f"خطا در دریافت مشاهدات بازه زمانی: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_observations_summary(self, student_id, year_id=None):
         """
@@ -477,7 +477,7 @@ class ObservationService(BaseService):
             }
         except Exception as e:
             self.logger.error(f"خطا در دریافت خلاصه مشاهدات: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def _validate_observation_data(self, data, is_update=False):
         """
@@ -659,7 +659,7 @@ class ObservationService(BaseService):
             return observations
         except Exception as e:
             self.logger.error(f"خطا در جستجوی مشاهدات: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")
     
     def search_observations_by_student(self, student_id, search_term):
         """
@@ -679,7 +679,7 @@ class ObservationService(BaseService):
             return observations
         except Exception as e:
             self.logger.error(f"خطا در جستجوی مشاهدات دانش‌آموز: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")
     
     def search_observations_by_teacher(self, teacher_id, search_term):
         """
@@ -699,4 +699,4 @@ class ObservationService(BaseService):
             return observations
         except Exception as e:
             self.logger.error(f"خطا در جستجوی مشاهدات معلم: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")

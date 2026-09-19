@@ -286,7 +286,7 @@ class InterventionsPage(QWidget):
             self.display_interventions(self.interventions)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{e!s}")
     
     def clear_search(self):
         """پاک کردن جستجو"""
@@ -301,7 +301,7 @@ class InterventionsPage(QWidget):
             self.interventions = self.intervention_service.get_all_interventions(limit=100, include_staff_info=True)
             self.display_interventions(self.interventions)
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری مداخلات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری مداخلات:\n{e!s}")
     
     def filter_interventions(self):
         """فیلتر مداخلات بر اساس دانش‌آموز و معلم"""
@@ -426,4 +426,4 @@ class InterventionsPage(QWidget):
                 self.filter_interventions()
                 QMessageBox.information(self, "موفقیت", "مداخله با موفقیت حذف شد")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")

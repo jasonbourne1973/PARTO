@@ -24,6 +24,7 @@ from services.base_service import BaseService
 from services.trend_analysis_service import TrendAnalysisService
 from utils.error_handler import ServiceError
 from utils.logger import get_logger
+from utils.persian_date import PersianDate
 
 
 class DashboardService(BaseService):
@@ -105,7 +106,7 @@ class DashboardService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در دریافت داده‌های داشبورد: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     # ============================================================
     # متدهای جدید تحلیلی
@@ -337,9 +338,9 @@ class DashboardService(BaseService):
                     year -= 1
                 
                 month_key = f"{year}/{month:02d}"
-                month_names = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-                               "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
-                label = month_names[month-1] if 1 <= month <= 12 else str(month)
+                # برچسب ماه از منبع واحد (بازرسی نهم: قبلاً فهرست نام‌ها
+                # در ۶ فایل کپی شده بود)
+                label = PersianDate.month_name(month) or str(month)
                 
                 months_data.append({
                     'month': month_key,

@@ -571,7 +571,7 @@ class MainWindow(QMainWindow):
                 "assets", "styles", "main_style.qss"
             )
             if os.path.exists(style_path):
-                with open(style_path, "r", encoding="utf-8") as f:
+                with open(style_path, encoding="utf-8") as f:
                     stylesheet = f.read()
                 application = QApplication.instance()
                 if application is not None:
@@ -798,9 +798,9 @@ class MainWindow(QMainWindow):
                     QEvent.Type.Wheel
                 ]:
                     self.idle_timer.start()
-            except RuntimeError:
+            except RuntimeError as e:
                 # ممکن است ویجت در حال نابودشدن باشد
-                pass
+                logger.debug(f"ری‌استارت تایمر بی‌کاری ممکن نشد: {e}")
         return super().eventFilter(obj, event)
 
     def closeEvent(self, event):
@@ -856,4 +856,4 @@ class MainWindow(QMainWindow):
             else:
                 QMessageBox.warning(self, "توجه", "پرونده یافت نشد.")
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در باز کردن پرونده:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در باز کردن پرونده:\n{e!s}")

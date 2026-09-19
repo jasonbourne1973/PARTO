@@ -301,8 +301,10 @@ class AnalysisPage(QWidget):
                 start_month += 12
                 start_year -= 1
             self.start_date.set_date(f"{start_year:04d}/{start_month:02d}/{today.day:02d}")
-        except Exception:
-            pass
+        except (ImportError, ValueError, AttributeError, TypeError) as e:
+            # نبود jdatetime یا تاریخ نامعتبر: صفحه بدون تاریخ پیش‌فرض
+            # بالا می‌آید و کاربر خودش تاریخ را وارد می‌کند.
+            logger.debug(f"تاریخ‌های پیش‌فرض تنظیم نشد: {e}")
     
     def load_teachers(self):
         """بارگذاری معلمان در کامبوباکس"""
@@ -406,7 +408,7 @@ class AnalysisPage(QWidget):
                 QMessageBox.information(self, "نتیجه جستجو", msg)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{e!s}")
     
     def clear_search(self):
         """پاک کردن جستجو و نمایش همه"""

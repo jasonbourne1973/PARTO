@@ -3,6 +3,8 @@
 با متدهای تحلیلی برای داشبورد و پیشنهادات
 """
 
+import sqlite3
+
 from dal.indicator_dal import IndicatorDAL
 from dal.observable_behavior_dal import ObservableBehaviorDAL
 from database.connection import DatabaseConnection
@@ -378,7 +380,7 @@ class CompetencyDAL:
                 'least_used': least_used
             }
 
-        except Exception as e:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
             logger.error(f"خطا در دریافت آمار استفاده از شایستگی‌ها: {e}")
             return {
                 'total_competencies': 0,
@@ -405,7 +407,7 @@ class CompetencyDAL:
 
             return result
 
-        except Exception as e:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
             logger.error(f"خطا در دریافت توزیع شایستگی‌ها: {e}")
             return []
 
@@ -448,7 +450,7 @@ class CompetencyDAL:
 
             return result
 
-        except Exception as e:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
             logger.error(f"خطا در دریافت میانگین شدت شایستگی‌ها: {e}")
             return []
 
@@ -513,7 +515,7 @@ class CompetencyDAL:
             
             return result
             
-        except Exception as e:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
             logger.error(f"خطا در دریافت شایستگی‌های دسته برای دانش‌آموز: {e}")
             return []
 
@@ -563,6 +565,6 @@ class CompetencyDAL:
             
             return result
             
-        except Exception as e:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
             logger.error(f"خطا در دریافت شایستگی‌های پیشنهادی: {e}")
             return []

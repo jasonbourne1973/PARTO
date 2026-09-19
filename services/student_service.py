@@ -287,7 +287,7 @@ class StudentService(BaseService):
             return student
         except Exception as e:
             self.logger.error(f"خطا در دریافت دانش‌آموز: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_all_students(self, limit=None, offset=None):
         """دریافت لیست همه دانش‌آموزان"""
@@ -295,7 +295,7 @@ class StudentService(BaseService):
             return self.student_dal.get_all(limit, offset)
         except Exception as e:
             self.logger.error(f"خطا در دریافت لیست دانش‌آموزان: {e}")
-            raise ServiceError(f"خطا در دریافت لیست: {str(e)}")
+            raise ServiceError(f"خطا در دریافت لیست: {e!s}")
     
     def search_students(self, search_term):
         """جستجوی دانش‌آموزان"""
@@ -305,7 +305,7 @@ class StudentService(BaseService):
             return self.student_dal.search(search_term.strip())
         except Exception as e:
             self.logger.error(f"خطا در جستجوی دانش‌آموزان: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")
 
     def get_student_trend(self, student_id, academic_year_id=None, period='monthly'):
         """
@@ -397,5 +397,5 @@ class StudentService(BaseService):
             self.logger.error(f"خطا در دریافت پیشرفت دانش‌آموز: {e}")
             return {
                 'has_data': False,
-                'message': f'خطا: {str(e)}'
+                'message': f'خطا: {e!s}'
             }

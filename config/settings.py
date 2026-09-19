@@ -9,7 +9,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # مسیر دیتابیس
 DB_PATH = os.path.join(BASE_DIR, "database", "partow.db")
-DB_VERSION = 8  # نسخه ۸: ایندکس‌گذاری ۳۵ ستون کلید خارجی (بازرسی هشتم)
+DB_VERSION = 9  # نسخه ۹: یکدست‌سازی تاریخ‌های شمسی موجود (بازرسی نهم)
+                # نسخه ۸: ایندکس‌گذاری ۳۵ ستون کلید خارجی (بازرسی هشتم)
                 # نسخه ۷: جدول‌های recommendations، saved_filters، backups
                 # + ستون attachments.updated_at
                 # + ستون‌های سه‌لایه روی observations

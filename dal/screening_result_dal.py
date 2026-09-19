@@ -3,6 +3,7 @@
 """
 
 import json
+import sqlite3
 
 from database.connection import DatabaseConnection
 from models.screening_result import ScreeningResult
@@ -223,7 +224,7 @@ class ScreeningResultDAL:
         if row['raw_answers']:
             try:
                 result.raw_answers = json.loads(row['raw_answers'])
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 result.raw_answers = None
         else:
             result.raw_answers = None
@@ -231,7 +232,7 @@ class ScreeningResultDAL:
         if row['raw_observations']:
             try:
                 result.raw_observations = json.loads(row['raw_observations'])
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 result.raw_observations = None
         else:
             result.raw_observations = None
@@ -239,7 +240,7 @@ class ScreeningResultDAL:
         if row['domain_scores']:
             try:
                 result.domain_scores = json.loads(row['domain_scores'])
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 result.domain_scores = None
         else:
             result.domain_scores = None

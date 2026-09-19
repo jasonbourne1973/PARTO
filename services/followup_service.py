@@ -306,7 +306,7 @@ class FollowUpService(BaseService):
             return followup
         except Exception as e:
             self.logger.error(f"خطا در دریافت پیگیری: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_followups_by_intervention(self, intervention_id):
         """
@@ -325,7 +325,7 @@ class FollowUpService(BaseService):
             return followups
         except Exception as e:
             self.logger.error(f"خطا در دریافت پیگیری‌های مداخله: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_followups_by_student(self, student_id, year_id=None):
         """
@@ -359,7 +359,7 @@ class FollowUpService(BaseService):
             return followups
         except Exception as e:
             self.logger.error(f"خطا در دریافت پیگیری‌های دانش‌آموز: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_followups_by_teacher(self, teacher_id, year_id=None):
         """
@@ -399,7 +399,7 @@ class FollowUpService(BaseService):
             return followups
         except Exception as e:
             self.logger.error(f"خطا در دریافت پیگیری‌های معلم: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_all_followups(self, limit=None):
         """
@@ -418,7 +418,7 @@ class FollowUpService(BaseService):
             return followups
         except Exception as e:
             self.logger.error(f"خطا در دریافت همه پیگیری‌ها: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_pending_followups(self):
         """
@@ -434,7 +434,7 @@ class FollowUpService(BaseService):
             return followups
         except Exception as e:
             self.logger.error(f"خطا در دریافت پیگیری‌های در انتظار: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def update_status(self, followup_id, new_status, user_id=None, ip_address=None):
         """
@@ -552,7 +552,7 @@ class FollowUpService(BaseService):
             }
         except Exception as e:
             self.logger.error(f"خطا در دریافت خلاصه پیگیری‌ها: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_available_interventions_for_followup(self, student_id):
         """
@@ -754,7 +754,7 @@ class FollowUpService(BaseService):
             return followups
         except Exception as e:
             self.logger.error(f"خطا در جستجوی پیگیری‌ها: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")
     
     def search_followups_by_student(self, student_id, search_term):
         """
@@ -774,7 +774,7 @@ class FollowUpService(BaseService):
             return followups
         except Exception as e:
             self.logger.error(f"خطا در جستجوی پیگیری‌های دانش‌آموز: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")
     
     def search_followups_by_teacher(self, teacher_id, search_term):
         """
@@ -794,4 +794,4 @@ class FollowUpService(BaseService):
             return followups
         except Exception as e:
             self.logger.error(f"خطا در جستجوی پیگیری‌های معلم: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")

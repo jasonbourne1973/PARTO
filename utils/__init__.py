@@ -29,7 +29,7 @@
 
 import importlib
 
-__all__ = ["PersianDate", "ShamsiDateInput", "ShamsiDateEdit"]
+__all__ = ["PersianDate", "ShamsiDateEdit", "ShamsiDateInput"]
 
 _LAZY = {
     "PersianDate": "utils.persian_date",

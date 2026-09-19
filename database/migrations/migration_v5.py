@@ -19,6 +19,8 @@ migration روی هر دیتابیس نرمالی فوراً می‌ترکید:
 هم idempotent است و هم روی دیتابیس قدیمی/جدید یکسان کار می‌کند.
 """
 
+import sqlite3
+
 
 def _table_exists(cursor, table_name):
     cursor.execute(
@@ -154,8 +156,10 @@ def downgrade(connection):
         cursor.execute("ALTER TABLE screenings DROP COLUMN tool_id")
         cursor.execute("ALTER TABLE screenings DROP COLUMN domain_scores")
         cursor.execute("ALTER TABLE screenings DROP COLUMN total_score")
-    except Exception:
-        pass
+    except sqlite3.OperationalError:
+        # SQLite قدیمی‌تر از ۳٫۳۵ ستون DROP را پشتیبانی نمی‌کند؛ جدول
+        # در ادامهٔ همین downgrade بازسازی می‌شود، پس بی‌اثر است.
+        print("  ⚠️ حذف ستون‌های screenings روی این نسخهٔ SQLite ممکن نبود.")
     
     cursor.execute("DROP TABLE IF EXISTS screening_results")
     cursor.execute("DROP TABLE IF EXISTS screening_tools")

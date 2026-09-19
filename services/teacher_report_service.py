@@ -172,7 +172,7 @@ class TeacherReportService:
             pdf.build(file_path)
             
         except Exception as e:
-            raise Exception(f"خطا در تولید PDF: {str(e)}")
+            raise Exception(f"خطا در تولید PDF: {e!s}")
     
     def export_to_excel(self, report_data, file_path):
         """خروجی گزارش معلم به Excel - بدون Emoji"""

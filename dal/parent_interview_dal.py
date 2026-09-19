@@ -3,6 +3,7 @@
 """
 
 import json
+import sqlite3
 
 from database.connection import DatabaseConnection
 from models.parent_interview import ParentInterview  # این خط باید کار کند
@@ -246,7 +247,7 @@ class ParentInterviewDAL:
         if row['key_points']:
             try:
                 interview.key_points = json.loads(row['key_points'])
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 interview.key_points = None
         else:
             interview.key_points = None

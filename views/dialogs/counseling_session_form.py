@@ -551,7 +551,7 @@ class CounselingSessionForm(QDialog):
             self.on_follow_up_toggled(session.follow_up_needed)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{e!s}")
     
     def save_session(self):
         """ذخیره جلسه مشاوره"""
@@ -630,4 +630,4 @@ class CounselingSessionForm(QDialog):
             QMessageBox.warning(self, "خطا در اعتبارسنجی", str(e))
         except Exception as e:
             self.logger.error(f"خطا در ذخیره جلسه: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{e!s}")

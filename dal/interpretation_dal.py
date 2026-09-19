@@ -3,6 +3,7 @@
 """
 
 import json
+import sqlite3
 
 from database.connection import DatabaseConnection
 from models.professional_interpretation import ProfessionalInterpretation
@@ -233,7 +234,7 @@ class InterpretationDAL:
         if row['recommendations']:
             try:
                 interpretation.recommendations = json.loads(row['recommendations'])
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 interpretation.recommendations = None
         else:
             interpretation.recommendations = None
@@ -241,7 +242,7 @@ class InterpretationDAL:
         if row['next_steps']:
             try:
                 interpretation.next_steps = json.loads(row['next_steps'])
-            except Exception:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 interpretation.next_steps = None
         else:
             interpretation.next_steps = None

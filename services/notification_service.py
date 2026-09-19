@@ -104,7 +104,7 @@ class NotificationService(BaseService):
             return notifications
         except Exception as e:
             self.logger.error(f"خطا در دریافت اعلان‌ها: {e}")
-            raise ServiceError(f"خطا در دریافت اعلان‌ها: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اعلان‌ها: {e!s}")
     
     def get_unread_count(self, user_id):
         """دریافت تعداد اعلان‌های خوانده نشده"""
@@ -120,7 +120,7 @@ class NotificationService(BaseService):
             return self.notification_dal.mark_as_read(notification_id)
         except Exception as e:
             self.logger.error(f"خطا در علامت‌گذاری اعلان: {e}")
-            raise ServiceError(f"خطا: {str(e)}")
+            raise ServiceError(f"خطا: {e!s}")
     
     def mark_all_as_read(self, user_id):
         """علامت‌گذاری همه اعلان‌های کاربر به عنوان خوانده شده"""
@@ -128,7 +128,7 @@ class NotificationService(BaseService):
             return self.notification_dal.mark_all_as_read(user_id)
         except Exception as e:
             self.logger.error(f"خطا در علامت‌گذاری همه اعلان‌ها: {e}")
-            raise ServiceError(f"خطا: {str(e)}")
+            raise ServiceError(f"خطا: {e!s}")
     
     def mark_as_dismissed(self, notification_id):
         """علامت‌گذاری اعلان به عنوان رد شده"""
@@ -136,7 +136,7 @@ class NotificationService(BaseService):
             return self.notification_dal.mark_as_dismissed(notification_id)
         except Exception as e:
             self.logger.error(f"خطا در رد اعلان: {e}")
-            raise ServiceError(f"خطا: {str(e)}")
+            raise ServiceError(f"خطا: {e!s}")
     
     def delete_notification(self, notification_id):
         """حذف اعلان"""
@@ -144,7 +144,7 @@ class NotificationService(BaseService):
             return self.notification_dal.delete(notification_id)
         except Exception as e:
             self.logger.error(f"خطا در حذف اعلان: {e}")
-            raise ServiceError(f"خطا: {str(e)}")
+            raise ServiceError(f"خطا: {e!s}")
     
     def create_reminder_for_followup(self, followup, user_id=None):
         """

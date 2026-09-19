@@ -454,7 +454,7 @@ class StudentProfilePage(QWidget):
                 QMessageBox.information(self, "نتیجه جستجو", msg)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{e!s}")
     
     def clear_search(self):
         """پاک کردن جستجو و نمایش همه"""
@@ -855,7 +855,7 @@ class StudentProfilePage(QWidget):
             self.load_trend_chart()  # بارگذاری روند
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{e!s}")
             self.clear_display()
     
     def load_timeline(self):

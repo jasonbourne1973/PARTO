@@ -330,4 +330,4 @@ class SchoolReportService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در ساخت PDF گزارش مدرسه: {e}")
-            return False, f"خطا در ساخت فایل PDF: {str(e)}"
+            return False, f"خطا در ساخت فایل PDF: {e!s}"
