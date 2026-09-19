@@ -172,6 +172,50 @@ ROLE_PERMISSIONS = {
 }
 
 
+# ===== نگاشت نقش‌های مترادف/قدیمی (بازرسی ششم) =====
+# ممکن است در دیتابیسِ به‌روزنشده مقدارهایی مثل admin یا
+# vice_principle (با غلط املایی) مانده باشد. بدون این نگاشت، این
+# نقش‌ها «ناشناخته» می‌شدند و مجوزهایشان به لیست پیش‌فرض می‌رسید.
+ROLE_ALIASES = {
+    'admin': 'manager',
+    'administrator': 'manager',
+    'modir': 'manager',
+    'principal': 'manager',
+    'vice_principle': 'vice_principal',
+    'deputy': 'vice_principal',
+}
+
+# مجوزهای پیش‌فرض برای نقشِ ناشناخته.
+# سیاست: «کم‌ترین دسترسیِ محتمل» — منوهای خواندنی باز می‌مانند
+# ولی کارهای مدیریتی (کاربران، پشتیبان‌گیری، ساختار آموزشی) بسته
+# است. قبلاً نقش ناشناخته عملاً همه‌چیز داشت، چون هیچ‌جا بررسی
+# نمی‌شد.
+FALLBACK_ROLE_PERMISSIONS = list(ROLE_PERMISSIONS[UserRole.VIEWER.value])
+
+
+def get_role_permissions(role):
+    """
+    مجوزهای یک نقش را برمی‌گرداند (تنها مرجع مورد اعتماد)
+
+    این تابع همان منبعی است که هم SessionManager.has_permission و
+    هم رابط کاربری از آن استفاده می‌کنند تا تعریف مجوزها دو تایی
+    (و ناهمخوان) نشود.
+
+    Args:
+        role: رشتهٔ نقش (مثلاً 'manager'، 'teacher'، 'counselor')
+
+    Returns:
+        list[str]: لیست مجوزها. برای نقشِ ناشناخته، لیست پیش‌فرضِ
+        FALLBACK_ROLE_PERMISSIONS برمی‌گردد (نه لیست خالی؛ چون لیست
+        خالی در UI یعنی «کاربر هیچ صفحه‌ای نمی‌بیند»).
+    """
+    key = (role or '').strip().lower()
+    key = ROLE_ALIASES.get(key, key)
+    if key in ROLE_PERMISSIONS:
+        return list(ROLE_PERMISSIONS[key])
+    return list(FALLBACK_ROLE_PERMISSIONS)
+
+
 class Security:
     """کلاس ابزارهای امنیتی - با PBKDF2-HMAC-SHA256 برای هش کردن رمز عبور"""
     
@@ -420,9 +464,12 @@ class SessionManager:
             return False
         
         user_role = session.get('user_role')
-        permissions = ROLE_PERMISSIONS.get(user_role, [])
-        
-        return permission in permissions
+        # ===== اصلاح (بازرسی ششم) =====
+        # قبلاً دو مسیر جدا برای مجوزها وجود داشت: این متد از
+        # ROLE_PERMISSIONS می‌خواند و رابط کاربری از هیچ‌جا. حالا هر
+        # دو از get_role_permissions استفاده می‌کنند و نقش‌های
+        # مترادف/ناشناخته هم یک رفتار دارند.
+        return permission in get_role_permissions(user_role)
     
     def has_any_permission(self, token, permissions):
         """بررسی دسترسی کاربر به حداقل یکی از مجوزها"""

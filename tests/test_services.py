@@ -10,6 +10,26 @@ import shutil
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# ============================================================
+# جداسازی تست‌ها از دیتابیس واقعی (بازرسی ششم)
+# ============================================================
+# نسخه قبلی تست‌ها مستقیماً به database/partow.db واقعی وصل
+# می‌شدند؛ یعنی اجرای تست‌ها می‌توانست داده در دیتابیس کاربر
+# بنویسد (test_create_student یک دانش‌آموز با کد ملی جعلی
+# «1234567890» ثبت می‌کرد). حالا هر اجرا روی یک دیتابیس موقت
+# انجام می‌شود و به دیتابیس واقعی دست نمی‌زند.
+import tempfile as _tempfile
+
+from config import settings as _settings
+import database.connection as _dbc
+
+_TMP_DB_DIR = _tempfile.mkdtemp(prefix='partow_test_')
+_settings.DB_PATH = os.path.join(_TMP_DB_DIR, 'partow.db')
+_dbc.DB_PATH = _settings.DB_PATH
+_dbc.DatabaseConnection._instance = None
+_dbc.DatabaseConnection._connection = None
+_dbc.DatabaseConnection._initialized = False
+
 from services.observation_service import ObservationService
 from services.intervention_service import InterventionService
 from services.followup_service import FollowUpService

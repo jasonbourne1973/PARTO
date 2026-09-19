@@ -99,13 +99,20 @@ class FollowUpService(BaseService):
             followup = FollowUp()
             followup.intervention_id = intervention_id
             followup.staff_id = staff_id
-            followup.date = data.get('date', '').strip()
-            followup.method = data.get('method', '').strip()
-            followup.description = data.get('description', '').strip()
-            followup.status = data.get('status', FollowUp.STATUS_PENDING)
-            followup.next_action_date = data.get('next_action_date', '').strip()
-            followup.result_type = data.get('result_type', '').strip()
-            followup.result_description = data.get('result_description', '').strip()
+            # ===== اصلاح (بازرسی ششم) =====
+            # الگوی data.get('x', '').strip() وقتی کلید وجود داشت و
+            # مقدارش None بود، AttributeError می‌داد و کل ثبت پیگیری
+            # با پیام «'NoneType' object has no attribute 'strip'»
+            # شکست می‌خورد. حالا clean_text/clean_date هر دو حالت را
+            # پوشش می‌دهند و تاریخ هم به فرمت یکدست yyyy/MM/dd
+            # نرمال می‌شود.
+            followup.date = self.clean_date(data.get('date'), '')
+            followup.method = self.clean_text(data.get('method'))
+            followup.description = self.clean_text(data.get('description'))
+            followup.status = data.get('status') or FollowUp.STATUS_PENDING
+            followup.next_action_date = self.clean_date(data.get('next_action_date'))
+            followup.result_type = self.clean_text(data.get('result_type'), None)
+            followup.result_description = self.clean_text(data.get('result_description'), None)
             
             # 7. اعتبارسنجی مدل
             errors = followup.validate()
@@ -184,13 +191,18 @@ class FollowUpService(BaseService):
                 followup.intervention_id = intervention_id
             
             followup.staff_id = data.get('staff_id', followup.staff_id)
-            followup.date = data.get('date', followup.date).strip()
-            followup.method = data.get('method', followup.method).strip()
-            followup.description = data.get('description', followup.description).strip()
+            # ===== اصلاح (بازرسی ششم): None-safe + یکدست‌سازی تاریخ =====
+            followup.date = self.clean_date(data.get('date'), followup.date or '')
+            followup.method = self.clean_text(data.get('method'), followup.method)
+            followup.description = self.clean_text(data.get('description'), followup.description)
             followup.status = data.get('status', followup.status)
-            followup.next_action_date = data.get('next_action_date', followup.next_action_date).strip()
-            followup.result_type = data.get('result_type', followup.result_type)
-            followup.result_description = data.get('result_description', followup.result_description).strip()
+            followup.next_action_date = self.clean_date(
+                data.get('next_action_date'), followup.next_action_date
+            )
+            followup.result_type = self.clean_text(data.get('result_type'), followup.result_type)
+            followup.result_description = self.clean_text(
+                data.get('result_description'), followup.result_description
+            )
             
             # 5. اگر وضعیت "انجام شده" است، تاریخ اقدام بعدی را پاک کن
             if followup.status == FollowUp.STATUS_DONE:
@@ -589,40 +601,52 @@ class FollowUpService(BaseService):
             ValidationError: در صورت عدم اعتبار
         """
         errors = []
-        
+
+        # ===== اصلاح (بازرسی ششم) =====
+        # در حالت ویرایش، فقط کلیدهایی که واقعاً فرستاده شده‌اند
+        # اعتبارسنجی می‌شوند. نسخه قبلی برای یک ویرایش جزئی (مثلاً
+        # فقط تغییر وضعیت) هم «تاریخ پیگیری» و «مسئول پیگیری» را
+        # اجباری می‌دانست و ویرایش را رد می‌کرد.
+        # مقدار None هم دیگر باعث AttributeError نمی‌شود.
+        def provided(key):
+            return (not is_update) or (key in data)
+
         # بررسی مداخله (در حالت ایجاد اجباری است)
         if not is_update and not data.get('intervention_id'):
             errors.append("مداخله باید انتخاب شود")
-        
+
         # بررسی مسئول پیگیری
-        if data.get('staff_id') is None:
-            errors.append("مسئول پیگیری باید انتخاب شود")
-        elif data.get('staff_id') and data.get('staff_id') <= 0:
-            errors.append("مسئول پیگیری نامعتبر است")
-        
-        # بررسی تاریخ پیگیری
-        date = data.get('date', '').strip()
-        if not date:
-            errors.append("تاریخ پیگیری نمی‌تواند خالی باشد")
-        else:
-            if not re.match(r'^\d{4}/\d{2}/\d{2}$', date):
+        if provided('staff_id'):
+            if data.get('staff_id') is None:
+                errors.append("مسئول پیگیری باید انتخاب شود")
+            elif data.get('staff_id') and data.get('staff_id') <= 0:
+                errors.append("مسئول پیگیری نامعتبر است")
+
+        # بررسی تاریخ پیگیری — اعتبارسنجی واقعی تقویم شمسی
+        if provided('date'):
+            date = self.clean_text(data.get('date'))
+            if not date:
+                errors.append("تاریخ پیگیری نمی‌تواند خالی باشد")
+            elif not self.is_valid_jalali_date(date):
                 errors.append("فرمت تاریخ باید به صورت yyyy/MM/dd باشد")
-        
+
         # بررسی تاریخ اقدام بعدی (اگر وارد شده باشد)
-        next_date = data.get('next_action_date', '').strip()
-        if next_date:
-            if not re.match(r'^\d{4}/\d{2}/\d{2}$', next_date):
+        if provided('next_action_date'):
+            next_date = self.clean_text(data.get('next_action_date'))
+            if next_date and not self.is_valid_jalali_date(next_date):
                 errors.append("فرمت تاریخ اقدام بعدی باید به صورت yyyy/MM/dd باشد")
-        
+
         # بررسی وضعیت
-        status = data.get('status', 'pending')
-        if status not in self.VALID_STATUSES:
-            errors.append(f"وضعیت '{status}' نامعتبر است")
-        
+        if provided('status'):
+            status = data.get('status') or 'pending'
+            if status not in self.VALID_STATUSES:
+                errors.append(f"وضعیت '{status}' نامعتبر است")
+
         # بررسی نوع نتیجه (اگر وارد شده باشد)
-        result_type = data.get('result_type', '').strip()
-        if result_type and result_type not in self.VALID_RESULT_TYPES:
-            errors.append(f"نوع نتیجه '{result_type}' نامعتبر است")
+        if provided('result_type'):
+            result_type = self.clean_text(data.get('result_type'))
+            if result_type and result_type not in self.VALID_RESULT_TYPES:
+                errors.append(f"نوع نتیجه '{result_type}' نامعتبر است")
         
         if errors:
             raise ValidationError("\n".join(errors))

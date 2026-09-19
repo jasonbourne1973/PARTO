@@ -97,12 +97,13 @@ class InterventionService(BaseService):
             intervention.student_profile_id = profile.id
             intervention.staff_id = staff_id
             intervention.observation_id = observation_id
-            intervention.type = data.get('type', '').strip()
-            intervention.date = data.get('date', '').strip()
-            intervention.description = data.get('description', '').strip()
-            intervention.goal = data.get('goal', '').strip()
-            intervention.status = data.get('status', Intervention.STATUS_PLANNED)
-            intervention.result = data.get('result', '').strip()
+            # ===== اصلاح (بازرسی ششم): None-safe + یکدست‌سازی تاریخ =====
+            intervention.type = self.clean_text(data.get('type'))
+            intervention.date = self.clean_date(data.get('date'), '')
+            intervention.description = self.clean_text(data.get('description'))
+            intervention.goal = self.clean_text(data.get('goal'))
+            intervention.status = data.get('status') or Intervention.STATUS_PLANNED
+            intervention.result = self.clean_text(data.get('result'))
             
             # 6. اعتبارسنجی مدل
             errors = intervention.validate()
@@ -174,12 +175,15 @@ class InterventionService(BaseService):
             
             intervention.staff_id = data.get('staff_id', intervention.staff_id)
             intervention.observation_id = data.get('observation_id', intervention.observation_id)
-            intervention.type = data.get('type', intervention.type).strip()
-            intervention.date = data.get('date', intervention.date).strip()
-            intervention.description = data.get('description', intervention.description).strip()
-            intervention.goal = data.get('goal', intervention.goal).strip()
+            # ===== اصلاح (بازرسی ششم): None-safe + یکدست‌سازی تاریخ =====
+            intervention.type = self.clean_text(data.get('type'), intervention.type)
+            intervention.date = self.clean_date(data.get('date'), intervention.date or '')
+            intervention.description = self.clean_text(
+                data.get('description'), intervention.description
+            )
+            intervention.goal = self.clean_text(data.get('goal'), intervention.goal)
             intervention.status = data.get('status', intervention.status)
-            intervention.result = data.get('result', intervention.result).strip()
+            intervention.result = self.clean_text(data.get('result'), intervention.result)
             
             # 5. اعتبارسنجی مشاهده مرتبط (اگر تغییر کرده باشد)
             if intervention.observation_id:
@@ -544,43 +548,52 @@ class InterventionService(BaseService):
             ValidationError: در صورت عدم اعتبار
         """
         errors = []
-        
+
+        # ===== اصلاح (بازرسی ششم) =====
+        # در حالت ویرایش فقط کلیدهای ارسالی اعتبارسنجی می‌شوند
+        # (ویرایش جزئی، مثل تغییر فقط وضعیت یا توضیحات، دیگر رد
+        # نمی‌شود) و مقدار None باعث AttributeError نمی‌شود.
+        def provided(key):
+            return (not is_update) or (key in data)
+
         # بررسی دانش‌آموز (در حالت ایجاد اجباری است)
         if not is_update and not data.get('student_id'):
             errors.append("دانش‌آموز باید انتخاب شود")
-        
+
         # بررسی مسئول مداخله
-        if data.get('staff_id') is None:
-            errors.append("مسئول مداخله باید انتخاب شود")
-        elif data.get('staff_id') and data.get('staff_id') <= 0:
-            errors.append("مسئول مداخله نامعتبر است")
-        
+        if provided('staff_id'):
+            if data.get('staff_id') is None:
+                errors.append("مسئول مداخله باید انتخاب شود")
+            elif data.get('staff_id') and data.get('staff_id') <= 0:
+                errors.append("مسئول مداخله نامعتبر است")
+
         # بررسی نوع مداخله
-        intervention_type = data.get('type', '').strip()
-        if not intervention_type:
-            errors.append("نوع مداخله باید انتخاب شود")
-        
-        # بررسی تاریخ
-        date = data.get('date', '').strip()
-        if not date:
-            errors.append("تاریخ مداخله نمی‌تواند خالی باشد")
-        else:
-            # بررسی فرمت تاریخ (ساده)
-            import re
-            if not re.match(r'^\d{4}/\d{2}/\d{2}$', date):
+        if provided('type'):
+            intervention_type = self.clean_text(data.get('type'))
+            if not intervention_type:
+                errors.append("نوع مداخله باید انتخاب شود")
+
+        # بررسی تاریخ — اعتبارسنجی واقعی تقویم شمسی (نه فقط شکل)
+        if provided('date'):
+            date = self.clean_text(data.get('date'))
+            if not date:
+                errors.append("تاریخ مداخله نمی‌تواند خالی باشد")
+            elif not self.is_valid_jalali_date(date):
                 errors.append("فرمت تاریخ باید به صورت yyyy/MM/dd باشد")
-        
+
         # بررسی توضیحات
-        description = data.get('description', '').strip()
-        if not description:
-            errors.append("توضیحات مداخله نمی‌تواند خالی باشد")
-        elif len(description) < 3:
-            errors.append("توضیحات باید حداقل ۳ کاراکتر باشد")
-        
+        if provided('description'):
+            description = self.clean_text(data.get('description'))
+            if not description:
+                errors.append("توضیحات مداخله نمی‌تواند خالی باشد")
+            elif len(description) < 3:
+                errors.append("توضیحات باید حداقل ۳ کاراکتر باشد")
+
         # بررسی وضعیت
-        status = data.get('status', 'planned')
-        if status not in self.VALID_STATUSES:
-            errors.append(f"وضعیت '{status}' نامعتبر است")
+        if provided('status'):
+            status = data.get('status') or 'planned'
+            if status not in self.VALID_STATUSES:
+                errors.append(f"وضعیت '{status}' نامعتبر است")
         
         if errors:
             raise ValidationError("\n".join(errors))

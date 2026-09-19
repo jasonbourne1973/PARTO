@@ -1602,15 +1602,90 @@ class DatabaseConnection:
         شروع یک تراکنش واقعی (با پشتیبانی از تودرتو)
 
         نکته کلیدی: تا وقتی عمق تراکنش بزرگ‌تر از صفر است، متد
-        commit() پایین بی‌اثر می‌شود. این یعنی ۱۲۲ فراخوانی
+        commit() پایین‌اثر می‌شود. این یعنی ۱۲۲ فراخوانی
         conn.commit() پراکنده در DALها لازم نیست تغییر کنند؛
         خودشان بی‌ضرر می‌شوند و فقط لایه سرویس commit می‌کند.
+
+        ===== 🔴 اصلاح (بازرسی ششم) — تراکنش سرگردان =====
+        ماژول sqlite3 پایتون در حالت پیش‌فرض، پیش از هر
+        INSERT/UPDATE/DELETE خودش یک تراکنش «ضمنی» باز می‌کند و
+        آن را تا commit/rollback باز نگه می‌دارد.
+
+        اگر یک نوشتنِ سطح DAL وسط کار خطا بدهد و به commit نرسد
+        (مثلاً خطای NOT NULL یا خطای binding)، آن تراکنش ضمنی باز
+        می‌ماند؛ در حالی که شمارندهٔ _transaction_depth صفر است.
+        اولین BEGIN بعدی برنامه با این خطا شکست می‌خورد:
+
+            sqlite3.OperationalError: cannot start a transaction
+            within a transaction
+
+        نتیجهٔ عملی: بعد از یک خطای نوشتن، «همهٔ» عملیات تراکنشی
+        برنامه تا پایان اجرا خراب می‌شد؛ مثلاً حذف دانش‌آموز،
+        مشاهده یا مداخله با همان پیام مبهم شکست می‌خورد.
+
+        تست عملی روی کد قبلی:
+            RecommendationDAL.create(...)  → خطای binding
+            ObservationService.delete_observation(...)
+                → OperationalError: cannot start a transaction
+                  within a transaction
+
+        حالا قبل از BEGIN، اگر اتصال از قبل داخل تراکنشی باشد که
+        شمارنده از آن بی‌خبر است، آن کارِ نیمه‌کاره rollback می‌شود
+        (قرار نبوده ذخیره شود، وگرنه commit شده بود) و هشدار در
+        لاگ می‌آید تا ریشهٔ خطا گم نشود.
         """
         if DatabaseConnection._transaction_depth == 0:
             conn = self.get_connection()
+            # اگر تراکنشِ ضمنیِ جاافتاده‌ای باز است، اول ببندش
+            if getattr(conn, "in_transaction", False):
+                self._recover_dangling_transaction()
             # یک دستور نوشتنی بفرست تا sqlite واقعاً تراکنش را باز کند
             conn.execute("BEGIN")
         DatabaseConnection._transaction_depth += 1
+
+    def _recover_dangling_transaction(self):
+        """
+        بستن تراکنشی که بدون شمارش باز مانده است
+
+        این حالت وقتی رخ می‌دهد که یک نوشتنِ DAL پیش از رسیدن به
+        commit خطا داده و لایهٔ سرویس هم آن را داخل تراکنش خودش
+        نگرفته باشد. کار نیمه‌تمام آن‌جا نباید ذخیره شود، پس
+        rollback می‌کنیم و در لاگ هشدار می‌دهیم.
+        """
+        try:
+            if self._connection:
+                self._connection.rollback()
+        except Exception:  # pragma: no cover - مسیر اضطراری
+            pass
+        try:
+            print(
+                "⚠️ تراکنشِ بازِ جاافتاده بسته شد (rollback). "
+                "یعنی یک نوشتن قبلی نیمه‌کاره مانده بود."
+            )
+        except Exception:  # pragma: no cover
+            pass
+
+
+    def discard_pending_writes(self):
+        """
+        پاک‌کردن نوشتن‌های نیمه‌کاره (بازرسی ششم)
+
+        وقتی یک نوشتن شکست می‌خورد (مثلاً خطای binding یا نقض
+        محدودیت) و لایهٔ سرویس آن خطا را مدیریت می‌کند، نباید کار
+        نیمه‌تمام روی اتصال باقی بماند. این متد هم تراکنشِ
+        شمارش‌شده و هم تراکنشِ ضمنیِ جاافتاده را می‌بندد؛ برای
+        استفاده در exceptِ سرویس‌ها:
+
+            except Exception:
+                self.db.discard_pending_writes()
+                raise
+        """
+        if DatabaseConnection._transaction_depth > 0:
+            self.rollback_transaction()
+            return
+        conn = self._connection
+        if conn is not None and getattr(conn, "in_transaction", False):
+            self._recover_dangling_transaction()
 
     def commit_transaction(self):
         """تأیید یک لایه از تراکنش؛ فقط لایه بیرونی واقعاً commit می‌کند"""

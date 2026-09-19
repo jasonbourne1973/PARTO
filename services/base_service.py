@@ -129,9 +129,96 @@ class BaseService:
     #     hasattr(BaseService, "validate_model") → False
     # حالا هر سه متد به BaseService برگردانده شده‌اند.
 
+    # ============================================================
+    # جلوگیری از Audit تکراری (باگ بازرسی ششم)
+    # ============================================================
+    #
+    # دیتابیس برنامه ۲۸ تریگر حسابرسی دارد:
+    #     trg_<table>_{insert,update,soft_delete,restore}_audit
+    # برای جدول‌های students, observations, interventions, followups,
+    # student_academic_profiles, staff, competencies.
+    #
+    # این تریگرها خودشان بعد از هر نوشتن یک ردیف در audit_logs
+    # می‌سازند. اما سرویس‌ها هم صریحاً log_audit صدا می‌زنند؛
+    # نتیجه، دو ردیف برای «یک» تغییر بود:
+    #
+    #     id 163 | user_id NULL | create | students | 6
+    #     id 165 | user_id 1    | create | student  | 6
+    #
+    # یعنی هم شمارش گزارش‌های حسابرسی دوبرابر می‌شد و هم
+    # entity_type دو واژه‌نامهٔ متفاوت داشت ('students' تریگر و
+    # 'student' سرویس)، پس فیلترکردن لاگ‌ها هم قابل‌اعتماد نبود.
+    #
+    # تصمیم: تریگرها می‌مانند (چون تغییراتِ staff، competencies و
+    # پروندهٔ سالانه هم از همان مسیر ثبت می‌شوند و کوتاه‌کردن آن‌ها
+    # یعنی از دست دادن بخشی از تاریخچه)، و ثبتِ صریح سرویس وقتی
+    # تریگرِ همان جدول و همان action وجود دارد، تکرار نمی‌شود.
+    #
+    # نام کاربر در ردیف تریگر از get_current_user_id() می‌آید که
+    # در ورودِ کاربر (set_current_user) مقدار می‌گیرد؛ تست شد که
+    # user_id درست ثبت می‌شود.
+    _ENTITY_TABLE_MAP = {
+        'student': 'students',
+        'observation': 'observations',
+        'intervention': 'interventions',
+        'followup': 'followups',
+        'student_academic_profile': 'student_academic_profiles',
+        'profile': 'student_academic_profiles',
+        'staff': 'staff',
+        'competency': 'competencies',
+    }
+    _AUDIT_ACTIONS = ('create', 'edit', 'delete_soft', 'restore')
+    _TRIGGER_CACHE = None
+
+    def _trigger_audit_tables(self):
+        """
+        جدول‌هایی که تریگر حسابرسی فعال دارند (یک‌بار خوانده می‌شود)
+
+        Returns:
+            set: نام جدول‌هایی که تریگر دارند
+        """
+        if BaseService._TRIGGER_CACHE is not None:
+            return BaseService._TRIGGER_CACHE
+
+        tables = set()
+        try:
+            conn = self.db.get_connection()
+            cursor = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'trigger' "
+                "AND name LIKE 'trg_%_audit'"
+            )
+            for (name,) in cursor.fetchall():
+                # trg_<table>_insert_audit / ..._update_audit / ...
+                rest = name[len('trg_'):-len('_audit')]
+                for suffix in ('_insert', '_update', '_soft_delete', '_restore'):
+                    if rest.endswith(suffix):
+                        tables.add(rest[:-len(suffix)])
+                        break
+        except Exception as e:
+            self.logger.debug(f"خواندن تریگرهای حسابرسی ممکن نشد: {e}")
+
+        BaseService._TRIGGER_CACHE = tables
+        return tables
+
+    def _audit_handled_by_trigger(self, entity_type, action):
+        """آیا تریگرِ دیتابیس همین تغییر را ثبت می‌کند؟"""
+        if action not in self._AUDIT_ACTIONS:
+            return False
+        table = self._ENTITY_TABLE_MAP.get(entity_type)
+        if not table:
+            return False
+        return table in self._trigger_audit_tables()
+
     def log_audit(self, user_id, action, entity_type, entity_id=None,
                   old_value=None, new_value=None, ip_address=None):
-        """ثبت Audit Log"""
+        """ثبت Audit Log (بدون تکرارِ ردیف‌های تریگر)"""
+        if self._audit_handled_by_trigger(entity_type, action):
+            self.logger.debug(
+                f"Audit تکراری ثبت نشد؛ تریگر {entity_type}/{action} "
+                f"خودش ردیف را نوشت (entity_id={entity_id})."
+            )
+            return True
+
         try:
             from utils.security import AuditLogger
             audit_logger = AuditLogger(self.db)
@@ -139,6 +226,121 @@ class BaseService:
                                    old_value, new_value, ip_address)
         except Exception as e:
             self.logger.warning(f"خطا در ثبت Audit Log: {e}")
+            return False
+
+    # ============================================================
+    # کمک‌تابع‌های اعتبارسنجی (بازرسی ششم)
+    # ============================================================
+    #
+    # الگوی پرتکرارِ کل پروژه این بود:
+    #     value = data.get('result_type', '').strip()
+    # اگر کلید در دیکشنری وجود داشت ولی مقدارش None بود،
+    # data.get پيش‌فرض را برنمی‌گرداند و None برمی‌گردد؛ نتیجه:
+    #     AttributeError: 'NoneType' object has no attribute 'strip'
+    #
+    # این خطا در create_followup باعث می‌شد ثبت پیگیری با پیام
+    # مبهمِ زیر کامل شکست بخورد، در حالی که فراخوان فقط
+    # result_type=None داده بود:
+    #     ServiceError: خطا در عملیات: 'NoneType' object has no
+    #     attribute 'strip'
+    #
+    # تست عملی روی کد قبلی:
+    #     FollowUpService.create_followup({..., 'result_type': None})
+    #         → ServiceError (ذخیره نمی‌شد)
+    @staticmethod
+    def coerce_id(value, default=None):
+        """
+        شناسه (کلید خارجی) را به عدد صحیح تبدیل می‌کند
+
+        ورودی‌های قابل قبول: 5، "5"، None
+        هر چیز دیگری (لیست، دیکشنری، متن غیرعددی) → default
+
+        چرا؟ الگوی رایج کد این بود که شناسه را بدون بررسی به
+        پارامتر SQL می‌داد؛ اگر اشتباهاً لیست پاس داده می‌شد،
+        خطای مبهمِ زیر بالا می‌آمد و در بعضی مسیرها هم بی‌صدا
+        خورده می‌شد:
+            sqlite3.ProgrammingError: Error binding parameter 2:
+            type 'list' is not supported
+        """
+        if value is None or value == '':
+            return default
+        if isinstance(value, bool):
+            return default
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float):
+            return int(value)
+        if isinstance(value, str):
+            text = value.strip()
+            if text.lstrip('-').isdigit():
+                return int(text)
+            return default
+        return default
+
+    @staticmethod
+    def clean_text(value, default=''):
+        """
+        متنِ ورودی را امن می‌کند
+
+        Args:
+            value: مقدار ورودی (ممکن است None باشد)
+            default: مقدار جانشین وقتی ورودی None است
+
+        Returns:
+            str یا default: متن بدون فاصله‌های ابتدا/انتها
+        """
+        if value is None:
+            return default
+        return str(value).strip()
+
+    @staticmethod
+    def clean_date(value, default=None):
+        """
+        تاریخ (شمسی) را برای ذخیره یکدست می‌کند
+
+        ورودی‌های پذیرفته‌شده: «1405/06/26»، «1405-6-6»، None
+        خروجی همیشه «yyyy/MM/dd» با صفرِ ابتدایی است تا مقایسه و
+        مرتب‌سازی رشته‌ای تاریخ‌ها در کوئری‌ها درست بماند.
+        مقدار نامعتبر/خالی → default
+        """
+        if value is None or value == '':
+            return default
+        try:
+            from utils.persian_date import to_db_date
+            normalized = to_db_date(value)
+        except Exception:
+            normalized = None
+        if not normalized:
+            return default
+        return normalized
+
+    @staticmethod
+    def is_valid_jalali_date(value):
+        """
+        اعتبارسنجی واقعی تاریخ شمسی (نه فقط شکل ظاهری)
+
+        قبلاً سرویس‌ها با یک regex ساده فقط شکل «yyyy/MM/dd» را
+        بررسی می‌کردند؛ نتیجه: تاریخ‌هایی مثل «1405/13/45» معتبر
+        شمرده می‌شدند و در دیتابیس ذخیره می‌شدند (ماه ۱۳ و روز ۴۵).
+        تست عملی روی کد قبلی:
+            ObservationService.validate_observation({...,
+                'observation_date': '1405/13/45'})
+                → (True, [])
+        """
+        if not value:
+            return False
+
+        text = str(value).strip()
+        # جداکننده باید «/» باشد؛ to_db_date فرمت‌های دیگر را
+        # نرمال می‌کند، ولی ورودیِ فرم/سرویس باید یکدست باشد.
+        import re
+        if not re.match(r'^\d{4}/\d{1,2}/\d{1,2}$', text):
+            return False
+
+        try:
+            from utils.persian_date import PersianDate
+            return PersianDate.is_valid_persian_date(text)
+        except Exception:
             return False
 
     def handle_error(self, error, user_message=None, log_level='error'):

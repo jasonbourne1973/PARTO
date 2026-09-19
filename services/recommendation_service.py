@@ -79,13 +79,38 @@ class RecommendationService(BaseService):
                 self.logger.info(f"هیچ پیشنهادی برای دانش‌آموز {student.full_name} تولید نشد.")
                 return []
             
-            # ذخیره پیشنهادات در دیتابیس
+            # ===== اصلاح (بازرسی ششم) =====
+            # نسخه قبلی خطای ذخیرهٔ هر پیشنهاد را فقط در لاگ می‌نوشت و
+            # None برمی‌گرداند. نتیجه برای کاربر این بود:
+            #     «هیچ پیشنهاد جدیدی برای این دانش‌آموز تولید نشد»
+            # در حالی که قوانین چند پیشنهاد پیدا کرده بودند و فقط
+            # ذخیره‌شان شکست خورده بود؛ هیچ راهی هم برای دیدن علت
+            # نبود. حالا تعداد ناموفق‌ها گزارش می‌شود و اگر هیچ‌کدام
+            # ذخیره نشد، خطای گویا بالا می‌رود.
             saved_recommendations = []
-            for result in results[:5]:  # حداکثر ۵ پیشنهاد
-                recommendation = self._save_recommendation(profile_id, staff_id, result)
+            save_errors = []
+            batch = results[:5]  # حداکثر ۵ پیشنهاد
+            for result in batch:
+                try:
+                    recommendation = self._save_recommendation(profile_id, staff_id, result)
+                except ServiceError as exc:
+                    save_errors.append(str(exc))
+                    continue
                 if recommendation:
                     saved_recommendations.append(recommendation)
-            
+
+            if save_errors:
+                if not saved_recommendations:
+                    raise ServiceError(
+                        f"هیچ‌کدام از {len(batch)} پیشنهاد تولیدشده ذخیره نشد. "
+                        f"علت: {save_errors[0]}"
+                    )
+                self.logger.warning(
+                    f"{len(save_errors)} پیشنهاد ذخیره نشد؛ "
+                    f"{len(saved_recommendations)} پیشنهاد ذخیره شد. "
+                    f"علت: {save_errors[0]}"
+                )
+
             self.logger.info(f"{len(saved_recommendations)} پیشنهاد برای دانش‌آموز {student.full_name} تولید شد.")
             return saved_recommendations
             
@@ -205,7 +230,10 @@ class RecommendationService(BaseService):
                 if f.status == 'pending' and f.next_action_date and f.next_action_date < today_str:
                     overdue.append(f)
             return overdue
-        except:
+        except Exception as e:
+            # ===== اصلاح (بازرسی ششم): except لخت خطاهای غیرمنتظره
+            # (حتی KeyboardInterrupt/SystemExit) را هم می‌بلعید.
+            self.logger.warning(f"خطا در محاسبهٔ پیگیری‌های معوق: {e}")
             return []
     
     def _save_recommendation(self, profile_id, staff_id, result):
@@ -219,11 +247,21 @@ class RecommendationService(BaseService):
         
         Returns:
             Recommendation: پیشنهاد ذخیره‌شده
+
+        Raises:
+            ServiceError: اگر ذخیره در دیتابیس شکست بخورد. قبلاً خطا
+                بی‌صدا خورده می‌شد و کاربر پیام «پیشنهادی تولید نشد»
+                می‌گرفت (بازرسی ششم).
         """
         try:
             recommendation = Recommendation()
             recommendation.student_profile_id = profile_id
-            recommendation.staff_id = staff_id
+            # شناسهٔ کاربر باید عدد باشد؛ اگر لیست/متن غیرعددی برسد،
+            # به‌جای خطای مبهمِ binding، None (بی‌صاحب) ذخیره می‌شود.
+            recommendation.staff_id = self.coerce_id(staff_id)
+            recommendation.related_observation_ids = self._safe_observation_ids(
+                result.related_observation_ids
+            )
             recommendation.rule_id = result.rule_id
             recommendation.category = result.category.value
             recommendation.priority = result.priority.name.lower()
@@ -238,9 +276,41 @@ class RecommendationService(BaseService):
             recommendation.status = Recommendation.STATUS_PENDING
             
             return self.recommendation_dal.create(recommendation)
-            
+
         except Exception as e:
+            # نوشتنِ نیمه‌کاره را پاک کن؛ وگرنه تراکنشِ ضمنیِ بازمانده
+            # روی اتصال می‌ماند و عملیات بعدی با خطای
+            # «cannot start a transaction within a transaction» از
+            # کار می‌افتد (همان چیزی که در هارنس بازرسی دیده شد).
+            try:
+                self.db.discard_pending_writes()
+            except Exception:  # pragma: no cover - مسیر اضطراری
+                pass
             self.logger.error(f"خطا در ذخیره پیشنهاد: {e}")
+            raise ServiceError(f"ذخیرهٔ پیشنهاد «{getattr(result, 'title', '')}» شکست خورد: {e}") from e
+
+    @staticmethod
+    def _safe_observation_ids(value):
+        """
+        شناسهٔ مشاهدات مرتبط را به لیستی از عدد صحیح تبدیل می‌کند
+
+        ستون related_observation_ids در دیتابیس TEXT است و DAL آن را
+        با json.dumps ذخیره می‌کند. قبلاً اگر مقدار مدل رشته یا None
+        بود (مثلاً از یک قانون دیگر)، همان‌طور خام ذخیره می‌شد و
+        خواندنِ بعدی آن را به لیست تبدیل نمی‌کرد.
+        """
+        if value is None:
+            return None
+        if isinstance(value, (int, str)):
+            value = [value]
+        try:
+            ids = []
+            for item in value:
+                coerced = BaseService.coerce_id(item)
+                if coerced is not None:
+                    ids.append(coerced)
+            return ids or None
+        except TypeError:
             return None
     
     def get_recommendations_for_student(self, profile_id, limit=None):

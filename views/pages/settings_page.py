@@ -18,7 +18,7 @@ from dal.staff_dal import StaffDAL
 from models.academic_year import AcademicYear
 from models.staff import Staff
 from config.constants import STAFF_ROLES
-from utils.security import Security, SessionManager
+from utils.security import Security, SessionManager, Permission
 from database.connection import DatabaseConnection  # ✅ اضافه شد
 import sqlite3  # ✅ اضافه شد
 import os  # ✅ این خط را اضافه کنید
@@ -27,17 +27,52 @@ import os  # ✅ این خط را اضافه کنید
 class SettingsPage(QWidget):
     """صفحه تنظیمات برنامه با مدیریت کاربران"""
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, permission_check=None):
+        """
+        Args:
+            permission_check: تابعی که یک مجوز می‌گیرد و True/False
+                برمی‌گرداند. از MainWindow پاس داده می‌شود
+                (بازرسی ششم). اگر None باشد، همهٔ تب‌ها ساخته
+                می‌شوند (رفتار قبلی؛ برای تست‌های مستقل).
+        """
         super().__init__(parent)
         self.academic_year_dal = AcademicYearDAL()
         self.staff_dal = StaffDAL()
         self.db = DatabaseConnection()  # ✅ اضافه شد
-        
+        self._permission_check = permission_check or (lambda perm: True)
+
+        # ===== اصلاح (بازرسی ششم) =====
+        # قبلاً این صفحه همهٔ تب‌ها را برای «همهٔ» نقش‌ها می‌ساخت:
+        # مدیریت کاربران (ساخت/حذف کاربر و ریست رمز)، پشتیبان‌گیری
+        # (بازیابی کل دیتابیس)، ساختار آموزشی و کلاس‌ها. با اینکه
+        # ROLE_PERMISSIONS از قبل تعریف شده بود، هیچ‌جا بررسی
+        # نمی‌شد؛ یعنی معلم یا مشاور هم می‌توانست کاربر بسازد و
+        # دیتابیس را بازیابی کند. حالا تب‌های حساس فقط با مجوز
+        # ساخته و بارگذاری می‌شوند.
+        self.can_manage_years = self._permission_check(
+            Permission.MANAGE_ACADEMIC_YEARS.value)
+        self.can_manage_users = self._permission_check(Permission.MANAGE_USERS.value)
+        self.can_backup = (
+            self._permission_check(Permission.CREATE_BACKUP.value)
+            or self._permission_check(Permission.RESTORE_BACKUP.value)
+        )
+        self.can_edit_settings = self._permission_check(Permission.EDIT_SETTINGS.value)
+        self.can_manage_staff = self.can_manage_users or self.can_edit_settings
+
         self.setup_ui()
-        self.load_academic_years()
-        self.load_staff()
-        self.load_users()
-        self.load_staff_for_users()
+
+        # فقط داده‌های تب‌هایی که واقعاً ساخته شده‌اند بارگذاری شود
+        if self.can_manage_years:
+            self.load_academic_years()
+        # توجه: load_staff فقط وقتی صدا زده می‌شود که تب «کادر مدرسه»
+        # ساخته شده باشد؛ وگرنه self.staff_table وجود ندارد.
+        if self.can_manage_staff:
+            self.load_staff()
+        if self.can_manage_users:
+            self.load_users()
+            self.load_staff_for_users()
+        if self.can_manage_years:
+            self.load_classes()
     
     def setup_ui(self):
         """راه‌اندازی رابط کاربری"""
@@ -73,34 +108,42 @@ class SettingsPage(QWidget):
             }
         """)
         
-        # تب 1: سال‌های تحصیلی
-        year_tab = self.create_academic_years_tab()
-        tabs.addTab(year_tab, "📅 سال‌های تحصیلی")
-        
-        # تب 2: کادر مدرسه
-        staff_tab = self.create_staff_tab()
-        tabs.addTab(staff_tab, "👥 کادر مدرسه")
-        
-        # تب 3: مدیریت کاربران
-        user_tab = self.create_users_tab()
-        tabs.addTab(user_tab, "👤 مدیریت کاربران")
-        
-        # تب 4: اطلاعات مدرسه
+        # ===== اصلاح (بازرسی ششم): تب‌ها بر اساس مجوز ساخته می‌شوند =====
+        self.tabs = tabs
+
+        # تب 1: سال‌های تحصیلی (نیاز به manage_academic_years)
+        if getattr(self, 'can_manage_years', True):
+            year_tab = self.create_academic_years_tab()
+            tabs.addTab(year_tab, "📅 سال‌های تحصیلی")
+
+        # تب 2: کادر مدرسه (نیاز به manage_users یا edit_settings)
+        if getattr(self, 'can_manage_staff', True):
+            staff_tab = self.create_staff_tab()
+            tabs.addTab(staff_tab, "👥 کادر مدرسه")
+
+        # تب 3: مدیریت کاربران (نیاز به manage_users)
+        if getattr(self, 'can_manage_users', True):
+            user_tab = self.create_users_tab()
+            tabs.addTab(user_tab, "👤 مدیریت کاربران")
+
+        # تب 4: اطلاعات مدرسه — برای همه (فقط نمایش)
         school_tab = self.create_school_tab()
         tabs.addTab(school_tab, "🏫 اطلاعات مدرسه")
-        
-        # تب 5: درباره
+
+        # تب 5: درباره — برای همه
         about_tab = self.create_about_tab()
         tabs.addTab(about_tab, "ℹ️ درباره")
 
-        # تب 6: پشتیبان‌گیری
-        self.backup_tab = self.create_backup_tab()
-        tabs.addTab(self.backup_tab, "💾 پشتیبان‌گیری")
+        # تب 6: پشتیبان‌گیری (نیاز به create_backup یا restore_backup)
+        if getattr(self, 'can_backup', True):
+            self.backup_tab = self.create_backup_tab()
+            tabs.addTab(self.backup_tab, "💾 پشتیبان‌گیری")
 
-        # تب 7: مدیریت کلاس‌ها
-        class_tab = self.create_classes_tab()
-        tabs.addTab(class_tab, "🏫 مدیریت کلاس‌ها")
-        
+        # تب 7: مدیریت کلاس‌ها (نیاز به manage_academic_years)
+        if getattr(self, 'can_manage_years', True):
+            class_tab = self.create_classes_tab()
+            tabs.addTab(class_tab, "🏫 مدیریت کلاس‌ها")
+
         layout.addWidget(tabs)
     
     def create_academic_years_tab(self):
@@ -1203,11 +1246,6 @@ class SettingsPage(QWidget):
        
     # ===== پشتیبان‌گیری =====
     
-    def create_backup_tab(self):
-        """ایجاد تب پشتیبان‌گیری"""
-        from views.pages.backup_page import BackupPage
-        return BackupPage()
-
     def create_backup_tab(self):
         """ایجاد تب پشتیبان‌گیری با تنظیمات خودکار"""
         from views.pages.backup_page import BackupPage
