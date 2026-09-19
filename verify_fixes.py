@@ -27,11 +27,13 @@ DB_DIR = os.path.join(TMP, "database")
 os.makedirs(DB_DIR, exist_ok=True)
 DB = os.path.join(DB_DIR, "partow.db")
 
-import config.settings as settings          # noqa: E402
+import config.settings as settings
+
 settings.DB_PATH = DB
 settings.ATTACHMENTS_DIR = os.path.join(TMP, "attachments")
 
-import database.connection as dbc           # noqa: E402
+import database.connection as dbc
+
 dbc.DB_PATH = DB
 
 RESULTS = []
@@ -81,9 +83,7 @@ print("۲) لایه سرویس: عملیات اصلی ثبت داده")
 print("=" * 72)
 with contextlib.redirect_stdout(io.StringIO()):
     from dal.staff_dal import StaffDAL
-    from dal.student_dal import StudentDAL
     from models.staff import Staff
-    from models.student import Student
     from services.advanced_search_service import AdvancedSearchService
     from services.dashboard_service import DashboardService
     from services.followup_service import FollowUpService

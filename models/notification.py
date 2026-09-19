@@ -2,7 +2,10 @@
 مدل اعلان‌ها و یادآوری‌ها
 """
 
+from typing import ClassVar
+
 from models.base import BaseModel
+from utils.time_utils import utc_now_iso
 
 
 class Notification(BaseModel):
@@ -22,7 +25,7 @@ class Notification(BaseModel):
     TYPE_SYSTEM = "system"              # اعلان سیستمی
     TYPE_INFO = "info"                  # اطلاع‌رسانی
     
-    TYPE_CHOICES = [
+    TYPE_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (TYPE_REMINDER, "یادآوری"),
         (TYPE_OVERDUE, "معوق شده"),
         (TYPE_SYSTEM, "سیستمی"),
@@ -34,7 +37,7 @@ class Notification(BaseModel):
     PRIORITY_MEDIUM = "medium"
     PRIORITY_LOW = "low"
     
-    PRIORITY_CHOICES = [
+    PRIORITY_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (PRIORITY_HIGH, "بالا"),
         (PRIORITY_MEDIUM, "متوسط"),
         (PRIORITY_LOW, "پایین"),
@@ -105,14 +108,12 @@ class Notification(BaseModel):
     def mark_as_read(self):
         """علامت‌گذاری به عنوان خوانده شده"""
         self.is_read = True
-        from datetime import datetime
-        self.read_at = datetime.now().isoformat()
+        self.read_at = utc_now_iso()
     
     def mark_as_dismissed(self):
         """علامت‌گذاری به عنوان رد شده"""
         self.is_dismissed = True
-        from datetime import datetime
-        self.dismissed_at = datetime.now().isoformat()
+        self.dismissed_at = utc_now_iso()
     
     def validate(self):
         errors = []

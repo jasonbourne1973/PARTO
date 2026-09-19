@@ -2,24 +2,24 @@
 سرویس مدیریت مداخلات - نسخه کامل با انتقال منطق از View به Service
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from dal.intervention_dal import InterventionDAL
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from typing import ClassVar
+
 from dal.academic_year_dal import AcademicYearDAL
-from dal.staff_dal import StaffDAL
+from dal.intervention_dal import InterventionDAL
 from dal.observation_dal import ObservationDAL
+from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from models.intervention import Intervention
 from models.student_academic_profile import StudentAcademicProfile
+from services.base_service import BaseService
 from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
-from datetime import datetime
-import jdatetime
 
 
 class InterventionService(BaseService):
@@ -31,7 +31,7 @@ class InterventionService(BaseService):
     """
     
     # وضعیت‌های مجاز مداخله
-    VALID_STATUSES = ['planned', 'in_progress', 'done', 'completed', 'cancelled']
+    VALID_STATUSES: ClassVar[list[str]] = ['planned', 'in_progress', 'done', 'completed', 'cancelled']
     
     def __init__(self):
         super().__init__()
@@ -97,12 +97,13 @@ class InterventionService(BaseService):
             intervention.student_profile_id = profile.id
             intervention.staff_id = staff_id
             intervention.observation_id = observation_id
-            intervention.type = data.get('type', '').strip()
-            intervention.date = data.get('date', '').strip()
-            intervention.description = data.get('description', '').strip()
-            intervention.goal = data.get('goal', '').strip()
-            intervention.status = data.get('status', Intervention.STATUS_PLANNED)
-            intervention.result = data.get('result', '').strip()
+            # ===== اصلاح (بازرسی ششم): None-safe + یکدست‌سازی تاریخ =====
+            intervention.type = self.clean_text(data.get('type'))
+            intervention.date = self.clean_date(data.get('date'), '')
+            intervention.description = self.clean_text(data.get('description'))
+            intervention.goal = self.clean_text(data.get('goal'))
+            intervention.status = data.get('status') or Intervention.STATUS_PLANNED
+            intervention.result = self.clean_text(data.get('result'))
             
             # 6. اعتبارسنجی مدل
             errors = intervention.validate()
@@ -174,12 +175,15 @@ class InterventionService(BaseService):
             
             intervention.staff_id = data.get('staff_id', intervention.staff_id)
             intervention.observation_id = data.get('observation_id', intervention.observation_id)
-            intervention.type = data.get('type', intervention.type).strip()
-            intervention.date = data.get('date', intervention.date).strip()
-            intervention.description = data.get('description', intervention.description).strip()
-            intervention.goal = data.get('goal', intervention.goal).strip()
+            # ===== اصلاح (بازرسی ششم): None-safe + یکدست‌سازی تاریخ =====
+            intervention.type = self.clean_text(data.get('type'), intervention.type)
+            intervention.date = self.clean_date(data.get('date'), intervention.date or '')
+            intervention.description = self.clean_text(
+                data.get('description'), intervention.description
+            )
+            intervention.goal = self.clean_text(data.get('goal'), intervention.goal)
             intervention.status = data.get('status', intervention.status)
-            intervention.result = data.get('result', intervention.result).strip()
+            intervention.result = self.clean_text(data.get('result'), intervention.result)
             
             # 5. اعتبارسنجی مشاهده مرتبط (اگر تغییر کرده باشد)
             if intervention.observation_id:
@@ -300,7 +304,7 @@ class InterventionService(BaseService):
             return intervention
         except Exception as e:
             self.logger.error(f"خطا در دریافت مداخله: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_interventions_by_student(self, student_id, year_id=None, limit=None):
         """
@@ -336,7 +340,7 @@ class InterventionService(BaseService):
             return interventions
         except Exception as e:
             self.logger.error(f"خطا در دریافت مداخلات دانش‌آموز: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_interventions_by_teacher(self, teacher_id, year_id=None, limit=None):
         """
@@ -376,7 +380,7 @@ class InterventionService(BaseService):
             return interventions
         except Exception as e:
             self.logger.error(f"خطا در دریافت مداخلات معلم: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_all_interventions(self, limit=None, include_staff_info=False):
         """
@@ -398,7 +402,7 @@ class InterventionService(BaseService):
             return interventions
         except Exception as e:
             self.logger.error(f"خطا در دریافت همه مداخلات: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def update_status(self, intervention_id, new_status, user_id=None, ip_address=None):
         """
@@ -494,7 +498,7 @@ class InterventionService(BaseService):
             }
         except Exception as e:
             self.logger.error(f"خطا در دریافت خلاصه مداخلات: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_available_observations_for_intervention(self, student_id):
         """
@@ -544,43 +548,51 @@ class InterventionService(BaseService):
             ValidationError: در صورت عدم اعتبار
         """
         errors = []
-        
+
+        # ===== اصلاح (بازرسی ششم) =====
+        # در حالت ویرایش فقط کلیدهای ارسالی اعتبارسنجی می‌شوند
+        # (ویرایش جزئی، مثل تغییر فقط وضعیت یا توضیحات، دیگر رد
+        # نمی‌شود) و مقدار None باعث AttributeError نمی‌شود.
+        def provided(key):
+            return (not is_update) or (key in data)
+
         # بررسی دانش‌آموز (در حالت ایجاد اجباری است)
         if not is_update and not data.get('student_id'):
             errors.append("دانش‌آموز باید انتخاب شود")
-        
+
         # بررسی مسئول مداخله
-        if data.get('staff_id') is None:
-            errors.append("مسئول مداخله باید انتخاب شود")
-        elif data.get('staff_id') and data.get('staff_id') <= 0:
-            errors.append("مسئول مداخله نامعتبر است")
-        
+        if provided('staff_id'):
+            if data.get('staff_id') is None:
+                errors.append("مسئول مداخله باید انتخاب شود")
+            elif data.get('staff_id') and data.get('staff_id') <= 0:
+                errors.append("مسئول مداخله نامعتبر است")
+
         # بررسی نوع مداخله
-        intervention_type = data.get('type', '').strip()
-        if not intervention_type:
-            errors.append("نوع مداخله باید انتخاب شود")
-        
-        # بررسی تاریخ
-        date = data.get('date', '').strip()
-        if not date:
-            errors.append("تاریخ مداخله نمی‌تواند خالی باشد")
-        else:
-            # بررسی فرمت تاریخ (ساده)
-            import re
-            if not re.match(r'^\d{4}/\d{2}/\d{2}$', date):
-                errors.append("فرمت تاریخ باید به صورت yyyy/MM/dd باشد")
-        
+        if provided('type'):
+            intervention_type = self.clean_text(data.get('type'))
+            if not intervention_type:
+                errors.append("نوع مداخله باید انتخاب شود")
+
+        # بررسی تاریخ — قاعدهٔ یکسان: نرمال‌سازی، بعد اعتبارسنجی
+        if provided('date'):
+            _norm, _err = self.check_date(
+                data.get('date'), "تاریخ مداخله", required=True)
+            if _err:
+                errors.append(_err)
+
         # بررسی توضیحات
-        description = data.get('description', '').strip()
-        if not description:
-            errors.append("توضیحات مداخله نمی‌تواند خالی باشد")
-        elif len(description) < 3:
-            errors.append("توضیحات باید حداقل ۳ کاراکتر باشد")
-        
+        if provided('description'):
+            description = self.clean_text(data.get('description'))
+            if not description:
+                errors.append("توضیحات مداخله نمی‌تواند خالی باشد")
+            elif len(description) < 3:
+                errors.append("توضیحات باید حداقل ۳ کاراکتر باشد")
+
         # بررسی وضعیت
-        status = data.get('status', 'planned')
-        if status not in self.VALID_STATUSES:
-            errors.append(f"وضعیت '{status}' نامعتبر است")
+        if provided('status'):
+            status = data.get('status') or 'planned'
+            if status not in self.VALID_STATUSES:
+                errors.append(f"وضعیت '{status}' نامعتبر است")
         
         if errors:
             raise ValidationError("\n".join(errors))
@@ -706,7 +718,7 @@ class InterventionService(BaseService):
             return interventions
         except Exception as e:
             self.logger.error(f"خطا در جستجوی مداخلات: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")
     
     def search_interventions_by_student(self, student_id, search_term):
         """
@@ -726,7 +738,7 @@ class InterventionService(BaseService):
             return interventions
         except Exception as e:
             self.logger.error(f"خطا در جستجوی مداخلات دانش‌آموز: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")
     
     def search_interventions_by_teacher(self, teacher_id, search_term):
         """
@@ -746,4 +758,4 @@ class InterventionService(BaseService):
             return interventions
         except Exception as e:
             self.logger.error(f"خطا در جستجوی مداخلات معلم: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")

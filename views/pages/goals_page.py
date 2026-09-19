@@ -2,26 +2,37 @@
 صفحه مدیریت اهداف فردی دانش‌آموزان
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QLabel, QHeaderView,
-    QMessageBox, QDialog, QComboBox, QLineEdit,
-    QSplitter, QTextEdit, QGroupBox, QProgressBar
-)
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QKeyEvent
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QSplitter,
+    QTableWidget,
+    QTableWidgetItem,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
-from services.goal_service import GoalService
-from dal.student_dal import StudentDAL
 from dal.staff_dal import StaffDAL
-from views.dialogs.goal_form import GoalForm
+from dal.student_dal import StudentDAL
 from models.individual_goal import IndividualGoal
+from services.goal_service import GoalService
 from utils.logger import get_logger
+from views.dialogs.goal_form import GoalForm
 
 
 class GoalsPage(QWidget):
@@ -224,7 +235,7 @@ class GoalsPage(QWidget):
             self.goals = self.goal_service.get_all_goals()
             self.display_goals(self.goals)
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اهداف:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اهداف:\n{e!s}")
     
     def filter_goals(self):
         """فیلتر اهداف"""
@@ -406,7 +417,7 @@ class GoalsPage(QWidget):
                 self.load_goals()
                 QMessageBox.information(self, "موفقیت", "هدف با موفقیت حذف شد")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
     def view_student_profile(self):
         """مشاهده پرونده دانش‌آموز"""

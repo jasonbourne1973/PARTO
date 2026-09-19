@@ -2,9 +2,12 @@
 لایه دسترسی به داده نتایج غربالگری (ScreeningResult)
 """
 
+import json
+import sqlite3
+
 from database.connection import DatabaseConnection
 from models.screening_result import ScreeningResult
-import json
+from utils.time_utils import utc_now_iso
 
 
 class ScreeningResultDAL:
@@ -179,8 +182,7 @@ class ScreeningResultDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE screening_results SET
                 is_deleted = 1,
@@ -222,7 +224,7 @@ class ScreeningResultDAL:
         if row['raw_answers']:
             try:
                 result.raw_answers = json.loads(row['raw_answers'])
-            except:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 result.raw_answers = None
         else:
             result.raw_answers = None
@@ -230,7 +232,7 @@ class ScreeningResultDAL:
         if row['raw_observations']:
             try:
                 result.raw_observations = json.loads(row['raw_observations'])
-            except:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 result.raw_observations = None
         else:
             result.raw_observations = None
@@ -238,7 +240,7 @@ class ScreeningResultDAL:
         if row['domain_scores']:
             try:
                 result.domain_scores = json.loads(row['domain_scores'])
-            except:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 result.domain_scores = None
         else:
             result.domain_scores = None

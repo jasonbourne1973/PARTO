@@ -3,10 +3,10 @@
 """
 
 import os
-import sqlite3
+
+from config.settings import ATTACHMENTS_DIR
 from database.connection import DatabaseConnection
 from models.attachment import Attachment
-from config.settings import ATTACHMENTS_DIR
 from utils.logger import get_logger
 
 

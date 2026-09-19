@@ -2,14 +2,18 @@
 ابزارهای پشتیبان‌گیری و بازیابی اطلاعات - نسخه ساده (بدون رمزنگاری)
 """
 
+import hashlib
+import json
 import os
 import shutil
 import sqlite3
-import json
 import zipfile
 from datetime import datetime
-import hashlib
-import secrets
+
+from utils.logger import get_logger
+from utils.time_utils import utc_now, utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class BackupManager:
@@ -58,7 +62,7 @@ class BackupManager:
         try:
             # ایجاد نام فایل
             if not name:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                timestamp = utc_now().strftime("%Y%m%d_%H%M%S")
                 name = f"backup_{timestamp}"
             
             backup_file = os.path.join(self.backup_dir, f"{name}.partobak")
@@ -112,7 +116,7 @@ class BackupManager:
                 # 3. متادیتا
                 metadata = {
                     'name': name,
-                    'created_at': datetime.now().isoformat(),
+                    'created_at': utc_now_iso(),
                     'created_by': user_id,
                     'created_by_name': user_name or 'سیستم',
                     'db_file': os.path.basename(self.db_path),
@@ -162,7 +166,7 @@ class BackupManager:
         except Exception as e:
             return {
                 'success': False,
-                'message': f"❌ خطا در ایجاد Backup: {str(e)}"
+                'message': f"❌ خطا در ایجاد Backup: {e!s}"
             }
     
     def _quiesce_database(self):
@@ -210,12 +214,14 @@ class BackupManager:
             if conn is not None:
                 try:
                     conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-                except sqlite3.Error:
-                    pass
+                except sqlite3.Error as e:
+                    # checkpoint نشدن مانع بازیابی نیست؛ WAL هنگام بستن
+                    # اتصال کنار گذاشته می‌شود.
+                    logger.debug(f"wal_checkpoint انجام نشد: {e}")
                 try:
                     inst.close()      # _connection = None و _initialized = False
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"بستن اتصال پیش از بازیابی ناموفق بود: {e}")
         except Exception as e:
             self.logger.warning(f"بستن اتصال دیتابیس قبل از بازیابی ممکن نشد: {e}")
 
@@ -285,7 +291,7 @@ class BackupManager:
             sidecar = backup_file + '.sha256'
             if os.path.exists(sidecar):
                 try:
-                    with open(sidecar, 'r', encoding='utf-8') as f:
+                    with open(sidecar, encoding='utf-8') as f:
                         expected = f.read().strip()
                 except OSError as e:
                     expected = None
@@ -413,7 +419,7 @@ class BackupManager:
         except Exception as e:
             return {
                 'success': False,
-                'message': f"❌ خطا در بازیابی: {str(e)}"
+                'message': f"❌ خطا در بازیابی: {e!s}"
             }
     
     def _cleanup_pre_restore_files(self):
@@ -455,7 +461,7 @@ class BackupManager:
                             created_at = modified.isoformat()
                             created_by = 'سیستم'
                             encrypted = False
-                except:
+                except Exception:
                     name = file
                     created_at = modified.isoformat()
                     created_by = 'سیستم'
@@ -490,7 +496,7 @@ class BackupManager:
                 return True, "✅ فایل پشتیبان با موفقیت حذف شد."
             return False, "❌ فایل پشتیبان وجود ندارد."
         except Exception as e:
-            return False, f"❌ خطا در حذف فایل: {str(e)}"
+            return False, f"❌ خطا در حذف فایل: {e!s}"
     
     def _count_attachments(self):
         """تعداد فایل‌های پیوست"""
@@ -519,15 +525,17 @@ class BackupManager:
     def _log_backup_operation(self, operation, backup_name, user_id, user_name):
         """ثبت عملیات Backup در لاگ"""
         log_file = os.path.join(self.backup_dir, "backup_log.txt")
-        timestamp = datetime.now().isoformat()
+        timestamp = utc_now_iso()
         
         log_entry = f"[{timestamp}] {operation} | user: {user_id} ({user_name}) | backup: {backup_name}\n"
         
         try:
             with open(log_file, 'a', encoding='utf-8') as f:
                 f.write(log_entry)
-        except:
-            pass
+        except Exception as _exc:
+            self.logger.debug(
+                f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+            )
 
     def schedule_auto_backup(self, interval_hours=24, user_id=None, user_name=None):
         """
@@ -546,7 +554,7 @@ class BackupManager:
                 time.sleep(interval_hours * 3600)
                 try:
                     # ایجاد پشتیبان
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    timestamp = utc_now().strftime("%Y%m%d_%H%M%S")
                     name = f"auto_backup_{timestamp}"
                     result = self.create_backup(name, user_id, user_name)
                     
@@ -562,12 +570,12 @@ class BackupManager:
                             user_name
                         )
                 except Exception as e:
-                    print(f"⚠️ خطا در پشتیبان‌گیری خودکار: {e}")
+                    logger.error(f"⚠️ خطا در پشتیبان‌گیری خودکار: {e}")
         
         # شروع ترد
         thread = threading.Thread(target=auto_backup_worker, daemon=True)
         thread.start()
-        print(f"✅ پشتیبان‌گیری خودکار هر {interval_hours} ساعت فعال شد.")
+        logger.debug(f"✅ پشتیبان‌گیری خودکار هر {interval_hours} ساعت فعال شد.")
         return thread
     
     def _cleanup_old_backups(self, keep_count=10):
@@ -585,8 +593,10 @@ class BackupManager:
                 for backup in to_delete:
                     try:
                         os.remove(backup['path'])
-                        print(f"🗑️ پشتیبان قدیمی حذف شد: {backup['name']}")
-                    except:
-                        pass
+                        logger.debug(f"🗑️ پشتیبان قدیمی حذف شد: {backup['name']}")
+                    except Exception as _exc:
+                        self.logger.debug(
+                            f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+                        )
         except Exception as e:
-            print(f"⚠️ خطا در پاکسازی پشتیبان‌های قدیمی: {e}")
+            logger.error(f"⚠️ خطا در پاکسازی پشتیبان‌های قدیمی: {e}")

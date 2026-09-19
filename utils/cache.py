@@ -19,8 +19,8 @@
    کش‌های مرتبط دور ریخته شوند.
 """
 
-import time
 import threading
+import time
 from collections import OrderedDict
 from functools import wraps
 
@@ -41,7 +41,7 @@ class Cache:
     def __new__(cls):
         with cls._lock:
             if cls._instance is None:
-                cls._instance = super(Cache, cls).__new__(cls)
+                cls._instance = super().__new__(cls)
                 cls._instance._cache = OrderedDict()
                 cls._instance._expiry = {}
                 cls._instance._hits = 0
@@ -193,7 +193,7 @@ def _build_key(prefix, func, args, kwargs):
 
     # برای متدها، self را حذف کن و نام کلاس را جایگزین کن
     if args and _is_method(func, args[0]):
-        call_args = (f"<{type(args[0]).__name__}>",) + args[1:]
+        call_args = (f"<{type(args[0]).__name__}>", *args[1:])
 
     arg_parts = [_stable_repr(value) for value in call_args]
     kwarg_parts = [

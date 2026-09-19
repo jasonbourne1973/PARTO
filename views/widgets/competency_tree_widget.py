@@ -4,17 +4,26 @@ Competency (شایستگی) → Indicator (شاخص) → ObservableBehavior (ر�
 با قابلیت انتخاب و بازگشت مقدار
 """
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget,
-    QTreeWidgetItem, QLabel, QPushButton, QMessageBox,
-    QLineEdit, QComboBox
-)
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
 from dal.competency_dal import CompetencyDAL
 from dal.indicator_dal import IndicatorDAL
 from dal.observable_behavior_dal import ObservableBehaviorDAL
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class CompetencyTreeWidget(QWidget):
@@ -266,11 +275,11 @@ class CompetencyTreeWidget(QWidget):
                     if not comp.indicators:
                         comp_item.setExpanded(False)
             
-            print(f"✅ {len(competencies)} شایستگی در درخت بارگذاری شد")
+            logger.debug(f"✅ {len(competencies)} شایستگی در درخت بارگذاری شد")
             
         except Exception as e:
-            print(f"❌ خطا در بارگذاری شایستگی‌ها: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری:\n{str(e)}")
+            logger.error(f"❌ خطا در بارگذاری شایستگی‌ها: {e}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری:\n{e!s}")
     
     def search_competencies(self):
         """جستجو در شایستگی‌ها"""

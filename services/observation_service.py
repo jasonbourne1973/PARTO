@@ -2,24 +2,22 @@
 سرویس مدیریت مشاهدات - نسخه کامل با انتقال منطق از View به Service
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from dal.observation_dal import ObservationDAL
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.academic_year_dal import AcademicYearDAL
-from dal.staff_dal import StaffDAL
 from dal.competency_dal import CompetencyDAL
+from dal.observation_dal import ObservationDAL
+from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from models.observation import Observation
 from models.student_academic_profile import StudentAcademicProfile
+from services.base_service import BaseService
 from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
-from datetime import datetime
-import jdatetime
 
 
 class ObservationService(BaseService):
@@ -100,15 +98,16 @@ class ObservationService(BaseService):
             # بی‌صدا دور ریخته می‌شد و در دیتابیس NULL می‌ماند.
             observation.indicator_id = data.get('indicator_id')
             observation.observable_behavior_id = data.get('observable_behavior_id')
-            observation.observation_date = data.get('observation_date', '').strip()
-            observation.location = data.get('location', '').strip()
-            observation.antecedent = data.get('antecedent', '').strip()
-            observation.behavior = data.get('behavior', '').strip()
-            observation.consequence = data.get('consequence', '').strip()
-            observation.description = data.get('description', '').strip()
-            observation.behavior_type = data.get('behavior_type', 'خنثی')
+            # ===== اصلاح (بازرسی ششم): None-safe + یکدست‌سازی تاریخ =====
+            observation.observation_date = self.clean_date(data.get('observation_date'), '')
+            observation.location = self.clean_text(data.get('location'))
+            observation.antecedent = self.clean_text(data.get('antecedent'))
+            observation.behavior = self.clean_text(data.get('behavior'))
+            observation.consequence = self.clean_text(data.get('consequence'))
+            observation.description = self.clean_text(data.get('description'))
+            observation.behavior_type = data.get('behavior_type') or 'خنثی'
             observation.severity = data.get('severity', 3)
-            observation.tags = data.get('tags', '').strip()
+            observation.tags = self.clean_text(data.get('tags'))
             
             # 6. اعتبارسنجی مدل
             errors = observation.validate()
@@ -193,15 +192,18 @@ class ObservationService(BaseService):
             observation.observable_behavior_id = data.get(
                 'observable_behavior_id', observation.observable_behavior_id
             )
-            observation.observation_date = data.get('observation_date', observation.observation_date).strip()
-            observation.location = data.get('location', observation.location).strip()
-            observation.antecedent = data.get('antecedent', observation.antecedent).strip()
-            observation.behavior = data.get('behavior', observation.behavior).strip()
-            observation.consequence = data.get('consequence', observation.consequence).strip()
-            observation.description = data.get('description', observation.description).strip()
+            # ===== اصلاح (بازرسی ششم): None-safe + یکدست‌سازی تاریخ =====
+            observation.observation_date = self.clean_date(
+                data.get('observation_date'), observation.observation_date or ''
+            )
+            observation.location = self.clean_text(data.get('location'), observation.location)
+            observation.antecedent = self.clean_text(data.get('antecedent'), observation.antecedent)
+            observation.behavior = self.clean_text(data.get('behavior'), observation.behavior)
+            observation.consequence = self.clean_text(data.get('consequence'), observation.consequence)
+            observation.description = self.clean_text(data.get('description'), observation.description)
             observation.behavior_type = data.get('behavior_type', observation.behavior_type)
             observation.severity = data.get('severity', observation.severity)
-            observation.tags = data.get('tags', observation.tags).strip()
+            observation.tags = self.clean_text(data.get('tags'), observation.tags)
             
             # 5. تکمیل برچسب‌ها
             if observation.tags and observation.competency_id:
@@ -303,7 +305,7 @@ class ObservationService(BaseService):
             return observation
         except Exception as e:
             self.logger.error(f"خطا در دریافت مشاهده: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_observations_by_student(self, student_id, year_id=None, limit=None):
         """
@@ -339,7 +341,7 @@ class ObservationService(BaseService):
             return observations
         except Exception as e:
             self.logger.error(f"خطا در دریافت مشاهدات دانش‌آموز: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_observations_by_teacher(self, teacher_id, year_id=None, limit=None):
         """
@@ -379,7 +381,7 @@ class ObservationService(BaseService):
             return observations
         except Exception as e:
             self.logger.error(f"خطا در دریافت مشاهدات معلم: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_all_observations(self, limit=None, include_staff_info=False):
         """
@@ -401,7 +403,7 @@ class ObservationService(BaseService):
             return observations
         except Exception as e:
             self.logger.error(f"خطا در دریافت همه مشاهدات: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_observations_by_date_range(self, student_id, start_date, end_date):
         """
@@ -428,7 +430,7 @@ class ObservationService(BaseService):
             return observations
         except Exception as e:
             self.logger.error(f"خطا در دریافت مشاهدات بازه زمانی: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_observations_summary(self, student_id, year_id=None):
         """
@@ -475,7 +477,7 @@ class ObservationService(BaseService):
             }
         except Exception as e:
             self.logger.error(f"خطا در دریافت خلاصه مشاهدات: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def _validate_observation_data(self, data, is_update=False):
         """
@@ -489,37 +491,47 @@ class ObservationService(BaseService):
             ValidationError: در صورت عدم اعتبار
         """
         errors = []
-        
+
+        # ===== اصلاح (بازرسی ششم) =====
+        # ۱) در حالت ویرایش فقط کلیدهای ارسالی اعتبارسنجی می‌شوند،
+        #    پس ویرایش جزئی (مثلاً فقط توضیحات) دیگر رد نمی‌شود.
+        # ۲) مقدار None باعث AttributeError نمی‌شود.
+        # ۳) تاریخ با تقویم واقعی شمسی بررسی می‌شود؛ قبلاً یک regex
+        #    ساده «1405/13/45» را هم معتبر می‌دانست و در دیتابیس
+        #    ذخیره می‌شد.
+        def provided(key):
+            return (not is_update) or (key in data)
+
         # بررسی دانش‌آموز (در حالت ایجاد اجباری است)
         if not is_update and not data.get('student_id'):
             errors.append("دانش‌آموز باید انتخاب شود")
-        
+
         # بررسی مشاهده‌گر
-        if data.get('staff_id') is None:
-            errors.append("مشاهده‌گر باید انتخاب شود")
-        elif data.get('staff_id') and data.get('staff_id') <= 0:
-            errors.append("مشاهده‌گر نامعتبر است")
-        
-        # بررسی تاریخ
-        observation_date = data.get('observation_date', '').strip()
-        if not observation_date:
-            errors.append("تاریخ مشاهده نمی‌تواند خالی باشد")
-        else:
-            # بررسی فرمت تاریخ (ساده)
-            import re
-            if not re.match(r'^\d{4}/\d{2}/\d{2}$', observation_date):
-                errors.append("فرمت تاریخ باید به صورت yyyy/MM/dd باشد")
-        
+        if provided('staff_id'):
+            if data.get('staff_id') is None:
+                errors.append("مشاهده‌گر باید انتخاب شود")
+            elif data.get('staff_id') and data.get('staff_id') <= 0:
+                errors.append("مشاهده‌گر نامعتبر است")
+
+        # بررسی تاریخ — قاعدهٔ یکسان: نرمال‌سازی، بعد اعتبارسنجی
+        if provided('observation_date'):
+            _norm, _err = self.check_date(
+                data.get('observation_date'), "تاریخ مشاهده", required=True)
+            if _err:
+                errors.append(_err)
+
         # بررسی شدت
-        severity = data.get('severity', 3)
-        if severity is not None and (severity < 1 or severity > 5):
-            errors.append("شدت باید بین 1 تا 5 باشد")
-        
+        if provided('severity'):
+            severity = data.get('severity', 3)
+            if severity is not None and (severity < 1 or severity > 5):
+                errors.append("شدت باید بین 1 تا 5 باشد")
+
         # بررسی نوع رفتار
-        behavior_type = data.get('behavior_type', 'خنثی')
-        valid_types = ["مثبت", "منفی", "خنثی"]
-        if behavior_type not in valid_types:
-            errors.append("نوع رفتار نامعتبر است")
+        if provided('behavior_type'):
+            behavior_type = data.get('behavior_type') or 'خنثی'
+            valid_types = ["مثبت", "منفی", "خنثی"]
+            if behavior_type not in valid_types:
+                errors.append("نوع رفتار نامعتبر است")
         
         if errors:
             raise ValidationError("\n".join(errors))
@@ -647,7 +659,7 @@ class ObservationService(BaseService):
             return observations
         except Exception as e:
             self.logger.error(f"خطا در جستجوی مشاهدات: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")
     
     def search_observations_by_student(self, student_id, search_term):
         """
@@ -667,7 +679,7 @@ class ObservationService(BaseService):
             return observations
         except Exception as e:
             self.logger.error(f"خطا در جستجوی مشاهدات دانش‌آموز: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")
     
     def search_observations_by_teacher(self, teacher_id, search_term):
         """
@@ -687,4 +699,4 @@ class ObservationService(BaseService):
             return observations
         except Exception as e:
             self.logger.error(f"خطا در جستجوی مشاهدات معلم: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")

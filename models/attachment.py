@@ -2,6 +2,8 @@
 مدل پیوست - نسخه کامل با فیلدهای جدید
 """
 
+from typing import ClassVar
+
 from models.base import BaseModel
 
 
@@ -16,7 +18,7 @@ class Attachment(BaseModel):
     """
     
     # انواع موجودیت‌های مجاز
-    ENTITY_TYPES = [
+    ENTITY_TYPES: ClassVar[list[str]] = [
         'observation',
         'intervention',
         'followup',

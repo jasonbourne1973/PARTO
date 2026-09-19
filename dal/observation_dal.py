@@ -3,8 +3,14 @@
 با متدهای تحلیلی برای داشبورد و پیشنهادات
 """
 
+import sqlite3
+
 from database.connection import DatabaseConnection
 from models.observation import Observation
+from utils.logger import get_logger
+from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class ObservationDAL:
@@ -228,8 +234,7 @@ class ObservationDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE observations SET
                 is_deleted = 1,
@@ -336,8 +341,8 @@ class ObservationDAL:
                 'observations': observations
             }
             
-        except Exception as e:
-            print(f"خطا در دریافت مشاهدات گروهی کلاس: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت مشاهدات گروهی کلاس: {e}")
             return {'positive': 0, 'negative': 0, 'neutral': 0, 'total': 0, 'observations': []}
     
     def get_grouped_by_grade(self, grade, academic_year_id=None, start_date=None, end_date=None):
@@ -384,8 +389,8 @@ class ObservationDAL:
                 'observations': observations
             }
             
-        except Exception as e:
-            print(f"خطا در دریافت مشاهدات گروهی پایه: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت مشاهدات گروهی پایه: {e}")
             return {'positive': 0, 'negative': 0, 'neutral': 0, 'total': 0, 'observations': []}
     
     def get_trend_by_class(self, class_name, period='monthly', start_date=None, end_date=None):
@@ -461,25 +466,19 @@ class ObservationDAL:
 
             return result
             
-        except Exception as e:
-            print(f"خطا در دریافت روند مشاهدات کلاس: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت روند مشاهدات کلاس: {e}")
             return []
     
     def _get_month_label(self, date_str):
-        """دریافت برچسب ماه از تاریخ"""
-        if not date_str or len(date_str) < 7:
-            return date_str
-        try:
-            month_names = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-                          "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
-            parts = date_str.split('/')
-            if len(parts) >= 2:
-                month = int(parts[1])
-                if 1 <= month <= 12:
-                    return f"{month_names[month-1]} {parts[0]}"
-        except:
-            pass
-        return date_str
+        """دریافت برچسب ماه از تاریخ — پیاده‌سازی مشترک
+
+        بازرسی نهم: این متد در ۴ فایل DAL کپی شده بود؛ حالا همه به یک
+        منبع واحد (utils.persian_date) وصل‌اند تا اصلاح‌های آینده
+        (ارقام فارسی، تاریخ ناقص، نام ماه) یک‌جا اعمال شود.
+        """
+        from utils.persian_date import PersianDate
+        return PersianDate.get_month_label(date_str)
 
     def _make_period_key(self, date_str, period='monthly'):
         """
@@ -510,6 +509,7 @@ class ObservationDAL:
                         f"هفته {week} {parts[1]}"
                     )
                 except (ValueError, IndexError):
+                    # روز غیرعددی/ناقص → بازگشت به کلید ماهانه
                     pass
             return date_str[:7], date_str[:7]
 
@@ -596,8 +596,8 @@ class ObservationDAL:
 
             return result
             
-        except Exception as e:
-            print(f"خطا در دریافت آمار معلم: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت آمار معلم: {e}")
             return []
 
     # ============================================================
@@ -654,8 +654,8 @@ class ObservationDAL:
                 'neutral_percentage': round((neutral / total * 100), 1) if total > 0 else 0
             }
 
-        except Exception as e:
-            print(f"خطا در دریافت توزیع مشاهدات: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت توزیع مشاهدات: {e}")
             return {'positive': 0, 'negative': 0, 'neutral': 0, 'total': 0,
                     'positive_percentage': 0, 'negative_percentage': 0, 'neutral_percentage': 0}
 
@@ -697,8 +697,8 @@ class ObservationDAL:
 
             return result
 
-        except Exception as e:
-            print(f"خطا در دریافت توزیع مشاهدات بر اساس محیط: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت توزیع مشاهدات بر اساس محیط: {e}")
             return []
 
     def get_observations_by_time_period(self, period='monthly', start_date=None, end_date=None, limit=12):
@@ -771,8 +771,8 @@ class ObservationDAL:
 
             return result
 
-        except Exception as e:
-            print(f"خطا در دریافت مشاهدات در بازه‌های زمانی: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت مشاهدات در بازه‌های زمانی: {e}")
             return []
 
     def get_observations_by_competency(self, start_date=None, end_date=None, limit=10, staff_id=None):
@@ -822,15 +822,16 @@ class ObservationDAL:
 
             return result
 
-        except Exception as e:
-            print(f"خطا در دریافت مشاهدات بر اساس شایستگی: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت مشاهدات بر اساس شایستگی: {e}")
             return []
 
     def get_daily_observation_summary(self, days=30):
         """دریافت خلاصه روزانه مشاهدات"""
         try:
-            import jdatetime
             from datetime import timedelta
+
+            import jdatetime
 
             conn = self.db.get_connection()
             cursor = conn.cursor()
@@ -873,8 +874,8 @@ class ObservationDAL:
 
             return result
 
-        except Exception as e:
-            print(f"خطا در دریافت خلاصه روزانه مشاهدات: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت خلاصه روزانه مشاهدات: {e}")
             return []
 
     # ============================================================
@@ -974,8 +975,8 @@ class ObservationDAL:
             
             return weak_comps[:limit]
             
-        except Exception as e:
-            print(f"خطا در دریافت شایستگی‌های ضعیف: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت شایستگی‌های ضعیف: {e}")
             return []
 
     def get_strong_competencies_for_student(self, profile_id, limit=3):
@@ -1036,8 +1037,8 @@ class ObservationDAL:
             
             return strong_comps[:limit]
             
-        except Exception as e:
-            print(f"خطا در دریافت شایستگی‌های قوی: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت شایستگی‌های قوی: {e}")
             return []
 
     def get_recent_observations_for_student(self, profile_id, limit=5):
@@ -1053,8 +1054,8 @@ class ObservationDAL:
         """
         try:
             return self.get_by_student_profile(profile_id, limit=limit)
-        except Exception as e:
-            print(f"خطا در دریافت آخرین مشاهدات: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت آخرین مشاهدات: {e}")
             return []
 
     def get_observation_patterns_for_student(self, profile_id):
@@ -1153,8 +1154,8 @@ class ObservationDAL:
                 'trend': trend
             }
             
-        except Exception as e:
-            print(f"خطا در تشخیص الگوهای رفتاری: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در تشخیص الگوهای رفتاری: {e}")
             return {
                 'most_common_location': None,
                 'most_common_behavior_type': None,
@@ -1172,7 +1173,7 @@ class ObservationDAL:
             comp_dal = CompetencyDAL()
             comp = comp_dal.get_by_id(competency_id)
             return comp.title if comp else f"شایستگی {competency_id}"
-        except:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
             return f"شایستگی {competency_id}"
 
     def _row_to_observation(self, row):
@@ -1202,7 +1203,7 @@ class ObservationDAL:
         # نکند.
         try:
             available = set(row.keys())
-        except Exception:
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
             available = set()
         observation.indicator_id = (
             row['indicator_id'] if 'indicator_id' in available else None

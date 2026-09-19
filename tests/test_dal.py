@@ -2,22 +2,37 @@
 تست‌های لایه دسترسی به داده - نسخه کامل
 """
 
-import sys
 import os
+import sys
 import unittest
-import tempfile
-import shutil
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from dal.student_dal import StudentDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
+# ============================================================
+# جداسازی تست‌ها از دیتابیس واقعی (بازرسی ششم)
+# ============================================================
+# نسخه قبلی تست‌ها مستقیماً به database/partow.db واقعی وصل
+# می‌شدند؛ یعنی اجرای تست‌ها می‌توانست داده در دیتابیس کاربر
+# بنویسد (test_create_student یک دانش‌آموز با کد ملی جعلی
+# «1234567890» ثبت می‌کرد). حالا هر اجرا روی یک دیتابیس موقت
+# انجام می‌شود و به دیتابیس واقعی دست نمی‌زند.
+import tempfile as _tempfile
+
+import database.connection as _dbc
+from config import settings as _settings
+
+_TMP_DB_DIR = _tempfile.mkdtemp(prefix='partow_test_')
+_settings.DB_PATH = os.path.join(_TMP_DB_DIR, 'partow.db')
+_dbc.DB_PATH = _settings.DB_PATH
+_dbc.DatabaseConnection._instance = None
+_dbc.DatabaseConnection._connection = None
+_dbc.DatabaseConnection._initialized = False
+
 from dal.academic_year_dal import AcademicYearDAL
-from dal.competency_dal import CompetencyDAL
-from models.student import Student
+from dal.observation_dal import ObservationDAL
+from dal.student_dal import StudentDAL
 from models.observation import Observation
+from models.student import Student
 
 
 class TestStudentDAL(unittest.TestCase):
@@ -34,14 +49,13 @@ class TestStudentDAL(unittest.TestCase):
     
     def test_create_student(self):
         """تست ایجاد دانش‌آموز"""
-        try:
-            student = self.dal.create(self.test_student)
-            self.assertIsNotNone(student.id)
-            self.assertEqual(student.first_name, 'تست')
-            self.assertEqual(student.last_name, 'دانش‌آموز')
-        except Exception as e:
-            # ممکن است دیتابیس وجود نداشته باشد
-            pass
+        # بازرسی دهم: این تست قبلاً کل بدنه را در try/except pass گذاشته
+        # بود؛ یعنی حتی اگر assert ها شکست بخورند، تست سبز می‌شد. حالا
+        # واقعاً بررسی می‌کند (دیتابیس موقت در setUp ساخته می‌شود).
+        student = self.dal.create(self.test_student)
+        self.assertIsNotNone(student.id)
+        self.assertEqual(student.first_name, 'تست')
+        self.assertEqual(student.last_name, 'دانش‌آموز')
     
     def test_validate_student(self):
         """تست اعتبارسنجی دانش‌آموز"""
@@ -82,6 +96,8 @@ class TestObservationDAL(unittest.TestCase):
         self.assertTrue(any('پرونده' in e for e in errors))
         
         obs.student_profile_id = 1
+        # ===== اصلاح (بازرسی ششم) — «رفتار مشاهده‌شده» الزامی است =====
+        obs.behavior = "رفتار تست"
         errors = obs.validate()
         self.assertEqual(len(errors), 0)
 
@@ -95,12 +111,9 @@ class TestAcademicYearDAL(unittest.TestCase):
     
     def test_get_active(self):
         """تست دریافت سال فعال"""
-        try:
-            year = self.dal.get_active()
-            # اگر سالی وجود نداشته باشد، None برمی‌گرداند
-            self.assertTrue(year is None or hasattr(year, 'id'))
-        except:
-            pass
+        # بازرسی دهم: بدون try/except پوشاننده تا تست واقعاً بسنجد
+        year = self.dal.get_active()
+        self.assertTrue(year is None or hasattr(year, 'id'))
 
 
 def run_tests():
@@ -115,7 +128,7 @@ def run_tests():
     result = runner.run(suite)
     
     print("\n" + "=" * 50)
-    print(f"📊 خلاصه تست‌های DAL:")
+    print("📊 خلاصه تست‌های DAL:")
     print(f"  • اجرا شده: {result.testsRun}")
     print(f"  • موفق: {result.testsRun - len(result.failures) - len(result.errors)}")
     print(f"  • ناموفق: {len(result.failures)}")

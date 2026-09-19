@@ -3,6 +3,8 @@
 ثبت و پیگیری جلسات مشاوره با دانش‌آموزان
 """
 
+from typing import ClassVar
+
 from models.base import BaseModel
 
 
@@ -24,7 +26,7 @@ class CounselingSession(BaseModel):
     STATUS_CANCELLED = "cancelled"      # لغو شده
     STATUS_NO_SHOW = "no_show"          # حضور نیافت
     
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (STATUS_SCHEDULED, "برنامه‌ریزی شده"),
         (STATUS_IN_PROGRESS, "در حال انجام"),
         (STATUS_COMPLETED, "انجام شده"),
@@ -39,7 +41,7 @@ class CounselingSession(BaseModel):
     TYPE_ASSESSMENT = "assessment"      # ارزیابی
     TYPE_FOLLOWUP = "followup"          # پیگیری
     
-    TYPE_CHOICES = [
+    TYPE_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (TYPE_INDIVIDUAL, "فردی"),
         (TYPE_GROUP, "گروهی"),
         (TYPE_FAMILY, "خانوادگی"),
@@ -53,7 +55,7 @@ class CounselingSession(BaseModel):
     METHOD_VIDEO = "video"              # تصویری
     METHOD_OTHER = "other"              # سایر
     
-    METHOD_CHOICES = [
+    METHOD_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (METHOD_IN_PERSON, "حضوری"),
         (METHOD_PHONE, "تلفنی"),
         (METHOD_VIDEO, "تصویری"),

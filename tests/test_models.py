@@ -2,18 +2,18 @@
 تست‌های مدل‌ها - PARTOW
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import unittest
-from models.student import Student
-from models.student_academic_profile import StudentAcademicProfile
-from models.observation import Observation
-from models.intervention import Intervention
-from models.followup import FollowUp
+
 from models.academic_year import AcademicYear
+from models.followup import FollowUp
+from models.intervention import Intervention
+from models.observation import Observation
+from models.student import Student
 
 
 class TestStudent(unittest.TestCase):
@@ -89,6 +89,12 @@ class TestObservation(unittest.TestCase):
         obs.staff_id = 2
         obs.observation_date = "1406/07/15"
         obs.description = "تست"
+        # ===== اصلاح (بازرسی ششم) =====
+        # مدل از نسخهٔ سه‌لایه به بعد «رفتار مشاهده‌شده» را هم
+        # الزامی می‌داند (AB؛ مدل Observation.validate در
+        # models/observation.py)، ولی این تست قدیمی بود و آن را
+        # پر نمی‌کرد؛ به همین دلیل شکست می‌خورد.
+        obs.behavior = "رفتار تست"
         errors = obs.validate()
         self.assertEqual(len(errors), 0)
     
@@ -110,7 +116,7 @@ class TestIntervention(unittest.TestCase):
         inter.status = "planned"
         
         self.assertEqual(inter.type_display, "گفتگوی فردی")
-        self.assertEqual(inter.status_display, "🟡 برنامه‌ریزی شده")
+        self.assertEqual(inter.status_display, "برنامه‌ریزی شده")
         self.assertTrue(inter.is_active_intervention)
     
     def test_validate_intervention(self):
@@ -135,8 +141,8 @@ class TestFollowUp(unittest.TestCase):
         follow.status = "pending"
         follow.result_type = "improved"
         
-        self.assertEqual(follow.status_display, "🟡 در انتظار")
-        self.assertEqual(follow.result_type_display, "✅ بهبود مشاهده شد")
+        self.assertEqual(follow.status_display, "در انتظار")
+        self.assertEqual(follow.result_type_display, "بهبود مشاهده شد")  # بدون Emoji (سیاست پروژه)
         self.assertTrue(follow.is_pending)
     
     def test_validate_followup(self):

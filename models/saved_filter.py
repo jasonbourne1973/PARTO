@@ -2,6 +2,8 @@
 مدل فیلتر ذخیره‌شده - ذخیره و مدیریت فیلترهای جستجو
 """
 
+from typing import ClassVar
+
 from models.base import BaseModel
 
 
@@ -21,7 +23,7 @@ class SavedFilter(BaseModel):
     VISIBILITY_SHARED = "shared"        # اشتراک‌گذاری شده با همه
     VISIBILITY_TEAM = "team"            # فقط تیم/گروه خاص
     
-    VISIBILITY_CHOICES = [
+    VISIBILITY_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (VISIBILITY_PRIVATE, "خصوصی"),
         (VISIBILITY_SHARED, "اشتراکی"),
         (VISIBILITY_TEAM, "تیمی"),
@@ -34,7 +36,7 @@ class SavedFilter(BaseModel):
     TYPE_FOLLOWUP = "followup"          # فیلتر پیگیری‌ها
     TYPE_REPORT = "report"              # فیلتر گزارش‌ها
     
-    TYPE_CHOICES = [
+    TYPE_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (TYPE_STUDENT, "دانش‌آموزان"),
         (TYPE_OBSERVATION, "مشاهدات"),
         (TYPE_INTERVENTION, "مداخلات"),

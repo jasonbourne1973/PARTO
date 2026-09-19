@@ -2,25 +2,23 @@
 سرویس مدیریت پیوست‌ها - نسخه کامل با قابلیت‌های جدید
 """
 
-import os
-import shutil
-import mimetypes
-from datetime import datetime
-import sys
-import os
 import hashlib
-import zipfile
-import json
+import mimetypes
+import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
+from typing import ClassVar
+
+from config.settings import ATTACHMENTS_DIR
 from dal.attachment_dal import AttachmentDAL
 from models.attachment import Attachment
-from config.settings import ATTACHMENTS_DIR
+from services.base_service import BaseService
 from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
 from utils.security import Security
+from utils.time_utils import utc_now
 
 
 class AttachmentService(BaseService):
@@ -31,7 +29,7 @@ class AttachmentService(BaseService):
     """
     
     # انواع فایل‌های مجاز
-    ALLOWED_FILE_TYPES = {
+    ALLOWED_FILE_TYPES: ClassVar[dict[str, str]] = {
         'image': ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'tiff', 'ico'],
         'document': ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'odt', 'ods', 'odp'],
         'audio': ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'wma'],
@@ -167,7 +165,7 @@ class AttachmentService(BaseService):
             return attachment
         except Exception as e:
             self.logger.error(f"خطا در دریافت پیوست: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_attachments_by_entity(self, entity_type, entity_id):
         """دریافت پیوست‌های یک موجودیت"""
@@ -178,7 +176,7 @@ class AttachmentService(BaseService):
             return attachments
         except Exception as e:
             self.logger.error(f"خطا در دریافت پیوست‌ها: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def delete_attachment(self, attachment_id, user_id=None, ip_address=None):
         """حذف پیوست"""
@@ -220,13 +218,13 @@ class AttachmentService(BaseService):
             return True
         except Exception as e:
             self.logger.error(f"خطا در حذف پیوست‌ها: {e}")
-            raise ServiceError(f"خطا در حذف: {str(e)}")
+            raise ServiceError(f"خطا در حذف: {e!s}")
     
     def get_attachment_path(self, attachment_id):
         """دریافت مسیر فیزیکی فایل پیوست"""
         attachment = self.get_attachment(attachment_id)
         if not os.path.exists(attachment.file_path):
-            raise ServiceError(f"فایل پیوست در سیستم وجود ندارد.")
+            raise ServiceError("فایل پیوست در سیستم وجود ندارد.")
         return attachment.file_path
     
     def get_attachment_content(self, attachment_id):
@@ -237,7 +235,7 @@ class AttachmentService(BaseService):
                 return f.read()
         except Exception as e:
             self.logger.error(f"خطا در خواندن فایل: {e}")
-            raise ServiceError(f"خطا در خواندن فایل: {str(e)}")
+            raise ServiceError(f"خطا در خواندن فایل: {e!s}")
     
     def get_attachments_summary(self, entity_type, entity_id):
         """دریافت خلاصه پیوست‌های یک موجودیت"""
@@ -298,7 +296,30 @@ class AttachmentService(BaseService):
                 errors.append(f"نوع فایل '{ext}' مجاز نیست. پسوندهای مجاز: {', '.join(all_extensions)}")
         else:
             errors.append("فایل بدون پسوند است.")
-        
+
+        # ===== افزودن (بازرسی هفتم — اولویت ۳) =====
+        # بررسی محتوای فایل، نه فقط پسوند.
+        #
+        # پیش از این، اعتبارسنجی فقط پسوند را می‌دید؛ یعنی یک فایل
+        # اجرایی با نام «عکس.png» به‌عنوان پیوست ذخیره می‌شد. ابزار
+        # `utils/file_validator.py` دقیقاً برای همین نوشته شده بود
+        # ولی هیچ‌جا import نمی‌شد و ماژول هم به‌دلیل `import magic`
+        # (که نصب نبود) اصلاً بالا نمی‌آمد.
+        #
+        # حالا محتوای مشکوک رد می‌شود. این بررسی عمداً «پسوند‌محور»
+        # نیست؛ اگر کتابخانه در دسترس نباشد، هیچ پیوستی بی‌دلیل
+        # رد نمی‌شود (شکست نرم).
+        try:
+            from utils.file_validator import FileValidator
+            danger = FileValidator._detect_dangerous(file_data)
+            if danger:
+                errors.append(
+                    f"محتوای فایل «{danger}» است و مجاز نیست؛ "
+                    "پسوند فایل با محتوای آن هم‌خوان نیست."
+                )
+        except Exception as exc:  # pragma: no cover - مسیر پشتیبان
+            self.logger.warning(f"بررسی محتوای فایل انجام نشد: {exc}")
+
         if errors:
             raise ValidationError("\n".join(errors))
     
@@ -307,14 +328,14 @@ class AttachmentService(BaseService):
         safe_name = Security.sanitize_filename(original_name)
         
         if not safe_name:
-            safe_name = f"file_{int(datetime.now().timestamp())}"
+            safe_name = f"file_{int(utc_now().timestamp())}"
         
         name_parts = safe_name.rsplit('.', 1)
         if len(name_parts) == 2:
             base, ext = name_parts
-            return f"{base}_{int(datetime.now().timestamp())}.{ext}"
+            return f"{base}_{int(utc_now().timestamp())}.{ext}"
         else:
-            return f"{safe_name}_{int(datetime.now().timestamp())}"
+            return f"{safe_name}_{int(utc_now().timestamp())}"
     
     def _get_entity_folder(self, entity_type, entity_id):
         """دریافت پوشه ذخیره فایل‌های یک موجودیت"""
@@ -417,5 +438,5 @@ class AttachmentService(BaseService):
                 staff = staff_dal.get_by_id(attachment.created_by)
                 if staff:
                     attachment.created_by_name = staff.full_name
-            except:
+            except Exception:
                 attachment.created_by_name = "نامشخص"

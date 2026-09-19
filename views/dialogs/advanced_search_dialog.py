@@ -2,17 +2,25 @@
 دیالوگ جستجوی پیشرفته دانش‌آموزان
 """
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QLineEdit, QComboBox, QPushButton,
-    QMessageBox, QWidget, QGroupBox, QTableWidget,
-    QTableWidgetItem, QHeaderView
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
 )
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor
 
-from dal.student_dal import StudentDAL
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from utils.shamsi_date_input import ShamsiDateInput
 
 
@@ -235,14 +243,12 @@ class AdvancedSearchDialog(QDialog):
                 QMessageBox.information(self, "نتیجه", "هیچ دانش‌آموزی با این معیارها یافت نشد.")
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{e!s}")
     
     def display_results(self, results):
         """نمایش نتایج جستجو"""
         self.result_table.setRowCount(len(results))
         self.result_count_label.setText(f"تعداد نتایج: {len(results)}")
-        
-        grade_names = {1: "اول", 2: "دوم", 3: "سوم", 4: "چهارم", 5: "پنجم", 6: "ششم"}
         
         for row, student in enumerate(results):
             # دریافت اطلاعات پرونده

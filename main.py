@@ -2,17 +2,18 @@
 PARTOW - ورودی اصلی برنامه - نسخه دیباگ
 """
 
-import sys
+import contextlib
 import os
+import sys
 import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtGui import QIcon
-from views.main_window import MainWindow
+from PySide6.QtWidgets import QApplication, QMessageBox
+
 from database.connection import DatabaseConnection
-from utils.logger import get_logger, log_error, log_info
+from views.main_window import MainWindow
 
 
 def main():
@@ -24,7 +25,7 @@ def main():
         # تست دیتابیس
         print("🔵 مرحله 2: تست دیتابیس...")
         db = DatabaseConnection()
-        conn = db.get_connection()
+        db.get_connection()  # فقط برای اطمینان از برقراری اتصال
         print("✅ دیتابیس متصل شد.")
         
         # ایجاد اپلیکیشن
@@ -56,12 +57,11 @@ def main():
             sys.exit(0)
         
         # ===== تنظیم آیکون پنجره اصلی =====
-        try:
+        # نبود/خرابی فایل آیکون نباید بالا آمدن برنامه را متوقف کند
+        with contextlib.suppress(Exception):
             from config.settings import LOGO_ICON_PATH
             if os.path.exists(LOGO_ICON_PATH):
                 window.setWindowIcon(QIcon(LOGO_ICON_PATH))
-        except:
-            pass
         
         print("🔵 مرحله 6: نمایش پنجره...")
         window.show()
@@ -76,7 +76,7 @@ def main():
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Icon.Critical)
         msg.setWindowTitle("خطا")
-        msg.setText(f"خطا در اجرای برنامه:\n{str(e)}")
+        msg.setText(f"خطا در اجرای برنامه:\n{e!s}")
         msg.exec()
         sys.exit(1)
 

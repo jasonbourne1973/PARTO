@@ -2,23 +2,34 @@
 صفحه نمایش شاخص‌های رشد (Competencies) - نسخه نهایی با وضعیت "داده ناکافی" و جستجو و فیلتر معلم
 """
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTreeWidget, QTreeWidgetItem, QLabel, QComboBox,
-    QMessageBox, QSplitter, QTextEdit, QLineEdit
-)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QComboBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QSplitter,
+    QTextEdit,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.observation_dal import ObservationDAL
-from dal.competency_dal import CompetencyDAL
 from dal.academic_year_dal import AcademicYearDAL
+from dal.competency_dal import CompetencyDAL
+from dal.observation_dal import ObservationDAL
 from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
 from database.connection import DatabaseConnection
-import re
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class IndicatorsPage(QWidget):
@@ -240,7 +251,7 @@ class IndicatorsPage(QWidget):
             for teacher in self.all_teachers:
                 self.teacher_combo.addItem(f"{teacher.full_name}", teacher.id)
         except Exception as e:
-            print(f"خطا در بارگذاری معلمان: {e}")
+            logger.error(f"خطا در بارگذاری معلمان: {e}")
     
     def load_academic_years(self):
         """بارگذاری سال‌های تحصیلی در کامبوباکس"""
@@ -260,7 +271,7 @@ class IndicatorsPage(QWidget):
                         self.year_combo.setCurrentIndex(i)
                         break
         except Exception as e:
-            print(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
+            logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
     
     def on_teacher_changed(self, index):
         """وقتی معلم یا سال تغییر می‌کند، لیست دانش‌آموزان را به‌روز کن"""
@@ -293,7 +304,7 @@ class IndicatorsPage(QWidget):
                     display_text = f"{student.full_name} - پایه {grade_text}"
                     self.student_combo.addItem(display_text, student.id)
         except Exception as e:
-            print(f"خطا در بارگذاری دانش‌آموزان معلم: {e}")
+            logger.error(f"خطا در بارگذاری دانش‌آموزان معلم: {e}")
     
     def load_students(self):
         """بارگذاری دانش‌آموزان در کامبوباکس"""
@@ -307,7 +318,7 @@ class IndicatorsPage(QWidget):
                 display_text = f"{student.full_name} - پایه {grade_text}"
                 self.student_combo.addItem(display_text, student.id)
         except Exception as e:
-            print(f"خطا در بارگذاری دانش‌آموزان: {e}")
+            logger.error(f"خطا در بارگذاری دانش‌آموزان: {e}")
     
     def search_student(self):
         """جستجوی دانش‌آموز و انتخاب در کامبوباکس"""
@@ -334,7 +345,7 @@ class IndicatorsPage(QWidget):
                 QMessageBox.information(self, "نتیجه جستجو", msg)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{e!s}")
     
     def clear_search(self):
         """پاک کردن جستجو و نمایش همه"""
@@ -385,11 +396,11 @@ class IndicatorsPage(QWidget):
                     comp_item.setData(2, Qt.ItemDataRole.UserRole, -1)  # -1 یعنی داده ناکافی
                     comp_item.setForeground(2, QColor(241, 196, 15))
             
-            print(f"✅ {len(competencies)} شایستگی بارگذاری شد")
+            logger.debug(f"✅ {len(competencies)} شایستگی بارگذاری شد")
             
         except Exception as e:
-            print(f"❌ خطا در بارگذاری شایستگی‌ها: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری شایستگی‌ها:\n{str(e)}")
+            logger.error(f"❌ خطا در بارگذاری شایستگی‌ها: {e}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری شایستگی‌ها:\n{e!s}")
     
     def _get_category_display(self, category):
         """نمایش نام دسته به فارسی"""
@@ -473,11 +484,11 @@ class IndicatorsPage(QWidget):
             # پیمایش درخت و به‌روزرسانی امتیازها
             self.update_tree_scores(competencies, observations)
             
-            print(f"✅ امتیاز شایستگی‌ها برای دانش‌آموز محاسبه شد")
+            logger.debug("✅ امتیاز شایستگی‌ها برای دانش‌آموز محاسبه شد")
             
         except Exception as e:
-            print(f"❌ خطا در محاسبه شایستگی‌ها: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در محاسبه شایستگی‌ها:\n{str(e)}")
+            logger.error(f"❌ خطا در محاسبه شایستگی‌ها: {e}")
+            QMessageBox.critical(self, "خطا", f"مشکل در محاسبه شایستگی‌ها:\n{e!s}")
     
     def update_tree_scores(self, competencies, observations):
         """به‌روزرسانی امتیازها در درخت با وضعیت "داده ناکافی" """

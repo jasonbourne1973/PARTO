@@ -2,6 +2,8 @@
 مدل پیگیری - با Soft Delete یکپارچه
 """
 
+from typing import ClassVar
+
 from models.base import BaseModel
 
 
@@ -19,7 +21,7 @@ class FollowUp(BaseModel):
     STATUS_CLOSED = "closed"         # مختومه
     STATUS_CANCELLED = "cancelled"   # لغو شده
     
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (STATUS_PENDING, "در انتظار"),
         (STATUS_DONE, "انجام شده"),
         (STATUS_CONTINUED, "نیازمند ادامه"),
@@ -35,7 +37,7 @@ class FollowUp(BaseModel):
     RESULT_INSUFFICIENT = "insufficient"   # اطلاعات ناکافی
     RESULT_NEEDS_MORE = "needs_more"       # نیازمند پیگیری بیشتر
     
-    RESULT_CHOICES = [
+    RESULT_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (RESULT_IMPROVED, "بهبود مشاهده شد"),
         (RESULT_NO_CHANGE, "بدون تغییر قابل مشاهده"),
         (RESULT_CONTINUED, "تداوم وضعیت"),

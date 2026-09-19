@@ -3,10 +3,10 @@
 """
 
 import sqlite3
-from datetime import datetime
 
 from database.connection import DatabaseConnection
 from models.staff import Staff
+from utils.time_utils import utc_now_iso
 
 
 class StaffDAL:
@@ -196,7 +196,7 @@ class StaffDAL:
                 "ارجاع می‌دهند. در صورت نیاز آن را غیرفعال کنید."
             )
 
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE staff SET
                 is_deleted = 1,
@@ -329,5 +329,7 @@ class StaffDAL:
             staff.deleted_at = row['deleted_at']
             staff.deleted_by = row['deleted_by']
         except (IndexError, KeyError):
+            # ردیف/کوئری بدون این ستون‌ها: مقادیر پیش‌فرض مدل (None)
+            # حفظ می‌شود و بقیهٔ اطلاعات بارگذاری می‌شود.
             pass
         return staff

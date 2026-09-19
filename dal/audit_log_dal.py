@@ -2,8 +2,12 @@
 لایه دسترسی به داده Audit Log (تاریخچه تغییرات)
 """
 
+import sqlite3
+
 from database.connection import DatabaseConnection
-from datetime import datetime
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class AuditLogDAL:
@@ -44,8 +48,19 @@ class AuditLogDAL:
                 query += " AND al.user_id = ?"
                 params.append(user_id)
             if entity_type:
-                query += " AND al.entity_type = ?"
-                params.append(entity_type)
+                # ===== اصلاح (بازرسی هفتم) =====
+                # هم نام مفرد و هم نام جدول را قبول کن؛ تریگرهای
+                # دیتابیس نام جدول ('students') و سرویس‌ها نام
+                # موجودیت ('student') را ثبت می‌کردند و نتیجه،
+                # تاریخچهٔ ناقص بود.
+                from utils.security import normalize_entity_type
+                norm = normalize_entity_type(entity_type)
+                if norm != entity_type:
+                    query += " AND al.entity_type IN (?, ?)"
+                    params.extend([entity_type, norm])
+                else:
+                    query += " AND al.entity_type = ?"
+                    params.append(entity_type)
             if action:
                 query += " AND al.action = ?"
                 params.append(action)
@@ -84,8 +99,8 @@ class AuditLogDAL:
                 })
             
             return logs
-        except Exception as e:
-            print(f"⚠️ خطا در دریافت Audit Log: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"⚠️ خطا در دریافت Audit Log: {e}")
             return []
     
     def get_recent_changes(self, entity_id, entity_type, limit=20):
@@ -124,6 +139,6 @@ class AuditLogDAL:
                     'date': row['date'],
                 })
             return results
-        except Exception as e:
-            print(f"⚠️ خطا در دریافت خلاصه فعالیت‌ها: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"⚠️ خطا در دریافت خلاصه فعالیت‌ها: {e}")
             return []

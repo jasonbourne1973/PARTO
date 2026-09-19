@@ -2,23 +2,25 @@
 سرویس تولید گزارش والدین - ساده، قابل فهم و غیرتشخیصی
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
+import jdatetime
+
 from dal.academic_year_dal import AcademicYearDAL
 from dal.competency_dal import CompetencyDAL
 from dal.family_context_dal import FamilyContextDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
 from dal.parent_interview_dal import ParentInterviewDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from services.base_service import BaseService
 from utils.persian_pdf import PersianPDF
-import jdatetime
+from utils.time_utils import utc_now
 
 
 class ParentReportService(BaseService):
@@ -411,9 +413,8 @@ class ParentReportService(BaseService):
             try:
                 today = jdatetime.date.today()
                 date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
-            except:
-                from datetime import datetime
-                date_str = datetime.now().strftime("%Y/%m/%d")
+            except Exception:
+                date_str = utc_now().strftime("%Y/%m/%d")
             
             pdf.add_text(f"تاریخ تهیه گزارش: {date_str}")
             pdf.add_text("PARTO - سامانه مدیریت پرونده دانش‌آموزان")
@@ -425,4 +426,4 @@ class ParentReportService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در ساخت PDF گزارش والدین: {e}")
-            return False, f"خطا در ساخت فایل PDF: {str(e)}"
+            return False, f"خطا در ساخت فایل PDF: {e!s}"

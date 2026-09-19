@@ -3,10 +3,16 @@
 با متدهای تحلیلی برای داشبورد و پیشنهادات
 """
 
-from database.connection import DatabaseConnection
-from models.competency import Competency
+import sqlite3
+
 from dal.indicator_dal import IndicatorDAL
 from dal.observable_behavior_dal import ObservableBehaviorDAL
+from database.connection import DatabaseConnection
+from models.competency import Competency
+from utils.logger import get_logger
+from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class CompetencyDAL:
@@ -176,8 +182,7 @@ class CompetencyDAL:
         if not cursor.fetchone():
             return False
 
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
 
         cursor.execute("""
             UPDATE competencies SET
@@ -343,7 +348,7 @@ class CompetencyDAL:
             cursor.execute(query, params)
             rows = cursor.fetchall()
 
-            used_comp_ids = set(row['competency_id'] for row in rows)
+            used_comp_ids = {row['competency_id'] for row in rows}
             used_competencies = len(used_comp_ids)
             unused_competencies = len(comp_ids) - used_competencies
 
@@ -375,8 +380,8 @@ class CompetencyDAL:
                 'least_used': least_used
             }
 
-        except Exception as e:
-            print(f"خطا در دریافت آمار استفاده از شایستگی‌ها: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت آمار استفاده از شایستگی‌ها: {e}")
             return {
                 'total_competencies': 0,
                 'used_competencies': 0,
@@ -402,8 +407,8 @@ class CompetencyDAL:
 
             return result
 
-        except Exception as e:
-            print(f"خطا در دریافت توزیع شایستگی‌ها: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت توزیع شایستگی‌ها: {e}")
             return []
 
     def get_competency_avg_severity(self, start_date=None, end_date=None):
@@ -445,8 +450,8 @@ class CompetencyDAL:
 
             return result
 
-        except Exception as e:
-            print(f"خطا در دریافت میانگین شدت شایستگی‌ها: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت میانگین شدت شایستگی‌ها: {e}")
             return []
 
     # ============================================================
@@ -510,8 +515,8 @@ class CompetencyDAL:
             
             return result
             
-        except Exception as e:
-            print(f"خطا در دریافت شایستگی‌های دسته برای دانش‌آموز: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت شایستگی‌های دسته برای دانش‌آموز: {e}")
             return []
 
     def get_recommended_competencies_for_student(self, profile_id, limit=3):
@@ -540,11 +545,10 @@ class CompetencyDAL:
             # اگر شایستگی ضعیفی وجود نداشت، شایستگی‌های بدون مشاهده را پیشنهاد کن
             # دریافت همه شایستگی‌های فعال
             all_comps = self.get_all(include_inactive=False)
-            all_comp_ids = [c.id for c in all_comps]
             
             # دریافت مشاهدات دانش‌آموز
             observations = obs_dal.get_by_student_profile(profile_id)
-            observed_comp_ids = set(o.competency_id for o in observations if o.competency_id)
+            observed_comp_ids = {o.competency_id for o in observations if o.competency_id}
             
             # شایستگی‌های بدون مشاهده
             unobserved = [c for c in all_comps if c.id not in observed_comp_ids]
@@ -561,6 +565,6 @@ class CompetencyDAL:
             
             return result
             
-        except Exception as e:
-            print(f"خطا در دریافت شایستگی‌های پیشنهادی: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت شایستگی‌های پیشنهادی: {e}")
             return []

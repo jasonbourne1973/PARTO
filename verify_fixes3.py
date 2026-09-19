@@ -55,11 +55,13 @@ DB_DIR = os.path.join(TMP, "database")
 os.makedirs(DB_DIR, exist_ok=True)
 DB = os.path.join(DB_DIR, "partow.db")
 
-import config.settings as settings          # noqa: E402
+import config.settings as settings
+
 settings.DB_PATH = DB
 settings.ATTACHMENTS_DIR = os.path.join(TMP, "attachments")
 
-import database.connection as dbc           # noqa: E402
+import database.connection as dbc
+
 dbc.DB_PATH = DB
 
 RESULTS = []
@@ -119,25 +121,26 @@ def _restore_main():
 # ============================================================
 # دادهٔ پایهٔ آزمون
 # ============================================================
-import jdatetime                                # noqa: E402
-from models.staff import Staff                  # noqa: E402
-from models.student import Student              # noqa: E402
-from models.student_academic_profile import StudentAcademicProfile  # noqa: E402
-from models.observation import Observation      # noqa: E402
-from models.intervention import Intervention    # noqa: E402
-from models.followup import FollowUp            # noqa: E402
-from models.parent_interview import ParentInterview              # noqa: E402
-from models.teacher_assignment import TeacherAssignment          # noqa: E402
-from models.counseling_session import CounselingSession          # noqa: E402
-from dal.staff_dal import StaffDAL              # noqa: E402
-from dal.student_dal import StudentDAL          # noqa: E402
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL  # noqa: E402
-from dal.observation_dal import ObservationDAL  # noqa: E402
-from dal.intervention_dal import InterventionDAL      # noqa: E402
-from dal.followup_dal import FollowUpDAL        # noqa: E402
-from dal.parent_interview_dal import ParentInterviewDAL          # noqa: E402
-from dal.teacher_assignment_dal import TeacherAssignmentDAL      # noqa: E402
-from dal.counseling_session_dal import CounselingSessionDAL      # noqa: E402
+import jdatetime
+
+from dal.counseling_session_dal import CounselingSessionDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
+from dal.parent_interview_dal import ParentInterviewDAL
+from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from dal.teacher_assignment_dal import TeacherAssignmentDAL
+from models.counseling_session import CounselingSession
+from models.followup import FollowUp
+from models.intervention import Intervention
+from models.observation import Observation
+from models.parent_interview import ParentInterview
+from models.staff import Staff
+from models.student import Student
+from models.student_academic_profile import StudentAcademicProfile
+from models.teacher_assignment import TeacherAssignment
 
 CTX = {}
 _TODAY = jdatetime.date.today().strftime("%Y/%m/%d")
@@ -788,14 +791,76 @@ check("مشاهدهٔ ثبت‌شده هنوز نام معلمش را دارد",
 
 
 def login_blocked_for_deleted_staff():
-    """login_dialog مقدار s.is_active را چک می‌کند؛ حذف منطقی آن را ۰ می‌گذارد"""
+    """
+    عضو کادر حذف‌شده/غیرفعال نباید بتواند وارد شود
+
+    ===== به‌روزرسانی (بازرسی هفتم) =====
+    این آزمون قبلاً وجود رشتهٔ «staff_active» در فایل
+    views/dialogs/login_dialog.py را بررسی می‌کرد. در بازرسی هفتم
+    SQL خام لاگین به `UserDAL.authenticate` منتقل شد (اولویت ۱)، پس
+    آن رشته دیگر در دیالوگ نیست — ولی خودِ بررسی حذف نشده و حتی
+    کامل‌تر است:
+        • کاربر is_deleted=1 رد می‌شود
+        • کاربر is_active=0 رد می‌شود
+        • عضو کادر حذف‌شده (staff_deleted) رد می‌شود
+        • عضو کادر غیرفعال (staff_active != 1) رد می‌شود
+    پس آزمون حالا «محل قرارگیری کد» را نمی‌سنجد، بلکه رفتار واقعی
+    ورود را می‌سنجد — که هدف اصلی این بررسی بود.
+    """
     row = CONN.execute(
         "SELECT is_active FROM staff WHERE id = ?", (CTX["teacher"],)).fetchone()
     assert row[0] != 1, \
         "عضو حذف‌شده هنوز is_active=1 دارد ⇒ می‌تواند وارد برنامه شود"
-    code = _src("views/dialogs/login_dialog.py")
-    assert "staff_active" in code, \
-        "login_dialog دیگر is_active عضو کادر را چک نمی‌کند"
+
+    # ۱) منطق بررسی باید در لایهٔ دادهٔ احراز هویت باشد
+    code = _src("dal/user_dal.py")
+    for needle in ("staff_active", "staff_deleted"):
+        assert needle in code, \
+            f"بررسی «{needle}» عضو کادر در مسیر احراز هویت پیدا نشد"
+
+    # ۲) آزمون رفتاری — با یک عضو کادر مستقل تا رکوردهای
+    #    مشترک آزمون‌های دیگر دست‌نخورده بمانند
+    from dal.staff_dal import StaffDAL
+    from dal.user_dal import UserDAL
+    from models.staff import Staff
+    from models.user import User
+
+    probe = Staff()
+    probe.full_name = "عضو آزمون ورود"
+    probe.role = "teacher"
+    probe.is_active = 1
+    probe_id = StaffDAL().create(probe).id
+
+    ud = UserDAL()
+    ghost = User()
+    ghost.staff_id = probe_id
+    ghost.username = "ghost_teacher"
+    ghost.role = "teacher"
+    ghost.is_active = 1
+    ud.create(ghost, raw_password="Ghost@12345")
+
+    # الف) وقتی همه‌چیز سالم است، ورود باید کار کند
+    assert ud.authenticate("ghost_teacher", "Ghost@12345") is not None, \
+        "ورود کاربرِ سالم کار نمی‌کند (پیش‌نیاز آزمون برقرار نیست)"
+
+    # ب) عضو کادر غیرفعال → ورود ممنوع
+    CONN.execute("UPDATE staff SET is_active = 0 WHERE id = ?", (probe_id,))
+    assert ud.authenticate("ghost_teacher", "Ghost@12345") is None, \
+        "کاربرِ عضو کادرِ غیرفعال توانست وارد شود!"
+
+    # ج) برگشت به حالت فعال → ورود باید دوباره کار کند
+    CONN.execute("UPDATE staff SET is_active = 1 WHERE id = ?", (probe_id,))
+    assert ud.authenticate("ghost_teacher", "Ghost@12345") is not None, \
+        "پس از فعال‌سازی دوباره، ورود کاربر کار نمی‌کند"
+
+    # د) عضو کادر حذف‌شده (منطقی) → ورود ممنوع
+    CONN.execute("UPDATE staff SET is_deleted = 1 WHERE id = ?", (probe_id,))
+    assert ud.authenticate("ghost_teacher", "Ghost@12345") is None, \
+        "کاربرِ عضو کادرِ حذف‌شده توانست وارد شود!"
+
+    # پاک‌سازی اثر آزمون (کاربر و عضو آزمایشی)
+    CONN.execute("UPDATE users SET is_deleted = 1 WHERE username = 'ghost_teacher'")
+    CONN.execute("UPDATE staff SET is_deleted = 1 WHERE id = ?", (probe_id,))
 
 
 check("ورود عضو کادر حذف‌شده به برنامه بسته می‌شود",
@@ -972,16 +1037,17 @@ def soft_delete_leak_suite():
     (اسکن ایستا نمی‌تواند این را بفهمد چون کوئری‌ها پویا ساخته می‌شوند.)
     """
     import inspect
-    from dal.goal_dal import GoalDAL
+
     from dal.extracurricular_dal import ExtracurricularDAL
-    from dal.screening_dal import ScreeningDAL
     from dal.family_context_dal import FamilyContextDAL
+    from dal.goal_dal import GoalDAL
     from dal.professional_interpretation_dal import ProfessionalInterpretationDAL
-    from models.individual_goal import IndividualGoal
+    from dal.screening_dal import ScreeningDAL
     from models.extracurricular_activity import ExtracurricularActivity
-    from models.screening import Screening
     from models.family_context import FamilyContext
+    from models.individual_goal import IndividualGoal
     from models.professional_interpretation import ProfessionalInterpretation
+    from models.screening import Screening
 
     # یک دانش‌آموز و پروندهٔ تازه برای این بخش
     s = Student()
@@ -1290,15 +1356,15 @@ def empty_database_robustness():
             os.remove(db2 + ext)
     try:
         _fresh_connection(db2)
-        from services.dashboard_service import DashboardService
-        from services.trend_analysis_service import TrendAnalysisService
-        from services.counseling_service import CounselingService
-        from services.goal_service import GoalService
-        from services.extracurricular_service import ExtracurricularService
         from services.advanced_search_service import AdvancedSearchService
-        from services.observation_service import ObservationService
         from services.class_report_service import ClassReportService
+        from services.counseling_service import CounselingService
+        from services.dashboard_service import DashboardService
+        from services.extracurricular_service import ExtracurricularService
+        from services.goal_service import GoalService
+        from services.observation_service import ObservationService
         from services.teacher_report_service import TeacherReportService
+        from services.trend_analysis_service import TrendAnalysisService
 
         failures = []
         objs = []
@@ -1414,6 +1480,7 @@ def backup_restore_roundtrip():
     (که همان حذف‌ها در آن بود) روی دیتابیس بازیابی‌شده بازپخش می‌کرد.
     """
     import sqlite3
+
     from utils.backup import BackupManager
 
     sub = os.path.join(TMP, "bk")
@@ -1555,6 +1622,7 @@ check("پشتیبان دستکاری‌شده با پیام checksum رد می�
 def restore_reports_missing_database():
     """پشتیبانی که دیتابیس ندارد نباید «موفق» گزارش شود"""
     import zipfile
+
     from utils.backup import BackupManager
     sub = os.path.join(TMP, "bk3")
     for d in ("dbdir", "att", "bk"):
@@ -1596,8 +1664,8 @@ def update_roundtrip():
     ویرایش و ذخیره می‌کند، پیام «ذخیره شد» می‌گیرد، ولی آن فیلد
     به مقدار قبلی برمی‌گردد.
     """
-    from models.family_context import FamilyContext
     from dal.family_context_dal import FamilyContextDAL
+    from models.family_context import FamilyContext
 
     # ستون‌هایی که در schema نوعشان TEXT است ولی مقدار شناسهٔ عددی
     # می‌گیرند؛ SQLite به خاطر TEXT affinity مقدار را به رشته تبدیل

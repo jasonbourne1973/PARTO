@@ -2,37 +2,50 @@
 صفحه مدیریت ساختار آموزشی - یکپارچه‌سازی مدیریت کلاس‌ها، اختصاص معلم و دانش‌آموزان معلم
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QLabel, QHeaderView,
-    QMessageBox, QComboBox, QGroupBox, QLineEdit,
-    QDialog, QTabWidget, QSplitter, QFrame, QTextEdit,
-    QFormLayout, QSpinBox, QGridLayout, QScrollArea
-)
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QFrame,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSpinBox,
+    QSplitter,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
-from dal.student_dal import StudentDAL
-from dal.staff_dal import StaffDAL
 from dal.academic_year_dal import AcademicYearDAL
-from dal.teacher_assignment_dal import TeacherAssignmentDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
-from dal.competency_dal import CompetencyDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.class_dal import ClassDAL
+from dal.competency_dal import CompetencyDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
+from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from dal.teacher_assignment_dal import TeacherAssignmentDAL
 from models.class_model import ClassModel
-from models.teacher_assignment import TeacherAssignment
+from utils.logger import get_logger
 from views.dialogs.assign_teacher_dialog import AssignTeacherDialog
 from views.pages.promotion_page import PromotionPage
-from config.constants import STAFF_ROLES
-from utils.logger import get_logger
 
 
 class AcademicStructurePage(QWidget):
@@ -819,7 +832,7 @@ class AcademicStructurePage(QWidget):
                 self.class_table.setRowHeight(row, 35)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری کلاس‌ها:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری کلاس‌ها:\n{e!s}")
     
     def add_class(self):
         """افزودن کلاس جدید"""
@@ -856,7 +869,7 @@ class AcademicStructurePage(QWidget):
             QMessageBox.information(self, "موفقیت", f"✅ کلاس {name} با موفقیت اضافه شد.")
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در افزودن کلاس:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در افزودن کلاس:\n{e!s}")
     
     def edit_class(self, class_obj):
         """ویرایش کلاس"""
@@ -882,7 +895,7 @@ class AcademicStructurePage(QWidget):
                 self.load_classes()
                 QMessageBox.information(self, "موفقیت", "✅ کلاس با موفقیت حذف شد.")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
     # ============================================================
     # متدهای تب اختصاص معلم
@@ -940,7 +953,7 @@ class AcademicStructurePage(QWidget):
                 self.assign_table.setRowHeight(row, 40)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری انتساب‌ها:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری انتساب‌ها:\n{e!s}")
     
     def open_assign_dialog(self):
         """باز کردن دیالوگ اختصاص معلم"""
@@ -974,7 +987,7 @@ class AcademicStructurePage(QWidget):
                 self.load_teacher_students()
                 QMessageBox.information(self, "موفقیت", "✅ اختصاص معلم با موفقیت حذف شد.")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
     # ============================================================
     # متدهای تب دانش‌آموزان معلم
@@ -1015,7 +1028,7 @@ class AcademicStructurePage(QWidget):
                 self.ts_students_table.setRowHeight(row, 35)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{e!s}")
     
     def on_ts_student_double_clicked(self, item):
         """وقتی دانش‌آموز دابل‌کلیک می‌شود"""

@@ -2,22 +2,22 @@
 سرویس مدیریت اعلان‌ها و یادآوری‌ها
 """
 
-import sys
 import os
-from datetime import datetime, timedelta
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from dal.notification_dal import NotificationDAL
 from dal.followup_dal import FollowUpDAL
 from dal.intervention_dal import InterventionDAL
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.notification_dal import NotificationDAL
 from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from models.notification import Notification
+from services.base_service import BaseService
 from utils.error_handler import ServiceError
 from utils.logger import get_logger
+from utils.time_utils import utc_now_iso
 
 
 class NotificationService(BaseService):
@@ -104,7 +104,7 @@ class NotificationService(BaseService):
             return notifications
         except Exception as e:
             self.logger.error(f"خطا در دریافت اعلان‌ها: {e}")
-            raise ServiceError(f"خطا در دریافت اعلان‌ها: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اعلان‌ها: {e!s}")
     
     def get_unread_count(self, user_id):
         """دریافت تعداد اعلان‌های خوانده نشده"""
@@ -120,7 +120,7 @@ class NotificationService(BaseService):
             return self.notification_dal.mark_as_read(notification_id)
         except Exception as e:
             self.logger.error(f"خطا در علامت‌گذاری اعلان: {e}")
-            raise ServiceError(f"خطا: {str(e)}")
+            raise ServiceError(f"خطا: {e!s}")
     
     def mark_all_as_read(self, user_id):
         """علامت‌گذاری همه اعلان‌های کاربر به عنوان خوانده شده"""
@@ -128,7 +128,7 @@ class NotificationService(BaseService):
             return self.notification_dal.mark_all_as_read(user_id)
         except Exception as e:
             self.logger.error(f"خطا در علامت‌گذاری همه اعلان‌ها: {e}")
-            raise ServiceError(f"خطا: {str(e)}")
+            raise ServiceError(f"خطا: {e!s}")
     
     def mark_as_dismissed(self, notification_id):
         """علامت‌گذاری اعلان به عنوان رد شده"""
@@ -136,7 +136,7 @@ class NotificationService(BaseService):
             return self.notification_dal.mark_as_dismissed(notification_id)
         except Exception as e:
             self.logger.error(f"خطا در رد اعلان: {e}")
-            raise ServiceError(f"خطا: {str(e)}")
+            raise ServiceError(f"خطا: {e!s}")
     
     def delete_notification(self, notification_id):
         """حذف اعلان"""
@@ -144,7 +144,7 @@ class NotificationService(BaseService):
             return self.notification_dal.delete(notification_id)
         except Exception as e:
             self.logger.error(f"خطا در حذف اعلان: {e}")
-            raise ServiceError(f"خطا: {str(e)}")
+            raise ServiceError(f"خطا: {e!s}")
     
     def create_reminder_for_followup(self, followup, user_id=None):
         """
@@ -209,8 +209,10 @@ class NotificationService(BaseService):
                             priority = Notification.PRIORITY_HIGH
                         elif days_diff <= 3:
                             priority = Notification.PRIORITY_MEDIUM
-                except:
-                    pass
+                except Exception as _exc:
+                    self.logger.debug(
+                        f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+                    )
             
             # ایجاد اعلان
             notification = self.create_notification(
@@ -221,7 +223,7 @@ class NotificationService(BaseService):
                 priority=priority,
                 entity_type='followup',
                 entity_id=followup.id,
-                scheduled_at=datetime.now().isoformat()
+                scheduled_at=utc_now_iso()
             )
             
             self.logger.info(f"یادآوری برای پیگیری {followup.id} ایجاد شد")
@@ -284,7 +286,7 @@ class NotificationService(BaseService):
                 priority=Notification.PRIORITY_HIGH,
                 entity_type='followup',
                 entity_id=followup.id,
-                scheduled_at=datetime.now().isoformat()
+                scheduled_at=utc_now_iso()
             )
             
             self.logger.info(f"اعلان معوق شدن پیگیری {followup.id} ایجاد شد")
@@ -350,8 +352,10 @@ class NotificationService(BaseService):
                                 if 1 <= days_diff <= 3:
                                     self.create_reminder_for_followup(followup)
                                     created_count += 1
-                        except:
-                            pass
+                        except Exception as _exc:
+                            self.logger.debug(
+                                f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+                            )
             
             self.logger.info(f"{created_count} یادآوری و {overdue_count} اعلان معوق ایجاد شد")
             
@@ -376,7 +380,7 @@ class NotificationService(BaseService):
                     not notif.is_dismissed):
                     return True
             return False
-        except:
+        except Exception:
             return False
     
     def _enrich_notification(self, notification):
@@ -387,7 +391,7 @@ class NotificationService(BaseService):
                 staff = self.staff_dal.get_by_id(notification.user_id)
                 if staff:
                     notification.user_name = staff.full_name
-            except:
+            except Exception:
                 notification.user_name = "نامشخص"
         
         # افزودن داده‌های مرتبط
@@ -407,8 +411,10 @@ class NotificationService(BaseService):
                                     'followup_date': followup.date,
                                     'next_action_date': followup.next_action_date
                                 }
-            except:
-                pass
+            except Exception as _exc:
+                self.logger.debug(
+                    f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+                )
     
     def cleanup_old_notifications(self, days=30):
         """پاکسازی اعلان‌های قدیمی"""

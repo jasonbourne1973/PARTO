@@ -19,10 +19,14 @@
 
 import os
 import sqlite3
-from datetime import datetime
+from typing import ClassVar
 
 from database.connection import DatabaseConnection
 from models.base import BaseModel
+from utils.logger import get_logger
+from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class BackupRecord(BaseModel):
@@ -32,7 +36,7 @@ class BackupRecord(BaseModel):
     KIND_AUTO = 'auto'              # زمان‌بند خودکار گرفته
     KIND_PRE_RESTORE = 'pre_restore'  # قبل از بازیابی گرفته شده
 
-    KINDS = [KIND_MANUAL, KIND_AUTO, KIND_PRE_RESTORE]
+    KINDS: ClassVar[list] = [KIND_MANUAL, KIND_AUTO, KIND_PRE_RESTORE]
 
     def __init__(self):
         super().__init__()
@@ -261,7 +265,7 @@ class BackupDAL:
             WHERE id = ? AND is_deleted = 0
         """, (
             1 if checksum_matches else 0,
-            datetime.now().isoformat(),
+            utc_now_iso(),
             backup_id
         ))
 
@@ -276,7 +280,7 @@ class BackupDAL:
                 restored_at = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND is_deleted = 0
-        """, (datetime.now().isoformat(), backup_id))
+        """, (utc_now_iso(), backup_id))
         conn.commit()
 
     # ============================================================
@@ -323,7 +327,7 @@ class BackupDAL:
         if not record:
             return False
 
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE backups SET
                 is_deleted = 1,
@@ -338,9 +342,10 @@ class BackupDAL:
         if delete_file and record.file_path and os.path.exists(record.file_path):
             try:
                 os.remove(record.file_path)
-            except OSError:
-                # پاک نشدن فایل نباید عملیات را شکست دهد
-                pass
+            except OSError as e:
+                # پاک نشدن فایل (قفل بودن/نبود دسترسی) نباید حذف
+                # رکورد پشتیبان را شکست دهد؛ ولی باید قابل ردیابی باشد.
+                logger.debug(f"فایل پشتیبان حذف نشد ({record.file_path}): {e}")
 
         return True
 
@@ -374,8 +379,9 @@ class BackupDAL:
                 and os.path.exists(record.file_path)):
             try:
                 os.remove(record.file_path)
-            except OSError:
-                pass
+            except OSError as e:
+                # همان دلیل بالا: رکورد حذف شده، فایل دست‌نخورده مانده
+                logger.debug(f"فایل پشتیبان حذف نشد ({record.file_path}): {e}")
 
         return cursor.rowcount > 0
 

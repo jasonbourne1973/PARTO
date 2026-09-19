@@ -2,18 +2,23 @@
 سرویس ساخت Timeline یکپارچه پرونده دانش‌آموز
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.staff_dal import StaffDAL
+from typing import ClassVar
+
 from dal.competency_dal import CompetencyDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
+from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class CaseTimelineService:
@@ -29,19 +34,19 @@ class CaseTimelineService:
     EVENT_INTERVENTION = "intervention"
     EVENT_FOLLOWUP = "followup"
     
-    EVENT_TYPE_DISPLAY = {
+    EVENT_TYPE_DISPLAY: ClassVar[dict[str, str]] = {
         EVENT_OBSERVATION: "📝 مشاهده",
         EVENT_INTERVENTION: "🛠️ مداخله",
         EVENT_FOLLOWUP: "🔔 پیگیری",
     }
     
-    EVENT_ICON = {
+    EVENT_ICON: ClassVar[dict[str, str]] = {
         EVENT_OBSERVATION: "📝",
         EVENT_INTERVENTION: "🛠️",
         EVENT_FOLLOWUP: "🔔",
     }
     
-    EVENT_COLOR = {
+    EVENT_COLOR: ClassVar[dict[str, str]] = {
         EVENT_OBSERVATION: "#3498db",   # آبی
         EVENT_INTERVENTION: "#e67e22",  # نارنجی
         EVENT_FOLLOWUP: "#8e44ad",      # بنفش
@@ -93,9 +98,6 @@ class CaseTimelineService:
         # ===== ۲. دریافت مداخلات =====
         interventions = self.intervention_dal.get_by_student_profile(profile_id)
         for inter in interventions:
-            # دریافت نام دانش‌آموز و مسئول
-            student_name = self._get_student_name_by_profile(profile_id)
-            staff_name = self._get_staff_name(inter.staff_id)
             
             events.append({
                 'id': inter.id,
@@ -116,7 +118,6 @@ class CaseTimelineService:
         # ===== ۳. دریافت پیگیری‌ها =====
         followups = self.followup_dal.get_by_student_profile(profile_id)
         for follow in followups:
-            staff_name = self._get_staff_name(follow.staff_id)
             
             events.append({
                 'id': follow.id,
@@ -299,7 +300,7 @@ class CaseTimelineService:
         try:
             staff = self.staff_dal.get_by_id(staff_id)
             return staff.full_name if staff else "نامشخص"
-        except:
+        except Exception:
             return "نامشخص"
     
     def _get_competency_name(self, competency_id):
@@ -309,7 +310,7 @@ class CaseTimelineService:
         try:
             comp = self.competency_dal.get_by_id(competency_id)
             return comp.title if comp else "نامشخص"
-        except:
+        except Exception:
             return "نامشخص"
     
     def _get_student_name_by_profile(self, profile_id):
@@ -319,6 +320,7 @@ class CaseTimelineService:
             if profile:
                 student = self.student_dal.get_by_id(profile.student_id)
                 return student.full_name if student else "نامشخص"
-        except:
-            pass
+        except Exception as e:
+            # نبود پرونده/دانش‌آموز نباید ساخت تایم‌لاین را متوقف کند
+            logger.debug(f"نام دانش‌آموز برای پرونده {profile_id} خوانده نشد: {e}")
         return "نامشخص"

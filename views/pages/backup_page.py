@@ -2,18 +2,27 @@
 صفحه مدیریت پشتیبان‌گیری و بازیابی
 """
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QTableWidget, QTableWidgetItem, QHeaderView,
-    QMessageBox, QFileDialog, QProgressBar
-)
-from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtGui import QColor
+import os
 
+from PySide6.QtCore import QThread, Signal
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QFileDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
+
+from config.settings import ATTACHMENTS_DIR, DB_PATH
 from utils.backup import BackupManager
 from utils.persian_date import format_timestamp
-from config.settings import DB_PATH, ATTACHMENTS_DIR
-import os
 
 
 class BackupWorker(QThread):
@@ -215,7 +224,7 @@ class BackupPage(QWidget):
                 self.table.setRowHeight(row, 35)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری Backupها:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری Backupها:\n{e!s}")
     
     def create_backup(self):
         """ایجاد پشتیبان جدید"""

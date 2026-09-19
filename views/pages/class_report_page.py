@@ -3,32 +3,44 @@
 نمایش وضعیت کلی کلاس بر اساس داده‌های ثبت‌شده
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+import matplotlib
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QComboBox, QMessageBox, QTextEdit,
-    QGroupBox, QScrollArea, QSplitter, QFileDialog,
-    QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView,
-    QLineEdit, QProgressBar, QFrame
+    QComboBox,
+    QFileDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QScrollArea,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, QThread
-from PySide6.QtGui import QColor, QFont
 
-from services.class_report_service import ClassReportService
-from dal.class_dal import ClassDAL
 from dal.academic_year_dal import AcademicYearDAL
+from dal.class_dal import ClassDAL
 from dal.staff_dal import StaffDAL
+from services.class_report_service import ClassReportService
 from utils.shamsi_date_input import ShamsiDateInput
 
-import matplotlib
 matplotlib.use('QtAgg')
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-import numpy as np
+
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class ClassReportPage(QWidget):
@@ -239,8 +251,10 @@ class ClassReportPage(QWidget):
                 start_month += 12
                 start_year -= 1
             self.start_date.set_date(f"{start_year:04d}/{start_month:02d}/{today.day:02d}")
-        except:
-            pass
+        except (ImportError, ValueError, AttributeError, TypeError) as e:
+            # نبود jdatetime یا تاریخ نامعتبر: صفحه بدون تاریخ پیش‌فرض
+            # بالا می‌آید و کاربر خودش تاریخ را وارد می‌کند.
+            logger.debug(f"تاریخ‌های پیش‌فرض تنظیم نشد: {e}")
     
     def create_summary_tab(self):
         """ایجاد تب خلاصه"""
@@ -428,7 +442,7 @@ class ClassReportPage(QWidget):
                         self.year_combo.setCurrentIndex(i)
                         break
         except Exception as e:
-            print(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
+            logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
     
     def load_classes(self):
         """بارگذاری کلاس‌ها در کامبوباکس"""
@@ -443,7 +457,7 @@ class ClassReportPage(QWidget):
                 display_text = f"{class_obj.display_name}"
                 self.class_combo.addItem(display_text, class_obj.id)
         except Exception as e:
-            print(f"خطا در بارگذاری کلاس‌ها: {e}")
+            logger.error(f"خطا در بارگذاری کلاس‌ها: {e}")
     
     def on_year_changed(self, index):
         """وقتی سال تحصیلی تغییر می‌کند"""
@@ -506,7 +520,7 @@ class ClassReportPage(QWidget):
             QMessageBox.information(self, "موفقیت", "گزارش با موفقیت تولید شد.")
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در تولید گزارش:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در تولید گزارش:\n{e!s}")
         
         finally:
             self.progress_bar.setVisible(False)
@@ -570,8 +584,8 @@ class ClassReportPage(QWidget):
         comp_stats = data.get('competency_stats', {})
         self.competency_table.setRowCount(len(comp_stats))
         
-        row = 0
-        for name, stats in comp_stats.items():
+        # بازرسی دهم: به‌جای شمارندهٔ دستی، enumerate
+        for row, (name, stats) in enumerate(comp_stats.items()):
             self.competency_table.setItem(row, 0, QTableWidgetItem(name))
             self.competency_table.setItem(row, 1, QTableWidgetItem(str(stats.get('count', 0))))
             self.competency_table.setItem(row, 2, QTableWidgetItem(str(stats.get('avg_severity', 0))))
@@ -596,7 +610,6 @@ class ClassReportPage(QWidget):
             item.setForeground(color)
             self.competency_table.setItem(row, 5, item)
             self.competency_table.setRowHeight(row, 30)
-            row += 1
     
     def display_students(self, data):
         """نمایش لیست دانش‌آموزان"""
@@ -763,7 +776,7 @@ class ClassReportPage(QWidget):
                 QMessageBox.critical(self, "خطا", message)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در خروجی PDF:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در خروجی PDF:\n{e!s}")
     
     def export_excel(self):
         """خروجی Excel"""
@@ -796,4 +809,4 @@ class ClassReportPage(QWidget):
                 QMessageBox.critical(self, "خطا", message)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در خروجی Excel:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در خروجی Excel:\n{e!s}")

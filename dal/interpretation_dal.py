@@ -2,9 +2,12 @@
 لایه دسترسی به داده تفسیر تخصصی (ProfessionalInterpretation)
 """
 
+import json
+import sqlite3
+
 from database.connection import DatabaseConnection
 from models.professional_interpretation import ProfessionalInterpretation
-import json
+from utils.time_utils import utc_now_iso
 
 
 class InterpretationDAL:
@@ -185,8 +188,7 @@ class InterpretationDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE professional_interpretations SET
                 is_deleted = 1,
@@ -232,7 +234,7 @@ class InterpretationDAL:
         if row['recommendations']:
             try:
                 interpretation.recommendations = json.loads(row['recommendations'])
-            except:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 interpretation.recommendations = None
         else:
             interpretation.recommendations = None
@@ -240,7 +242,7 @@ class InterpretationDAL:
         if row['next_steps']:
             try:
                 interpretation.next_steps = json.loads(row['next_steps'])
-            except:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 interpretation.next_steps = None
         else:
             interpretation.next_steps = None

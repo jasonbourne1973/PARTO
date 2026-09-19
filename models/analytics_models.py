@@ -3,8 +3,8 @@
 """
 
 from dataclasses import dataclass
-from typing import List, Dict, Optional
-from datetime import datetime
+
+from utils.time_utils import utc_now_iso
 
 
 @dataclass
@@ -95,17 +95,17 @@ class TrendPoint:
 class AnalyticsDashboardData:
     """داده‌های کامل داشبورد تحلیلی"""
     observation_distribution: ObservationDistribution
-    grade_distribution: List[GradeDistribution]
-    competency_usage: List[CompetencyUsage]
+    grade_distribution: list[GradeDistribution]
+    competency_usage: list[CompetencyUsage]
     intervention_stats: InterventionStats
     followup_stats: FollowupStats
     overdue_count: int
     students_without_observation: int
-    observation_trend: List[TrendPoint]
-    intervention_trend: List[TrendPoint]
-    followup_trend: List[TrendPoint]
+    observation_trend: list[TrendPoint]
+    intervention_trend: list[TrendPoint]
+    followup_trend: list[TrendPoint]
     generated_at: str = None
     
     def __post_init__(self):
         if not self.generated_at:
-            self.generated_at = datetime.now().isoformat()
+            self.generated_at = utc_now_iso()

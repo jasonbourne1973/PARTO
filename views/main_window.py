@@ -2,40 +2,53 @@
 پنجره اصلی برنامه PARTO - نسخه اصلاح شده با استایل یکپارچه
 """
 
-import sys
 import os
+import sys
 import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from PySide6.QtCore import QEvent, Qt, QTimer, Signal
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QStackedWidget, QFrame, QMessageBox,
-    QComboBox, QScrollArea, QApplication, QDialog,
-    QStatusBar, QToolBar, QSizePolicy
+    QApplication,
+    QComboBox,
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QStackedWidget,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, QTimer
-from PySide6.QtGui import QAction, QIcon, QPixmap, QFont
 
-from views.pages.dashboard_page import DashboardPage
-from views.pages.students_page import StudentsPage
-from views.pages.observations_page import ObservationsPage
-from views.pages.indicators_page import IndicatorsPage
-from views.pages.analysis_page import AnalysisPage
-from views.pages.reports_page import ReportsPage
-from views.pages.settings_page import SettingsPage
-from views.pages.interventions_page import InterventionsPage
-from views.pages.followups_page import FollowUpsPage
-from views.dialogs.login_dialog import LoginDialog
-from views.dialogs.change_password_dialog import ChangePasswordDialog
-from views.widgets.notification_widget import NotificationWidget
+from config.settings import APP_AUTHOR, APP_NAME, APP_VERSION
 from dal.academic_year_dal import AcademicYearDAL
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from database.connection import DatabaseConnection
 from utils.logger import get_logger
+from utils.security import Permission, get_role_permissions
 from utils.theme_manager import ThemeManager
+from views.dialogs.change_password_dialog import ChangePasswordDialog
+from views.dialogs.login_dialog import LoginDialog
 from views.pages.academic_structure_page import AcademicStructurePage
-from config.settings import APP_NAME, APP_FULL_NAME, APP_VERSION, APP_AUTHOR
+from views.pages.analysis_page import AnalysisPage
+from views.pages.dashboard_page import DashboardPage
+from views.pages.followups_page import FollowUpsPage
+from views.pages.indicators_page import IndicatorsPage
+from views.pages.interventions_page import InterventionsPage
+from views.pages.observations_page import ObservationsPage
+from views.pages.reports_page import ReportsPage
+from views.pages.settings_page import SettingsPage
+from views.pages.students_page import StudentsPage
+from views.widgets.notification_widget import NotificationWidget
+
+logger = get_logger(__name__)
+
 
 class MainWindow(QMainWindow):
     """
@@ -58,6 +71,7 @@ class MainWindow(QMainWindow):
         self.current_user_id = None
         self.current_username = None
         self.current_user_role = None
+        self._permissions = None      # کش مجوزها (بازرسی ششم)
 
         self.idle_timer = QTimer()
         self.idle_timer.timeout.connect(self.auto_logout)
@@ -81,7 +95,7 @@ class MainWindow(QMainWindow):
 
             if result != QDialog.DialogCode.Accepted:
                 self.is_logged_in = False
-        except Exception as e:
+        except Exception:
             traceback.print_exc()
             self.is_logged_in = False
 
@@ -90,8 +104,33 @@ class MainWindow(QMainWindow):
         self.current_user_id = user_id
         self.current_username = username
         self.current_user_role = role
+        self._permissions = None      # کش مجوزها با نقش جدید ساخته می‌شود
         self.db.set_current_user(user_id)
         self.logger.info(f"کاربر {username} با نقش {role} وارد شد.")
+
+    def has_permission(self, permission):
+        """
+        آیا کاربر وارد‌شده این مجوز را دارد؟ (بازرسی ششم)
+
+        ===== چرا لازم شد =====
+        در کل پروژه، ROLE_PERMISSIONS و SessionManager.has_permission
+        تعریف شده بودند ولی «هیچ‌جا» صدا زده نمی‌شدند؛ یعنی معلم یا
+        مشاور هم می‌توانست صفحهٔ تنظیمات را باز کند، کاربر بسازد،
+        نقش عوض کند و از پشتیبان بازیابی کند. حالا منوی برنامه
+        و تب‌های حساسِ تنظیمات از همین‌جا مجوز می‌گیرند.
+
+        Args:
+            permission: مقدار Permission.* (رشته). None یعنی
+                «مجوز لازم نیست» و همیشه True برمی‌گردد.
+
+        Returns:
+            bool
+        """
+        if not permission:
+            return True
+        if getattr(self, '_permissions', None) is None:
+            self._permissions = get_role_permissions(self.current_user_role)
+        return permission in self._permissions
 
     def on_need_change_password(self, user_id, username):
         self.current_user_id = user_id
@@ -224,23 +263,36 @@ class MainWindow(QMainWindow):
         # ===== دکمه‌های منو =====
         # ایجاد دکمه‌ها با کلاس MenuButton
         self.menu_buttons = {}
+        # ===== اصلاح (بازرسی ششم): منو بر اساس مجوز نقش =====
+        # هر آیتم: (نام، متن، شمارهٔ صفحه، مجوز لازم)
+        # مجوز None یعنی برای همهٔ کاربران وارد‌شده نمایش داده شود.
+        # صفحهٔ «تنظیمات» عمداً بدون مجوز است، ولی تب‌های حساسِ
+        # داخلش (کاربران، پشتیبان‌گیری، ساختار آموزشی) مجوز دارند؛
+        # به این ترتیب کاربر عادی هم می‌تواند «درباره» و اطلاعات
+        # مدرسه را ببیند، ولی به عملیات مدیریتی دسترسی ندارد.
         menu_items = [
-            ("btn_dashboard", "📊 داشبورد", 1),
-            ("btn_students", "📋 دانش‌آموزان", 2),
-            ("btn_observations", "📝 مشاهدات", 3),
-            ("btn_interventions", "🛠️ مداخلات", 4),
-            ("btn_followups", "🔔 پیگیری‌ها", 5),
-            ("btn_indicators", "📊 شاخص‌ها", 6),
-            ("btn_analysis", "📈 تحلیل روند", 7),
-            ("btn_reports", "📄 گزارش‌ها", 8),
-            ("btn_counseling", "🧑‍⚕️ جلسات مشاوره", 11),
-            ("btn_activities", "🎯 فعالیت‌ها", 12),
-            ("btn_goals", "🎯 اهداف فردی", 13),
-            ("btn_academic_structure", "🏫 ساختار آموزشی", 10),
-            ("btn_settings", "⚙️ تنظیمات", 9),
+            ("btn_dashboard", "📊 داشبورد", 1, None),
+            ("btn_students", "📋 دانش‌آموزان", 2, Permission.VIEW_STUDENTS.value),
+            ("btn_observations", "📝 مشاهدات", 3, Permission.VIEW_OBSERVATIONS.value),
+            ("btn_interventions", "🛠️ مداخلات", 4, Permission.VIEW_INTERVENTIONS.value),
+            ("btn_followups", "🔔 پیگیری‌ها", 5, Permission.VIEW_FOLLOWUPS.value),
+            ("btn_indicators", "📊 شاخص‌ها", 6, None),
+            ("btn_analysis", "📈 تحلیل روند", 7, Permission.VIEW_OBSERVATIONS.value),
+            ("btn_reports", "📄 گزارش‌ها", 8, Permission.VIEW_REPORTS.value),
+            ("btn_counseling", "🧑‍⚕️ جلسات مشاوره", 11, None),
+            ("btn_activities", "🎯 فعالیت‌ها", 12, None),
+            ("btn_goals", "🎯 اهداف فردی", 13, None),
+            ("btn_academic_structure", "🏫 ساختار آموزشی", 10, Permission.MANAGE_ACADEMIC_YEARS.value),
+            ("btn_settings", "⚙️ تنظیمات", 9, None),
         ]
 
-        for btn_name, btn_text, page_index in menu_items:
+        for btn_name, btn_text, page_index, required in menu_items:
+            if required and not self.has_permission(required):
+                self.logger.info(
+                    f"منوی «{btn_text}» برای نقش {self.current_user_role} "
+                    f"پنهان شد (نیاز به مجوز {required})."
+                )
+                continue
             btn = QPushButton(btn_text)
             btn.setProperty("class", "MenuButton")  # برای سازگاری با QSS
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -433,7 +485,10 @@ class MainWindow(QMainWindow):
         self.reports_page = ReportsPage()
         self.stacked_widget.addWidget(self.reports_page)
 
-        self.settings_page = SettingsPage()
+        self.settings_page = SettingsPage(
+            permission_check=self.has_permission,
+            current_user_id=self.current_user_id,
+        )
         self.stacked_widget.addWidget(self.settings_page)
 
         self.academic_structure_page = AcademicStructurePage()
@@ -468,7 +523,29 @@ class MainWindow(QMainWindow):
         self.load_academic_years()
         self.update_academic_year_display()
 
-        self.installEventFilter(self)
+        # ===== 🔴 اصلاح (بازرسی ششم) — تایمر خروج خودکار =====
+        # نسخه قبلی فیلتر رویداد را روی خودِ پنجره نصب می‌کرد:
+        #     self.installEventFilter(self)
+        # اما در Qt، فیلترِ نصب‌شده روی یک ویجت فقط رویدادهایی را
+        # می‌بیند که به «خودِ» آن ویجت فرستاده می‌شوند. کلیک و تایپ
+        # کاربر داخل ویجت‌های فرزند (فرم‌ها، جداول، کمبوها) انجام
+        # می‌شود و به پنجره نمی‌رسد.
+        #
+        # تست عملی (Qt offscreen):
+        #     QTest.keyClick(line_edit, Qt.Key_A)
+        #     QTest.mouseClick(line_edit, ...)
+        #     → فیلترِ پنجره هیچ رویدادی از فرزندها نگرفت
+        #
+        # نتیجه: تایمر ۳۰ دقیقه‌ای با «اولین ورود» شروع می‌شد و حتی
+        # وقتی کاربر مشغول کار بود دوباره‌راه‌اندازی نمی‌شد؛ یعنی
+        # کاربر فعال هم وسط کار از برنامه بیرون می‌افتاد و داده‌های
+        # ذخیره‌نشدهٔ فرم از بین می‌رفت.
+        #
+        # حالا فیلتر روی «اپلیکیشن» نصب می‌شود؛ پس هر رویداد ورودی
+        # در هر جای برنامه تایمر را صفر می‌کند.
+        app = QApplication.instance()
+        if app is not None:
+            app.installEventFilter(self)
 
         saved_theme = self.theme_manager.saved_theme()
         theme_index = self.theme_combo.findData(saved_theme)
@@ -494,18 +571,18 @@ class MainWindow(QMainWindow):
                 "assets", "styles", "main_style.qss"
             )
             if os.path.exists(style_path):
-                with open(style_path, "r", encoding="utf-8") as f:
+                with open(style_path, encoding="utf-8") as f:
                     stylesheet = f.read()
                 application = QApplication.instance()
                 if application is not None:
                     application.setStyleSheet(stylesheet)
                 else:
                     self.setStyleSheet(stylesheet)
-                print(f"✅ استایل از {style_path} بارگذاری شد")
+                logger.debug(f"✅ استایل از {style_path} بارگذاری شد")
             else:
-                print(f"⚠️ فایل استایل یافت نشد: {style_path}")
+                logger.warning(f"⚠️ فایل استایل یافت نشد: {style_path}")
         except Exception as e:
-            print(f"❌ خطا در بارگذاری استایل: {e}")
+            logger.error(f"❌ خطا در بارگذاری استایل: {e}")
 
     def _create_welcome_page(self):
         welcome_page = QWidget()
@@ -516,8 +593,8 @@ class MainWindow(QMainWindow):
         from config.settings import LOGO_PATH
         if os.path.exists(LOGO_PATH):
             background_label = QLabel(welcome_page)
-            from PySide6.QtGui import QPixmap, QPainter
             from PySide6.QtCore import QRect
+            from PySide6.QtGui import QPainter, QPixmap
 
             pixmap = QPixmap(LOGO_PATH)
             if not pixmap.isNull():
@@ -640,7 +717,7 @@ class MainWindow(QMainWindow):
                         self.year_combo.setCurrentIndex(i)
                         break
         except Exception as e:
-            print(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
+            logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
 
     def on_year_changed(self, index):
         if index >= 0:
@@ -661,7 +738,7 @@ class MainWindow(QMainWindow):
                 self.year_label.setText("⚠️ سال فعالی وجود ندارد")
         except Exception as e:
             self.year_label.setText("⚠️ خطا")
-            print(f"خطا در به‌روزرسانی سال تحصیلی: {e}")
+            logger.error(f"خطا در به‌روزرسانی سال تحصیلی: {e}")
 
     def on_student_double_clicked(self, item):
         row = item.row()
@@ -690,13 +767,15 @@ class MainWindow(QMainWindow):
                 audit = AuditLogger(self.db)
                 audit.log_logout(self.current_user_id)
                 self.logger.info(f"🚪 کاربر {self.current_username} خارج شد.")
-            except:
-                pass
+            except Exception as _exc:
+                self.logger.debug(
+                    f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+                )
 
             self.close()
             import subprocess
             import sys
-            subprocess.Popen([sys.executable] + sys.argv)
+            subprocess.Popen([sys.executable, *sys.argv])
             sys.exit(0)
 
     def auto_logout(self):
@@ -705,13 +784,23 @@ class MainWindow(QMainWindow):
             self.logout()
 
     def eventFilter(self, obj, event):
-        if event.type() in [
-            event.Type.MouseButtonPress,
-            event.Type.MouseMove,
-            event.Type.KeyPress,
-            event.Type.Wheel
-        ]:
-            self.idle_timer.start()
+        # ===== اصلاح (بازرسی ششم) =====
+        # حالا این فیلتر روی QApplication نصب است، پس رویدادهای
+        # پنجره‌های دیگر (مثل دیالوگ‌های مودالِ مستقل) هم از اینجا
+        # رد می‌شوند. شرطِ is_logged_in جلوی خطای قبل از ورود و
+        # منابع بی‌مصرف را می‌گیرد.
+        if self.is_logged_in:
+            try:
+                if event.type() in [
+                    QEvent.Type.MouseButtonPress,
+                    QEvent.Type.MouseMove,
+                    QEvent.Type.KeyPress,
+                    QEvent.Type.Wheel
+                ]:
+                    self.idle_timer.start()
+            except RuntimeError as e:
+                # ممکن است ویجت در حال نابودشدن باشد
+                logger.debug(f"ری‌استارت تایمر بی‌کاری ممکن نشد: {e}")
         return super().eventFilter(obj, event)
 
     def closeEvent(self, event):
@@ -721,8 +810,10 @@ class MainWindow(QMainWindow):
                 audit = AuditLogger(self.db)
                 audit.log_logout(self.current_user_id)
                 self.logger.info(f"🚪 کاربر {self.current_username} برنامه را بست.")
-            except:
-                pass
+            except Exception as _exc:
+                self.logger.debug(
+                    f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+                )
         event.accept()
 
     def update_notification_badge(self):
@@ -765,4 +856,4 @@ class MainWindow(QMainWindow):
             else:
                 QMessageBox.warning(self, "توجه", "پرونده یافت نشد.")
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در باز کردن پرونده:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در باز کردن پرونده:\n{e!s}")

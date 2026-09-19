@@ -3,26 +3,28 @@
 با متدهای تحلیلی پیشرفته
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
+import jdatetime
+
 from dal.academic_year_dal import AcademicYearDAL
-from dal.staff_dal import StaffDAL
-from dal.teacher_assignment_dal import TeacherAssignmentDAL
 from dal.audit_log_dal import AuditLogDAL
 from dal.competency_dal import CompetencyDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
+from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from dal.teacher_assignment_dal import TeacherAssignmentDAL
+from services.base_service import BaseService
 from services.trend_analysis_service import TrendAnalysisService
-from utils.logger import get_logger
 from utils.error_handler import ServiceError
-import jdatetime
+from utils.logger import get_logger
+from utils.persian_date import PersianDate
 
 
 class DashboardService(BaseService):
@@ -104,7 +106,7 @@ class DashboardService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در دریافت داده‌های داشبورد: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     # ============================================================
     # متدهای جدید تحلیلی
@@ -336,9 +338,9 @@ class DashboardService(BaseService):
                     year -= 1
                 
                 month_key = f"{year}/{month:02d}"
-                month_names = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-                               "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
-                label = month_names[month-1] if 1 <= month <= 12 else str(month)
+                # برچسب ماه از منبع واحد (بازرسی نهم: قبلاً فهرست نام‌ها
+                # در ۶ فایل کپی شده بود)
+                label = PersianDate.month_name(month) or str(month)
                 
                 months_data.append({
                     'month': month_key,
@@ -409,8 +411,10 @@ class DashboardService(BaseService):
                 today = jdatetime.date.today()
                 diff = end_date - today
                 remaining_days = f"{diff.days} روز"
-        except:
-            pass
+        except Exception as _exc:
+            self.logger.debug(
+                f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+            )
         
         is_active = getattr(year, 'is_active', 0)
         is_archived = getattr(year, 'is_archived', 0)

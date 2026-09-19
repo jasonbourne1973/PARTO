@@ -2,10 +2,15 @@
 لایه دسترسی به داده پیشنهادات (Recommendation)
 """
 
+import json
+import sqlite3
+
 from database.connection import DatabaseConnection
 from models.recommendation import Recommendation
-import json
-from datetime import datetime
+from utils.logger import get_logger
+from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class RecommendationDAL:
@@ -205,7 +210,7 @@ class RecommendationDAL:
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         
         query = """
             UPDATE recommendations SET
@@ -247,7 +252,7 @@ class RecommendationDAL:
         if not cursor.fetchone():
             return False
         
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE recommendations SET
                 is_deleted = 1,
@@ -330,8 +335,8 @@ class RecommendationDAL:
                 'high': row['high'] if row else 0
             }
             
-        except Exception as e:
-            print(f"خطا در دریافت آمار پیشنهادها: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت آمار پیشنهادها: {e}")
             return {'total': 0, 'pending': 0, 'accepted': 0, 'rejected': 0, 'implemented': 0, 'critical': 0, 'high': 0}
     
     def _row_to_recommendation(self, row):
@@ -353,7 +358,7 @@ class RecommendationDAL:
         if row['related_observation_ids']:
             try:
                 recommendation.related_observation_ids = json.loads(row['related_observation_ids'])
-            except:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 recommendation.related_observation_ids = None
         else:
             recommendation.related_observation_ids = None
@@ -363,7 +368,7 @@ class RecommendationDAL:
         if row['metadata']:
             try:
                 recommendation.metadata = json.loads(row['metadata'])
-            except:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 recommendation.metadata = None
         else:
             recommendation.metadata = None

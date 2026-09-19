@@ -2,30 +2,43 @@
 صفحه گزارش عملکرد معلم - نمایش تعداد و کیفیت مشاهدات، مداخلات و پیگیری‌ها
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+import matplotlib
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QComboBox, QMessageBox, QTextEdit,
-    QGroupBox, QScrollArea, QSplitter, QFileDialog,
-    QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView,
-    QLineEdit, QProgressBar, QFrame
+    QComboBox,
+    QFileDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QScrollArea,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, QThread
-from PySide6.QtGui import QColor, QFont
 
-from services.teacher_performance_service import TeacherPerformanceService
 from dal.staff_dal import StaffDAL
+from services.teacher_performance_service import TeacherPerformanceService
 from utils.shamsi_date_input import ShamsiDateInput
 
-import matplotlib
 matplotlib.use('QtAgg')
+import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-import numpy as np
+
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class TeacherPerformancePage(QWidget):
@@ -209,8 +222,10 @@ class TeacherPerformancePage(QWidget):
                 start_month += 12
                 start_year -= 1
             self.start_date.set_date(f"{start_year:04d}/{start_month:02d}/{today.day:02d}")
-        except:
-            pass
+        except (ImportError, ValueError, AttributeError, TypeError) as e:
+            # نبود jdatetime یا تاریخ نامعتبر: صفحه بدون تاریخ پیش‌فرض
+            # بالا می‌آید و کاربر خودش تاریخ را وارد می‌کند.
+            logger.debug(f"تاریخ‌های پیش‌فرض تنظیم نشد: {e}")
     
     def create_summary_tab(self):
         """ایجاد تب خلاصه"""
@@ -389,7 +404,7 @@ class TeacherPerformancePage(QWidget):
             for teacher in self.all_teachers:
                 self.teacher_combo.addItem(f"{teacher.full_name}", teacher.id)
         except Exception as e:
-            print(f"خطا در بارگذاری معلمان: {e}")
+            logger.error(f"خطا در بارگذاری معلمان: {e}")
     
     def on_teacher_changed(self, index):
         """وقتی معلم تغییر می‌کند"""
@@ -443,7 +458,7 @@ class TeacherPerformancePage(QWidget):
             QMessageBox.information(self, "موفقیت", "گزارش با موفقیت تولید شد.")
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در تولید گزارش:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در تولید گزارش:\n{e!s}")
         
         finally:
             self.progress_bar.setVisible(False)
@@ -522,8 +537,8 @@ class TeacherPerformancePage(QWidget):
         competency_stats = report.get('competency_stats', {})
         self.competency_table.setRowCount(len(competency_stats))
         
-        row = 0
-        for name, stats in competency_stats.items():
+        # بازرسی دهم: به‌جای شمارندهٔ دستی، enumerate
+        for row, (name, stats) in enumerate(competency_stats.items()):
             self.competency_table.setItem(row, 0, QTableWidgetItem(name))
             self.competency_table.setItem(row, 1, QTableWidgetItem(str(stats.get('count', 0))))
             self.competency_table.setItem(row, 2, QTableWidgetItem(str(stats.get('avg_severity', 0))))
@@ -547,7 +562,6 @@ class TeacherPerformancePage(QWidget):
             item.setForeground(color)
             self.competency_table.setItem(row, 4, item)
             self.competency_table.setRowHeight(row, 30)
-            row += 1
     
     def draw_chart(self, report):
         """رسم نمودارها"""
@@ -667,4 +681,4 @@ class TeacherPerformancePage(QWidget):
                 QMessageBox.critical(self, "خطا", message)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در خروجی PDF:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در خروجی PDF:\n{e!s}")

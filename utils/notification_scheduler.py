@@ -4,7 +4,6 @@
 
 import threading
 import time
-from datetime import datetime, timedelta
 
 from services.notification_service import NotificationService
 from utils.logger import get_logger
@@ -26,7 +25,7 @@ class NotificationScheduler:
     
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(NotificationScheduler, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
             cls._instance._initialized = False
         return cls._instance
     

@@ -2,21 +2,23 @@
 سرویس گزارش عملکرد معلم - نمایش تعداد و کیفیت مشاهدات، مداخلات و پیگیری‌ها
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
+import jdatetime
+
+from dal.competency_dal import CompetencyDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
 from dal.staff_dal import StaffDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
-from dal.competency_dal import CompetencyDAL
-from utils.logger import get_logger
+from services.base_service import BaseService
 from utils.error_handler import ServiceError
-import jdatetime
+from utils.logger import get_logger
+from utils.time_utils import utc_now
 
 
 class TeacherPerformanceService(BaseService):
@@ -100,7 +102,7 @@ class TeacherPerformanceService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در دریافت گزارش عملکرد معلم: {e}")
-            raise ServiceError(f"خطا در دریافت گزارش: {str(e)}")
+            raise ServiceError(f"خطا در دریافت گزارش: {e!s}")
     
     def get_all_teachers_performance(self, start_date=None, end_date=None):
         """
@@ -127,7 +129,7 @@ class TeacherPerformanceService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در دریافت گزارش همه معلمان: {e}")
-            raise ServiceError(f"خطا در دریافت گزارش: {str(e)}")
+            raise ServiceError(f"خطا در دریافت گزارش: {e!s}")
     
     def _calculate_competency_stats(self, observations):
         """محاسبه آمار شایستگی‌ها"""
@@ -195,7 +197,6 @@ class TeacherPerformanceService(BaseService):
         
         total_obs = stats.get('total_observations', 0)
         positive = stats.get('positive', 0)
-        negative = stats.get('negative', 0)
         
         if total_obs > 0:
             positive_ratio = positive / total_obs
@@ -239,7 +240,7 @@ class TeacherPerformanceService(BaseService):
         """دریافت آمار ماهانه"""
         try:
             return self.assignment_dal.get_teacher_trend(teacher_id, 'monthly', start_date, end_date)
-        except:
+        except Exception:
             return []
     
     def export_teacher_report_pdf(self, teacher_id, file_path, start_date=None, end_date=None):
@@ -267,7 +268,7 @@ class TeacherPerformanceService(BaseService):
             teacher = report['teacher']
             stats = report.get('stats', {})
             
-            pdf.add_title(f"گزارش عملکرد معلم")
+            pdf.add_title("گزارش عملکرد معلم")
             pdf.add_spacer(0.2)
             
             info_items = [
@@ -300,9 +301,8 @@ class TeacherPerformanceService(BaseService):
             try:
                 today = jdatetime.date.today()
                 date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
-            except:
-                from datetime import datetime
-                date_str = datetime.now().strftime("%Y/%m/%d")
+            except Exception:
+                date_str = utc_now().strftime("%Y/%m/%d")
             
             pdf.add_text(f"تاریخ تهیه گزارش: {date_str}")
             pdf.add_text("PARTO - سامانه مدیریت پرونده دانش‌آموزان")
@@ -312,4 +312,4 @@ class TeacherPerformanceService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در خروجی PDF: {e}")
-            return False, f"خطا: {str(e)}"
+            return False, f"خطا: {e!s}"

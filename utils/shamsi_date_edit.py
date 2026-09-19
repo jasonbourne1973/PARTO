@@ -2,15 +2,19 @@
 ویجت ورودی تاریخ شمسی
 """
 
+from PySide6.QtCore import QDate
 from PySide6.QtWidgets import QDateEdit
-from PySide6.QtCore import QDate, Qt
+
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 try:
     import jdatetime
     JDT_AVAILABLE = True
 except ImportError:
     JDT_AVAILABLE = False
-    print("⚠️ کتابخانه jdatetime نصب نیست.")
+    logger.warning("⚠️ کتابخانه jdatetime نصب نیست.")
 
 
 class ShamsiDateEdit(QDateEdit):
@@ -66,6 +70,6 @@ class ShamsiDateEdit(QDateEdit):
                 shamsi_qdate = QDate(year, month, day)
                 self.setDate(shamsi_qdate)
                 return True
-            except:
+            except Exception:
                 return False
         return False

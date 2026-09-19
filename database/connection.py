@@ -2,12 +2,14 @@
 مدیریت اتصال به دیتابیس SQLite - نسخه اصلاح شده با Migration
 """
 
-import sqlite3
+import contextlib
 import os
-import json
-from datetime import datetime
+import sqlite3
+
 import jdatetime
-from config.settings import DB_PATH, DB_VERSION, DB_VERSION_FILE
+
+from config.settings import DB_PATH, DB_VERSION
+from utils.time_utils import utc_now
 
 
 class DatabaseConnection:
@@ -31,7 +33,7 @@ class DatabaseConnection:
     
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(DatabaseConnection, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
         return cls._instance
     
     def get_connection(self, user_id=None):
@@ -372,7 +374,10 @@ class DatabaseConnection:
     # ماژول‌های migration که کاملاً «چندباراجراشدنی» (idempotent) هستند:
     # یعنی هر دستورشان یا IF NOT EXISTS دارد یا قبلش وجود ستون/جدول/داده
     # بررسی می‌شود. این‌ها را می‌توان در هر اجرا با خیال راحت صدا زد.
-    _IDEMPOTENT_MIGRATIONS = ("migration_v7",)
+    # توجه: migration_v8 هم idempotent است (همهٔ ایندکس‌ها با
+    # IF NOT EXISTS ساخته می‌شوند)، پس روی دیتابیس‌های قدیمی که شماره
+    # نسخه‌شان دست‌کاری شده هم اجرا می‌شود (بازرسی هشتم).
+    _IDEMPOTENT_MIGRATIONS = ("migration_v7", "migration_v8")
 
     def _heal_schema(self):
         """
@@ -471,10 +476,10 @@ class DatabaseConnection:
                 # برنامه به خاطر ترمیم ساختار نباید بالا نیاید؛
                 # خطا ثبت می‌شود تا در لاگ قابل پیگیری باشد.
                 print(f"⚠️ ترمیم ساختار ({module_name}) کامل نشد: {e}")
-                try:
+                # اگر rollback هم ممکن نبود، اتصال در گام بعدی بازسازی
+                # می‌شود؛ بالا آمدن برنامه اولویت دارد.
+                with contextlib.suppress(Exception):
                     self._connection.rollback()
-                except Exception:
-                    pass
 
     
     def _get_db_version(self):
@@ -547,10 +552,10 @@ class DatabaseConnection:
             return
         except Exception as e:
             print(f"⚠️ ارتقاء با MigrationManager کامل نشد: {e}")
-            try:
+            # مسیر جایگزینِ migration در ادامه اجرا می‌شود؛ شکست
+            # rollback مانع آن نیست.
+            with contextlib.suppress(Exception):
                 self._connection.rollback()
-            except Exception:
-                pass
 
         # ===== مسیر جایگزین (fallback) =====
         migrations = {
@@ -1354,8 +1359,8 @@ class DatabaseConnection:
             try:
                 now = jdatetime.datetime.now()
                 current_year = now.year
-            except:
-                current_year = datetime.now().year - 621
+            except Exception:
+                current_year = utc_now().year - 621
             
             current_title = f"{current_year}-{current_year+1}"
             
@@ -1397,8 +1402,8 @@ class DatabaseConnection:
         cursor.execute("SELECT COUNT(*) FROM competencies WHERE is_deleted = 0")
         if cursor.fetchone()[0] == 0:
             try:
-                import sys
                 import os
+                import sys
                 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
                 from data.competencies_data import COMPETENCIES_DATA
                 
@@ -1553,10 +1558,9 @@ class DatabaseConnection:
         if hasattr(value, "value") and value.value is not value:
             return DatabaseConnection._adapt_sqlite_value(value.value)
         if hasattr(value, "isoformat"):
-            try:
+            # شیء شبیه‌تاریخ ولی با isoformat خراب → ادامه با str(value)
+            with contextlib.suppress(Exception):
                 return value.isoformat()
-            except Exception:
-                pass
         # جلوگیری از خطای «parameters are of unsupported type» برای اشیایی
         # مثل Path یا مقادیر سفارشی؛ DALها معمولاً این مقادیر را متنی می‌خواهند.
         return str(value)
@@ -1602,15 +1606,88 @@ class DatabaseConnection:
         شروع یک تراکنش واقعی (با پشتیبانی از تودرتو)
 
         نکته کلیدی: تا وقتی عمق تراکنش بزرگ‌تر از صفر است، متد
-        commit() پایین بی‌اثر می‌شود. این یعنی ۱۲۲ فراخوانی
+        commit() پایین‌اثر می‌شود. این یعنی ۱۲۲ فراخوانی
         conn.commit() پراکنده در DALها لازم نیست تغییر کنند؛
         خودشان بی‌ضرر می‌شوند و فقط لایه سرویس commit می‌کند.
+
+        ===== 🔴 اصلاح (بازرسی ششم) — تراکنش سرگردان =====
+        ماژول sqlite3 پایتون در حالت پیش‌فرض، پیش از هر
+        INSERT/UPDATE/DELETE خودش یک تراکنش «ضمنی» باز می‌کند و
+        آن را تا commit/rollback باز نگه می‌دارد.
+
+        اگر یک نوشتنِ سطح DAL وسط کار خطا بدهد و به commit نرسد
+        (مثلاً خطای NOT NULL یا خطای binding)، آن تراکنش ضمنی باز
+        می‌ماند؛ در حالی که شمارندهٔ _transaction_depth صفر است.
+        اولین BEGIN بعدی برنامه با این خطا شکست می‌خورد:
+
+            sqlite3.OperationalError: cannot start a transaction
+            within a transaction
+
+        نتیجهٔ عملی: بعد از یک خطای نوشتن، «همهٔ» عملیات تراکنشی
+        برنامه تا پایان اجرا خراب می‌شد؛ مثلاً حذف دانش‌آموز،
+        مشاهده یا مداخله با همان پیام مبهم شکست می‌خورد.
+
+        تست عملی روی کد قبلی:
+            RecommendationDAL.create(...)  → خطای binding
+            ObservationService.delete_observation(...)
+                → OperationalError: cannot start a transaction
+                  within a transaction
+
+        حالا قبل از BEGIN، اگر اتصال از قبل داخل تراکنشی باشد که
+        شمارنده از آن بی‌خبر است، آن کارِ نیمه‌کاره rollback می‌شود
+        (قرار نبوده ذخیره شود، وگرنه commit شده بود) و هشدار در
+        لاگ می‌آید تا ریشهٔ خطا گم نشود.
         """
         if DatabaseConnection._transaction_depth == 0:
             conn = self.get_connection()
+            # اگر تراکنشِ ضمنیِ جاافتاده‌ای باز است، اول ببندش
+            if getattr(conn, "in_transaction", False):
+                self._recover_dangling_transaction()
             # یک دستور نوشتنی بفرست تا sqlite واقعاً تراکنش را باز کند
             conn.execute("BEGIN")
         DatabaseConnection._transaction_depth += 1
+
+    def _recover_dangling_transaction(self):
+        """
+        بستن تراکنشی که بدون شمارش باز مانده است
+
+        این حالت وقتی رخ می‌دهد که یک نوشتنِ DAL پیش از رسیدن به
+        commit خطا داده و لایهٔ سرویس هم آن را داخل تراکنش خودش
+        نگرفته باشد. کار نیمه‌تمام آن‌جا نباید ذخیره شود، پس
+        rollback می‌کنیم و در لاگ هشدار می‌دهیم.
+        """
+        # شکست rollback هم پذیرفته است؛ هشدار زیر به کاربر می‌رسد.
+        with contextlib.suppress(Exception):
+            if self._connection:
+                self._connection.rollback()
+        # حتی چاپ هشدار هم ممکن است شکست بخورد (کنسول بسته)
+        with contextlib.suppress(Exception):
+            print(
+                "⚠️ تراکنشِ بازِ جاافتاده بسته شد (rollback). "
+                "یعنی یک نوشتن قبلی نیمه‌کاره مانده بود."
+            )
+
+
+    def discard_pending_writes(self):
+        """
+        پاک‌کردن نوشتن‌های نیمه‌کاره (بازرسی ششم)
+
+        وقتی یک نوشتن شکست می‌خورد (مثلاً خطای binding یا نقض
+        محدودیت) و لایهٔ سرویس آن خطا را مدیریت می‌کند، نباید کار
+        نیمه‌تمام روی اتصال باقی بماند. این متد هم تراکنشِ
+        شمارش‌شده و هم تراکنشِ ضمنیِ جاافتاده را می‌بندد؛ برای
+        استفاده در exceptِ سرویس‌ها:
+
+            except Exception:
+                self.db.discard_pending_writes()
+                raise
+        """
+        if DatabaseConnection._transaction_depth > 0:
+            self.rollback_transaction()
+            return
+        conn = self._connection
+        if conn is not None and getattr(conn, "in_transaction", False):
+            self._recover_dangling_transaction()
 
     def commit_transaction(self):
         """تأیید یک لایه از تراکنش؛ فقط لایه بیرونی واقعاً commit می‌کند"""

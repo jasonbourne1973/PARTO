@@ -2,6 +2,8 @@
 مدل تفسیر تخصصی (Professional Interpretation)
 """
 
+from typing import ClassVar
+
 from models.base import BaseModel
 
 
@@ -23,7 +25,7 @@ class ProfessionalInterpretation(BaseModel):
     LEVEL_SCREENING = "screening"
     LEVEL_COMPREHENSIVE = "comprehensive"
     
-    LEVEL_CHOICES = [
+    LEVEL_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (LEVEL_OBSERVATION, "تفسیر مشاهده"),
         (LEVEL_SCREENING, "تفسیر غربالگری"),
         (LEVEL_COMPREHENSIVE, "تفسیر جامع"),
@@ -34,7 +36,7 @@ class ProfessionalInterpretation(BaseModel):
     STATUS_FINAL = "final"
     STATUS_ARCHIVED = "archived"
     
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (STATUS_DRAFT, "پیش‌نویس"),
         (STATUS_FINAL, "نهایی"),
         (STATUS_ARCHIVED, "بایگانی شده"),

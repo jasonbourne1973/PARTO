@@ -3,8 +3,14 @@
 با متدهای تحلیلی برای داشبورد و پیشنهادات
 """
 
+import sqlite3
+
 from database.connection import DatabaseConnection
 from models.intervention import Intervention
+from utils.logger import get_logger
+from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class InterventionDAL:
@@ -199,8 +205,7 @@ class InterventionDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE interventions SET
                 is_deleted = 1,
@@ -335,8 +340,8 @@ class InterventionDAL:
                 'total': row['total'] if row else 0
             }
 
-        except Exception as e:
-            print(f"خطا در دریافت توزیع مداخلات: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت توزیع مداخلات: {e}")
             return {'planned': 0, 'in_progress': 0, 'done': 0, 'completed': 0, 'cancelled': 0, 'total': 0}
 
     def get_interventions_by_type(self, start_date=None, end_date=None, limit=10):
@@ -392,8 +397,8 @@ class InterventionDAL:
 
             return result
 
-        except Exception as e:
-            print(f"خطا در دریافت مداخلات بر اساس نوع: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت مداخلات بر اساس نوع: {e}")
             return []
 
     def get_interventions_by_teacher(self, start_date=None, end_date=None, limit=10):
@@ -433,8 +438,8 @@ class InterventionDAL:
 
             return result
 
-        except Exception as e:
-            print(f"خطا در دریافت مداخلات بر اساس معلم: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت مداخلات بر اساس معلم: {e}")
             return []
 
     def get_interventions_trend(self, period='monthly', start_date=None, end_date=None, limit=12):
@@ -482,7 +487,7 @@ class InterventionDAL:
                             week = (day - 1) // 7 + 1
                             key = f"{parts[0]}/{parts[1]}/W{week}"
                             label = f"هفته {week} {parts[1]}"
-                        except:
+                        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                             key = date_str[:7]
                             label = date_str[:7]
                     else:
@@ -506,25 +511,19 @@ class InterventionDAL:
 
             return result
 
-        except Exception as e:
-            print(f"خطا در دریافت روند مداخلات: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت روند مداخلات: {e}")
             return []
 
     def _get_month_label(self, date_str):
-        """دریافت برچسب ماه از تاریخ"""
-        if not date_str or len(date_str) < 7:
-            return date_str
-        try:
-            month_names = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-                          "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
-            parts = date_str.split('/')
-            if len(parts) >= 2:
-                month = int(parts[1])
-                if 1 <= month <= 12:
-                    return f"{month_names[month-1]} {parts[0]}"
-        except:
-            pass
-        return date_str
+        """دریافت برچسب ماه از تاریخ — پیاده‌سازی مشترک
+
+        بازرسی نهم: این متد در ۴ فایل DAL کپی شده بود؛ حالا همه به یک
+        منبع واحد (utils.persian_date) وصل‌اند تا اصلاح‌های آینده
+        (ارقام فارسی، تاریخ ناقص، نام ماه) یک‌جا اعمال شود.
+        """
+        from utils.persian_date import PersianDate
+        return PersianDate.get_month_label(date_str)
 
     def get_intervention_success_rate(self, start_date=None, end_date=None, staff_id=None):
         """دریافت نرخ موفقیت مداخلات
@@ -574,8 +573,8 @@ class InterventionDAL:
                 'success_rate': round((completed / total * 100), 1) if total > 0 else 0
             }
 
-        except Exception as e:
-            print(f"خطا در دریافت نرخ موفقیت مداخلات: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت نرخ موفقیت مداخلات: {e}")
             return {'total': 0, 'completed': 0, 'cancelled': 0, 'pending': 0, 'success_rate': 0}
 
     # ============================================================
@@ -595,8 +594,8 @@ class InterventionDAL:
         """
         try:
             return self.get_by_student_profile(profile_id, limit=limit)
-        except Exception as e:
-            print(f"خطا در دریافت مداخلات دانش‌آموز: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت مداخلات دانش‌آموز: {e}")
             return []
 
     def get_successful_interventions_for_student(self, profile_id, limit=3):
@@ -614,8 +613,8 @@ class InterventionDAL:
             interventions = self.get_by_student_profile(profile_id)
             successful = [i for i in interventions if i.status in ['completed', 'done']]
             return successful[:limit]
-        except Exception as e:
-            print(f"خطا در دریافت مداخلات موفق: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت مداخلات موفق: {e}")
             return []
 
     def get_recommended_intervention_types(self, profile_id, competency_id=None):
@@ -670,8 +669,8 @@ class InterventionDAL:
             
             return default_types
             
-        except Exception as e:
-            print(f"خطا در دریافت انواع مداخلات پیشنهادی: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت انواع مداخلات پیشنهادی: {e}")
             return ['encouragement', 'individual_talk']
 
     # ============================================================

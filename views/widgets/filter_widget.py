@@ -2,22 +2,31 @@
 ویجت فیلتر - نمایش و مدیریت فیلترهای ذخیره‌شده
 """
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QComboBox, QMessageBox, QListWidget,
-    QListWidgetItem, QFrame, QScrollArea, QDialog,
-    QLineEdit, QTextEdit, QFormLayout, QDialogButtonBox
-)
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QAction
-
-import sys
 import os
+import sys
+
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from services.advanced_search_service import AdvancedSearchService
 from models.saved_filter import SavedFilter
+from services.advanced_search_service import AdvancedSearchService
 from utils.logger import get_logger
 
 
@@ -391,7 +400,7 @@ class FilterWidget(QWidget):
             
         except Exception as e:
             self.logger.error(f"خطا در بارگذاری فیلترها: {e}")
-            QMessageBox.warning(self, "خطا", f"مشکل در بارگذاری فیلترها:\n{str(e)}")
+            QMessageBox.warning(self, "خطا", f"مشکل در بارگذاری فیلترها:\n{e!s}")
     
     def display_filters(self):
         """نمایش فیلترها"""
@@ -427,7 +436,7 @@ class FilterWidget(QWidget):
             self.load_filters()
             QMessageBox.information(self, "موفقیت", "فیلتر با موفقیت حذف شد")
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در حذف فیلتر:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در حذف فیلتر:\n{e!s}")
     
     def on_type_changed(self):
         """وقتی نوع فیلتر تغییر می‌کند"""
@@ -494,7 +503,7 @@ class FilterWidget(QWidget):
                 self.load_filters()
                 QMessageBox.information(self, "موفقیت", "فیلتر با موفقیت ذخیره شد")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در ذخیره فیلتر:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در ذخیره فیلتر:\n{e!s}")
     
     def _get_current_filter_params(self):
         """دریافت پارامترهای فیلتر فعلی"""

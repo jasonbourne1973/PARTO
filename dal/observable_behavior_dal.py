@@ -4,6 +4,7 @@
 
 from database.connection import DatabaseConnection
 from models.observable_behavior import ObservableBehavior
+from utils.time_utils import utc_now_iso
 
 
 class ObservableBehaviorDAL:
@@ -125,8 +126,7 @@ class ObservableBehaviorDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE observable_behaviors SET
                 is_deleted = 1,

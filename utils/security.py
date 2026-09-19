@@ -3,13 +3,15 @@
 """
 
 import hashlib
-import secrets
-import os
-import json
-import base64
-from datetime import datetime, timedelta
-from enum import Enum
 import hmac
+import secrets
+from datetime import timedelta
+from enum import Enum
+
+from utils.logger import get_logger
+from utils.time_utils import utc_now
+
+logger = get_logger(__name__)
 
 
 class UserRole(Enum):
@@ -36,6 +38,13 @@ class UserRole(Enum):
     COUNSELOR = "counselor"       # مشاور
     SYSTEM = "system"             # سیستم (داخلی)
     VIEWER = "viewer"             # مشاهده‌گر (فقط خواندنی)
+    # ===== افزودن (بازرسی هفتم) =====
+    # این سه نقش در models/enums.py::StaffRole وجود داشتند و در
+    # جدول staff ذخیره می‌شوند، ولی در این enum نبودند.
+    SPORT_COACH = "sport_coach"   # مربی ورزش
+    QURAN_COACH = "quran_coach"   # مربی قرآن
+    ART_COACH = "art_coach"       # مربی هنر
+    OTHER = "other"               # سایر کادر
 
 
 class Permission(Enum):
@@ -169,7 +178,95 @@ ROLE_PERMISSIONS = {
         Permission.VIEW_FOLLOWUPS.value,
         Permission.VIEW_REPORTS.value,
     ],
+
+    # ===== افزودن (بازرسی هفتم — اولویت ۵) =====
+    # این نقش‌ها در جدول staff وجود دارند (models/enums.py::StaffRole)
+    # و می‌توانند برای کاربران ساخته شوند، ولی قبلاً در هیچ کلیدی از
+    # ROLE_PERMISSIONS نبودند؛ مجوزشان به «پیش‌فرض» می‌افتاد و
+    # مدیر نمی‌توانست رفتارشان را تعیین کند.
+    #
+    # سیاست پیشنهادی: مربیان مثل معلم هستند ولی اجازهٔ *ثبت* مشاهده
+    # را هم دارند (چون در فعالیت‌های فوق‌برنامه با دانش‌آموز کار
+    # می‌کنند)؛ گرچه الزاماً نباید بتوانند پروندهٔ دانش‌آموز را
+    # تغییر دهند. اگر سیاست مدرسه چیز دیگری است، فقط همین لیست‌ها
+    # را ویرایش کنید — نقطهٔ واحدی برای تصمیم وجود دارد.
+    UserRole.SPORT_COACH.value: [
+        Permission.VIEW_STUDENTS.value,
+        Permission.VIEW_OBSERVATIONS.value,
+        Permission.CREATE_OBSERVATION.value,
+        Permission.VIEW_INTERVENTIONS.value,
+        Permission.VIEW_FOLLOWUPS.value,
+        Permission.VIEW_REPORTS.value,
+    ],
+    UserRole.QURAN_COACH.value: [
+        Permission.VIEW_STUDENTS.value,
+        Permission.VIEW_OBSERVATIONS.value,
+        Permission.CREATE_OBSERVATION.value,
+        Permission.VIEW_INTERVENTIONS.value,
+        Permission.VIEW_FOLLOWUPS.value,
+        Permission.VIEW_REPORTS.value,
+    ],
+    UserRole.ART_COACH.value: [
+        Permission.VIEW_STUDENTS.value,
+        Permission.VIEW_OBSERVATIONS.value,
+        Permission.CREATE_OBSERVATION.value,
+        Permission.VIEW_INTERVENTIONS.value,
+        Permission.VIEW_FOLLOWUPS.value,
+        Permission.VIEW_REPORTS.value,
+    ],
+    UserRole.OTHER.value: [
+        # «سایر»: فقط مشاهده — تصمیم دقیق با مدیر مدرسه است
+        Permission.VIEW_STUDENTS.value,
+        Permission.VIEW_OBSERVATIONS.value,
+        Permission.VIEW_INTERVENTIONS.value,
+        Permission.VIEW_FOLLOWUPS.value,
+        Permission.VIEW_REPORTS.value,
+    ],
 }
+
+
+# ===== نگاشت نقش‌های مترادف/قدیمی (بازرسی ششم) =====
+# ممکن است در دیتابیسِ به‌روزنشده مقدارهایی مثل admin یا
+# vice_principle (با غلط املایی) مانده باشد. بدون این نگاشت، این
+# نقش‌ها «ناشناخته» می‌شدند و مجوزهایشان به لیست پیش‌فرض می‌رسید.
+ROLE_ALIASES = {
+    'admin': 'manager',
+    'administrator': 'manager',
+    'modir': 'manager',
+    'principal': 'manager',
+    'vice_principle': 'vice_principal',
+    'deputy': 'vice_principal',
+}
+
+# مجوزهای پیش‌فرض برای نقشِ ناشناخته.
+# سیاست: «کم‌ترین دسترسیِ محتمل» — منوهای خواندنی باز می‌مانند
+# ولی کارهای مدیریتی (کاربران، پشتیبان‌گیری، ساختار آموزشی) بسته
+# است. قبلاً نقش ناشناخته عملاً همه‌چیز داشت، چون هیچ‌جا بررسی
+# نمی‌شد.
+FALLBACK_ROLE_PERMISSIONS = list(ROLE_PERMISSIONS[UserRole.VIEWER.value])
+
+
+def get_role_permissions(role):
+    """
+    مجوزهای یک نقش را برمی‌گرداند (تنها مرجع مورد اعتماد)
+
+    این تابع همان منبعی است که هم SessionManager.has_permission و
+    هم رابط کاربری از آن استفاده می‌کنند تا تعریف مجوزها دو تایی
+    (و ناهمخوان) نشود.
+
+    Args:
+        role: رشتهٔ نقش (مثلاً 'manager'، 'teacher'، 'counselor')
+
+    Returns:
+        list[str]: لیست مجوزها. برای نقشِ ناشناخته، لیست پیش‌فرضِ
+        FALLBACK_ROLE_PERMISSIONS برمی‌گردد (نه لیست خالی؛ چون لیست
+        خالی در UI یعنی «کاربر هیچ صفحه‌ای نمی‌بیند»).
+    """
+    key = (role or '').strip().lower()
+    key = ROLE_ALIASES.get(key, key)
+    if key in ROLE_PERMISSIONS:
+        return list(ROLE_PERMISSIONS[key])
+    return list(FALLBACK_ROLE_PERMISSIONS)
 
 
 class Security:
@@ -262,7 +359,7 @@ class Security:
             return hmac.compare_digest(computed_hash, stored_hash)
             
         except Exception as e:
-            print(f"⚠️ خطا در بررسی رمز عبور: {e}")
+            logger.error(f"⚠️ خطا در بررسی رمز عبور: {e}")
             return False
     
     @staticmethod
@@ -282,7 +379,7 @@ class Security:
             computed_hash = hashlib.sha256(combined.encode('utf-8')).hexdigest()
             
             return hmac.compare_digest(computed_hash, stored_hash)
-        except:
+        except Exception:
             return False
     
     @staticmethod
@@ -360,7 +457,7 @@ class SessionManager:
             return None, "تعداد جلسات همزمان برای این کاربر به حداکثر رسیده است."
         
         token = Security.generate_token()
-        now = datetime.now()
+        now = utc_now()
         
         self._sessions[token] = {
             'user_id': user_id,
@@ -387,7 +484,7 @@ class SessionManager:
             return None
         
         # بررسی timeout
-        now = datetime.now()
+        now = utc_now()
         if (now - session['last_activity']).seconds > self._session_timeout:
             self.end_session(token)
             return None
@@ -420,16 +517,16 @@ class SessionManager:
             return False
         
         user_role = session.get('user_role')
-        permissions = ROLE_PERMISSIONS.get(user_role, [])
-        
-        return permission in permissions
+        # ===== اصلاح (بازرسی ششم) =====
+        # قبلاً دو مسیر جدا برای مجوزها وجود داشت: این متد از
+        # ROLE_PERMISSIONS می‌خواند و رابط کاربری از هیچ‌جا. حالا هر
+        # دو از get_role_permissions استفاده می‌کنند و نقش‌های
+        # مترادف/ناشناخته هم یک رفتار دارند.
+        return permission in get_role_permissions(user_role)
     
     def has_any_permission(self, token, permissions):
         """بررسی دسترسی کاربر به حداقل یکی از مجوزها"""
-        for perm in permissions:
-            if self.has_permission(token, perm):
-                return True
-        return False
+        return any(self.has_permission(token, perm) for perm in permissions)
     
     def get_all_sessions(self):
         """دریافت لیست همه جلسات فعال"""
@@ -444,6 +541,39 @@ class SessionManager:
                     'last_activity': session['last_activity'].isoformat(),
                 })
         return sessions
+
+
+# ===== یکسان‌سازی نام موجودیت در Audit Log (بازرسی هفتم) =====
+# کلید = نام مفردی که سرویس‌ها استفاده می‌کنند، مقدار = نام جدول
+# دیتابیس که تریگرها در entity_type می‌نویسند.
+AUDIT_ENTITY_ALIASES = {
+    'student': 'students',
+    'observation': 'observations',
+    'intervention': 'interventions',
+    'followup': 'followups',
+    'student_academic_profile': 'student_academic_profiles',
+    'profile': 'student_academic_profiles',
+    'staff': 'staff',
+    'competency': 'competencies',
+    'user': 'users',
+    'attachment': 'attachments',
+}
+
+
+def normalize_entity_type(entity_type):
+    """
+    نام موجودیت را به شکل یکدست (نام جدول) برمی‌گرداند
+
+    Args:
+        entity_type: نام مفرد یا جمع؛ می‌تواند None باشد
+
+    Returns:
+        str | None: نام یکدست، یا همان مقدار ورودی اگر ناشناخته باشد
+    """
+    if not entity_type:
+        return entity_type
+    key = str(entity_type).strip().lower()
+    return AUDIT_ENTITY_ALIASES.get(key, key)
 
 
 class AuditLogger:
@@ -469,7 +599,13 @@ class AuditLogger:
         try:
             conn = self.db.get_connection()
             cursor = conn.cursor()
-            
+
+            # ===== اصلاح (بازرسی هفتم) =====
+            # نام موجودیت یکدست می‌شود تا ردیف‌های این کلاس با
+            # ردیف‌های تریگرهای دیتابیس (که نام جدول را می‌نویسند)
+            # قابل جست‌وجوی مشترک باشند.
+            entity_type = normalize_entity_type(entity_type)
+
             # تبدیل دیکشنری به JSON برای ذخیره
             import json
             old_json = json.dumps(old_value, ensure_ascii=False) if old_value else None
@@ -493,7 +629,7 @@ class AuditLogger:
             conn.commit()
             return True
         except Exception as e:
-            print(f"⚠️ خطا در ثبت Audit Log: {e}")
+            logger.error(f"⚠️ خطا در ثبت Audit Log: {e}")
             return False
     
     def log_login(self, user_id, success=True, ip_address=None):
@@ -545,8 +681,13 @@ class AuditLogger:
                 query += " AND user_id = ?"
                 params.append(user_id)
             if entity_type:
-                query += " AND entity_type = ?"
-                params.append(entity_type)
+                # ===== اصلاح (بازرسی هفتم) =====
+                # هم نام مفرد و هم نام جدول پذیرفته می‌شود؛ وگرنه
+                # کسی که 'student' می‌داد ردیف‌های تریگر (students)
+                # را از دست می‌داد و برعکس.
+                query += " AND entity_type IN (?, ?)"
+                norm = normalize_entity_type(entity_type)
+                params.extend([entity_type, norm])
             if action:
                 query += " AND action = ?"
                 params.append(action)
@@ -573,5 +714,5 @@ class AuditLogger:
             
             return logs
         except Exception as e:
-            print(f"⚠️ خطا در دریافت Audit Log: {e}")
+            logger.error(f"⚠️ خطا در دریافت Audit Log: {e}")
             return []

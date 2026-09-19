@@ -2,9 +2,14 @@
 لایه دسترسی به داده انتساب معلم به دانش‌آموز - با متدهای آماری
 """
 
+import sqlite3
+
 from database.connection import DatabaseConnection
 from models.teacher_assignment import TeacherAssignment
-from datetime import datetime
+from utils.logger import get_logger
+from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class TeacherAssignmentDAL:
@@ -182,7 +187,7 @@ class TeacherAssignmentDAL:
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE teacher_assignments SET
                 is_deleted = 1,
@@ -283,7 +288,7 @@ class TeacherAssignmentDAL:
                 AND o.staff_id = ?
                 AND o.is_deleted = 0
             """
-            obs_params = list(student_ids) + [staff_id]
+            obs_params = [*list(student_ids), staff_id]
             
             if start_date:
                 obs_query += " AND o.observation_date >= ?"
@@ -312,7 +317,7 @@ class TeacherAssignmentDAL:
                 AND i.staff_id = ?
                 AND i.is_deleted = 0
             """
-            inter_params = list(student_ids) + [staff_id]
+            inter_params = [*list(student_ids), staff_id]
             
             if start_date:
                 inter_query += " AND i.date >= ?"
@@ -335,7 +340,7 @@ class TeacherAssignmentDAL:
                 AND f.staff_id = ?
                 AND f.is_deleted = 0
             """
-            follow_params = list(student_ids) + [staff_id]
+            follow_params = [*list(student_ids), staff_id]
             
             if start_date:
                 follow_query += " AND f.date >= ?"
@@ -362,8 +367,8 @@ class TeacherAssignmentDAL:
                 'pending_followups': pending_follow
             }
             
-        except Exception as e:
-            print(f"خطا در دریافت آمار معلم: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت آمار معلم: {e}")
             return {
                 'total_students': 0,
                 'total_observations': 0,
@@ -478,8 +483,8 @@ class TeacherAssignmentDAL:
             
             return result
             
-        except Exception as e:
-            print(f"خطا در دریافت لیست دانش‌آموزان معلم: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت لیست دانش‌آموزان معلم: {e}")
             return []
     
     def get_teacher_trend(self, staff_id, period='monthly', start_date=None, end_date=None):
@@ -551,7 +556,7 @@ class TeacherAssignmentDAL:
                             week = (day - 1) // 7 + 1
                             key = f"{parts[0]}/{parts[1]}/W{week}"
                             label = f"هفته {week} {parts[1]}"
-                        except:
+                        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                             key = date_str[:7]
                             label = date_str[:7]
                     else:
@@ -587,25 +592,19 @@ class TeacherAssignmentDAL:
             
             return result
             
-        except Exception as e:
-            print(f"خطا در دریافت روند عملکرد معلم: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت روند عملکرد معلم: {e}")
             return []
     
     def _get_month_label(self, date_str):
-        """دریافت برچسب ماه از تاریخ"""
-        if not date_str or len(date_str) < 7:
-            return date_str
-        try:
-            month_names = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-                          "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
-            parts = date_str.split('/')
-            if len(parts) >= 2:
-                month = int(parts[1])
-                if 1 <= month <= 12:
-                    return f"{month_names[month-1]} {parts[0]}"
-        except:
-            pass
-        return date_str
+        """دریافت برچسب ماه از تاریخ — پیاده‌سازی مشترک
+
+        بازرسی نهم: این متد در ۴ فایل DAL کپی شده بود؛ حالا همه به یک
+        منبع واحد (utils.persian_date) وصل‌اند تا اصلاح‌های آینده
+        (ارقام فارسی، تاریخ ناقص، نام ماه) یک‌جا اعمال شود.
+        """
+        from utils.persian_date import PersianDate
+        return PersianDate.get_month_label(date_str)
     
     def _row_to_assignment(self, row):
         """تبدیل ردیف دیتابیس به مدل TeacherAssignment"""
@@ -624,9 +623,10 @@ class TeacherAssignmentDAL:
         assignment.deleted_at = row['deleted_at']
         assignment.deleted_by = row['deleted_by']
         
-        # ✅ اصلاح: استفاده از دسترسی مستقیم به جای متد get()
-        assignment.student_name = row['student_name'] if 'student_name' in row.keys() else None
-        assignment.teacher_name = row['teacher_name'] if 'teacher_name' in row.keys() else None
-        assignment.academic_year_title = row['academic_year_title'] if 'academic_year_title' in row.keys() else None
+        # ستون‌های JOIN شده ممکن است در همهٔ کوئری‌ها نباشند؛
+        # row.get مقدار پیش‌فرض None می‌دهد (بازرسی دهم: ساده‌سازی SIM401)
+        assignment.student_name = row.get('student_name')
+        assignment.teacher_name = row.get('teacher_name')
+        assignment.academic_year_title = row.get('academic_year_title')
         
         return assignment

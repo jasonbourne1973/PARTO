@@ -3,6 +3,8 @@
 ثبت مشارکت دانش‌آموزان در فعالیت‌های فرهنگی، هنری، ورزشی و مذهبی
 """
 
+from typing import ClassVar
+
 from models.base import BaseModel
 
 
@@ -27,7 +29,7 @@ class ExtracurricularActivity(BaseModel):
     TYPE_VOLUNTEER = "volunteer"        # داوطلبانه
     TYPE_OTHER = "other"                # سایر
     
-    TYPE_CHOICES = [
+    TYPE_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (TYPE_CULTURAL, "فرهنگی"),
         (TYPE_ART, "هنری"),
         (TYPE_SPORT, "ورزشی"),
@@ -44,7 +46,7 @@ class ExtracurricularActivity(BaseModel):
     LEVEL_LEADER = "leader"             # رهبر/مسئول
     LEVEL_ORGANIZER = "organizer"       # سازمان‌دهنده
     
-    LEVEL_CHOICES = [
+    LEVEL_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (LEVEL_PARTICIPANT, "شرکت‌کننده"),
         (LEVEL_ACTIVE, "فعال"),
         (LEVEL_LEADER, "رهبر/مسئول"),
@@ -57,7 +59,7 @@ class ExtracurricularActivity(BaseModel):
     STATUS_COMPLETED = "completed"      # انجام شده
     STATUS_CANCELLED = "cancelled"      # لغو شده
     
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (STATUS_PLANNED, "برنامه‌ریزی شده"),
         (STATUS_IN_PROGRESS, "در حال اجرا"),
         (STATUS_COMPLETED, "انجام شده"),

@@ -2,20 +2,27 @@
 فرم ثبت و ویرایش پیگیری - نسخه با پشتیبانی از سیستم راهنما
 """
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QLineEdit, QComboBox, QPushButton,
-    QTextEdit, QMessageBox, QWidget, QScrollArea,
-    QGroupBox
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal
 
-from services.followup_service import FollowUpService
-from dal.student_dal import StudentDAL
 from dal.staff_dal import StaffDAL
-from utils.shamsi_date_input import ShamsiDateInput
+from dal.student_dal import StudentDAL
+from services.followup_service import FollowUpService
 from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
+from utils.shamsi_date_input import ShamsiDateInput
 from utils.tooltip_manager import TooltipManager
 from views.widgets.help_widget import HelpWidget
 
@@ -353,7 +360,7 @@ class FollowUpForm(QDialog):
             self.description_input.setText(follow.description or "")
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{e!s}")
     
     def save_followup(self):
         """ذخیره پیگیری با استفاده از سرویس"""
@@ -408,4 +415,4 @@ class FollowUpForm(QDialog):
             QMessageBox.critical(self, "خطا", str(e))
         except Exception as e:
             self.logger.error(f"خطا در ذخیره پیگیری: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{e!s}")

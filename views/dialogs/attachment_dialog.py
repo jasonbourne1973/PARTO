@@ -2,24 +2,34 @@
 دیالوگ مدیریت پیوست‌ها - نسخه کامل با پیش‌نمایش بهتر
 """
 
-from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QListWidget, QListWidgetItem, QMessageBox,
-    QFileDialog, QProgressBar, QWidget, QSplitter,
-    QTextEdit, QFrame, QScrollArea, QGroupBox,
-    QLineEdit, QToolBar
-)
-from PySide6.QtCore import Qt, Signal, QThread
-from PySide6.QtGui import QColor, QPixmap, QIcon, QAction
-
 import os
 import sys
+
+from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import (
+    QDialog,
+    QFileDialog,
+    QFrame,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QScrollArea,
+    QSplitter,
+    QTextEdit,
+    QVBoxLayout,
+)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from services.attachment_service import AttachmentService
 from utils.logger import get_logger
-from utils.error_handler import ServiceError, ValidationError
 
 
 class AttachmentUploadWorker(QThread):
@@ -470,7 +480,7 @@ class AttachmentDialog(QDialog):
             
         except Exception as e:
             self.logger.error(f"خطا در بارگذاری پیوست‌ها: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری:\n{e!s}")
     
     def search_attachments(self):
         """جستجوی پیوست‌ها"""
@@ -612,8 +622,10 @@ class AttachmentDialog(QDialog):
                     self.preview_label.setPixmap(pixmap)
                     self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                     return
-            except:
-                pass
+            except Exception as _exc:
+                self.logger.debug(
+                    f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+                )
         
         # PDF
         elif file_name.endswith('.pdf'):
@@ -624,7 +636,7 @@ class AttachmentDialog(QDialog):
         # متن
         elif file_name.endswith(('.txt', '.csv', '.json', '.xml', '.log', '.py', '.js', '.html', '.css')):
             try:
-                with open(attachment.file_path, 'r', encoding='utf-8') as f:
+                with open(attachment.file_path, encoding='utf-8') as f:
                     content = f.read(800)
                     if len(content) >= 800:
                         content += "\n\n... (ادامه فایل)"
@@ -642,8 +654,10 @@ class AttachmentDialog(QDialog):
                         }
                     """)
                     return
-            except:
-                pass
+            except Exception as _exc:
+                self.logger.debug(
+                    f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+                )
         
         # ویدئو و صدا
         elif file_name.endswith(('.mp4', '.avi', '.mkv', '.mov', '.mp3', '.wav', '.ogg')):
@@ -686,7 +700,7 @@ class AttachmentDialog(QDialog):
                 
         except Exception as e:
             self.logger.error(f"خطا در باز کردن فایل: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در باز کردن فایل:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در باز کردن فایل:\n{e!s}")
     
     def download_file(self):
         """دانلود فایل"""
@@ -713,7 +727,7 @@ class AttachmentDialog(QDialog):
                 
         except Exception as e:
             self.logger.error(f"خطا در دانلود فایل: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در دانلود:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در دانلود:\n{e!s}")
     
     def delete_selected(self):
         """حذف فایل انتخاب شده"""
@@ -739,7 +753,7 @@ class AttachmentDialog(QDialog):
                 QMessageBox.information(self, "موفقیت", "فایل با موفقیت حذف شد")
             except Exception as e:
                 self.logger.error(f"خطا در حذف فایل: {e}")
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
     def set_buttons_enabled(self, enabled):
         """فعال/غیرفعال کردن دکمه‌ها"""

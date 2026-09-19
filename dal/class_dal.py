@@ -3,8 +3,12 @@
 """
 
 import sqlite3
+
 from database.connection import DatabaseConnection
 from models.class_model import ClassModel
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class ClassDAL:
@@ -283,8 +287,8 @@ class ClassDAL:
                 'student_ids': student_ids
             }
             
-        except Exception as e:
-            print(f"خطا در دریافت آمار مشاهدات کلاس: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت آمار مشاهدات کلاس: {e}")
             return None
     
     def get_class_competency_stats(self, class_id, start_date=None, end_date=None):
@@ -379,8 +383,8 @@ class ClassDAL:
             
             return stats
             
-        except Exception as e:
-            print(f"خطا در دریافت آمار شایستگی‌های کلاس: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت آمار شایستگی‌های کلاس: {e}")
             return {}
     
     def get_class_student_stats(self, class_id, start_date=None, end_date=None):
@@ -488,8 +492,8 @@ class ClassDAL:
             
             return result
             
-        except Exception as e:
-            print(f"خطا در دریافت آمار دانش‌آموزان کلاس: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت آمار دانش‌آموزان کلاس: {e}")
             return []
     
     def get_class_summary(self, class_id, start_date=None, end_date=None):

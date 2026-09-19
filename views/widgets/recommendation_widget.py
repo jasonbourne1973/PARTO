@@ -2,22 +2,26 @@
 ویجت نمایش پیشنهادات هوشمند - نمایش در پرونده دانش‌آموز
 """
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QFrame, QScrollArea, QMessageBox,
-    QGroupBox, QGridLayout, QTextEdit
-)
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QFont
-
-import sys
 import os
+import sys
+
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from services.recommendation_service import RecommendationService
-from services.intervention_suggester import InterventionSuggester
 from models.recommendation import Recommendation
+from services.intervention_suggester import InterventionSuggester
+from services.recommendation_service import RecommendationService
 from utils.logger import get_logger
 
 
@@ -202,7 +206,7 @@ class RecommendationWidget(QWidget):
             
         except Exception as e:
             self.logger.error(f"خطا در بارگذاری پیشنهادات: {e}")
-            QMessageBox.warning(self, "خطا", f"مشکل در بارگذاری پیشنهادات:\n{str(e)}")
+            QMessageBox.warning(self, "خطا", f"مشکل در بارگذاری پیشنهادات:\n{e!s}")
     
     def display_recommendations(self):
         """نمایش پیشنهادات در ویجت"""
@@ -458,7 +462,7 @@ class RecommendationWidget(QWidget):
                 )
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در تولید پیشنهادات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در تولید پیشنهادات:\n{e!s}")
     
     def accept_recommendation(self, recommendation):
         """پذیرش پیشنهاد"""
@@ -468,7 +472,7 @@ class RecommendationWidget(QWidget):
             self.load_recommendations()
             self.recommendation_updated.emit()
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در پذیرش:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در پذیرش:\n{e!s}")
     
     def reject_recommendation(self, recommendation):
         """رد پیشنهاد"""
@@ -488,7 +492,7 @@ class RecommendationWidget(QWidget):
             self.load_recommendations()
             self.recommendation_updated.emit()
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در رد:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در رد:\n{e!s}")
     
     def implement_recommendation(self, recommendation):
         """اجرای پیشنهاد"""
@@ -498,7 +502,7 @@ class RecommendationWidget(QWidget):
             self.load_recommendations()
             self.recommendation_updated.emit()
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در اجرا:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در اجرا:\n{e!s}")
     
     def complete_recommendation(self, recommendation):
         """تکمیل پیشنهاد"""
@@ -518,7 +522,7 @@ class RecommendationWidget(QWidget):
             self.load_recommendations()
             self.recommendation_updated.emit()
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در تکمیل:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در تکمیل:\n{e!s}")
     
     def request_intervention(self, recommendation):
         """درخواست ثبت مداخله"""

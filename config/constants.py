@@ -3,19 +3,18 @@
 """
 
 from models.enums import (
-    StaffRole,
-    ObservationStatus,
-    InterventionStatus,
-    FollowUpStatus,
-    FollowUpResultType,
-    StudentProfileStatus,
     AcademicYearStatus,
-    Grade,
-    LivingStatus,
-    CompetencyCategory,
-    UserRole,
     ActionType,
-    EntityType
+    CompetencyCategory,
+    EntityType,
+    FollowUpResultType,
+    FollowUpStatus,
+    Grade,
+    InterventionStatus,
+    ObservationStatus,
+    StaffRole,
+    StudentProfileStatus,
+    UserRole,
 )
 
 # ============================================================

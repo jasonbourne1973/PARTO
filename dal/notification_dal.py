@@ -4,7 +4,7 @@
 
 from database.connection import DatabaseConnection
 from models.notification import Notification
-from datetime import datetime
+from utils.time_utils import utc_now_iso, utc_shift_sql
 
 
 class NotificationDAL:
@@ -127,7 +127,7 @@ class NotificationDAL:
     
     def get_pending(self, limit=None):
         """دریافت اعلان‌های در انتظار (برنامه‌ریزی شده)"""
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         query = """
             SELECT * FROM notifications 
             WHERE scheduled_at IS NOT NULL 
@@ -156,7 +156,7 @@ class NotificationDAL:
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE notifications SET
                 is_read = 1,
@@ -173,7 +173,7 @@ class NotificationDAL:
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE notifications SET
                 is_read = 1,
@@ -190,7 +190,7 @@ class NotificationDAL:
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE notifications SET
                 is_dismissed = 1,
@@ -222,9 +222,15 @@ class NotificationDAL:
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
-        from datetime import datetime, timedelta
-        cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
-        
+        # ===== اصلاح (بازرسی هشتم) =====
+        # ستون created_at را خودِ SQLite با CURRENT_TIMESTAMP پر می‌کند؛
+        # یعنی UTC و با جداکنندهٔ فاصله («2026-09-19 10:46:17»).
+        # قبلاً مقدار برش با datetime.now() ساخته می‌شد: محلی، و با
+        # جداکنندهٔ «T». مقایسهٔ رشته‌ای این دو، بازهٔ پاک‌سازی را
+        # جابه‌جا می‌کرد (کد نویسهٔ T بزرگ‌تر از فاصله است).
+        # حالا هر دو طرف یک قالب و یک منطقهٔ زمانی دارند.
+        cutoff_date = utc_shift_sql(days=-days)
+
         cursor.execute("""
             UPDATE notifications SET
                 is_deleted = 1,
