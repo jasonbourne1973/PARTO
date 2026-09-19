@@ -2,18 +2,18 @@
 تست‌های مدل‌ها - PARTOW
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import unittest
-from models.student import Student
-from models.student_academic_profile import StudentAcademicProfile
-from models.observation import Observation
-from models.intervention import Intervention
-from models.followup import FollowUp
+
 from models.academic_year import AcademicYear
+from models.followup import FollowUp
+from models.intervention import Intervention
+from models.observation import Observation
+from models.student import Student
 
 
 class TestStudent(unittest.TestCase):

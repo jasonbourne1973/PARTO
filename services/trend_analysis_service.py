@@ -3,19 +3,19 @@
 با پشتیبانی از تحلیل چندساله
 """
 
-import sys
 import os
-from datetime import datetime
+import sys
 from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
 from dal.competency_dal import CompetencyDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from services.base_service import BaseService
+
 # ===== اصلاح =====
 # نسخه قبلی اینجا این خط را داشت:
 #     from utils.persian_calendar import PersianCalendarWidget
@@ -28,7 +28,6 @@ from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 # و چون `student_service.py` هم `TrendAnalysisService` را import می‌کند،
 # نتیجه این بود که هر استفاده بدون رابط گرافیکی از سرویس‌ها (تست‌ها،
 # اسکریپت‌ها، تولید گزارش از خط فرمان) با خطای import Qt از کار می‌افتاد.
-import jdatetime
 
 
 class TrendAnalysisService(BaseService):
@@ -423,10 +422,7 @@ class TrendAnalysisService(BaseService):
                 'icon': '❓'
             }
         
-        # بررسی تغییرات تعداد مشاهدات
-        first_count = observation_counts[0]
-        last_count = observation_counts[-1]
-        
+        # بررسی تغییرات درصد مثبت
         # بررسی تغییرات درصد مثبت
         first_positive_ratio = year_data[0]['positive'] / year_data[0]['observations_count'] if year_data[0]['observations_count'] > 0 else 0
         last_positive_ratio = year_data[-1]['positive'] / year_data[-1]['observations_count'] if year_data[-1]['observations_count'] > 0 else 0

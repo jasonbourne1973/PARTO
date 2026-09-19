@@ -3,32 +3,44 @@
 نمایش وضعیت کلی کلاس بر اساس داده‌های ثبت‌شده
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+import matplotlib
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QComboBox, QMessageBox, QTextEdit,
-    QGroupBox, QScrollArea, QSplitter, QFileDialog,
-    QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView,
-    QLineEdit, QProgressBar, QFrame
+    QComboBox,
+    QFileDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QScrollArea,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, QThread
-from PySide6.QtGui import QColor, QFont
 
-from services.class_report_service import ClassReportService
-from dal.class_dal import ClassDAL
 from dal.academic_year_dal import AcademicYearDAL
+from dal.class_dal import ClassDAL
 from dal.staff_dal import StaffDAL
+from services.class_report_service import ClassReportService
 from utils.shamsi_date_input import ShamsiDateInput
 
-import matplotlib
 matplotlib.use('QtAgg')
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-import numpy as np
+
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class ClassReportPage(QWidget):
@@ -428,7 +440,7 @@ class ClassReportPage(QWidget):
                         self.year_combo.setCurrentIndex(i)
                         break
         except Exception as e:
-            print(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
+            logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
     
     def load_classes(self):
         """بارگذاری کلاس‌ها در کامبوباکس"""
@@ -443,7 +455,7 @@ class ClassReportPage(QWidget):
                 display_text = f"{class_obj.display_name}"
                 self.class_combo.addItem(display_text, class_obj.id)
         except Exception as e:
-            print(f"خطا در بارگذاری کلاس‌ها: {e}")
+            logger.error(f"خطا در بارگذاری کلاس‌ها: {e}")
     
     def on_year_changed(self, index):
         """وقتی سال تحصیلی تغییر می‌کند"""

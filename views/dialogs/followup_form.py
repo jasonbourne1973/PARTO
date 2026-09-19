@@ -2,20 +2,27 @@
 فرم ثبت و ویرایش پیگیری - نسخه با پشتیبانی از سیستم راهنما
 """
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QLineEdit, QComboBox, QPushButton,
-    QTextEdit, QMessageBox, QWidget, QScrollArea,
-    QGroupBox
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal
 
-from services.followup_service import FollowUpService
-from dal.student_dal import StudentDAL
 from dal.staff_dal import StaffDAL
-from utils.shamsi_date_input import ShamsiDateInput
+from dal.student_dal import StudentDAL
+from services.followup_service import FollowUpService
 from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
+from utils.shamsi_date_input import ShamsiDateInput
 from utils.tooltip_manager import TooltipManager
 from views.widgets.help_widget import HelpWidget
 

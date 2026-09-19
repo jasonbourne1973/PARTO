@@ -2,9 +2,11 @@
 لایه دسترسی به داده نتایج غربالگری (ScreeningResult)
 """
 
+import json
+
 from database.connection import DatabaseConnection
 from models.screening_result import ScreeningResult
-import json
+from utils.time_utils import utc_now_iso
 
 
 class ScreeningResultDAL:
@@ -179,8 +181,7 @@ class ScreeningResultDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE screening_results SET
                 is_deleted = 1,

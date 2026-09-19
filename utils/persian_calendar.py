@@ -2,16 +2,21 @@
 ویجت تقویم شمسی کامل و ابزارهای گروه‌بندی زمانی
 """
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QGridLayout, QFrame, QSizePolicy, QLineEdit
-)
-from PySide6.QtCore import Qt, Signal, QDate
-from PySide6.QtGui import QFont
+from collections import defaultdict
 
 import jdatetime
-from datetime import datetime
-from collections import defaultdict
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+from utils.time_utils import utc_now
 
 
 class TimeGrouper:
@@ -213,8 +218,10 @@ class PersianCalendarWidget(QWidget):
             self.current_month = today.month
             self.selected_day = today.day
         except Exception:
-            # Fallback
-            now = datetime.now()
+            # Fallback: تبدیل تقویمی میلادی → شمسی روی «تاریخ محلی»؛
+            # اگر از UTC استفاده شود، بین ۰۰:۰۰ تا ۰۳:۳۰ بامداد یک روز
+            # عقب می‌افتد (بازرسی هشتم).
+            now = utc_now().astimezone()
             self.current_year = now.year - 621
             self.current_month = now.month
             self.selected_day = now.day

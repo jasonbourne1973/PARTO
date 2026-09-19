@@ -2,24 +2,34 @@
 صفحه مدیریت ارتقاء پایه دانش‌آموزان - نسخه اصلاح‌شده با جستجو
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QLabel, QHeaderView,
-    QMessageBox, QComboBox, QGroupBox, QLineEdit
-)
+
+import jdatetime
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QComboBox,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.academic_year_dal import AcademicYearDAL
-from datetime import datetime
-import jdatetime
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from utils.time_utils import utc_now
 
 
 class PromotionPage(QWidget):
@@ -77,7 +87,7 @@ class PromotionPage(QWidget):
             jalali_now = jdatetime.datetime.now()
             current_jalali_year = jalali_now.year
         except Exception:
-            current_jalali_year = datetime.now().year - 621
+            current_jalali_year = utc_now().year - 621
         
         for year in range(current_jalali_year - 2, current_jalali_year + 5):
             self.year_input.addItem(f"{year}-{year+1}")
@@ -651,7 +661,7 @@ class PromotionPage(QWidget):
             
             msg = f"✅ {success_count} دانش‌آموز با موفقیت ارتقاء یافتند.\nسال تحصیلی جدید: {next_year}"
             if errors:
-                msg += f"\n\n⚠️ خطاها:\n" + "\n".join(errors[:5])
+                msg += "\n\n⚠️ خطاها:\n" + "\n".join(errors[:5])
                 if len(errors) > 5:
                     msg += f"\nو {len(errors)-5} خطای دیگر..."
             
@@ -695,7 +705,7 @@ class PromotionPage(QWidget):
             
             msg = f"✅ {success_count} دانش‌آموز با موفقیت ارتقاء یافتند.\nسال تحصیلی جدید: {next_year}"
             if errors:
-                msg += f"\n\n⚠️ خطاها:\n" + "\n".join(errors[:5])
+                msg += "\n\n⚠️ خطاها:\n" + "\n".join(errors[:5])
                 if len(errors) > 5:
                     msg += f"\nو {len(errors)-5} خطای دیگر..."
             
@@ -740,7 +750,9 @@ class PromotionPage(QWidget):
                         self.profile_dal.update(profile)
                         success_count += 1
                     else:
-                        from models.student_academic_profile import StudentAcademicProfile
+                        from models.student_academic_profile import (
+                            StudentAcademicProfile,
+                        )
                         new_profile = StudentAcademicProfile()
                         new_profile.student_id = student.id
                         new_profile.academic_year_id = active_year.id
@@ -754,7 +766,7 @@ class PromotionPage(QWidget):
             
             msg = f"✅ {success_count} دانش‌آموز با موفقیت تکرار پایه شدند.\nسال تحصیلی آن‌ها به {next_year} تغییر یافت."
             if errors:
-                msg += f"\n\n⚠️ خطاها:\n" + "\n".join(errors[:5])
+                msg += "\n\n⚠️ خطاها:\n" + "\n".join(errors[:5])
                 if len(errors) > 5:
                     msg += f"\nو {len(errors)-5} خطای دیگر..."
             

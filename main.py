@@ -2,17 +2,17 @@
 PARTOW - ورودی اصلی برنامه - نسخه دیباگ
 """
 
-import sys
 import os
+import sys
 import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtGui import QIcon
-from views.main_window import MainWindow
+from PySide6.QtWidgets import QApplication, QMessageBox
+
 from database.connection import DatabaseConnection
-from utils.logger import get_logger, log_error, log_info
+from views.main_window import MainWindow
 
 
 def main():
@@ -24,7 +24,7 @@ def main():
         # تست دیتابیس
         print("🔵 مرحله 2: تست دیتابیس...")
         db = DatabaseConnection()
-        conn = db.get_connection()
+        db.get_connection()  # فقط برای اطمینان از برقراری اتصال
         print("✅ دیتابیس متصل شد.")
         
         # ایجاد اپلیکیشن

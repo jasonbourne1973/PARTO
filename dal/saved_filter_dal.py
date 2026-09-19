@@ -2,10 +2,11 @@
 لایه دسترسی به داده فیلترهای ذخیره‌شده
 """
 
+import json
+
 from database.connection import DatabaseConnection
 from models.saved_filter import SavedFilter
-import json
-from datetime import datetime
+from utils.time_utils import utc_now_iso
 
 
 class SavedFilterDAL:
@@ -190,8 +191,7 @@ class SavedFilterDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE saved_filters SET
                 is_deleted = 1,

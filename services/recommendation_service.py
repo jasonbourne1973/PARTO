@@ -2,25 +2,26 @@
 سرویس پیشنهاددهی هوشمند - تولید پیشنهادات شخصی‌سازی‌شده برای دانش‌آموزان
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
-from dal.competency_dal import CompetencyDAL
-from dal.recommendation_dal import RecommendationDAL
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.staff_dal import StaffDAL
-from models.recommendation_rules import RuleManager, RecommendationResult, RulePriority, RecommendationCategory
-from models.recommendation import Recommendation
-from utils.logger import get_logger
-from utils.error_handler import ServiceError
 import jdatetime
+
+from dal.competency_dal import CompetencyDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
+from dal.recommendation_dal import RecommendationDAL
+from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from models.recommendation import Recommendation
+from models.recommendation_rules import RuleManager
+from services.base_service import BaseService
+from utils.error_handler import ServiceError
+from utils.logger import get_logger
 
 
 class RecommendationService(BaseService):

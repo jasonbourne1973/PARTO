@@ -3,32 +3,42 @@
 نمایش روند و وضعیت پرونده
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QFrame, QGridLayout, QScrollArea,
-    QMessageBox, QTableWidget, QTableWidgetItem,
-    QHeaderView, QComboBox, QSizePolicy, QProgressBar, QTabWidget
-)
+import matplotlib
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QColor, QFont
+from PySide6.QtWidgets import (
+    QComboBox,
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
-from services.dashboard_service import DashboardService
 from dal.staff_dal import StaffDAL
-from utils.logger import get_logger
+from services.dashboard_service import DashboardService
 from utils.chart_helper import ChartHelper
+from utils.logger import get_logger
 from utils.persian_date import format_timestamp
 from views.pages.analytics_dashboard import AnalyticsDashboardPage
 
-import matplotlib
 matplotlib.use('QtAgg')
+import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-import numpy as np
 
 
 class DashboardPage(QWidget):
@@ -588,7 +598,6 @@ class DashboardPage(QWidget):
                 return
 
             stats = self.dashboard_data.get('general_stats', {})
-            indicators = self.dashboard_data.get('management_indicators', {})
 
             # ۱. به‌روزرسانی کارت‌ها
             self.stats_cards["دانش‌آموزان"].value_label.setText(str(stats.get('students_count', 0)))
@@ -635,7 +644,6 @@ class DashboardPage(QWidget):
         width = 0.35
 
         # استفاده از ChartHelper برای نمایش فارسی
-        from utils.chart_helper import ChartHelper
         labels_fa = [ChartHelper._farsi(str(label)) for label in labels]
 
         # رسم میله‌ها

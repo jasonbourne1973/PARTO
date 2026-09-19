@@ -2,22 +2,22 @@
 سرویس مدیریت اعلان‌ها و یادآوری‌ها
 """
 
-import sys
 import os
-from datetime import datetime, timedelta
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from dal.notification_dal import NotificationDAL
 from dal.followup_dal import FollowUpDAL
 from dal.intervention_dal import InterventionDAL
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.notification_dal import NotificationDAL
 from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from models.notification import Notification
+from services.base_service import BaseService
 from utils.error_handler import ServiceError
 from utils.logger import get_logger
+from utils.time_utils import utc_now_iso
 
 
 class NotificationService(BaseService):
@@ -223,7 +223,7 @@ class NotificationService(BaseService):
                 priority=priority,
                 entity_type='followup',
                 entity_id=followup.id,
-                scheduled_at=datetime.now().isoformat()
+                scheduled_at=utc_now_iso()
             )
             
             self.logger.info(f"یادآوری برای پیگیری {followup.id} ایجاد شد")
@@ -286,7 +286,7 @@ class NotificationService(BaseService):
                 priority=Notification.PRIORITY_HIGH,
                 entity_type='followup',
                 entity_id=followup.id,
-                scheduled_at=datetime.now().isoformat()
+                scheduled_at=utc_now_iso()
             )
             
             self.logger.info(f"اعلان معوق شدن پیگیری {followup.id} ایجاد شد")

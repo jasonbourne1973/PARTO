@@ -3,6 +3,8 @@
 تعیین و پیگیری اهداف تربیتی و آموزشی برای هر دانش‌آموز
 """
 
+from utils.time_utils import utc_now_iso
+
 from models.base import BaseModel
 
 
@@ -194,8 +196,7 @@ class IndividualGoal(BaseModel):
         self.progress_percent = 100
         if result:
             self.result = result
-        from datetime import datetime
-        self.achievement_date = datetime.now().isoformat()
+        self.achievement_date = utc_now_iso()
     
     def validate(self):
         errors = []

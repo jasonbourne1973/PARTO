@@ -2,22 +2,28 @@
 دیالوگ تغییر رمز عبور - نسخه با پشتیبانی از راهنما
 """
 
-from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QLineEdit, QPushButton, QMessageBox,
-    QWidget, QCheckBox
-)
-from PySide6.QtCore import Qt, Signal
-
-import sys
 import os
+import sys
+
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from database.connection import DatabaseConnection
 from dal.user_dal import UserDAL
-from utils.security import Security
+from database.connection import DatabaseConnection
 from utils.logger import get_logger
+from utils.security import Security
 from utils.tooltip_manager import TooltipManager
 
 

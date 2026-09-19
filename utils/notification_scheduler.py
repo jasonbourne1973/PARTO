@@ -4,7 +4,6 @@
 
 import threading
 import time
-from datetime import datetime, timedelta
 
 from services.notification_service import NotificationService
 from utils.logger import get_logger

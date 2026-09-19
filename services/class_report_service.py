@@ -3,22 +3,24 @@
 نمایش وضعیت کلی کلاس بر اساس داده‌های ثبت‌شده
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from dal.class_dal import ClassDAL
-from dal.observation_dal import ObservationDAL
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.competency_dal import CompetencyDAL
-from dal.staff_dal import StaffDAL
-from dal.academic_year_dal import AcademicYearDAL
-from utils.logger import get_logger
-from utils.error_handler import ServiceError
 import jdatetime
+
+from dal.academic_year_dal import AcademicYearDAL
+from dal.class_dal import ClassDAL
+from dal.competency_dal import CompetencyDAL
+from dal.observation_dal import ObservationDAL
+from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from services.base_service import BaseService
+from utils.error_handler import ServiceError
+from utils.logger import get_logger
+from utils.time_utils import utc_now
 
 
 class ClassReportService(BaseService):
@@ -569,8 +571,7 @@ class ClassReportService(BaseService):
                 today = jdatetime.date.today()
                 date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
             except Exception:
-                from datetime import datetime
-                date_str = datetime.now().strftime("%Y/%m/%d")
+                date_str = utc_now().strftime("%Y/%m/%d")
             
             pdf.add_text(f"تاریخ تهیه گزارش: {date_str}")
             pdf.add_text("PARTO - سامانه مدیریت پرونده دانش‌آموزان")
@@ -603,7 +604,7 @@ class ClassReportService(BaseService):
             
             try:
                 from openpyxl import Workbook
-                from openpyxl.styles import Font, PatternFill, Alignment
+                from openpyxl.styles import Alignment, Font, PatternFill
                 from openpyxl.utils import get_column_letter
             except ImportError:
                 return False, "کتابخانه openpyxl نصب نیست. pip install openpyxl"

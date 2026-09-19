@@ -2,24 +2,34 @@
 دیالوگ مدیریت پیوست‌ها - نسخه کامل با پیش‌نمایش بهتر
 """
 
-from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QListWidget, QListWidgetItem, QMessageBox,
-    QFileDialog, QProgressBar, QWidget, QSplitter,
-    QTextEdit, QFrame, QScrollArea, QGroupBox,
-    QLineEdit, QToolBar
-)
-from PySide6.QtCore import Qt, Signal, QThread
-from PySide6.QtGui import QColor, QPixmap, QIcon, QAction
-
 import os
 import sys
+
+from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import (
+    QDialog,
+    QFileDialog,
+    QFrame,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QScrollArea,
+    QSplitter,
+    QTextEdit,
+    QVBoxLayout,
+)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from services.attachment_service import AttachmentService
 from utils.logger import get_logger
-from utils.error_handler import ServiceError, ValidationError
 
 
 class AttachmentUploadWorker(QThread):

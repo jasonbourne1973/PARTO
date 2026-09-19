@@ -2,21 +2,23 @@
 سرویس گزارش عملکرد معلم - نمایش تعداد و کیفیت مشاهدات، مداخلات و پیگیری‌ها
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
+import jdatetime
+
+from dal.competency_dal import CompetencyDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
 from dal.staff_dal import StaffDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
-from dal.competency_dal import CompetencyDAL
-from utils.logger import get_logger
+from services.base_service import BaseService
 from utils.error_handler import ServiceError
-import jdatetime
+from utils.logger import get_logger
+from utils.time_utils import utc_now
 
 
 class TeacherPerformanceService(BaseService):
@@ -195,7 +197,6 @@ class TeacherPerformanceService(BaseService):
         
         total_obs = stats.get('total_observations', 0)
         positive = stats.get('positive', 0)
-        negative = stats.get('negative', 0)
         
         if total_obs > 0:
             positive_ratio = positive / total_obs
@@ -267,7 +268,7 @@ class TeacherPerformanceService(BaseService):
             teacher = report['teacher']
             stats = report.get('stats', {})
             
-            pdf.add_title(f"گزارش عملکرد معلم")
+            pdf.add_title("گزارش عملکرد معلم")
             pdf.add_spacer(0.2)
             
             info_items = [
@@ -301,8 +302,7 @@ class TeacherPerformanceService(BaseService):
                 today = jdatetime.date.today()
                 date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
             except Exception:
-                from datetime import datetime
-                date_str = datetime.now().strftime("%Y/%m/%d")
+                date_str = utc_now().strftime("%Y/%m/%d")
             
             pdf.add_text(f"تاریخ تهیه گزارش: {date_str}")
             pdf.add_text("PARTO - سامانه مدیریت پرونده دانش‌آموزان")

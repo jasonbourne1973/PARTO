@@ -2,29 +2,44 @@
 صفحه مشاهده دانش‌آموزان یک معلم - نسخه کامل
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QLabel, QHeaderView,
-    QMessageBox, QComboBox, QGroupBox, QLineEdit,
-    QTabWidget, QTextEdit, QSplitter, QFrame, QDialog 
-)
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QSplitter,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
-from dal.student_dal import StudentDAL
-from dal.staff_dal import StaffDAL
 from dal.academic_year_dal import AcademicYearDAL
-from dal.teacher_assignment_dal import TeacherAssignmentDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
 from dal.competency_dal import CompetencyDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
+from dal.staff_dal import StaffDAL
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from dal.teacher_assignment_dal import TeacherAssignmentDAL
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 class TeacherStudentsPage(QWidget):
     """صفحه مشاهده دانش‌آموزان یک معلم"""
@@ -434,7 +449,7 @@ class TeacherStudentsPage(QWidget):
             for teacher in teachers:
                 self.teacher_combo.addItem(f"{teacher.full_name}", teacher.id)
         except Exception as e:
-            print(f"خطا در بارگذاری معلمان: {e}")
+            logger.error(f"خطا در بارگذاری معلمان: {e}")
     
     def load_academic_years(self):
         """بارگذاری سال‌های تحصیلی در کامبوباکس"""
@@ -454,7 +469,7 @@ class TeacherStudentsPage(QWidget):
                         self.year_combo.setCurrentIndex(i)
                         break
         except Exception as e:
-            print(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
+            logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
     
     def load_teacher_students(self):
         """بارگذاری دانش‌آموزان معلم انتخاب شده"""
@@ -558,7 +573,7 @@ class TeacherStudentsPage(QWidget):
             self.load_student_followups(student.id)
             
         except Exception as e:
-            print(f"خطا در نمایش جزئیات: {e}")
+            logger.error(f"خطا در نمایش جزئیات: {e}")
     
     def load_student_observations(self, student_id):
         """بارگذاری مشاهدات دانش‌آموز"""
@@ -590,7 +605,7 @@ class TeacherStudentsPage(QWidget):
                 self.obs_table.setRowHeight(row, 30)
                 
         except Exception as e:
-            print(f"خطا در بارگذاری مشاهدات: {e}")
+            logger.error(f"خطا در بارگذاری مشاهدات: {e}")
     
     def load_student_interventions(self, student_id):
         """بارگذاری مداخلات دانش‌آموز"""
@@ -619,7 +634,7 @@ class TeacherStudentsPage(QWidget):
                 self.inter_table.setRowHeight(row, 30)
                 
         except Exception as e:
-            print(f"خطا در بارگذاری مداخلات: {e}")
+            logger.error(f"خطا در بارگذاری مداخلات: {e}")
     
     def load_student_followups(self, student_id):
         """بارگذاری پیگیری‌های دانش‌آموز"""
@@ -640,7 +655,7 @@ class TeacherStudentsPage(QWidget):
                 self.follow_table.setRowHeight(row, 30)
                 
         except Exception as e:
-            print(f"خطا در بارگذاری پیگیری‌ها: {e}")
+            logger.error(f"خطا در بارگذاری پیگیری‌ها: {e}")
     
     def clear_details(self):
         """پاک کردن جزئیات"""

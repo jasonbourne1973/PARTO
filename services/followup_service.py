@@ -2,19 +2,19 @@
 سرویس مدیریت پیگیری‌ها - نسخه کامل با انتقال منطق از View به Service
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
+from dal.academic_year_dal import AcademicYearDAL
 from dal.followup_dal import FollowUpDAL
 from dal.intervention_dal import InterventionDAL
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.staff_dal import StaffDAL
-from dal.academic_year_dal import AcademicYearDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from models.followup import FollowUp
+from services.base_service import BaseService
 from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
 
@@ -623,19 +623,19 @@ class FollowUpService(BaseService):
             elif data.get('staff_id') and data.get('staff_id') <= 0:
                 errors.append("مسئول پیگیری نامعتبر است")
 
-        # بررسی تاریخ پیگیری — اعتبارسنجی واقعی تقویم شمسی
+        # بررسی تاریخ پیگیری — قاعدهٔ یکسان: نرمال‌سازی، بعد اعتبارسنجی
         if provided('date'):
-            date = self.clean_text(data.get('date'))
-            if not date:
-                errors.append("تاریخ پیگیری نمی‌تواند خالی باشد")
-            elif not self.is_valid_jalali_date(date):
-                errors.append("فرمت تاریخ باید به صورت yyyy/MM/dd باشد")
+            _norm, _err = self.check_date(
+                data.get('date'), "تاریخ پیگیری", required=True)
+            if _err:
+                errors.append(_err)
 
-        # بررسی تاریخ اقدام بعدی (اگر وارد شده باشد)
+        # بررسی تاریخ اقدام بعدی (اختیاری)
         if provided('next_action_date'):
-            next_date = self.clean_text(data.get('next_action_date'))
-            if next_date and not self.is_valid_jalali_date(next_date):
-                errors.append("فرمت تاریخ اقدام بعدی باید به صورت yyyy/MM/dd باشد")
+            _norm, _err = self.check_date(
+                data.get('next_action_date'), "تاریخ اقدام بعدی")
+            if _err:
+                errors.append(_err)
 
         # بررسی وضعیت
         if provided('status'):

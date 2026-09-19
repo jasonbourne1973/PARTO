@@ -2,29 +2,39 @@
 فرم ثبت و ویرایش مشاهده - نسخه با پشتیبانی از سیستم راهنما
 """
 
+import jdatetime
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QLineEdit, QComboBox, QPushButton,
-    QTextEdit, QSpinBox, QMessageBox, QWidget,
-    QScrollArea, QGroupBox, QFrame, QCompleter,
-    QCheckBox, QSplitter, QSizePolicy
+    QComboBox,
+    QCompleter,
+    QDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QSpinBox,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, QTimer
-from PySide6.QtGui import QFont, QIcon
 
-from services.observation_service import ObservationService
-from dal.student_dal import StudentDAL
-from dal.staff_dal import StaffDAL
-from dal.competency_dal import CompetencyDAL
 from config.settings import OBSERVATION_LOCATIONS
-from utils.shamsi_date_input import ShamsiDateInput
-from utils.constants import SUGGESTED_TAGS, DEFAULT_SEVERITY
-from views.widgets.competency_tree_widget import CompetencyTreeWidget
+from dal.competency_dal import CompetencyDAL
+from dal.staff_dal import StaffDAL
+from dal.student_dal import StudentDAL
+from services.observation_service import ObservationService
+from utils.constants import DEFAULT_SEVERITY, SUGGESTED_TAGS
 from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
+from utils.shamsi_date_input import ShamsiDateInput
 from utils.tooltip_manager import TooltipManager
+from views.widgets.competency_tree_widget import CompetencyTreeWidget
 from views.widgets.help_widget import HelpWidget
-import jdatetime
 
 
 class ObservationForm(QDialog):
@@ -614,7 +624,6 @@ class ObservationForm(QDialog):
 
     def setup_tag_completer(self):
         """تنظیم تکمیل خودکار برای برچسب‌ها"""
-        from PySide6.QtWidgets import QCompleter
         completer = QCompleter(SUGGESTED_TAGS)
         completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
         completer.setFilterMode(Qt.MatchFlag.MatchContains)

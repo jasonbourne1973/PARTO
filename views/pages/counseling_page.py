@@ -2,25 +2,35 @@
 صفحه مدیریت جلسات مشاوره
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QLabel, QHeaderView,
-    QMessageBox, QDialog, QComboBox, QLineEdit,
-    QSplitter, QTextEdit, QGroupBox, QScrollArea
-)
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QKeyEvent
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QSplitter,
+    QTableWidget,
+    QTableWidgetItem,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
-from services.counseling_service import CounselingService
-from dal.student_dal import StudentDAL
 from dal.staff_dal import StaffDAL
-from views.dialogs.counseling_session_form import CounselingSessionForm
+from dal.student_dal import StudentDAL
+from services.counseling_service import CounselingService
 from utils.logger import get_logger
+from views.dialogs.counseling_session_form import CounselingSessionForm
 
 
 class CounselingPage(QWidget):

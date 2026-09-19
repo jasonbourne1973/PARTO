@@ -2,25 +2,21 @@
 سرویس مدیریت پیوست‌ها - نسخه کامل با قابلیت‌های جدید
 """
 
-import os
-import shutil
-import mimetypes
-from datetime import datetime
-import sys
-import os
 import hashlib
-import zipfile
-import json
+import mimetypes
+import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
+from config.settings import ATTACHMENTS_DIR
 from dal.attachment_dal import AttachmentDAL
 from models.attachment import Attachment
-from config.settings import ATTACHMENTS_DIR
+from services.base_service import BaseService
 from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
 from utils.security import Security
+from utils.time_utils import utc_now
 
 
 class AttachmentService(BaseService):
@@ -226,7 +222,7 @@ class AttachmentService(BaseService):
         """دریافت مسیر فیزیکی فایل پیوست"""
         attachment = self.get_attachment(attachment_id)
         if not os.path.exists(attachment.file_path):
-            raise ServiceError(f"فایل پیوست در سیستم وجود ندارد.")
+            raise ServiceError("فایل پیوست در سیستم وجود ندارد.")
         return attachment.file_path
     
     def get_attachment_content(self, attachment_id):
@@ -330,14 +326,14 @@ class AttachmentService(BaseService):
         safe_name = Security.sanitize_filename(original_name)
         
         if not safe_name:
-            safe_name = f"file_{int(datetime.now().timestamp())}"
+            safe_name = f"file_{int(utc_now().timestamp())}"
         
         name_parts = safe_name.rsplit('.', 1)
         if len(name_parts) == 2:
             base, ext = name_parts
-            return f"{base}_{int(datetime.now().timestamp())}.{ext}"
+            return f"{base}_{int(utc_now().timestamp())}.{ext}"
         else:
-            return f"{safe_name}_{int(datetime.now().timestamp())}"
+            return f"{safe_name}_{int(utc_now().timestamp())}"
     
     def _get_entity_folder(self, entity_type, entity_id):
         """دریافت پوشه ذخیره فایل‌های یک موجودیت"""

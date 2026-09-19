@@ -2,41 +2,53 @@
 پنجره اصلی برنامه PARTO - نسخه اصلاح شده با استایل یکپارچه
 """
 
-import sys
 import os
+import sys
 import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from PySide6.QtCore import QEvent, Qt, QTimer, Signal
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QStackedWidget, QFrame, QMessageBox,
-    QComboBox, QScrollArea, QApplication, QDialog,
-    QStatusBar, QToolBar, QSizePolicy
+    QApplication,
+    QComboBox,
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QStackedWidget,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, QTimer, QEvent
-from PySide6.QtGui import QAction, QIcon, QPixmap, QFont
 
-from views.pages.dashboard_page import DashboardPage
-from views.pages.students_page import StudentsPage
-from views.pages.observations_page import ObservationsPage
-from views.pages.indicators_page import IndicatorsPage
-from views.pages.analysis_page import AnalysisPage
-from views.pages.reports_page import ReportsPage
-from views.pages.settings_page import SettingsPage
-from views.pages.interventions_page import InterventionsPage
-from views.pages.followups_page import FollowUpsPage
-from views.dialogs.login_dialog import LoginDialog
-from views.dialogs.change_password_dialog import ChangePasswordDialog
-from views.widgets.notification_widget import NotificationWidget
+from config.settings import APP_AUTHOR, APP_NAME, APP_VERSION
 from dal.academic_year_dal import AcademicYearDAL
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from database.connection import DatabaseConnection
 from utils.logger import get_logger
 from utils.security import Permission, get_role_permissions
 from utils.theme_manager import ThemeManager
+from views.dialogs.change_password_dialog import ChangePasswordDialog
+from views.dialogs.login_dialog import LoginDialog
 from views.pages.academic_structure_page import AcademicStructurePage
-from config.settings import APP_NAME, APP_FULL_NAME, APP_VERSION, APP_AUTHOR
+from views.pages.analysis_page import AnalysisPage
+from views.pages.dashboard_page import DashboardPage
+from views.pages.followups_page import FollowUpsPage
+from views.pages.indicators_page import IndicatorsPage
+from views.pages.interventions_page import InterventionsPage
+from views.pages.observations_page import ObservationsPage
+from views.pages.reports_page import ReportsPage
+from views.pages.settings_page import SettingsPage
+from views.pages.students_page import StudentsPage
+from views.widgets.notification_widget import NotificationWidget
+
+logger = get_logger(__name__)
+
 
 class MainWindow(QMainWindow):
     """
@@ -83,7 +95,7 @@ class MainWindow(QMainWindow):
 
             if result != QDialog.DialogCode.Accepted:
                 self.is_logged_in = False
-        except Exception as e:
+        except Exception:
             traceback.print_exc()
             self.is_logged_in = False
 
@@ -566,11 +578,11 @@ class MainWindow(QMainWindow):
                     application.setStyleSheet(stylesheet)
                 else:
                     self.setStyleSheet(stylesheet)
-                print(f"✅ استایل از {style_path} بارگذاری شد")
+                logger.debug(f"✅ استایل از {style_path} بارگذاری شد")
             else:
-                print(f"⚠️ فایل استایل یافت نشد: {style_path}")
+                logger.warning(f"⚠️ فایل استایل یافت نشد: {style_path}")
         except Exception as e:
-            print(f"❌ خطا در بارگذاری استایل: {e}")
+            logger.error(f"❌ خطا در بارگذاری استایل: {e}")
 
     def _create_welcome_page(self):
         welcome_page = QWidget()
@@ -581,8 +593,8 @@ class MainWindow(QMainWindow):
         from config.settings import LOGO_PATH
         if os.path.exists(LOGO_PATH):
             background_label = QLabel(welcome_page)
-            from PySide6.QtGui import QPixmap, QPainter
             from PySide6.QtCore import QRect
+            from PySide6.QtGui import QPainter, QPixmap
 
             pixmap = QPixmap(LOGO_PATH)
             if not pixmap.isNull():
@@ -705,7 +717,7 @@ class MainWindow(QMainWindow):
                         self.year_combo.setCurrentIndex(i)
                         break
         except Exception as e:
-            print(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
+            logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
 
     def on_year_changed(self, index):
         if index >= 0:
@@ -726,7 +738,7 @@ class MainWindow(QMainWindow):
                 self.year_label.setText("⚠️ سال فعالی وجود ندارد")
         except Exception as e:
             self.year_label.setText("⚠️ خطا")
-            print(f"خطا در به‌روزرسانی سال تحصیلی: {e}")
+            logger.error(f"خطا در به‌روزرسانی سال تحصیلی: {e}")
 
     def on_student_double_clicked(self, item):
         row = item.row()

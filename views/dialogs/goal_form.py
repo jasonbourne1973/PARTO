@@ -2,23 +2,34 @@
 فرم ثبت و ویرایش هدف فردی - نسخه با پشتیبانی از سیستم راهنما
 """
 
-from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QLineEdit, QComboBox, QPushButton,
-    QTextEdit, QSpinBox, QMessageBox, QWidget,
-    QScrollArea, QGroupBox, QSizePolicy
-)
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QSpinBox,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
-from services.goal_service import GoalService
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.staff_dal import StaffDAL
 from dal.competency_dal import CompetencyDAL
+from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from models.individual_goal import IndividualGoal
-from utils.shamsi_date_input import ShamsiDateInput
+from services.goal_service import GoalService
 from utils.error_handler import ValidationError
 from utils.logger import get_logger
+from utils.shamsi_date_input import ShamsiDateInput
 from utils.tooltip_manager import TooltipManager
 from views.widgets.help_widget import HelpWidget
 

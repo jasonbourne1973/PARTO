@@ -2,19 +2,19 @@
 سرویس مدیریت جلسات مشاوره
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
 from dal.counseling_session_dal import CounselingSessionDAL
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from models.counseling_session import CounselingSession
-from utils.logger import get_logger
+from services.base_service import BaseService
 from utils.error_handler import ServiceError, ValidationError
+from utils.logger import get_logger
 
 
 class CounselingService(BaseService):
@@ -57,8 +57,9 @@ class CounselingService(BaseService):
             session.student_profile_id = data.get('student_profile_id')
             session.counselor_id = data.get('counselor_id')
             session.referred_by = data.get('referred_by')
-            session.session_date = data.get('session_date')
-            session.session_time = data.get('session_time')
+            # ===== اصلاح (بازرسی هشتم): یکدست‌سازی قالب تاریخ =====
+            session.session_date = self.clean_date(data.get('session_date'))
+            session.session_time = self.clean_text(data.get('session_time'), None)
             session.duration_minutes = data.get('duration_minutes')
             session.type = data.get('type', CounselingSession.TYPE_INDIVIDUAL)
             session.method = data.get('method', CounselingSession.METHOD_IN_PERSON)
@@ -72,7 +73,7 @@ class CounselingService(BaseService):
             session.homework = data.get('homework')
             session.outcome = data.get('outcome')
             session.follow_up_needed = data.get('follow_up_needed', False)
-            session.next_session_date = data.get('next_session_date')
+            session.next_session_date = self.clean_date(data.get('next_session_date'))
             session.next_session_notes = data.get('next_session_notes')
             session.status = data.get('status', CounselingSession.STATUS_SCHEDULED)
             
@@ -102,7 +103,8 @@ class CounselingService(BaseService):
             session.student_profile_id = data.get('student_profile_id', session.student_profile_id)
             session.counselor_id = data.get('counselor_id', session.counselor_id)
             session.referred_by = data.get('referred_by', session.referred_by)
-            session.session_date = data.get('session_date', session.session_date)
+            session.session_date = self.clean_date(
+                data.get('session_date'), session.session_date)
             session.session_time = data.get('session_time', session.session_time)
             session.duration_minutes = data.get('duration_minutes', session.duration_minutes)
             session.type = data.get('type', session.type)
@@ -117,7 +119,8 @@ class CounselingService(BaseService):
             session.homework = data.get('homework', session.homework)
             session.outcome = data.get('outcome', session.outcome)
             session.follow_up_needed = data.get('follow_up_needed', session.follow_up_needed)
-            session.next_session_date = data.get('next_session_date', session.next_session_date)
+            session.next_session_date = self.clean_date(
+                data.get('next_session_date'), session.next_session_date)
             session.next_session_notes = data.get('next_session_notes', session.next_session_notes)
             session.status = data.get('status', session.status)
             
@@ -239,17 +242,37 @@ class CounselingService(BaseService):
         return stats
     
     def _validate_session_data(self, data, is_update=False):
-        """اعتبارسنجی داده‌های جلسه"""
+        """
+        اعتبارسنجی داده‌های جلسه
+
+        ===== اصلاح (بازرسی هشتم) =====
+        • در حالت ویرایش، فقط کلیدهای ارسالی بررسی می‌شوند (ویرایش
+          جزئی دیگر رد نمی‌شود).
+        • تاریخ‌ها با تقویم واقعی شمسی اعتبارسنجی می‌شوند، نه با
+          نگاه‌کردن به خالی‌بودن.
+        """
         errors = []
-        
+
+        def provided(key):
+            return (not is_update) or (key in data)
+
         if not is_update:
             if not data.get('student_profile_id'):
                 errors.append("پرونده دانش‌آموز باید انتخاب شود")
             if not data.get('counselor_id'):
                 errors.append("مشاور باید انتخاب شود")
-        
-        if not data.get('session_date'):
-            errors.append("تاریخ جلسه نمی‌تواند خالی باشد")
+
+        if provided('session_date'):
+            _norm, _err = self.check_date(
+                data.get('session_date'), "تاریخ جلسه", required=True)
+            if _err:
+                errors.append(_err)
+
+        if provided('next_session_date'):
+            _norm, _err = self.check_date(
+                data.get('next_session_date'), "تاریخ جلسهٔ بعدی")
+            if _err:
+                errors.append(_err)
         
         if data.get('type') and data.get('type') not in [t[0] for t in CounselingSession.TYPE_CHOICES]:
             errors.append("نوع جلسه نامعتبر است")

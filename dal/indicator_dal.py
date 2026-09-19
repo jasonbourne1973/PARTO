@@ -4,6 +4,7 @@
 
 from database.connection import DatabaseConnection
 from models.indicator import Indicator
+from utils.time_utils import utc_now_iso
 
 
 class IndicatorDAL:
@@ -118,8 +119,7 @@ class IndicatorDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE indicators SET
                 is_deleted = 1,

@@ -2,6 +2,8 @@
 مدل پیشنهادات - ذخیره پیشنهادات تولیدشده در دیتابیس
 """
 
+from utils.time_utils import utc_now_iso
+
 from models.base import BaseModel
 
 
@@ -126,14 +128,12 @@ class Recommendation(BaseModel):
     def implement(self):
         """اجرای پیشنهاد"""
         self.status = self.STATUS_IMPLEMENTED
-        from datetime import datetime
-        self.implemented_at = datetime.now().isoformat()
+        self.implemented_at = utc_now_iso()
     
     def complete(self, feedback=None):
         """تکمیل پیشنهاد"""
         self.status = self.STATUS_COMPLETED
-        from datetime import datetime
-        self.completed_at = datetime.now().isoformat()
+        self.completed_at = utc_now_iso()
         if feedback:
             self.feedback = feedback
     

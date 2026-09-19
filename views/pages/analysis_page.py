@@ -2,32 +2,44 @@
 صفحه تحلیل روند رشد - نسخه کامل با نمودارهای متعدد و جستجو
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+import matplotlib
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QComboBox, QMessageBox, QGroupBox, QTextEdit,
-    QLineEdit, QCheckBox, QFormLayout, QTabWidget
+    QComboBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt
 
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.academic_year_dal import AcademicYearDAL
 from dal.observation_dal import ObservationDAL
 from dal.staff_dal import StaffDAL
-from dal.academic_year_dal import AcademicYearDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
 from database.connection import DatabaseConnection
 from utils.shamsi_date_input import ShamsiDateInput
 
-import matplotlib
 matplotlib.use('QtAgg')
+import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-import numpy as np
+
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class AnalysisPage(QWidget):
@@ -302,7 +314,7 @@ class AnalysisPage(QWidget):
             for teacher in self.all_teachers:
                 self.teacher_combo.addItem(f"{teacher.full_name}", teacher.id)
         except Exception as e:
-            print(f"خطا در بارگذاری معلمان: {e}")
+            logger.error(f"خطا در بارگذاری معلمان: {e}")
     
     def on_teacher_changed(self, index):
         """وقتی معلم تغییر می‌کند، لیست دانش‌آموزان را به‌روز کن"""
@@ -334,7 +346,7 @@ class AnalysisPage(QWidget):
                     display_text = f"{student.full_name} - پایه {grade_text}"
                     self.student_combo.addItem(display_text, student.id)
         except Exception as e:
-            print(f"خطا در بارگذاری دانش‌آموزان معلم: {e}")
+            logger.error(f"خطا در بارگذاری دانش‌آموزان معلم: {e}")
     
     def load_academic_years(self):
         """بارگذاری سال‌های تحصیلی در کامبوباکس"""
@@ -353,7 +365,7 @@ class AnalysisPage(QWidget):
                         self.year_combo.setCurrentIndex(i)
                         break
         except Exception as e:
-            print(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
+            logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
     
     def load_students(self):
         """بارگذاری دانش‌آموزان در کامبوباکس"""
@@ -367,7 +379,7 @@ class AnalysisPage(QWidget):
                 display_text = f"{student.full_name} - پایه {grade_text}"
                 self.student_combo.addItem(display_text, student.id)
         except Exception as e:
-            print(f"خطا در بارگذاری دانش‌آموزان: {e}")
+            logger.error(f"خطا در بارگذاری دانش‌آموزان: {e}")
     
     def search_student(self):
         """جستجوی دانش‌آموز و انتخاب در کامبوباکس"""

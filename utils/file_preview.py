@@ -3,11 +3,11 @@
 """
 
 import os
-import sys
-from typing import Optional, Tuple
+from typing import Optional
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QLabel, QTextEdit, QWidget
-from PySide6.QtCore import Qt, QByteArray
-from PySide6.QtGui import QPixmap, QImage, QColor
 
 
 class FilePreview:

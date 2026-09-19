@@ -5,12 +5,11 @@
 """
 
 import matplotlib
+
 matplotlib.use('QtAgg')
+import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-import numpy as np
-from PySide6.QtWidgets import QSizePolicy
-from PySide6.QtCore import Qt
 
 try:
     import arabic_reshaper

@@ -19,11 +19,11 @@
 """
 
 import sqlite3
-from datetime import datetime
 
 from database.connection import DatabaseConnection
 from models.user import User
 from utils.security import Security
+from utils.time_utils import utc_now_iso
 
 
 class UserDAL:
@@ -421,7 +421,6 @@ class UserDAL:
         cursor = conn.cursor()
 
         password_hash = Security.hash_password(new_raw_password)
-        now = datetime.now().isoformat()
 
         cursor.execute("""
             UPDATE users SET
@@ -488,7 +487,7 @@ class UserDAL:
         conn.execute("""
             UPDATE users SET last_login = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND is_deleted = 0
-        """, (datetime.now().isoformat(), user_id))
+        """, (utc_now_iso(), user_id))
         conn.commit()
 
     def set_active(self, user_id, is_active, user_id_actor=None):
@@ -556,7 +555,7 @@ class UserDAL:
         if not cursor.fetchone():
             return False
 
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE users SET
                 is_deleted = 1,

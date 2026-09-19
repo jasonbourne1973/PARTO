@@ -19,8 +19,8 @@
    کش‌های مرتبط دور ریخته شوند.
 """
 
-import time
 import threading
+import time
 from collections import OrderedDict
 from functools import wraps
 

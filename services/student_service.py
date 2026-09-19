@@ -2,19 +2,18 @@
 سرویس مدیریت دانش‌آموزان - با پشتیبانی از تحلیل روند
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from services.trend_analysis_service import TrendAnalysisService
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.academic_year_dal import AcademicYearDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from models.student import Student
 from models.student_academic_profile import StudentAcademicProfile
-from utils.security import Security
+from services.base_service import BaseService
+from services.trend_analysis_service import TrendAnalysisService
 from utils.error_handler import ServiceError
 
 
@@ -56,19 +55,24 @@ class StudentService(BaseService):
                 raise ServiceError("نام خانوادگی نمی‌تواند خالی باشد")
             
             # 2. ایجاد مدل Student
+            # ===== اصلاح (بازرسی هشتم) =====
+            # الگوی `data.get('x', '').strip()` وقتی کلید وجود دارد و
+            # مقدارش None است، AttributeError می‌دهد و کل ثبت شکست
+            # می‌خورد. حالا از clean_text استفاده می‌شود.
             student = Student()
-            student.first_name = data.get('first_name', '').strip()
-            student.last_name = data.get('last_name', '').strip()
-            student.national_code = data.get('national_code', '').strip()
-            student.birth_date = data.get('birth_date', '').strip()
-            student.father_name = data.get('father_name', '').strip()
-            student.guardian_name = data.get('guardian_name', '').strip()
-            student.guardian_phone = data.get('guardian_phone', '').strip()
-            student.address = data.get('address', '').strip()
+            student.first_name = self.clean_text(data.get('first_name'))
+            student.last_name = self.clean_text(data.get('last_name'))
+            student.national_code = self.clean_text(data.get('national_code'))
+            student.birth_date = self._clean_optional_date(data.get('birth_date'))
+            student.father_name = self.clean_text(data.get('father_name'))
+            student.guardian_name = self.clean_text(data.get('guardian_name'))
+            student.guardian_phone = self.clean_text(data.get('guardian_phone'))
+            student.address = self.clean_text(data.get('address'))
             student.is_active = 1
-            
-            # 3. اعتبارسنجی مدل
+
+            # 3. اعتبارسنجی مدل (شامل اعتبارسنجی تاریخ تولد)
             self.validate_model(student)
+            self._validate_birth_date(student.birth_date)
             
             # 4. بررسی تکراری نبودن کد ملی
             if student.national_code:
@@ -86,7 +90,7 @@ class StudentService(BaseService):
                 profile.student_id = created_student.id
                 profile.academic_year_id = active_year.id
                 profile.grade = data.get('grade', 1)
-                profile.class_name = data.get('class_name', '').strip()
+                profile.class_name = self.clean_text(data.get('class_name'))
                 profile.status = StudentAcademicProfile.STATUS_ACTIVE
                 
                 self.profile_dal.create(profile)
@@ -107,6 +111,69 @@ class StudentService(BaseService):
         
         return self.execute_in_transaction(_create)
     
+    # ============================================================
+    # اعتبارسنجی تاریخ تولد (بازرسی هشتم)
+    # ============================================================
+
+    # بازهٔ سنی معقول برای دانش‌آموز (سال شمسی)
+    # حد بالا اگر محاسبه‌شدنی باشد پویا است (سال جاری + ۱)، وگرنه
+    # این مقدار ثابت به‌عنوان پشتیبان استفاده می‌شود.
+    MIN_BIRTH_YEAR = 1375
+    MAX_BIRTH_YEAR_FALLBACK = 1410
+
+    @staticmethod
+    def _max_birth_year():
+        """بیشترین سال تولد مجاز (سال جاری شمسی + ۱)"""
+        try:
+            from utils.persian_date import PersianDate
+            return PersianDate.get_today().year + 1
+        except Exception:
+            return StudentService.MAX_BIRTH_YEAR_FALLBACK
+
+    def _clean_optional_date(self, value, default=None):
+        """
+        تاریخِ اختیاری را یکدست می‌کند
+
+        - None / خالی → default (یعنی «تاریخ ثبت نشده»)
+        - «1395-3-5»  → «1395/03/05»
+        - مقدار نامعتبر (مثل «1395/13/45») → همان‌طور برگردانده
+          می‌شود تا _validate_birth_date پیام گویا بدهد.
+        """
+        text = self.clean_text(value)
+        if not text:
+            return default if default is not None else ''
+        normalized = self.clean_date(text)
+        return normalized if normalized else text
+
+    def _validate_birth_date(self, birth_date):
+        """
+        اعتبارسنجی واقعی تاریخ تولد (اختیاری بودن + تقویم + بازهٔ سنی)
+
+        Raises:
+            ServiceError: با پیام فارسی گویا
+        """
+        if not birth_date:
+            # تاریخ تولد اجباری نیست؛ خالی مجاز است
+            return
+
+        if not self.is_valid_jalali_date(birth_date):
+            raise ServiceError(
+                f"تاریخ تولد «{birth_date}» معتبر نیست. "
+                "قالب درست: yyyy/MM/dd (مثلاً 1395/03/05)"
+            )
+
+        try:
+            year = int(str(birth_date).split('/')[0])
+        except (ValueError, IndexError):
+            raise ServiceError(f"تاریخ تولد «{birth_date}» قابل خواندن نیست")
+
+        max_year = self._max_birth_year()
+        if not (self.MIN_BIRTH_YEAR <= year <= max_year):
+            raise ServiceError(
+                f"سال تولد «{year}» خارج از بازهٔ منطقی است "
+                f"({self.MIN_BIRTH_YEAR} تا {max_year})"
+            )
+
     def update_student(self, student_id, data, user_id=None, ip_address=None):
         """
         به‌روزرسانی دانش‌آموز
@@ -133,17 +200,23 @@ class StudentService(BaseService):
             old_value = student.to_dict()
             
             # 3. به‌روزرسانی فیلدها
-            student.first_name = data.get('first_name', student.first_name).strip()
-            student.last_name = data.get('last_name', student.last_name).strip()
-            student.national_code = data.get('national_code', student.national_code).strip()
-            student.birth_date = data.get('birth_date', student.birth_date).strip()
-            student.father_name = data.get('father_name', student.father_name).strip()
-            student.guardian_name = data.get('guardian_name', student.guardian_name).strip()
-            student.guardian_phone = data.get('guardian_phone', student.guardian_phone).strip()
-            student.address = data.get('address', student.address).strip()
-            
+            # ===== اصلاح (بازرسی هشتم): None-safe + تاریخ یکدست =====
+            student.first_name = self.clean_text(data.get('first_name'), student.first_name)
+            student.last_name = self.clean_text(data.get('last_name'), student.last_name)
+            student.national_code = self.clean_text(
+                data.get('national_code'), student.national_code)
+            student.birth_date = self._clean_optional_date(
+                data.get('birth_date'), student.birth_date)
+            student.father_name = self.clean_text(data.get('father_name'), student.father_name)
+            student.guardian_name = self.clean_text(
+                data.get('guardian_name'), student.guardian_name)
+            student.guardian_phone = self.clean_text(
+                data.get('guardian_phone'), student.guardian_phone)
+            student.address = self.clean_text(data.get('address'), student.address)
+
             # 4. اعتبارسنجی
             self.validate_model(student)
+            self._validate_birth_date(student.birth_date)
             
             # 5. ذخیره در دیتابیس
             updated_student = self.student_dal.update(student)

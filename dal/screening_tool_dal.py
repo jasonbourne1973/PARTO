@@ -2,9 +2,11 @@
 لایه دسترسی به داده ابزارهای غربالگری (ScreeningTool)
 """
 
+import json
+
 from database.connection import DatabaseConnection
 from models.screening_tool import ScreeningTool
-import json
+from utils.time_utils import utc_now_iso
 
 
 class ScreeningToolDAL:
@@ -190,8 +192,7 @@ class ScreeningToolDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE screening_tools SET
                 is_deleted = 1,

@@ -2,26 +2,37 @@
 صفحه مدیریت اهداف فردی دانش‌آموزان
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QLabel, QHeaderView,
-    QMessageBox, QDialog, QComboBox, QLineEdit,
-    QSplitter, QTextEdit, QGroupBox, QProgressBar
-)
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QKeyEvent
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QSplitter,
+    QTableWidget,
+    QTableWidgetItem,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
-from services.goal_service import GoalService
-from dal.student_dal import StudentDAL
 from dal.staff_dal import StaffDAL
-from views.dialogs.goal_form import GoalForm
+from dal.student_dal import StudentDAL
 from models.individual_goal import IndividualGoal
+from services.goal_service import GoalService
 from utils.logger import get_logger
+from views.dialogs.goal_form import GoalForm
 
 
 class GoalsPage(QWidget):

@@ -5,6 +5,10 @@
 
 from database.connection import DatabaseConnection
 from models.intervention import Intervention
+from utils.logger import get_logger
+from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class InterventionDAL:
@@ -199,8 +203,7 @@ class InterventionDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE interventions SET
                 is_deleted = 1,
@@ -336,7 +339,7 @@ class InterventionDAL:
             }
 
         except Exception as e:
-            print(f"خطا در دریافت توزیع مداخلات: {e}")
+            logger.error(f"خطا در دریافت توزیع مداخلات: {e}")
             return {'planned': 0, 'in_progress': 0, 'done': 0, 'completed': 0, 'cancelled': 0, 'total': 0}
 
     def get_interventions_by_type(self, start_date=None, end_date=None, limit=10):
@@ -393,7 +396,7 @@ class InterventionDAL:
             return result
 
         except Exception as e:
-            print(f"خطا در دریافت مداخلات بر اساس نوع: {e}")
+            logger.error(f"خطا در دریافت مداخلات بر اساس نوع: {e}")
             return []
 
     def get_interventions_by_teacher(self, start_date=None, end_date=None, limit=10):
@@ -434,7 +437,7 @@ class InterventionDAL:
             return result
 
         except Exception as e:
-            print(f"خطا در دریافت مداخلات بر اساس معلم: {e}")
+            logger.error(f"خطا در دریافت مداخلات بر اساس معلم: {e}")
             return []
 
     def get_interventions_trend(self, period='monthly', start_date=None, end_date=None, limit=12):
@@ -507,7 +510,7 @@ class InterventionDAL:
             return result
 
         except Exception as e:
-            print(f"خطا در دریافت روند مداخلات: {e}")
+            logger.error(f"خطا در دریافت روند مداخلات: {e}")
             return []
 
     def _get_month_label(self, date_str):
@@ -575,7 +578,7 @@ class InterventionDAL:
             }
 
         except Exception as e:
-            print(f"خطا در دریافت نرخ موفقیت مداخلات: {e}")
+            logger.error(f"خطا در دریافت نرخ موفقیت مداخلات: {e}")
             return {'total': 0, 'completed': 0, 'cancelled': 0, 'pending': 0, 'success_rate': 0}
 
     # ============================================================
@@ -596,7 +599,7 @@ class InterventionDAL:
         try:
             return self.get_by_student_profile(profile_id, limit=limit)
         except Exception as e:
-            print(f"خطا در دریافت مداخلات دانش‌آموز: {e}")
+            logger.error(f"خطا در دریافت مداخلات دانش‌آموز: {e}")
             return []
 
     def get_successful_interventions_for_student(self, profile_id, limit=3):
@@ -615,7 +618,7 @@ class InterventionDAL:
             successful = [i for i in interventions if i.status in ['completed', 'done']]
             return successful[:limit]
         except Exception as e:
-            print(f"خطا در دریافت مداخلات موفق: {e}")
+            logger.error(f"خطا در دریافت مداخلات موفق: {e}")
             return []
 
     def get_recommended_intervention_types(self, profile_id, competency_id=None):
@@ -671,7 +674,7 @@ class InterventionDAL:
             return default_types
             
         except Exception as e:
-            print(f"خطا در دریافت انواع مداخلات پیشنهادی: {e}")
+            logger.error(f"خطا در دریافت انواع مداخلات پیشنهادی: {e}")
             return ['encouragement', 'individual_talk']
 
     # ============================================================

@@ -4,22 +4,32 @@
 
 import os
 import sys
-from datetime import datetime  # ✅ اضافه شد
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QLineEdit, QLabel,
-    QHeaderView, QMessageBox, QDialog, QComboBox, 
-    QFileDialog, QDialogButtonBox, QTabWidget
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor
 
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.academic_year_dal import AcademicYearDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from utils.time_utils import utc_now
 from views.dialogs.student_form import StudentForm
 from views.pages.student_profile_page import StudentProfilePage
 
@@ -533,7 +543,7 @@ class StudentsPage(QWidget):
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "ذخیره فایل Excel",
-            f"دانش‌آموزان_{datetime.now().strftime('%Y%m%d')}.xlsx",
+            f"دانش‌آموزان_{utc_now().strftime('%Y%m%d')}.xlsx",
             "Excel Files (*.xlsx)"
         )
         

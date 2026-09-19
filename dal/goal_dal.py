@@ -2,9 +2,11 @@
 لایه دسترسی به داده اهداف فردی
 """
 
+import json
+
 from database.connection import DatabaseConnection
 from models.individual_goal import IndividualGoal
-import json
+from utils.time_utils import utc_now_iso
 
 
 class GoalDAL:
@@ -269,8 +271,7 @@ class GoalDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE individual_goals SET
                 is_deleted = 1,

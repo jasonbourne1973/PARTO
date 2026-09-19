@@ -2,11 +2,9 @@
 تست‌های سرویس‌ها - نسخه کامل
 """
 
-import sys
 import os
+import sys
 import unittest
-import tempfile
-import shutil
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -20,8 +18,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # انجام می‌شود و به دیتابیس واقعی دست نمی‌زند.
 import tempfile as _tempfile
 
-from config import settings as _settings
 import database.connection as _dbc
+from config import settings as _settings
 
 _TMP_DB_DIR = _tempfile.mkdtemp(prefix='partow_test_')
 _settings.DB_PATH = os.path.join(_TMP_DB_DIR, 'partow.db')
@@ -30,13 +28,12 @@ _dbc.DatabaseConnection._instance = None
 _dbc.DatabaseConnection._connection = None
 _dbc.DatabaseConnection._initialized = False
 
-from services.observation_service import ObservationService
-from services.intervention_service import InterventionService
-from services.followup_service import FollowUpService
-from services.student_service import StudentService
-from services.dashboard_service import DashboardService
 from services.case_timeline_service import CaseTimelineService
-from utils.error_handler import ServiceError, ValidationError
+from services.dashboard_service import DashboardService
+from services.followup_service import FollowUpService
+from services.intervention_service import InterventionService
+from services.observation_service import ObservationService
+from services.student_service import StudentService
 
 
 class TestObservationService(unittest.TestCase):
@@ -89,11 +86,20 @@ class TestObservationService(unittest.TestCase):
         is_valid, errors = self.service.validate_observation(invalid_data)
         self.assertFalse(is_valid)
         
-        # تاریخ با فرمت اشتباه
-        invalid_data = self.test_data.copy()
-        invalid_data['observation_date'] = '1405-08-15'
-        is_valid, errors = self.service.validate_observation(invalid_data)
-        self.assertFalse(is_valid)
+        # تاریخ با جداکنندهٔ خط تیره — سیاست دور هشتم:
+        # این قالب دیگر «فرمت اشتباه» نیست؛ نرمال می‌شود و می‌پذیریم،
+        # چون فایل‌های اکسل و منابع بیرونی همین قالب را می‌دهند.
+        dashed_data = self.test_data.copy()
+        dashed_data['observation_date'] = '1405-08-15'
+        is_valid, errors = self.service.validate_observation(dashed_data)
+        self.assertTrue(is_valid, errors)
+
+        # ولی تاریخ بی‌اعتبارِ تقویمی در هر قالبی باید رد شود
+        for bad in ('1405/13/15', '1405/00/10', '1405/12/31', 'بوق'):
+            invalid_data = self.test_data.copy()
+            invalid_data['observation_date'] = bad
+            is_valid, errors = self.service.validate_observation(invalid_data)
+            self.assertFalse(is_valid, f"تاریخ {bad} نباید پذیرفته شود")
     
     def test_validate_severity(self):
         """تست اعتبارسنجی شدت"""
@@ -269,7 +275,7 @@ class TestDashboardService(unittest.TestCase):
             self.assertIsNotNone(data)
             self.assertIn('general_stats', data)
             self.assertIn('management_indicators', data)
-        except Exception as e:
+        except Exception:
             # اگر دیتابیس خالی باشد، خطا می‌دهد
             pass
 
@@ -315,7 +321,7 @@ def run_tests():
     
     # نمایش خلاصه
     print("\n" + "=" * 50)
-    print(f"📊 خلاصه تست‌ها:")
+    print("📊 خلاصه تست‌ها:")
     print(f"  • اجرا شده: {result.testsRun}")
     print(f"  • موفق: {result.testsRun - len(result.failures) - len(result.errors)}")
     print(f"  • ناموفق: {len(result.failures)}")

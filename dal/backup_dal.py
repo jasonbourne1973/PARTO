@@ -19,10 +19,10 @@
 
 import os
 import sqlite3
-from datetime import datetime
 
 from database.connection import DatabaseConnection
 from models.base import BaseModel
+from utils.time_utils import utc_now_iso
 
 
 class BackupRecord(BaseModel):
@@ -261,7 +261,7 @@ class BackupDAL:
             WHERE id = ? AND is_deleted = 0
         """, (
             1 if checksum_matches else 0,
-            datetime.now().isoformat(),
+            utc_now_iso(),
             backup_id
         ))
 
@@ -276,7 +276,7 @@ class BackupDAL:
                 restored_at = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND is_deleted = 0
-        """, (datetime.now().isoformat(), backup_id))
+        """, (utc_now_iso(), backup_id))
         conn.commit()
 
     # ============================================================
@@ -323,7 +323,7 @@ class BackupDAL:
         if not record:
             return False
 
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE backups SET
                 is_deleted = 1,

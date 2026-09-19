@@ -2,31 +2,35 @@
 سرویس تولید گزارش‌های دانش‌آموزی - نسخه اصلاح شده با PDF بدون Emoji
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
 from dal.academic_year_dal import AcademicYearDAL
 from dal.competency_dal import CompetencyDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
 from dal.staff_dal import StaffDAL
-from services.case_timeline_service import CaseTimelineService
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from database.connection import DatabaseConnection
+from services.case_timeline_service import CaseTimelineService
+from utils.logger import get_logger
 from utils.persian_pdf import PersianPDF
+from utils.time_utils import utc_now
+
+logger = get_logger(__name__)
 
 try:
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
     OPENPYXL_AVAILABLE = True
 except ImportError:
     OPENPYXL_AVAILABLE = False
-    print("⚠️ کتابخانه openpyxl نصب نیست. برای نصب: pip install openpyxl")
+    logger.warning("⚠️ کتابخانه openpyxl نصب نیست. برای نصب: pip install openpyxl")
 
 
 class ReportGenerator:
@@ -63,7 +67,6 @@ class ReportGenerator:
         
         # دریافت داده‌ها با استفاده از Timeline Service
         timeline = self.timeline_service.get_timeline(profile_id)
-        summary = self.timeline_service.get_timeline_summary(profile_id)
         
         observations = self.observation_dal.get_by_student_profile(profile_id)
         interventions = self.intervention_dal.get_by_student_profile(profile_id)
@@ -540,8 +543,7 @@ class ReportGenerator:
                 today = jdatetime.date.today()
                 date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
             except Exception:
-                from datetime import datetime
-                date_str = datetime.now().strftime("%Y/%m/%d")
+                date_str = utc_now().strftime("%Y/%m/%d")
             
             pdf.add_text(f"تاریخ تهیه گزارش: {date_str}")
             pdf.add_text("PARTO - سامانه مدیریت پرونده دانش آموزان")
@@ -644,7 +646,6 @@ class ReportGenerator:
             row += 1
             if report['strengths']:
                 for strength in report['strengths']:
-                    comp_id = strength.get('competency_id', '')
                     obs_ids = ', '.join([str(i) for i in strength.get('observation_ids', [])])
                     ws2.cell(row=row, column=1, value=f"• {strength['competency']} (میانگین شدت: {strength['avg_severity']})")
                     ws2.cell(row=row, column=2, value=f"شناسه مشاهده‌ها: {obs_ids}").font = Font(name='B Nazanin', size=9, color='7F8C8D')

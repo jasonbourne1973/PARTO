@@ -2,12 +2,13 @@
 مدیریت اتصال به دیتابیس SQLite - نسخه اصلاح شده با Migration
 """
 
-import sqlite3
 import os
-import json
-from datetime import datetime
+import sqlite3
+
 import jdatetime
-from config.settings import DB_PATH, DB_VERSION, DB_VERSION_FILE
+
+from config.settings import DB_PATH, DB_VERSION
+from utils.time_utils import utc_now
 
 
 class DatabaseConnection:
@@ -372,7 +373,10 @@ class DatabaseConnection:
     # ماژول‌های migration که کاملاً «چندباراجراشدنی» (idempotent) هستند:
     # یعنی هر دستورشان یا IF NOT EXISTS دارد یا قبلش وجود ستون/جدول/داده
     # بررسی می‌شود. این‌ها را می‌توان در هر اجرا با خیال راحت صدا زد.
-    _IDEMPOTENT_MIGRATIONS = ("migration_v7",)
+    # توجه: migration_v8 هم idempotent است (همهٔ ایندکس‌ها با
+    # IF NOT EXISTS ساخته می‌شوند)، پس روی دیتابیس‌های قدیمی که شماره
+    # نسخه‌شان دست‌کاری شده هم اجرا می‌شود (بازرسی هشتم).
+    _IDEMPOTENT_MIGRATIONS = ("migration_v7", "migration_v8")
 
     def _heal_schema(self):
         """
@@ -1355,7 +1359,7 @@ class DatabaseConnection:
                 now = jdatetime.datetime.now()
                 current_year = now.year
             except Exception:
-                current_year = datetime.now().year - 621
+                current_year = utc_now().year - 621
             
             current_title = f"{current_year}-{current_year+1}"
             
@@ -1397,8 +1401,8 @@ class DatabaseConnection:
         cursor.execute("SELECT COUNT(*) FROM competencies WHERE is_deleted = 0")
         if cursor.fetchone()[0] == 0:
             try:
-                import sys
                 import os
+                import sys
                 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
                 from data.competencies_data import COMPETENCIES_DATA
                 

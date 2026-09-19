@@ -6,8 +6,6 @@ def upgrade(connection):
     """
     ارتقاء به نسخه 1
     """
-    cursor = connection.cursor()
-    
     # ایجاد تمام جداول
     # (کد ایجاد جداول در connection.py پیاده‌سازی شده است)
     

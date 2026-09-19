@@ -2,15 +2,19 @@
 ویجت راهنمای سریع - نمایش درون فرم‌ها
 """
 
+from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QFrame, QTextEdit, QScrollArea, QMessageBox
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, QEvent
-from PySide6.QtGui import QColor, QFont
 
-from utils.help_system import HelpWidget as FullHelpDialog, HelpSystem
-from utils.tooltip_manager import TooltipManager
+from utils.help_system import HelpSystem
+from utils.help_system import HelpWidget as FullHelpDialog
 
 
 class HelpWidget(QFrame):

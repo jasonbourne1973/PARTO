@@ -2,20 +2,20 @@
 سرویس مدیریت اهداف فردی دانش‌آموزان
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from dal.goal_dal import GoalDAL
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.staff_dal import StaffDAL
 from dal.competency_dal import CompetencyDAL
+from dal.goal_dal import GoalDAL
+from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from models.individual_goal import IndividualGoal
-from utils.logger import get_logger
+from services.base_service import BaseService
 from utils.error_handler import ServiceError, ValidationError
+from utils.logger import get_logger
 
 
 class GoalService(BaseService):
@@ -58,9 +58,9 @@ class GoalService(BaseService):
             goal.domain = data.get('domain', IndividualGoal.DOMAIN_OTHER)
             goal.priority = data.get('priority', IndividualGoal.PRIORITY_MEDIUM)
             goal.success_criteria = data.get('success_criteria')
-            goal.target_date = data.get('target_date')
-            goal.start_date = data.get('start_date')
-            goal.end_date = data.get('end_date')
+            goal.target_date = self.clean_date(data.get('target_date'))
+            goal.start_date = self.clean_date(data.get('start_date'))
+            goal.end_date = self.clean_date(data.get('end_date'))
             goal.progress_percent = 0
             goal.status = data.get('status', IndividualGoal.STATUS_DRAFT)
             
@@ -92,9 +92,10 @@ class GoalService(BaseService):
             goal.domain = data.get('domain', goal.domain)
             goal.priority = data.get('priority', goal.priority)
             goal.success_criteria = data.get('success_criteria', goal.success_criteria)
-            goal.target_date = data.get('target_date', goal.target_date)
-            goal.start_date = data.get('start_date', goal.start_date)
-            goal.end_date = data.get('end_date', goal.end_date)
+            goal.target_date = self.clean_date(
+                data.get('target_date'), goal.target_date)
+            goal.start_date = self.clean_date(data.get('start_date'), goal.start_date)
+            goal.end_date = self.clean_date(data.get('end_date'), goal.end_date)
             goal.status = data.get('status', goal.status)
             
             errors = goal.validate()
@@ -239,10 +240,25 @@ class GoalService(BaseService):
             if not data.get('student_profile_id'):
                 errors.append("پرونده دانش‌آموز باید انتخاب شود")
         
-        if not data.get('title'):
+        title = self.clean_text(data.get('title'))
+        if not title:
             errors.append("عنوان هدف نمی‌تواند خالی باشد")
-        elif len(data.get('title', '').strip()) < 2:
+        elif len(title) < 2:
             errors.append("عنوان هدف باید حداقل ۲ کاراکتر باشد")
+
+        # ===== اصلاح (بازرسی هشتم): اعتبارسنجی واقعی تاریخ‌ها =====
+        start_date, err = self.check_date(data.get('start_date'), "تاریخ شروع")
+        if err:
+            errors.append(err)
+        target_date, err = self.check_date(data.get('target_date'), "تاریخ هدف")
+        if err:
+            errors.append(err)
+        end_date, err = self.check_date(data.get('end_date'), "تاریخ پایان")
+        if err:
+            errors.append(err)
+
+        if start_date and end_date and end_date < start_date:
+            errors.append("تاریخ پایان نمی‌تواند قبل از تاریخ شروع باشد")
         
         if data.get('priority') and data.get('priority') not in [p[0] for p in IndividualGoal.PRIORITY_CHOICES]:
             errors.append("اولویت هدف نامعتبر است")

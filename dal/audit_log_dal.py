@@ -3,7 +3,9 @@
 """
 
 from database.connection import DatabaseConnection
-from datetime import datetime
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class AuditLogDAL:
@@ -96,7 +98,7 @@ class AuditLogDAL:
             
             return logs
         except Exception as e:
-            print(f"⚠️ خطا در دریافت Audit Log: {e}")
+            logger.error(f"⚠️ خطا در دریافت Audit Log: {e}")
             return []
     
     def get_recent_changes(self, entity_id, entity_type, limit=20):
@@ -136,5 +138,5 @@ class AuditLogDAL:
                 })
             return results
         except Exception as e:
-            print(f"⚠️ خطا در دریافت خلاصه فعالیت‌ها: {e}")
+            logger.error(f"⚠️ خطا در دریافت خلاصه فعالیت‌ها: {e}")
             return []

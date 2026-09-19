@@ -2,14 +2,14 @@
 سرویس پایه با پشتیبانی از Transaction و مدیریت خطا
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database.connection import DatabaseConnection
-from utils.logger import get_logger
 from utils.error_handler import ErrorHandler, ServiceError
+from utils.logger import get_logger
 
 
 class BaseService:
@@ -333,6 +333,35 @@ class BaseService:
         if not normalized:
             return default
         return normalized
+
+    def check_date(self, value, label='تاریخ', required=False):
+        """
+        بررسی یک تاریخ شمسیِ ورودی و برگرداندن شکل کانونیکال آن
+
+        قاعده:
+            «1405-6-6»   → «1405/06/06» و معتبر
+            «1405/13/45» → معتبر نیست (ماه/روز خارج از تقویم)
+            «» / None    → اگر required باشد خطا، وگرنه None
+
+        Args:
+            value: مقدار ورودی
+            label: نام فیلد برای پیام خطا (مثلاً «تاریخ جلسه»)
+            required: آیا خالی‌بودن خطاست؟
+
+        Returns:
+            tuple: (normalized_value_or_None, error_message_or_None)
+        """
+        raw = self.clean_text(value)
+        if not raw:
+            if required:
+                return None, f"{label} نمی‌تواند خالی باشد"
+            return None, None
+
+        normalized = self.clean_date(raw)
+        if not normalized or not self.is_valid_jalali_date(normalized):
+            return None, f"{label} معتبر نیست (قالب: yyyy/MM/dd)"
+
+        return normalized, None
 
     @staticmethod
     def is_valid_jalali_date(value):

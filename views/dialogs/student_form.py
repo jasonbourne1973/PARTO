@@ -2,22 +2,35 @@
 فرم ثبت و ویرایش دانش‌آموز - نسخه با پشتیبانی از سیستم راهنما
 """
 
-from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QLineEdit, QComboBox, QPushButton,
-    QTextEdit, QSpinBox, QMessageBox, QScrollArea, QWidget
-)
-from PySide6.QtCore import Qt
-from datetime import datetime
-import jdatetime
 
-from models.student import Student
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.academic_year_dal import AcademicYearDAL
-from models.academic_year import AcademicYear
+import jdatetime
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSpinBox,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
+
 from config.settings import GRADES, LIVING_STATUSES
+from dal.academic_year_dal import AcademicYearDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from models.academic_year import AcademicYear
+from models.student import Student
+from utils.logger import get_logger
+from utils.time_utils import utc_now
 from utils.tooltip_manager import TooltipManager
+
+logger = get_logger(__name__)
 
 
 class StudentForm(QDialog):
@@ -202,7 +215,7 @@ class StudentForm(QDialog):
             now = jdatetime.datetime.now()
             current_year = now.year
         except Exception:
-            current_year = datetime.now().year - 621
+            current_year = utc_now().year - 621
 
         new_year = AcademicYear()
         new_year.title = f"{current_year}-{current_year+1}"
@@ -217,7 +230,7 @@ class StudentForm(QDialog):
 
         self.academic_year_input.setText(created_year.title)
         self._active_year = created_year
-        print(f"✅ سال تحصیلی جدید در فرم ایجاد شد: {created_year.title} (ID={created_year.id})")
+        logger.debug(f"✅ سال تحصیلی جدید در فرم ایجاد شد: {created_year.title} (ID={created_year.id})")
     
     def load_student_data(self):
         """بارگذاری اطلاعات دانش‌آموز برای ویرایش"""
@@ -274,7 +287,7 @@ class StudentForm(QDialog):
             self._ensure_active_year()
             active_year = getattr(self, "_active_year", None)
 
-            print("DEBUG active_year:", active_year.id if active_year else None)
+            logger.debug("DEBUG active_year:", active_year.id if active_year else None)
 
             if not active_year or not active_year.id:
                 QMessageBox.critical(self, "خطا", "سال تحصیلی فعالی وجود ندارد.")
@@ -318,7 +331,7 @@ class StudentForm(QDialog):
                 new_profile.class_name = class_name
                 new_profile.status = "active"
 
-                print(f"DEBUG profile -> student_id={new_profile.student_id}, academic_year_id={new_profile.academic_year_id}")
+                logger.debug(f"DEBUG profile -> student_id={new_profile.student_id}, academic_year_id={new_profile.academic_year_id}")
 
                 self.profile_dal.create(new_profile)
 

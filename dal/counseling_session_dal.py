@@ -2,9 +2,11 @@
 لایه دسترسی به داده جلسات مشاوره
 """
 
+import json
+
 from database.connection import DatabaseConnection
 from models.counseling_session import CounselingSession
-import json
+from utils.time_utils import utc_now_iso
 
 
 class CounselingSessionDAL:
@@ -131,8 +133,9 @@ class CounselingSessionDAL:
     
     def get_upcoming_sessions(self, days=7, include_deleted=False):
         """دریافت جلسات آینده"""
-        import jdatetime
         from datetime import timedelta
+
+        import jdatetime
 
         # ===== اصلاح (بازرسی دوم) =====
         # اگر فراخوانی‌کننده صریحاً None بدهد (مثلاً از یک فیلد خالی UI یا
@@ -270,8 +273,7 @@ class CounselingSessionDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE counseling_sessions SET
                 is_deleted = 1,

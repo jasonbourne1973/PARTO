@@ -2,30 +2,48 @@
 صفحه مرکز پرونده دانش‌آموز - نسخه نهایی با Timeline واقعی و جستجو و انتخاب سال
 """
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QTabWidget, QFrame, QMessageBox, QScrollArea,
-    QGridLayout, QGroupBox, QTableWidget, QTableWidgetItem,
-    QHeaderView, QSplitter, QListWidget, QListWidgetItem,
-    QTextEdit, QDialog, QComboBox, QLineEdit
-)
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QFrame,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSplitter,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
 from dal.academic_year_dal import AcademicYearDAL
 from dal.competency_dal import CompetencyDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
 from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from services.case_timeline_service import CaseTimelineService
-from views.dialogs.observation_form import ObservationForm
-from views.dialogs.intervention_form import InterventionForm
-from views.dialogs.followup_form import FollowUpForm
 from services.trend_analysis_service import TrendAnalysisService
-from utils.persian_calendar import TimeGrouper
+from utils.logger import get_logger
+from views.dialogs.followup_form import FollowUpForm
+from views.dialogs.intervention_form import InterventionForm
+from views.dialogs.observation_form import ObservationForm
+
+logger = get_logger(__name__)
 
 
 class StudentProfilePage(QWidget):
@@ -388,7 +406,7 @@ class StudentProfilePage(QWidget):
                         self.selected_year_id = active_year.id
                         break
         except Exception as e:
-            print(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
+            logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
     
     def on_year_changed(self, index):
         """وقتی سال تحصیلی تغییر می‌کند"""
@@ -409,7 +427,7 @@ class StudentProfilePage(QWidget):
                 display_text = f"{student.full_name} - پایه {grade_text}"
                 self.student_select_combo.addItem(display_text, student.id)
         except Exception as e:
-            print(f"خطا در بارگذاری لیست دانش‌آموزان: {e}")
+            logger.error(f"خطا در بارگذاری لیست دانش‌آموزان: {e}")
     
     def search_student(self):
         """جستجوی دانش‌آموز و انتخاب در کامبوباکس"""
@@ -882,7 +900,7 @@ class StudentProfilePage(QWidget):
         lines.append(f"📅 تاریخ: {event['date'] or 'نامشخص'}")
         lines.append(f"📝 عنوان: {event['title']}")
         lines.append("")
-        lines.append(f"📄 توضیحات:")
+        lines.append("📄 توضیحات:")
         lines.append(f"{event['description'] or 'توضیحاتی ثبت نشده است.'}")
         lines.append("")
         
@@ -929,7 +947,6 @@ class StudentProfilePage(QWidget):
             return
         
         observations = self.observation_dal.get_by_student_profile(self.profile_id)
-        interventions = self.intervention_dal.get_by_student_profile(self.profile_id)
         
         strengths = [obs for obs in observations if obs.behavior_type == "مثبت"]
         weaknesses = [obs for obs in observations if obs.behavior_type == "منفی"]

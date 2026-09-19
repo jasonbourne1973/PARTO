@@ -2,8 +2,8 @@
 سرویس تولید گزارش معلم - بدون Emoji
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -17,20 +17,26 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 # نمی‌آمد (به‌جای پیام «openpyxl نصب نیست»). همین الگو در
 # services/class_report_service.py درست پیاده شده بود (import داخل متد
 # با except ImportError و پیام راهنما) — اینجا هم همان رفتار گرفته شد.
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 try:
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
     OPENPYXL_AVAILABLE = True
 except ImportError:
     OPENPYXL_AVAILABLE = False
     Workbook = Font = PatternFill = Alignment = Border = Side = None
     get_column_letter = None
-    print("⚠️ openpyxl نصب نیست. pip install openpyxl")
+    logger.warning("⚠️ openpyxl نصب نیست. pip install openpyxl")
 
-from utils.persian_pdf import PersianPDF
 import jdatetime
-from datetime import datetime
+
+from utils.logger import get_logger
+from utils.persian_pdf import PersianPDF
+from utils.time_utils import utc_now
 
 
 class TeacherReportService:
@@ -156,7 +162,7 @@ class TeacherReportService:
                 today = jdatetime.date.today()
                 date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
             except Exception:
-                date_str = datetime.now().strftime("%Y/%m/%d")
+                date_str = utc_now().strftime("%Y/%m/%d")
             
             pdf.add_text(f"تاریخ تهیه گزارش: {date_str}")
             pdf.add_text("PARTO - سامانه مدیریت پرونده دانش آموزان")

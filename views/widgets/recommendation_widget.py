@@ -2,22 +2,26 @@
 ویجت نمایش پیشنهادات هوشمند - نمایش در پرونده دانش‌آموز
 """
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QFrame, QScrollArea, QMessageBox,
-    QGroupBox, QGridLayout, QTextEdit
-)
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QFont
-
-import sys
 import os
+import sys
+
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from services.recommendation_service import RecommendationService
-from services.intervention_suggester import InterventionSuggester
 from models.recommendation import Recommendation
+from services.intervention_suggester import InterventionSuggester
+from services.recommendation_service import RecommendationService
 from utils.logger import get_logger
 
 

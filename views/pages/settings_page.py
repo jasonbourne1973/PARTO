@@ -2,28 +2,40 @@
 صفحه تنظیمات برنامه - نسخه کامل با مدیریت کاربران
 """
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QLineEdit, QMessageBox, QGroupBox,
-    QFormLayout, QCheckBox, QSpinBox, QTabWidget,
-    QTableWidget, QTableWidgetItem, QHeaderView,
-    QComboBox, QDialog, QTextEdit, QGridLayout, QScrollArea
-    
-)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QComboBox,
+    QFormLayout,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSpinBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
+from config.constants import STAFF_ROLES
 from dal.academic_year_dal import AcademicYearDAL
 from dal.staff_dal import StaffDAL
+from dal.user_dal import UserDAL
+from database.connection import DatabaseConnection  # ✅ اضافه شد
 from models.academic_year import AcademicYear
 from models.staff import Staff
-from config.constants import STAFF_ROLES
-from utils.security import Security, SessionManager, Permission
-from dal.user_dal import UserDAL
 from models.user import User
-from database.connection import DatabaseConnection  # ✅ اضافه شد
-import sqlite3  # ✅ اضافه شد
-import os  # ✅ این خط را اضافه کنید
+from utils.logger import get_logger
+from utils.security import Permission, Security
+
+logger = get_logger(__name__)
 
 
 class SettingsPage(QWidget):
@@ -721,7 +733,7 @@ class SettingsPage(QWidget):
             for staff in staff_list:
                 self.user_staff_combo.addItem(f"{staff.full_name} ({staff.role_display})", staff.id)
         except Exception as e:
-            print(f"خطا در بارگذاری اعضای کادر: {e}")
+            logger.error(f"خطا در بارگذاری اعضای کادر: {e}")
     
     def _current_staff_id(self):
         """
@@ -1132,8 +1144,12 @@ class SettingsPage(QWidget):
         
         # دریافت اطلاعات از settings
         from config.settings import (
-            APP_NAME, APP_VERSION, APP_AUTHOR, 
-            APP_EMAIL, APP_WEBSITE, APP_COPYRIGHT
+            APP_AUTHOR,
+            APP_COPYRIGHT,
+            APP_EMAIL,
+            APP_NAME,
+            APP_VERSION,
+            APP_WEBSITE,
         )
         
         about_text = QLabel(f"""
@@ -1322,8 +1338,9 @@ class SettingsPage(QWidget):
         try:
             # ✅ ایمپورت‌های مورد نیاز
             import os  # ✅ این خط را داخل تابع اضافه کنید
+
+            from config.settings import ATTACHMENTS_DIR, DB_PATH
             from utils.backup import BackupManager
-            from config.settings import DB_PATH, ATTACHMENTS_DIR
             
             # ایجاد پوشه backup
             backup_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backups")
@@ -1501,7 +1518,7 @@ class SettingsPage(QWidget):
                 if staff.role == "teacher":
                     self.class_teacher_combo.addItem(f"{staff.full_name}", staff.id)
         except Exception as e:
-            print(f"خطا در بارگذاری معلمان: {e}")
+            logger.error(f"خطا در بارگذاری معلمان: {e}")
     
     def load_class_years(self):
         """بارگذاری سال‌های تحصیلی برای کامبوباکس کلاس"""
@@ -1519,7 +1536,7 @@ class SettingsPage(QWidget):
                         self.class_year_combo.setCurrentIndex(i)
                         break
         except Exception as e:
-            print(f"خطا در بارگذاری سال‌ها: {e}")
+            logger.error(f"خطا در بارگذاری سال‌ها: {e}")
     
     def load_classes(self):
         """بارگذاری کلاس‌ها در جدول"""
@@ -1640,6 +1657,6 @@ class SettingsPage(QWidget):
                 class_dal = ClassDAL()
                 class_dal.delete(class_obj.id)
                 self.load_classes()
-                QMessageBox.information(self, "موفقیت", f"کلاس با موفقیت حذف شد.")
+                QMessageBox.information(self, "موفقیت", "کلاس با موفقیت حذف شد.")
             except Exception as e:
                 QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")

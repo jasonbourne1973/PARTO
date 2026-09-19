@@ -5,6 +5,10 @@
 
 from database.connection import DatabaseConnection
 from models.observation import Observation
+from utils.logger import get_logger
+from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class ObservationDAL:
@@ -228,8 +232,7 @@ class ObservationDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE observations SET
                 is_deleted = 1,
@@ -337,7 +340,7 @@ class ObservationDAL:
             }
             
         except Exception as e:
-            print(f"خطا در دریافت مشاهدات گروهی کلاس: {e}")
+            logger.error(f"خطا در دریافت مشاهدات گروهی کلاس: {e}")
             return {'positive': 0, 'negative': 0, 'neutral': 0, 'total': 0, 'observations': []}
     
     def get_grouped_by_grade(self, grade, academic_year_id=None, start_date=None, end_date=None):
@@ -385,7 +388,7 @@ class ObservationDAL:
             }
             
         except Exception as e:
-            print(f"خطا در دریافت مشاهدات گروهی پایه: {e}")
+            logger.error(f"خطا در دریافت مشاهدات گروهی پایه: {e}")
             return {'positive': 0, 'negative': 0, 'neutral': 0, 'total': 0, 'observations': []}
     
     def get_trend_by_class(self, class_name, period='monthly', start_date=None, end_date=None):
@@ -462,7 +465,7 @@ class ObservationDAL:
             return result
             
         except Exception as e:
-            print(f"خطا در دریافت روند مشاهدات کلاس: {e}")
+            logger.error(f"خطا در دریافت روند مشاهدات کلاس: {e}")
             return []
     
     def _get_month_label(self, date_str):
@@ -597,7 +600,7 @@ class ObservationDAL:
             return result
             
         except Exception as e:
-            print(f"خطا در دریافت آمار معلم: {e}")
+            logger.error(f"خطا در دریافت آمار معلم: {e}")
             return []
 
     # ============================================================
@@ -655,7 +658,7 @@ class ObservationDAL:
             }
 
         except Exception as e:
-            print(f"خطا در دریافت توزیع مشاهدات: {e}")
+            logger.error(f"خطا در دریافت توزیع مشاهدات: {e}")
             return {'positive': 0, 'negative': 0, 'neutral': 0, 'total': 0,
                     'positive_percentage': 0, 'negative_percentage': 0, 'neutral_percentage': 0}
 
@@ -698,7 +701,7 @@ class ObservationDAL:
             return result
 
         except Exception as e:
-            print(f"خطا در دریافت توزیع مشاهدات بر اساس محیط: {e}")
+            logger.error(f"خطا در دریافت توزیع مشاهدات بر اساس محیط: {e}")
             return []
 
     def get_observations_by_time_period(self, period='monthly', start_date=None, end_date=None, limit=12):
@@ -772,7 +775,7 @@ class ObservationDAL:
             return result
 
         except Exception as e:
-            print(f"خطا در دریافت مشاهدات در بازه‌های زمانی: {e}")
+            logger.error(f"خطا در دریافت مشاهدات در بازه‌های زمانی: {e}")
             return []
 
     def get_observations_by_competency(self, start_date=None, end_date=None, limit=10, staff_id=None):
@@ -823,14 +826,15 @@ class ObservationDAL:
             return result
 
         except Exception as e:
-            print(f"خطا در دریافت مشاهدات بر اساس شایستگی: {e}")
+            logger.error(f"خطا در دریافت مشاهدات بر اساس شایستگی: {e}")
             return []
 
     def get_daily_observation_summary(self, days=30):
         """دریافت خلاصه روزانه مشاهدات"""
         try:
-            import jdatetime
             from datetime import timedelta
+
+            import jdatetime
 
             conn = self.db.get_connection()
             cursor = conn.cursor()
@@ -874,7 +878,7 @@ class ObservationDAL:
             return result
 
         except Exception as e:
-            print(f"خطا در دریافت خلاصه روزانه مشاهدات: {e}")
+            logger.error(f"خطا در دریافت خلاصه روزانه مشاهدات: {e}")
             return []
 
     # ============================================================
@@ -975,7 +979,7 @@ class ObservationDAL:
             return weak_comps[:limit]
             
         except Exception as e:
-            print(f"خطا در دریافت شایستگی‌های ضعیف: {e}")
+            logger.error(f"خطا در دریافت شایستگی‌های ضعیف: {e}")
             return []
 
     def get_strong_competencies_for_student(self, profile_id, limit=3):
@@ -1037,7 +1041,7 @@ class ObservationDAL:
             return strong_comps[:limit]
             
         except Exception as e:
-            print(f"خطا در دریافت شایستگی‌های قوی: {e}")
+            logger.error(f"خطا در دریافت شایستگی‌های قوی: {e}")
             return []
 
     def get_recent_observations_for_student(self, profile_id, limit=5):
@@ -1054,7 +1058,7 @@ class ObservationDAL:
         try:
             return self.get_by_student_profile(profile_id, limit=limit)
         except Exception as e:
-            print(f"خطا در دریافت آخرین مشاهدات: {e}")
+            logger.error(f"خطا در دریافت آخرین مشاهدات: {e}")
             return []
 
     def get_observation_patterns_for_student(self, profile_id):
@@ -1154,7 +1158,7 @@ class ObservationDAL:
             }
             
         except Exception as e:
-            print(f"خطا در تشخیص الگوهای رفتاری: {e}")
+            logger.error(f"خطا در تشخیص الگوهای رفتاری: {e}")
             return {
                 'most_common_location': None,
                 'most_common_behavior_type': None,

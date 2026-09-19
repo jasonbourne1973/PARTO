@@ -2,34 +2,44 @@
 صفحه مدیریت اختصاص معلم به دانش‌آموزان - نسخه کامل
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QLabel, QHeaderView,
-    QMessageBox, QComboBox, QGroupBox, QLineEdit,
-    QDialog, QTabWidget
-)
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
-from dal.student_dal import StudentDAL
-from dal.staff_dal import StaffDAL
 from dal.academic_year_dal import AcademicYearDAL
-from dal.teacher_assignment_dal import TeacherAssignmentDAL
+from dal.staff_dal import StaffDAL
+
 # ===== اصلاح =====
 # در جدول «دانش‌آموزان بدون معلم» از `self.profile_dal` استفاده می‌شد
 # ولی این ویژگی هیچ‌جا در __init__ ساخته نمی‌شد. نتیجه: hasattr همیشه
 # False بود و ستون‌های «پایه» و «کلاس» برای همه دانش‌آموزان به ترتیب
 # «نامشخص» و خالی نمایش داده می‌شدند.
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from models.teacher_assignment import TeacherAssignment
+from dal.student_dal import StudentDAL
+from dal.teacher_assignment_dal import TeacherAssignmentDAL
+from utils.logger import get_logger
 from views.dialogs.assign_teacher_dialog import AssignTeacherDialog
-import jdatetime
-from datetime import datetime
+
+logger = get_logger(__name__)
 
 
 class AssignTeacherPage(QWidget):
@@ -319,7 +329,7 @@ class AssignTeacherPage(QWidget):
             for teacher in self.all_teachers:
                 self.teacher_combo.addItem(f"{teacher.full_name}", teacher.id)
         except Exception as e:
-            print(f"خطا در بارگذاری معلمان: {e}")
+            logger.error(f"خطا در بارگذاری معلمان: {e}")
     
     def load_academic_years(self):
         """بارگذاری سال‌های تحصیلی در کامبوباکس"""
@@ -338,7 +348,7 @@ class AssignTeacherPage(QWidget):
                         self.year_combo.setCurrentIndex(i)
                         break
         except Exception as e:
-            print(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
+            logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
     
     def load_students(self):
         """بارگذاری دانش‌آموزان"""
@@ -363,7 +373,7 @@ class AssignTeacherPage(QWidget):
             self.display_no_teacher_students()
             
         except Exception as e:
-            print(f"خطا در بارگذاری انتساب‌ها: {e}")
+            logger.error(f"خطا در بارگذاری انتساب‌ها: {e}")
     
     def on_teacher_changed(self, index):
         """وقتی معلم تغییر می‌کند"""

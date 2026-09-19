@@ -2,18 +2,18 @@
 سرویس ساخت Timeline یکپارچه پرونده دانش‌آموز
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.staff_dal import StaffDAL
 from dal.competency_dal import CompetencyDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
+from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 
 
 class CaseTimelineService:
@@ -93,9 +93,6 @@ class CaseTimelineService:
         # ===== ۲. دریافت مداخلات =====
         interventions = self.intervention_dal.get_by_student_profile(profile_id)
         for inter in interventions:
-            # دریافت نام دانش‌آموز و مسئول
-            student_name = self._get_student_name_by_profile(profile_id)
-            staff_name = self._get_staff_name(inter.staff_id)
             
             events.append({
                 'id': inter.id,
@@ -116,7 +113,6 @@ class CaseTimelineService:
         # ===== ۳. دریافت پیگیری‌ها =====
         followups = self.followup_dal.get_by_student_profile(profile_id)
         for follow in followups:
-            staff_name = self._get_staff_name(follow.staff_id)
             
             events.append({
                 'id': follow.id,

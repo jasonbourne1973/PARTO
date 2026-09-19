@@ -4,21 +4,32 @@
 """
 
 import os
-import sys
+
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 try:
-    from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import cm, inch
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
-    from reportlab.lib.enums import TA_RIGHT, TA_CENTER, TA_LEFT
+    from reportlab.platypus import (
+        Image,
+        PageBreak,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
+    )
     REPORTLAB_AVAILABLE = True
 except ImportError:
     REPORTLAB_AVAILABLE = False
-    print("⚠️ reportlab نصب نیست. pip install reportlab")
+    logger.warning("⚠️ reportlab نصب نیست. pip install reportlab")
     # ===== اصلاح (بازرسی دوم) =====
     # try/except بالا برای این بود که برنامه «بدون reportlab هم بالا بیاید»
     # و فقط موقع گرفتن خروجی PDF خطای خوانا بدهد. اما این قصد با یک خط
@@ -60,14 +71,14 @@ try:
     ARABIC_RESHAPER_AVAILABLE = True
 except ImportError:
     ARABIC_RESHAPER_AVAILABLE = False
-    print("⚠️ arabic-reshaper نصب نیست. pip install arabic-reshaper")
+    logger.warning("⚠️ arabic-reshaper نصب نیست. pip install arabic-reshaper")
 
 try:
     from bidi.algorithm import get_display
     BIDI_AVAILABLE = True
 except ImportError:
     BIDI_AVAILABLE = False
-    print("⚠️ python-bidi نصب نیست. pip install python-bidi")
+    logger.warning("⚠️ python-bidi نصب نیست. pip install python-bidi")
 
 
 class PersianPDF:
@@ -169,10 +180,10 @@ class PersianPDF:
                         pdfmetrics.registerFont(TTFont('PersianFont', font_path))
                         self.font_name = 'PersianFont'
                         self.font_loaded = True
-                        print(f"✅ فونت فارسی از {font_path} بارگذاری شد")
+                        logger.debug(f"✅ فونت فارسی از {font_path} بارگذاری شد")
                         return
                     except Exception as e:
-                        print(f"⚠️ خطا در بارگذاری فونت {font_path}: {e}")
+                        logger.error(f"⚠️ خطا در بارگذاری فونت {font_path}: {e}")
                         continue
         
         # اگر هیچ فونتی پیدا نشد، خطای واضح ایجاد کن
@@ -186,7 +197,7 @@ class PersianPDF:
             "  - IRANSans.ttf\n"
             "مسیر جستجو: " + os.path.join(self._get_project_root(), "assets", "fonts")
         )
-        print(self.font_error)
+        logger.debug(self.font_error)
         
         # از فونت پیش‌فرض ReportLab استفاده نکن
         self.font_name = None
@@ -317,7 +328,7 @@ class PersianPDF:
             try:
                 text = arabic_reshaper.reshape(text)
             except Exception as e:
-                print(f"⚠️ خطا در reshape: {e}")
+                logger.error(f"⚠️ خطا در reshape: {e}")
                 pass
         
         # مرحله ۲: راست‌چین کردن
@@ -325,7 +336,7 @@ class PersianPDF:
             try:
                 text = get_display(text)
             except Exception as e:
-                print(f"⚠️ خطا در get_display: {e}")
+                logger.error(f"⚠️ خطا در get_display: {e}")
                 pass
         
         return text
@@ -453,7 +464,7 @@ class PersianPDF:
             self.elements.append(img)
             self.elements.append(Spacer(1, 0.3*cm))
         except Exception as e:
-            print(f"⚠️ خطا در اضافه کردن تصویر: {e}")
+            logger.error(f"⚠️ خطا در اضافه کردن تصویر: {e}")
             self.add_text("(نمودار قابل نمایش نیست)")
     
     def _remove_emoji(self, text):
@@ -536,10 +547,10 @@ class PersianPDF:
         
         try:
             doc.build(self.elements)
-            print(f"✅ PDF در {output_path} ساخته شد.")
+            logger.debug(f"✅ PDF در {output_path} ساخته شد.")
             return True
         except Exception as e:
-            print(f"❌ خطا در ساخت PDF: {e}")
+            logger.error(f"❌ خطا در ساخت PDF: {e}")
             import traceback
             traceback.print_exc()
             raise

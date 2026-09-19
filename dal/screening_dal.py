@@ -2,9 +2,11 @@
 لایه دسترسی به داده غربالگری (Screening) - اصلاح شده
 """
 
+import json
+
 from database.connection import DatabaseConnection
 from models.screening import Screening
-import json
+from utils.time_utils import utc_now_iso
 
 
 class ScreeningDAL:
@@ -169,8 +171,7 @@ class ScreeningDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE screenings SET
                 is_deleted = 1,

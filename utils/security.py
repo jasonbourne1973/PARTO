@@ -3,13 +3,15 @@
 """
 
 import hashlib
-import secrets
-import os
-import json
-import base64
-from datetime import datetime, timedelta
-from enum import Enum
 import hmac
+import secrets
+from datetime import timedelta
+from enum import Enum
+
+from utils.logger import get_logger
+from utils.time_utils import utc_now
+
+logger = get_logger(__name__)
 
 
 class UserRole(Enum):
@@ -357,7 +359,7 @@ class Security:
             return hmac.compare_digest(computed_hash, stored_hash)
             
         except Exception as e:
-            print(f"⚠️ خطا در بررسی رمز عبور: {e}")
+            logger.error(f"⚠️ خطا در بررسی رمز عبور: {e}")
             return False
     
     @staticmethod
@@ -455,7 +457,7 @@ class SessionManager:
             return None, "تعداد جلسات همزمان برای این کاربر به حداکثر رسیده است."
         
         token = Security.generate_token()
-        now = datetime.now()
+        now = utc_now()
         
         self._sessions[token] = {
             'user_id': user_id,
@@ -482,7 +484,7 @@ class SessionManager:
             return None
         
         # بررسی timeout
-        now = datetime.now()
+        now = utc_now()
         if (now - session['last_activity']).seconds > self._session_timeout:
             self.end_session(token)
             return None
@@ -630,7 +632,7 @@ class AuditLogger:
             conn.commit()
             return True
         except Exception as e:
-            print(f"⚠️ خطا در ثبت Audit Log: {e}")
+            logger.error(f"⚠️ خطا در ثبت Audit Log: {e}")
             return False
     
     def log_login(self, user_id, success=True, ip_address=None):
@@ -715,5 +717,5 @@ class AuditLogger:
             
             return logs
         except Exception as e:
-            print(f"⚠️ خطا در دریافت Audit Log: {e}")
+            logger.error(f"⚠️ خطا در دریافت Audit Log: {e}")
             return []

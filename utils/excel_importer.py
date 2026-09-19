@@ -4,25 +4,30 @@
 
 import os
 import sys
-from datetime import datetime
+
 import jdatetime
+
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
     from openpyxl import Workbook, load_workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.styles import Alignment, Font, PatternFill
     OPENPYXL_AVAILABLE = True
 except ImportError:
     OPENPYXL_AVAILABLE = False
-    print("⚠️ openpyxl نصب نیست. pip install openpyxl")
+    logger.warning("⚠️ openpyxl نصب نیست. pip install openpyxl")
 
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.academic_year_dal import AcademicYearDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from models.student import Student
 from models.student_academic_profile import StudentAcademicProfile
 from utils.logger import get_logger
+from utils.time_utils import utc_now
 
 
 class ExcelImporter:
@@ -107,7 +112,7 @@ class ExcelImporter:
             
             # ===== فوتر =====
             # ===== اصلاح =====
-            # قبلاً «datetime.now().strftime('%Y/%m/%d %H:%M')» نوشته می‌شد
+            # قبلاً «utc_now().strftime('%Y/%m/%d %H:%M')» نوشته می‌شد
             # یعنی تاریخ «میلادی» با فرمت «شمسی» - کاربر 2026/09/18 را
             # به‌عنوان «1405/09/18» می‌خواند: سه ماه جلوتر! حالا مثل
             # بقیهٔ گزارش‌های پروژه از تقویم جلالی استفاده می‌شود.
@@ -119,7 +124,7 @@ class ExcelImporter:
                     f"{j_now.hour:02d}:{j_now.minute:02d}"
                 )
             except Exception:
-                jalali_stamp = datetime.now().strftime('%Y/%m/%d %H:%M')
+                jalali_stamp = utc_now().strftime('%Y/%m/%d %H:%M')
             footer_cell = ws.cell(row=row, column=1, value=f"تاریخ خروجی: {jalali_stamp}")
             footer_cell.font = Font(name='B Nazanin', size=10, italic=True)
             footer_cell.alignment = Alignment(horizontal='left')

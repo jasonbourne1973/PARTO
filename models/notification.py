@@ -2,6 +2,8 @@
 مدل اعلان‌ها و یادآوری‌ها
 """
 
+from utils.time_utils import utc_now_iso
+
 from models.base import BaseModel
 
 
@@ -105,14 +107,12 @@ class Notification(BaseModel):
     def mark_as_read(self):
         """علامت‌گذاری به عنوان خوانده شده"""
         self.is_read = True
-        from datetime import datetime
-        self.read_at = datetime.now().isoformat()
+        self.read_at = utc_now_iso()
     
     def mark_as_dismissed(self):
         """علامت‌گذاری به عنوان رد شده"""
         self.is_dismissed = True
-        from datetime import datetime
-        self.dismissed_at = datetime.now().isoformat()
+        self.dismissed_at = utc_now_iso()
     
     def validate(self):
         errors = []

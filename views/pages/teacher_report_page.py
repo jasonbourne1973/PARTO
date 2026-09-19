@@ -2,29 +2,38 @@
 صفحه گزارش معلم - نسخه کامل با خروجی Excel و PDF
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+import matplotlib
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QComboBox, QMessageBox, QTextEdit,
-    QGroupBox, QScrollArea, QSplitter, QFileDialog,
-    QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView,
-    QLineEdit, QCheckBox, QProgressBar
+    QComboBox,
+    QFileDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QScrollArea,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtGui import QColor, QFont
 
-from dal.student_dal import StudentDAL
-from dal.staff_dal import StaffDAL
 from dal.academic_year_dal import AcademicYearDAL
-from dal.teacher_assignment_dal import TeacherAssignmentDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
 from dal.competency_dal import CompetencyDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
+from dal.staff_dal import StaffDAL
+
 # ===== اصلاح =====
 # در متد گزارش‌گیری از `self.profile_dal` استفاده می‌شد ولی این ویژگی
 # هیچ‌جا در __init__ ساخته نمی‌شد؛ بنابراین hasattr همیشه False بود و
@@ -32,14 +41,18 @@ from dal.competency_dal import CompetencyDAL
 # گزارش معلم برای همه دانش‌آموزان «صفر مشاهده/مداخله/پیگیری» نشان
 # می‌داد (بدون هیچ پیام خطایی).
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from dal.teacher_assignment_dal import TeacherAssignmentDAL
 from services.teacher_report_service import TeacherReportService
 from utils.shamsi_date_input import ShamsiDateInput
 
-import matplotlib
 matplotlib.use('QtAgg')
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-import numpy as np
+
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class TeacherReportPage(QWidget):
@@ -398,7 +411,7 @@ class TeacherReportPage(QWidget):
             for teacher in self.all_teachers:
                 self.teacher_combo.addItem(f"{teacher.full_name}", teacher.id)
         except Exception as e:
-            print(f"خطا در بارگذاری معلمان: {e}")
+            logger.error(f"خطا در بارگذاری معلمان: {e}")
     
     def load_academic_years(self):
         """بارگذاری سال‌های تحصیلی در کامبوباکس"""
@@ -418,7 +431,7 @@ class TeacherReportPage(QWidget):
                         self.year_combo.setCurrentIndex(i)
                         break
         except Exception as e:
-            print(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
+            logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
     
     def on_teacher_changed(self, index):
         """وقتی معلم تغییر می‌کند"""
@@ -643,16 +656,16 @@ class TeacherReportPage(QWidget):
         # پیشنهادات برای معلم
         if weak_competencies:
             recommendations['teacher'].append(
-                f"🔴 شایستگی‌های نیازمند توجه در کلاس شما:\n" +
+                "🔴 شایستگی‌های نیازمند توجه در کلاس شما:\n" +
                 "\n".join([f"   • {name} (میانگین شدت: {avg})" for name, avg in weak_competencies[:3]]) +
-                f"\n   پیشنهاد: تمرین‌های هدفمند و فعالیت‌های گروهی برای این شایستگی‌ها طراحی کنید."
+                "\n   پیشنهاد: تمرین‌های هدفمند و فعالیت‌های گروهی برای این شایستگی‌ها طراحی کنید."
             )
         else:
             recommendations['teacher'].append("✅ وضعیت شایستگی‌های دانش‌آموزان شما خوب است. به روند فعلی ادامه دهید.")
         
         if strong_competencies:
             recommendations['teacher'].append(
-                f"⭐ شایستگی‌های برتر در کلاس شما:\n" +
+                "⭐ شایستگی‌های برتر در کلاس شما:\n" +
                 "\n".join([f"   • {name} (میانگین شدت: {avg})" for name, avg in strong_competencies[:3]])
             )
         

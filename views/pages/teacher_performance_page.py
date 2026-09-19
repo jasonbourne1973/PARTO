@@ -2,30 +2,43 @@
 صفحه گزارش عملکرد معلم - نمایش تعداد و کیفیت مشاهدات، مداخلات و پیگیری‌ها
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+import matplotlib
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QComboBox, QMessageBox, QTextEdit,
-    QGroupBox, QScrollArea, QSplitter, QFileDialog,
-    QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView,
-    QLineEdit, QProgressBar, QFrame
+    QComboBox,
+    QFileDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QScrollArea,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, QThread
-from PySide6.QtGui import QColor, QFont
 
-from services.teacher_performance_service import TeacherPerformanceService
 from dal.staff_dal import StaffDAL
+from services.teacher_performance_service import TeacherPerformanceService
 from utils.shamsi_date_input import ShamsiDateInput
 
-import matplotlib
 matplotlib.use('QtAgg')
+import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-import numpy as np
+
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class TeacherPerformancePage(QWidget):
@@ -389,7 +402,7 @@ class TeacherPerformancePage(QWidget):
             for teacher in self.all_teachers:
                 self.teacher_combo.addItem(f"{teacher.full_name}", teacher.id)
         except Exception as e:
-            print(f"خطا در بارگذاری معلمان: {e}")
+            logger.error(f"خطا در بارگذاری معلمان: {e}")
     
     def on_teacher_changed(self, index):
         """وقتی معلم تغییر می‌کند"""

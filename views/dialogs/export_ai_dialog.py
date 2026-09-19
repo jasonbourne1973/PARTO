@@ -2,32 +2,40 @@
 دیالوگ خروجی داده برای هوش مصنوعی - نسخه با پشتیبانی از راهنما
 """
 
-import sys
-import os
-import json
 import csv
+import json
+import os
+import sys
 import zipfile
-from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QPushButton, QMessageBox, QCheckBox,
-    QGroupBox, QFileDialog, QWidget, QScrollArea,
-    QButtonGroup, QRadioButton, QTextEdit, QApplication
+    QApplication,
+    QButtonGroup,
+    QDialog,
+    QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QRadioButton,
+    QScrollArea,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor
 
-from dal.student_dal import StudentDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.competency_dal import CompetencyDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from utils.persian_pdf import PersianPDF
-from utils.tooltip_manager import TooltipManager
+from utils.time_utils import utc_now, utc_now_iso
 
 
 class ExportAIDialog(QDialog):
@@ -427,7 +435,7 @@ class ExportAIDialog(QDialog):
         ext = ext_map.get(selected_format, "pdf")
         
         student_name = self.student_name_label.text().replace(" ", "_")
-        default_name = f"داده_هوش_مصنوعی_{student_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{ext}"
+        default_name = f"داده_هوش_مصنوعی_{student_name}_{utc_now().strftime('%Y%m%d_%H%M%S')}.{ext}"
         
         file_path, _ = QFileDialog.getSaveFileName(
             self,
@@ -546,7 +554,7 @@ class ExportAIDialog(QDialog):
                 for f in all_followups
             ],
             'metadata': {
-                'export_date': datetime.now().isoformat(),
+                'export_date': utc_now_iso(),
                 'total_observations': len(observations),
                 'total_interventions': len(interventions),
                 'total_followups': len(all_followups),
@@ -662,7 +670,6 @@ class ExportAIDialog(QDialog):
     
     def _export_csv(self, data, file_path):
         """خروجی CSV"""
-        import csv
         
         with open(file_path, 'w', newline='', encoding='utf-8-sig') as f:
             writer = csv.writer(f)
@@ -726,8 +733,8 @@ class ExportAIDialog(QDialog):
     
     def _export_zip(self, data, file_path):
         """خروجی ZIP شامل همه فرمت‌ها"""
-        import tempfile
         import shutil
+        import tempfile
         
         temp_dir = tempfile.mkdtemp()
         base_name = os.path.splitext(os.path.basename(file_path))[0]

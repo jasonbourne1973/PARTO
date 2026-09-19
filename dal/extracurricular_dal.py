@@ -2,9 +2,11 @@
 لایه دسترسی به داده فعالیت‌های فوق‌برنامه
 """
 
+import json
+
 from database.connection import DatabaseConnection
 from models.extracurricular_activity import ExtracurricularActivity
-import json
+from utils.time_utils import utc_now_iso
 
 
 class ExtracurricularDAL:
@@ -215,8 +217,7 @@ class ExtracurricularDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE extracurricular_activities SET
                 is_deleted = 1,

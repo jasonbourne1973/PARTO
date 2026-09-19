@@ -4,7 +4,7 @@
 
 from database.connection import DatabaseConnection
 from models.family_context import FamilyContext
-import json
+from utils.time_utils import utc_now_iso
 
 
 class FamilyContextDAL:
@@ -144,8 +144,7 @@ class FamilyContextDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE family_contexts SET
                 is_deleted = 1,

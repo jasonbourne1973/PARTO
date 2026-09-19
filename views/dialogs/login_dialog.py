@@ -2,24 +2,31 @@
 دیالوگ ورود به سیستم - نسخه با پشتیبانی از سیستم راهنما
 """
 
-from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QLineEdit, QPushButton, QMessageBox,
-    QWidget, QFrame, QCheckBox
-)
-from PySide6.QtCore import Qt, Signal, QTimer
-from PySide6.QtGui import QFont, QPixmap, QIcon
-
-import sys
 import os
+import sys
+
+from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QDialog,
+    QFormLayout,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from database.connection import DatabaseConnection
 from dal.user_dal import UserDAL
-from utils.security import Security
+from database.connection import DatabaseConnection
 from utils.logger import get_logger
 from utils.tooltip_manager import TooltipManager
+
+logger = get_logger(__name__)
 
 
 class LoginDialog(QDialog):
@@ -270,7 +277,7 @@ class LoginDialog(QDialog):
     
     def login(self):
         """ورود به سیستم"""
-        print("🔵 تابع login اجرا شد")
+        logger.debug("🔵 تابع login اجرا شد")
         
         username = self.username_input.text().strip()
         password = self.password_input.text().strip()
@@ -301,7 +308,7 @@ class LoginDialog(QDialog):
             user = self.authenticate_user(username, password)
             
             if user:
-                print(f"✅ کاربر {username} احراز هویت شد")
+                logger.debug(f"✅ کاربر {username} احراز هویت شد")
                 self.attempts = 0
                 self.login_btn.setEnabled(True)
                 self.login_btn.setText("ورود به سامانه")
@@ -321,7 +328,7 @@ class LoginDialog(QDialog):
                 
                 # بررسی是否需要 تغییر رمز
                 if must_change_password:
-                    print(f"🔑 کاربر {username} باید رمز عبور خود را تغییر دهد")
+                    logger.debug(f"🔑 کاربر {username} باید رمز عبور خود را تغییر دهد")
                     # ارسال سیگنال برای تغییر رمز
                     self.need_change_password.emit(user_id, username)
                     # بستن دیالوگ
@@ -329,11 +336,11 @@ class LoginDialog(QDialog):
                     return
                 
                 # ارسال سیگنال
-                print(f"🔵 ارسال سیگنال login_successful: {user_id}, {username}, {user_role}")
+                logger.debug(f"🔵 ارسال سیگنال login_successful: {user_id}, {username}, {user_role}")
                 self.login_successful.emit(user_id, username, user_role)
                 
                 # بستن دیالوگ
-                print("🔵 بستن دیالوگ لاگین")
+                logger.debug("🔵 بستن دیالوگ لاگین")
                 self.accept()
             else:
                 self.attempts += 1
@@ -353,7 +360,7 @@ class LoginDialog(QDialog):
                 self.login_btn.setText("ورود به سامانه")
                 
         except Exception as e:
-            print(f"❌ خطا در ورود: {e}")
+            logger.error(f"❌ خطا در ورود: {e}")
             import traceback
             traceback.print_exc()
             self.show_error("❌ خطا در ارتباط با دیتابیس.\nلطفاً مجدداً تلاش کنید.")
@@ -376,14 +383,14 @@ class LoginDialog(QDialog):
         فراخوان (btn_login / main_window) دست‌نخورده بماند.
         """
         try:
-            print(f"🔵 احراز هویت کاربر: {username}")
+            logger.debug(f"🔵 احراز هویت کاربر: {username}")
             auth = self.user_dal.authenticate(username, password)
 
             if not auth:
-                print(f"❌ احراز هویت {username} ناموفق بود")
+                logger.debug(f"❌ احراز هویت {username} ناموفق بود")
                 return None
 
-            print(f"✅ احراز هویت {auth['username']} موفق بود")
+            logger.debug(f"✅ احراز هویت {auth['username']} موفق بود")
             return (
                 auth['staff_id'],                  # staff_id ← برای set_current_user و Audit
                 auth['role'],                      # user_role
@@ -393,7 +400,7 @@ class LoginDialog(QDialog):
             )
 
         except Exception as e:
-            print(f"❌ خطا در احراز هویت: {e}")
+            logger.error(f"❌ خطا در احراز هویت: {e}")
             import traceback
             traceback.print_exc()
             return None
@@ -408,9 +415,9 @@ class LoginDialog(QDialog):
         """
         try:
             self.user_dal.update_last_login(user_id)
-            print(f"✅ زمان آخرین ورود برای کاربر {user_id} به‌روزرسانی شد")
+            logger.debug(f"✅ زمان آخرین ورود برای کاربر {user_id} به‌روزرسانی شد")
         except Exception as e:
-            print(f"❌ خطا در به‌روزرسانی آخرین ورود: {e}")
+            logger.error(f"❌ خطا در به‌روزرسانی آخرین ورود: {e}")
     
     def log_login_success(self, user_id, username):
         """ثبت ورود موفق در Audit Log"""
@@ -419,9 +426,9 @@ class LoginDialog(QDialog):
             audit = AuditLogger(self.db)
             audit.log_login(user_id, success=True)
             self.logger.info(f"✅ ورود موفق: {username} (ID: {user_id})")
-            print(f"✅ Audit Log: ورود موفق {username}")
+            logger.debug(f"✅ Audit Log: ورود موفق {username}")
         except Exception as e:
-            print(f"❌ خطا در ثبت Audit Log: {e}")
+            logger.error(f"❌ خطا در ثبت Audit Log: {e}")
     
     def log_login_failed(self, username):
         """ثبت ورود ناموفق در Audit Log"""
@@ -430,9 +437,9 @@ class LoginDialog(QDialog):
             audit = AuditLogger(self.db)
             audit.log_login(None, success=False)
             self.logger.warning(f"⚠️ ورود ناموفق: {username}")
-            print(f"⚠️ Audit Log: ورود ناموفق {username}")
+            logger.warning(f"⚠️ Audit Log: ورود ناموفق {username}")
         except Exception as e:
-            print(f"❌ خطا در ثبت Audit Log: {e}")
+            logger.error(f"❌ خطا در ثبت Audit Log: {e}")
     
     def show_error(self, message):
         self.error_label.setText(message)

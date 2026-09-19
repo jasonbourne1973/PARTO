@@ -2,27 +2,34 @@
 صفحه مدیریت فعالیت‌های فوق‌برنامه
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QLabel, QHeaderView,
-    QMessageBox, QDialog, QComboBox, QLineEdit,
-    QSplitter, QTextEdit, QGroupBox
-)
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
-from services.extracurricular_service import ExtracurricularService
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.staff_dal import StaffDAL
-from views.dialogs.activity_form import ActivityForm
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from models.extracurricular_activity import ExtracurricularActivity
+from services.extracurricular_service import ExtracurricularService
 from utils.logger import get_logger
+from views.dialogs.activity_form import ActivityForm
 
 
 class ActivitiesPage(QWidget):

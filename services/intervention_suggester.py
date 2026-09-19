@@ -2,19 +2,18 @@
 سرویس پیشنهاد مداخلات - پیشنهاد نوع مداخله مناسب بر اساس داده‌ها
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
 from dal.competency_dal import CompetencyDAL
-from dal.student_dal import StudentDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from services.base_service import BaseService
 from utils.logger import get_logger
-from utils.error_handler import ServiceError
 
 
 class InterventionSuggester(BaseService):

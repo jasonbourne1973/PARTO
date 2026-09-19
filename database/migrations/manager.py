@@ -3,7 +3,7 @@
 """
 
 import sqlite3
-import os
+
 from config.settings import DB_PATH, DB_VERSION
 
 

@@ -4,10 +4,13 @@
 """
 
 import sqlite3
-from datetime import datetime
 
 from database.connection import DatabaseConnection
 from models.student import Student
+from utils.logger import get_logger
+from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class StudentDAL:
@@ -165,7 +168,7 @@ class StudentDAL:
         if not cursor.fetchone():
             return False
 
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE students SET
                 is_deleted = 1,
@@ -277,7 +280,7 @@ class StudentDAL:
                     results.append(student)
             return results
         except Exception as e:
-            print(f"خطا در جستجوی پیشرفته: {e}")
+            logger.error(f"خطا در جستجوی پیشرفته: {e}")
             return []
 
     def permanent_delete(self, student_id):
@@ -370,7 +373,7 @@ class StudentDAL:
             return result
 
         except Exception as e:
-            print(f"خطا در دریافت توزیع دانش‌آموزان: {e}")
+            logger.error(f"خطا در دریافت توزیع دانش‌آموزان: {e}")
             return []
 
     def get_student_count_by_status(self, academic_year_id=None):
@@ -442,7 +445,7 @@ class StudentDAL:
             return result
 
         except Exception as e:
-            print(f"خطا در دریافت تعداد دانش‌آموزان بر اساس وضعیت: {e}")
+            logger.error(f"خطا در دریافت تعداد دانش‌آموزان بر اساس وضعیت: {e}")
             return {'active': 0, 'inactive': 0, 'graduated': 0, 'transferred': 0, 'dropped': 0, 'total': 0}
 
     def get_students_without_observations(self, academic_year_id=None, staff_id=None):
@@ -534,7 +537,7 @@ class StudentDAL:
             return result
 
         except Exception as e:
-            print(f"خطا در دریافت دانش‌آموزان بدون مشاهده: {e}")
+            logger.error(f"خطا در دریافت دانش‌آموزان بدون مشاهده: {e}")
             return []
 
     def get_student_activity_summary(self, student_id, start_date=None, end_date=None):
@@ -653,7 +656,7 @@ class StudentDAL:
             }
 
         except Exception as e:
-            print(f"خطا در دریافت خلاصه فعالیت‌های دانش‌آموز: {e}")
+            logger.error(f"خطا در دریافت خلاصه فعالیت‌های دانش‌آموز: {e}")
             return {
                 'observations_count': 0,
                 'interventions_count': 0,

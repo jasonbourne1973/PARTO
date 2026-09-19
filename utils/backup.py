@@ -2,14 +2,18 @@
 ابزارهای پشتیبان‌گیری و بازیابی اطلاعات - نسخه ساده (بدون رمزنگاری)
 """
 
+import hashlib
+import json
 import os
 import shutil
 import sqlite3
-import json
 import zipfile
 from datetime import datetime
-import hashlib
-import secrets
+
+from utils.logger import get_logger
+from utils.time_utils import utc_now, utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class BackupManager:
@@ -58,7 +62,7 @@ class BackupManager:
         try:
             # ایجاد نام فایل
             if not name:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                timestamp = utc_now().strftime("%Y%m%d_%H%M%S")
                 name = f"backup_{timestamp}"
             
             backup_file = os.path.join(self.backup_dir, f"{name}.partobak")
@@ -112,7 +116,7 @@ class BackupManager:
                 # 3. متادیتا
                 metadata = {
                     'name': name,
-                    'created_at': datetime.now().isoformat(),
+                    'created_at': utc_now_iso(),
                     'created_by': user_id,
                     'created_by_name': user_name or 'سیستم',
                     'db_file': os.path.basename(self.db_path),
@@ -519,7 +523,7 @@ class BackupManager:
     def _log_backup_operation(self, operation, backup_name, user_id, user_name):
         """ثبت عملیات Backup در لاگ"""
         log_file = os.path.join(self.backup_dir, "backup_log.txt")
-        timestamp = datetime.now().isoformat()
+        timestamp = utc_now_iso()
         
         log_entry = f"[{timestamp}] {operation} | user: {user_id} ({user_name}) | backup: {backup_name}\n"
         
@@ -548,7 +552,7 @@ class BackupManager:
                 time.sleep(interval_hours * 3600)
                 try:
                     # ایجاد پشتیبان
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    timestamp = utc_now().strftime("%Y%m%d_%H%M%S")
                     name = f"auto_backup_{timestamp}"
                     result = self.create_backup(name, user_id, user_name)
                     
@@ -564,12 +568,12 @@ class BackupManager:
                             user_name
                         )
                 except Exception as e:
-                    print(f"⚠️ خطا در پشتیبان‌گیری خودکار: {e}")
+                    logger.error(f"⚠️ خطا در پشتیبان‌گیری خودکار: {e}")
         
         # شروع ترد
         thread = threading.Thread(target=auto_backup_worker, daemon=True)
         thread.start()
-        print(f"✅ پشتیبان‌گیری خودکار هر {interval_hours} ساعت فعال شد.")
+        logger.debug(f"✅ پشتیبان‌گیری خودکار هر {interval_hours} ساعت فعال شد.")
         return thread
     
     def _cleanup_old_backups(self, keep_count=10):
@@ -587,10 +591,10 @@ class BackupManager:
                 for backup in to_delete:
                     try:
                         os.remove(backup['path'])
-                        print(f"🗑️ پشتیبان قدیمی حذف شد: {backup['name']}")
+                        logger.debug(f"🗑️ پشتیبان قدیمی حذف شد: {backup['name']}")
                     except Exception as _exc:
                         self.logger.debug(
                             f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
                         )
         except Exception as e:
-            print(f"⚠️ خطا در پاکسازی پشتیبان‌های قدیمی: {e}")
+            logger.error(f"⚠️ خطا در پاکسازی پشتیبان‌های قدیمی: {e}")

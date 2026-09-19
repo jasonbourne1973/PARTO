@@ -3,17 +3,22 @@
 مدیریت صفحات راهنما و نمایش آنها
 """
 
-import sys
-import os
 from typing import Dict, List, Optional
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QTextEdit, QScrollArea, QFrame,
-    QDialog, QTabWidget, QListWidget, QListWidgetItem, QLineEdit
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QFont
 
 try:
     from config.help_messages import HELP_PAGES

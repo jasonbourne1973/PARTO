@@ -2,9 +2,10 @@
 مدل‌های تحلیل داده برای داشبورد تحلیلی
 """
 
+from utils.time_utils import utc_now_iso
+
 from dataclasses import dataclass
-from typing import List, Dict, Optional
-from datetime import datetime
+from typing import List
 
 
 @dataclass
@@ -108,4 +109,4 @@ class AnalyticsDashboardData:
     
     def __post_init__(self):
         if not self.generated_at:
-            self.generated_at = datetime.now().isoformat()
+            self.generated_at = utc_now_iso()

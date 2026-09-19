@@ -3,6 +3,7 @@
 """
 
 import sqlite3
+
 from database.connection import DatabaseConnection
 from models.academic_year import AcademicYear
 

@@ -2,25 +2,34 @@
 صفحه مدیریت پیگیری‌ها - نسخه نهایی با ویرایش کامل و جستجوی پیشرفته
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QLabel, QHeaderView,
-    QMessageBox, QDialog, QComboBox, QLineEdit
-)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QKeyEvent
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
-from services.followup_service import FollowUpService
-from dal.student_dal import StudentDAL
 from dal.staff_dal import StaffDAL
+from dal.student_dal import StudentDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
-from views.dialogs.followup_form import FollowUpForm
+from services.followup_service import FollowUpService
 from utils.logger import get_logger
+from views.dialogs.followup_form import FollowUpForm
 
 
 class FollowUpsPage(QWidget):

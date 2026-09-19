@@ -4,7 +4,10 @@
 
 from database.connection import DatabaseConnection
 from models.teacher_assignment import TeacherAssignment
-from datetime import datetime
+from utils.logger import get_logger
+from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class TeacherAssignmentDAL:
@@ -182,7 +185,7 @@ class TeacherAssignmentDAL:
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE teacher_assignments SET
                 is_deleted = 1,
@@ -363,7 +366,7 @@ class TeacherAssignmentDAL:
             }
             
         except Exception as e:
-            print(f"خطا در دریافت آمار معلم: {e}")
+            logger.error(f"خطا در دریافت آمار معلم: {e}")
             return {
                 'total_students': 0,
                 'total_observations': 0,
@@ -479,7 +482,7 @@ class TeacherAssignmentDAL:
             return result
             
         except Exception as e:
-            print(f"خطا در دریافت لیست دانش‌آموزان معلم: {e}")
+            logger.error(f"خطا در دریافت لیست دانش‌آموزان معلم: {e}")
             return []
     
     def get_teacher_trend(self, staff_id, period='monthly', start_date=None, end_date=None):
@@ -588,7 +591,7 @@ class TeacherAssignmentDAL:
             return result
             
         except Exception as e:
-            print(f"خطا در دریافت روند عملکرد معلم: {e}")
+            logger.error(f"خطا در دریافت روند عملکرد معلم: {e}")
             return []
     
     def _get_month_label(self, date_str):

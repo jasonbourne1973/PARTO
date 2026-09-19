@@ -3,26 +3,27 @@
 با متدهای تحلیلی پیشرفته
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
+import jdatetime
+
 from dal.academic_year_dal import AcademicYearDAL
-from dal.staff_dal import StaffDAL
-from dal.teacher_assignment_dal import TeacherAssignmentDAL
 from dal.audit_log_dal import AuditLogDAL
 from dal.competency_dal import CompetencyDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
+from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from dal.teacher_assignment_dal import TeacherAssignmentDAL
+from services.base_service import BaseService
 from services.trend_analysis_service import TrendAnalysisService
-from utils.logger import get_logger
 from utils.error_handler import ServiceError
-import jdatetime
+from utils.logger import get_logger
 
 
 class DashboardService(BaseService):

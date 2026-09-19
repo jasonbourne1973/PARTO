@@ -2,32 +2,38 @@
 صفحه ثبت و مدیریت مشاهدات با نمایش مدل ABC و StudentFile - با فیلتر معلم و جستجوی پیشرفته
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QLabel, QHeaderView,
-    QMessageBox, QDialog, QComboBox, QLineEdit, QGroupBox,
-    QDateEdit, QCheckBox
+    QComboBox,
+    QDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, QDate
-from PySide6.QtGui import QColor, QKeyEvent
 
-from services.observation_service import ObservationService
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.competency_dal import CompetencyDAL
 from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
-from views.dialogs.observation_form import ObservationForm
 from database.connection import DatabaseConnection
-from utils.error_handler import ServiceError, ValidationError
+from services.observation_service import ObservationService
 from utils.logger import get_logger
-from utils.shamsi_date_input import ShamsiDateInput
-import re
+from views.dialogs.observation_form import ObservationForm
 
 
 class ObservationsPage(QWidget):
@@ -563,7 +569,7 @@ class ObservationsPage(QWidget):
 🏷️ برچسب‌ها: {obs.tags or 'ندارد'}
 """
         
-        QMessageBox.information(self, f"جزئیات مشاهده (مدل ABC)", detail_text)
+        QMessageBox.information(self, "جزئیات مشاهده (مدل ABC)", detail_text)
     
     def delete_observation(self, obs):
         """حذف مشاهده با استفاده از سرویس"""

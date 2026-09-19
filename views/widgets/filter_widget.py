@@ -2,22 +2,31 @@
 ویجت فیلتر - نمایش و مدیریت فیلترهای ذخیره‌شده
 """
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QComboBox, QMessageBox, QListWidget,
-    QListWidgetItem, QFrame, QScrollArea, QDialog,
-    QLineEdit, QTextEdit, QFormLayout, QDialogButtonBox
-)
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QAction
-
-import sys
 import os
+import sys
+
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from services.advanced_search_service import AdvancedSearchService
 from models.saved_filter import SavedFilter
+from services.advanced_search_service import AdvancedSearchService
 from utils.logger import get_logger
 
 

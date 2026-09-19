@@ -2,37 +2,50 @@
 صفحه مدیریت ساختار آموزشی - یکپارچه‌سازی مدیریت کلاس‌ها، اختصاص معلم و دانش‌آموزان معلم
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QLabel, QHeaderView,
-    QMessageBox, QComboBox, QGroupBox, QLineEdit,
-    QDialog, QTabWidget, QSplitter, QFrame, QTextEdit,
-    QFormLayout, QSpinBox, QGridLayout, QScrollArea
-)
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QFrame,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSpinBox,
+    QSplitter,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
-from dal.student_dal import StudentDAL
-from dal.staff_dal import StaffDAL
 from dal.academic_year_dal import AcademicYearDAL
-from dal.teacher_assignment_dal import TeacherAssignmentDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
-from dal.competency_dal import CompetencyDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.class_dal import ClassDAL
+from dal.competency_dal import CompetencyDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
+from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from dal.teacher_assignment_dal import TeacherAssignmentDAL
 from models.class_model import ClassModel
-from models.teacher_assignment import TeacherAssignment
+from utils.logger import get_logger
 from views.dialogs.assign_teacher_dialog import AssignTeacherDialog
 from views.pages.promotion_page import PromotionPage
-from config.constants import STAFF_ROLES
-from utils.logger import get_logger
 
 
 class AcademicStructurePage(QWidget):

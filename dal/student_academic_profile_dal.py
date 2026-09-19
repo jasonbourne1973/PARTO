@@ -5,10 +5,13 @@
 
 import json
 import sqlite3
-from datetime import datetime
 
 from database.connection import DatabaseConnection
 from models.student_academic_profile import StudentAcademicProfile
+from utils.logger import get_logger
+from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class StudentAcademicProfileDAL:
@@ -43,12 +46,12 @@ class StudentAcademicProfileDAL:
             raise ValueError(f"academic_year_id={profile.academic_year_id} در جدول academic_years وجود ندارد")
 
         try:
-            print("📝 ایجاد پرونده سالانه:")
-            print(f"   student_id: {profile.student_id}")
-            print(f"   academic_year_id: {profile.academic_year_id}")
-            print(f"   grade: {profile.grade}")
-            print(f"   class_name: {profile.class_name}")
-            print(f"   status: {profile.status}")
+            logger.debug("📝 ایجاد پرونده سالانه:")
+            logger.debug(f"   student_id: {profile.student_id}")
+            logger.debug(f"   academic_year_id: {profile.academic_year_id}")
+            logger.debug(f"   grade: {profile.grade}")
+            logger.debug(f"   class_name: {profile.class_name}")
+            logger.debug(f"   status: {profile.status}")
 
             cursor.execute("""
                 INSERT INTO student_academic_profiles (
@@ -66,7 +69,7 @@ class StudentAcademicProfileDAL:
             conn.commit()
             profile.id = cursor.lastrowid
 
-            print(f"✅ پرونده سالانه با ID {profile.id} ایجاد شد.")
+            logger.debug(f"✅ پرونده سالانه با ID {profile.id} ایجاد شد.")
             return profile
 
         except sqlite3.IntegrityError as e:
@@ -258,7 +261,7 @@ class StudentAcademicProfileDAL:
             history.append({
                 'from': old_status,
                 'to': new_status,
-                'date': datetime.now().isoformat(),
+                'date': utc_now_iso(),
                 'note': history_note or ''
             })
             new_history = json.dumps(history, ensure_ascii=False)
@@ -322,11 +325,11 @@ class StudentAcademicProfileDAL:
             history.append({
                 'from': old_status,
                 'to': StudentAcademicProfile.STATUS_ARCHIVED,
-                'date': datetime.now().isoformat(),
+                'date': utc_now_iso(),
                 'note': "حذف منطقی توسط کاربر"
             })
 
-            now = datetime.now().isoformat()
+            now = utc_now_iso()
             cursor.execute("""
                 UPDATE student_academic_profiles SET
                     is_deleted = 1,
@@ -381,7 +384,7 @@ class StudentAcademicProfileDAL:
             history.append({
                 'from': row['status'],
                 'to': StudentAcademicProfile.STATUS_INACTIVE,
-                'date': datetime.now().isoformat(),
+                'date': utc_now_iso(),
                 'note': "بازگردانی از حذف منطقی"
             })
 

@@ -2,12 +2,13 @@
 سیستم Logging استاندارد برای کل پروژه
 """
 
+import json
+import logging
 import os
 import sys
-import logging
 from logging.handlers import RotatingFileHandler
-from datetime import datetime
-import json
+
+from utils.time_utils import utc_now_iso
 
 # ایمیل پشتیبانی
 SUPPORT_EMAIL = "jaadougaroz1960@gmail.com"
@@ -74,7 +75,7 @@ class CustomFormatter(logging.Formatter):
     
     def format(self, record):
         # اضافه کردن زمان به صورت ISO
-        record.iso_time = datetime.now().isoformat()
+        record.iso_time = utc_now_iso()
         
         # اضافه کردن نام ماژول
         if not hasattr(record, 'module_name'):
@@ -179,7 +180,7 @@ class Logger:
         class JSONFormatter(logging.Formatter):
             def format(self, record):
                 log_entry = {
-                    'timestamp': datetime.now().isoformat(),
+                    'timestamp': utc_now_iso(),
                     'level': record.levelname,
                     'module': record.name,
                     'user_id': getattr(record, 'user_id', None),

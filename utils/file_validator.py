@@ -3,7 +3,7 @@
 """
 
 import hashlib
-from typing import Tuple, List, Optional
+from typing import List, Optional, Tuple
 
 # ===== اصلاح (بازرسی هفتم — اولویت ۳) =====
 # python-magic اختیاری است.

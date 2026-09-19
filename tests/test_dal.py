@@ -2,11 +2,9 @@
 تست‌های لایه دسترسی به داده - نسخه کامل
 """
 
-import sys
 import os
+import sys
 import unittest
-import tempfile
-import shutil
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -20,8 +18,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # انجام می‌شود و به دیتابیس واقعی دست نمی‌زند.
 import tempfile as _tempfile
 
-from config import settings as _settings
 import database.connection as _dbc
+from config import settings as _settings
 
 _TMP_DB_DIR = _tempfile.mkdtemp(prefix='partow_test_')
 _settings.DB_PATH = os.path.join(_TMP_DB_DIR, 'partow.db')
@@ -30,14 +28,11 @@ _dbc.DatabaseConnection._instance = None
 _dbc.DatabaseConnection._connection = None
 _dbc.DatabaseConnection._initialized = False
 
-from dal.student_dal import StudentDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
 from dal.academic_year_dal import AcademicYearDAL
-from dal.competency_dal import CompetencyDAL
-from models.student import Student
+from dal.observation_dal import ObservationDAL
+from dal.student_dal import StudentDAL
 from models.observation import Observation
+from models.student import Student
 
 
 class TestStudentDAL(unittest.TestCase):
@@ -59,7 +54,7 @@ class TestStudentDAL(unittest.TestCase):
             self.assertIsNotNone(student.id)
             self.assertEqual(student.first_name, 'تست')
             self.assertEqual(student.last_name, 'دانش‌آموز')
-        except Exception as e:
+        except Exception:
             # ممکن است دیتابیس وجود نداشته باشد
             pass
     
@@ -137,7 +132,7 @@ def run_tests():
     result = runner.run(suite)
     
     print("\n" + "=" * 50)
-    print(f"📊 خلاصه تست‌های DAL:")
+    print("📊 خلاصه تست‌های DAL:")
     print(f"  • اجرا شده: {result.testsRun}")
     print(f"  • موفق: {result.testsRun - len(result.failures) - len(result.errors)}")
     print(f"  • ناموفق: {len(result.failures)}")

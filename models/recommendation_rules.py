@@ -4,8 +4,8 @@
 """
 
 from dataclasses import dataclass
-from typing import List, Dict, Optional, Callable
 from enum import Enum
+from typing import Callable, Dict, List, Optional
 
 
 class RulePriority(Enum):
@@ -285,7 +285,7 @@ def get_default_rules():
             rule_id="overdue_followup",
             category=RecommendationCategory.FOLLOWUP,
             priority=RulePriority.CRITICAL,
-            title=f"انجام پیگیری معوق",
+            title="انجام پیگیری معوق",
             description=f"{data.get('overdue_followups', 0)} پیگیری معوق وجود دارد که نیاز به اقدام فوری دارد.",
             suggested_action="انجام پیگیری‌های معوق",
             score=100

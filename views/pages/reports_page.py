@@ -2,42 +2,54 @@
 صفحه تولید و نمایش گزارش‌ها - نسخه نهایی با قابلیت ردیابی و انتخاب سال تحصیلی و معلم
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+import matplotlib
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QComboBox, QMessageBox, QTextEdit,
-    QGroupBox, QScrollArea, QSplitter, QFileDialog,
-    QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView,
-    QLineEdit, QCheckBox, QDateEdit
+    QComboBox,
+    QFileDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QFont
 
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.academic_year_dal import AcademicYearDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
 from dal.competency_dal import CompetencyDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
 from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
-from services.report_generator import ReportGenerator
 from services.case_timeline_service import CaseTimelineService
-from views.pages.teacher_report_page import TeacherReportPage
+from services.report_generator import ReportGenerator
 from views.pages.class_report_page import ClassReportPage
 from views.pages.teacher_performance_page import TeacherPerformancePage
-from utils.shamsi_date_input import ShamsiDateInput
+from views.pages.teacher_report_page import TeacherReportPage
 
-import matplotlib
 matplotlib.use('QtAgg')
+import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-import numpy as np
+
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class ReportsPage(QWidget):
@@ -291,7 +303,7 @@ class ReportsPage(QWidget):
             for teacher in self.all_teachers:
                 self.teacher_combo.addItem(f"{teacher.full_name}", teacher.id)
         except Exception as e:
-            print(f"خطا در بارگذاری معلمان: {e}")
+            logger.error(f"خطا در بارگذاری معلمان: {e}")
     
     def on_teacher_changed(self, index):
         """وقتی معلم تغییر می‌کند، لیست دانش‌آموزان را به‌روز کن"""
@@ -322,7 +334,7 @@ class ReportsPage(QWidget):
                     display_text = f"{student.full_name}"
                     self.student_combo.addItem(display_text, student.id)
         except Exception as e:
-            print(f"خطا در بارگذاری دانش‌آموزان معلم: {e}")
+            logger.error(f"خطا در بارگذاری دانش‌آموزان معلم: {e}")
     
     def load_academic_years(self):
         """بارگذاری سال‌های تحصیلی در کامبوباکس"""
@@ -342,7 +354,7 @@ class ReportsPage(QWidget):
                         self.year_combo.setCurrentIndex(i)
                         break
         except Exception as e:
-            print(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
+            logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
     
     def load_students(self):
         """بارگذاری دانش‌آموزان در کامبوباکس"""
@@ -354,7 +366,7 @@ class ReportsPage(QWidget):
                 display_text = f"{student.full_name}"
                 self.student_combo.addItem(display_text, student.id)
         except Exception as e:
-            print(f"خطا در بارگذاری دانش‌آموزان: {e}")
+            logger.error(f"خطا در بارگذاری دانش‌آموزان: {e}")
     
     def search_student(self):
         """جستجوی دانش‌آموز و انتخاب در کامبوباکس"""
@@ -414,9 +426,9 @@ class ReportsPage(QWidget):
                 profile = self.profile_dal.get_by_student_and_year(student_id, year_id)
                 if not profile:
                     self.clear_report()
-                    self.summary_text.setText(f"⚠️ دانش‌آموز در سال تحصیلی انتخاب شده پرونده‌ای ندارد.")
+                    self.summary_text.setText("⚠️ دانش‌آموز در سال تحصیلی انتخاب شده پرونده‌ای ندارد.")
                     self.insufficient_data_label.setVisible(True)
-                    self.insufficient_data_label.setText(f"⚠️ پرونده‌ای برای سال تحصیلی انتخاب شده وجود ندارد.")
+                    self.insufficient_data_label.setText("⚠️ پرونده‌ای برای سال تحصیلی انتخاب شده وجود ندارد.")
                     return
             else:
                 profile = self.profile_dal.get_active_by_student(student_id)
@@ -538,7 +550,7 @@ class ReportsPage(QWidget):
         else:
             text += "• موردی یافت نشد.\n"
         
-        text += f"""
+        text += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **🔴 زمینه‌های نیازمند حمایت**
@@ -549,7 +561,7 @@ class ReportsPage(QWidget):
         else:
             text += "• موردی یافت نشد.\n"
         
-        text += f"""
+        text += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **💡 پیشنهادات**
@@ -559,20 +571,20 @@ class ReportsPage(QWidget):
         for rec in report['recommendations']['teacher']:
             text += f"• {rec}\n"
         
-        text += f"""
+        text += """
 **👨‍👩‍👦 به والدین:**
 """
         for rec in report['recommendations']['parents']:
             text += f"• {rec}\n"
         
-        text += f"""
+        text += """
 **🫂 به مشاور:**
 """
         for rec in report['recommendations']['counselor']:
             text += f"• {rec}\n"
         
         if report['trend_data']:
-            text += f"""
+            text += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **📈 روند تغییرات**
@@ -580,7 +592,7 @@ class ReportsPage(QWidget):
             for item in report['trend_data']:
                 text += f"• {item['month']}: {item['count']} مشاهده (میانگین شدت: {item['avg_severity']})\n"
         else:
-            text += f"""
+            text += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **📈 روند تغییرات**
@@ -1144,7 +1156,7 @@ class ReportsPage(QWidget):
             else:
                 text += "• موردی یافت نشد.\n"
             
-            text += f"""
+            text += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **🔴 زمینه‌های نیازمند حمایت**
@@ -1155,7 +1167,7 @@ class ReportsPage(QWidget):
             else:
                 text += "• موردی یافت نشد.\n"
             
-            text += f"""
+            text += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **💡 پیشنهاد برای والدین**

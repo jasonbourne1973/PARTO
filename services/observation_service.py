@@ -2,23 +2,22 @@
 سرویس مدیریت مشاهدات - نسخه کامل با انتقال منطق از View به Service
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from dal.observation_dal import ObservationDAL
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.academic_year_dal import AcademicYearDAL
-from dal.staff_dal import StaffDAL
 from dal.competency_dal import CompetencyDAL
+from dal.observation_dal import ObservationDAL
+from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from models.observation import Observation
 from models.student_academic_profile import StudentAcademicProfile
+from services.base_service import BaseService
 from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
-from datetime import datetime
 
 
 class ObservationService(BaseService):
@@ -514,13 +513,12 @@ class ObservationService(BaseService):
             elif data.get('staff_id') and data.get('staff_id') <= 0:
                 errors.append("مشاهده‌گر نامعتبر است")
 
-        # بررسی تاریخ
+        # بررسی تاریخ — قاعدهٔ یکسان: نرمال‌سازی، بعد اعتبارسنجی
         if provided('observation_date'):
-            observation_date = self.clean_text(data.get('observation_date'))
-            if not observation_date:
-                errors.append("تاریخ مشاهده نمی‌تواند خالی باشد")
-            elif not self.is_valid_jalali_date(observation_date):
-                errors.append("فرمت تاریخ باید به صورت yyyy/MM/dd باشد")
+            _norm, _err = self.check_date(
+                data.get('observation_date'), "تاریخ مشاهده", required=True)
+            if _err:
+                errors.append(_err)
 
         # بررسی شدت
         if provided('severity'):
