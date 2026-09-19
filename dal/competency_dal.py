@@ -491,15 +491,24 @@ class CompetencyDAL:
                     if obs.competency_id not in comp_stats:
                         comp_stats[obs.competency_id] = {
                             'count': 0,
-                            'total_severity': 0
+                            'total_severity': 0,
+                            # بازرسی یازدهم: شمارش نوع رفتار برای مرتب‌سازی
+                            # رفتارمحور (شدت فقط تکمیلی است)
+                            'positive': 0,
+                            'negative': 0,
                         }
                     comp_stats[obs.competency_id]['count'] += 1
                     comp_stats[obs.competency_id]['total_severity'] += obs.severity or 1
+                    if obs.behavior_type == 'مثبت':
+                        comp_stats[obs.competency_id]['positive'] += 1
+                    elif obs.behavior_type == 'منفی':
+                        comp_stats[obs.competency_id]['negative'] += 1
             
             # ترکیب با اطلاعات شایستگی
             result = []
             for comp in competencies:
-                stats = comp_stats.get(comp.id, {'count': 0, 'total_severity': 0})
+                stats = comp_stats.get(comp.id, {'count': 0, 'total_severity': 0,
+                                                 'positive': 0, 'negative': 0})
                 avg_severity = stats['total_severity'] / stats['count'] if stats['count'] > 0 else 0
                 result.append({
                     'competency_id': comp.id,
@@ -507,11 +516,16 @@ class CompetencyDAL:
                     'category': comp.category,
                     'category_display': comp.category_display,
                     'count': stats['count'],
-                    'avg_severity': round(avg_severity, 1)
+                    'positive': stats.get('positive', 0),
+                    'negative': stats.get('negative', 0),
+                    # شدت: اطلاعات تکمیلی (مبنای مرتب‌سازی نیست)
+                    'avg_severity': round(avg_severity, 1),
+                    'severity_is_auxiliary': True,
                 })
             
-            # مرتب‌سازی بر اساس تعداد و میانگین شدت
-            result.sort(key=lambda x: (x['count'], x['avg_severity']), reverse=True)
+            # مرتب‌سازی بر پایهٔ تعداد رفتارهای جهت‌دار (نه میانگین شدت)
+            result.sort(key=lambda x: (x['positive'] + x['negative'], x['count'],
+                                       x['positive']), reverse=True)
             
             return result
             

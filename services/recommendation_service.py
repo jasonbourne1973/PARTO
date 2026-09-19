@@ -176,6 +176,10 @@ class RecommendationService(BaseService):
             
             return {
                 'student_profile_id': profile_id,
+                # بازرسی یازدهم: مبنای هر پیشنهاد «رفتارهای ثبت‌شده» است.
+                'analysis_basis': 'رفتارهای ثبت‌شده (مثبت/منفی/خنثی)',
+                'disclaimer': ('پیشنهادها الگوهای مشاهده‌شده را گزارش می‌کنند '
+                               'و تشخیص روان‌شناختی نیستند.'),
                 'observations': observations,
                 'interventions': interventions,
                 'followups': followups,
@@ -275,6 +279,17 @@ class RecommendationService(BaseService):
             recommendation.score = result.score
             recommendation.metadata = result.metadata
             recommendation.status = Recommendation.STATUS_PENDING
+
+            # بازرسی یازدهم: هر پیشنهاد باید به «رفتارهای ثبت‌شده» قابل
+            # ردیابی باشد و لحن آن غیرتشخیصی بماند (داده ← الگو ← پیشنهاد).
+            metadata = recommendation.metadata or {}
+            if metadata.get('behavior_based'):
+                ids = recommendation.related_observation_ids or []
+                if ids and 'شناسهٔ مشاهدات' not in (recommendation.description or ''):
+                    recommendation.description = (
+                        f"{recommendation.description} (شناسهٔ مشاهدات مرتبط: "
+                        f"{', '.join(str(i) for i in ids[:6])})"
+                    )
             
             return self.recommendation_dal.create(recommendation)
 

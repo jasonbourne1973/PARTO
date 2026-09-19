@@ -7,6 +7,13 @@ import sqlite3
 
 from database.connection import DatabaseConnection
 from models.observation import Observation
+from utils.behavior_analysis import (
+    MIN_PATTERN_COUNT,
+    PATTERN_NEEDS_ATTENTION,
+    PATTERN_STRENGTH,
+    classify_pattern,
+    shares,
+)
 from utils.logger import get_logger
 from utils.time_utils import utc_now_iso
 
@@ -915,6 +922,7 @@ class ObservationDAL:
                         comp_stats[obs.competency_id] = {
                             'count': 0,
                             'total_severity': 0,
+                            'positive_count': 0,
                             'negative_count': 0,
                             'observation_ids': []
                         }
@@ -922,51 +930,52 @@ class ObservationDAL:
                     comp_stats[obs.competency_id]['total_severity'] += obs.severity or 1
                     if obs.behavior_type == 'منفی':
                         comp_stats[obs.competency_id]['negative_count'] += 1
+                    elif obs.behavior_type == 'مثبت':
+                        comp_stats[obs.competency_id]['positive_count'] += 1
                     comp_stats[obs.competency_id]['observation_ids'].append(obs.id)
             
-            # ===== اصلاح مهم: معنای «شایستگی ضعیف» =====
+            # ===== اصلاح (بازرسی یازدهم): «زمینهٔ نیازمند توجه» =====
             #
-            # نسخه قبلی دو مشکل داشت:
+            # تعریف محتوایی درست:
+            #   زمینهٔ نیازمند توجه = الگوی **تکرارشوندهٔ** رفتارهای **منفی**
+            #   مرتبط با یک شایستگی.
             #
-            # ۱) فیلتر `avg_severity <= 2.0`
-            #    در PARTO شدت (severity) یعنی «میزان برجستگی مشاهده»
-            #    (۱=خیلی کم تا ۵=خیلی زیاد) و جهت‌دار نیست؛ جهت رفتار در
-            #    `behavior_type` (مثبت/منفی/خنثی) ذخیره می‌شود.
-            #    پس این فیلتر دقیقاً شایستگی‌هایی را که بیشترین مشکل
-            #    جدی را دارند حذف می‌کرد و فقط مشکلات خفیف را نگه
-            #    می‌داشت. نتیجه: «شایستگی‌های ضعیف» در واقع
-            #    «شایستگی‌های بی‌مشکل» بودند.
-            #
-            # ۲) مرتب‌سازی صعودی + [:limit]
-            #    `sort(key=avg_severity)` صعودی است و بعد اولین `limit`
-            #    مورد گرفته می‌شد، یعنی کم‌شدت‌ترین‌ها برمی‌گشتند.
-            #
-            # حالا: شایستگی ضعیف = شایستگی با بیشترین مشاهده منفی،
-            # و رتبه‌بندی بر اساس امتیاز ترکیبی (تعداد منفی × شدت).
-            weak_comps = []
+            # شدت (severity) جهت‌دار نیست و نمی‌تواند تعیین کند رفتار
+            # مثبت است یا منفی؛ پس در تصمیم‌گیری نقشی ندارد و فقط
+            # به‌عنوان اطلاعات تکمیلی همراه خروجی می‌آید.
+            needs_attention = []
             for comp_id, stats in comp_stats.items():
-                if stats['count'] < 2:
-                    continue
-
-                avg_severity = stats['total_severity'] / stats['count']
+                positive_count = stats['positive_count']
                 negative_count = stats['negative_count']
+                total = stats['count']
+                neutral = max(total - positive_count - negative_count, 0)
 
-                # فقط شایستگی‌هایی که واقعاً مشاهده منفی دارند
-                if negative_count == 0:
+                # نتیجه‌گیری فقط با الگوی تکرارشونده
+                if classify_pattern(positive_count, negative_count, neutral,
+                                    total, MIN_PATTERN_COUNT) != PATTERN_NEEDS_ATTENTION:
                     continue
 
-                weak_comps.append({
+                share = shares({'positive': positive_count,
+                                'negative': negative_count,
+                                'neutral': neutral, 'total': total})
+                avg_severity = stats['total_severity'] / total
+                needs_attention.append({
                     'competency_id': comp_id,
+                    # شدت فقط تکمیلی است
                     'avg_severity': round(avg_severity, 1),
-                    'count': stats['count'],
+                    'severity_is_auxiliary': True,
+                    'count': total,
+                    'positive_count': positive_count,
                     'negative_count': negative_count,
-                    # امتیاز وخامت: هم حجم، هم شدت
-                    'impact_score': round(negative_count * avg_severity, 2),
-                    'observation_ids': stats['observation_ids']
+                    'negative_share': share['negative'],
+                    'observation_ids': stats['observation_ids'],
+                    'pattern': PATTERN_NEEDS_ATTENTION,
                 })
 
-            # وخیم‌ترین شایستگی اول
-            weak_comps.sort(key=lambda x: x['impact_score'], reverse=True)
+            weak_comps = needs_attention
+            # پرتکرارترین الگوی منفی اول (بر اساس تعداد رفتار منفی)
+            weak_comps.sort(key=lambda x: (x['negative_count'], x['count']),
+                            reverse=True)
             
             # دریافت نام شایستگی‌ها
             for comp in weak_comps[:limit]:
@@ -1010,25 +1019,53 @@ class ObservationDAL:
                     if obs.competency_id not in comp_stats:
                         comp_stats[obs.competency_id] = {
                             'count': 0,
-                            'total_severity': 0
+                            'total_severity': 0,
+                            'positive_count': 0,
+                            'negative_count': 0,
+                            'observation_ids': []
                         }
                     comp_stats[obs.competency_id]['count'] += 1
                     comp_stats[obs.competency_id]['total_severity'] += obs.severity or 1
+                    if obs.behavior_type == 'مثبت':
+                        comp_stats[obs.competency_id]['positive_count'] += 1
+                    elif obs.behavior_type == 'منفی':
+                        comp_stats[obs.competency_id]['negative_count'] += 1
+                    comp_stats[obs.competency_id]['observation_ids'].append(obs.id)
             
-            # محاسبه میانگین و فیلتر شایستگی‌های قوی (میانگین شدت >= 3.5 و حداقل 2 مشاهده)
+            # ===== اصلاح (بازرسی یازدهم): «توانمندی» =====
+            #
+            # توانمندی = الگوی **تکرارشوندهٔ** رفتارهای **مثبت** مرتبط با
+            # یک شایستگی. شدت جهت‌دار نیست و در تصمیم‌گیری نقشی ندارد.
             strong_comps = []
             for comp_id, stats in comp_stats.items():
-                if stats['count'] >= 2:
-                    avg_severity = stats['total_severity'] / stats['count']
-                    if avg_severity >= 3.5:
-                        strong_comps.append({
-                            'competency_id': comp_id,
-                            'avg_severity': round(avg_severity, 1),
-                            'count': stats['count']
-                        })
-            
-            # مرتب‌سازی بر اساس میانگین شدت (قوی‌ترین اول)
-            strong_comps.sort(key=lambda x: x['avg_severity'], reverse=True)
+                positive_count = stats['positive_count']
+                negative_count = stats['negative_count']
+                total = stats['count']
+                neutral = max(total - positive_count - negative_count, 0)
+
+                if classify_pattern(positive_count, negative_count, neutral,
+                                    total, MIN_PATTERN_COUNT) != PATTERN_STRENGTH:
+                    continue
+
+                share = shares({'positive': positive_count,
+                                'negative': negative_count,
+                                'neutral': neutral, 'total': total})
+                avg_severity = stats['total_severity'] / total
+                strong_comps.append({
+                    'competency_id': comp_id,
+                    'avg_severity': round(avg_severity, 1),   # تکمیلی
+                    'severity_is_auxiliary': True,
+                    'count': total,
+                    'positive_count': positive_count,
+                    'negative_count': negative_count,
+                    'positive_share': share['positive'],
+                    'observation_ids': stats.get('observation_ids', []),
+                    'pattern': PATTERN_STRENGTH,
+                })
+
+            # پرتکرارترین الگوی مثبت اول
+            strong_comps.sort(key=lambda x: (x['positive_count'], x['count']),
+                              reverse=True)
             
             # دریافت نام شایستگی‌ها
             for comp in strong_comps[:limit]:

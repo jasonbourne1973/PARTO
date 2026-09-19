@@ -34,6 +34,7 @@ except ImportError:
 
 import jdatetime
 
+from utils.behavior_analysis import classify_pattern, pattern_label
 from utils.logger import get_logger
 from utils.persian_pdf import PersianPDF
 from utils.time_utils import utc_now
@@ -107,19 +108,19 @@ class TeacherReportService:
             # ===== شایستگی‌ها =====
             stats = report_data.get('competency_stats', {})
             if stats:
-                pdf.add_subtitle("وضعیت شایستگی‌ها")
-                table_data = [["شایستگی", "میانگین شدت", "تعداد", "وضعیت"]]
+                pdf.add_subtitle("وضعیت زمینه‌ها (بر پایهٔ نوع رفتار ثبت‌شده)")
+                table_data = [["زمینه", "مثبت", "منفی", "از مشاهدات", "الگو"]]
                 for name, stat in list(stats.items())[:15]:
-                    avg = stat.get('avg_severity', 0)
-                    if avg >= 3.5:
-                        status = "عالی"
-                    elif avg >= 2.5:
-                        status = "خوب"
-                    elif avg >= 1.5:
-                        status = "متوسط"
-                    else:
-                        status = "نیاز به توجه"
-                    table_data.append([name, str(avg), str(stat['count']), status])
+                    # بازرسی یازدهم: الگو از نوع رفتار می‌آید، نه میانگین شدت
+                    kind = classify_pattern(
+                        stat.get('positive', 0), stat.get('negative', 0),
+                        max(stat.get('count', 0) - stat.get('positive', 0)
+                            - stat.get('negative', 0), 0),
+                        stat.get('count', 0))
+                    table_data.append([
+                        name, str(stat.get('positive', 0)),
+                        str(stat.get('negative', 0)), str(stat['count']),
+                        pattern_label(kind)])
                 pdf.add_table(table_data)
                 pdf.add_spacer(0.3)
             
@@ -236,29 +237,25 @@ class TeacherReportService:
         
         ws2.cell(row=1, column=1, value="شایستگی").font = header_font
         ws2.cell(row=1, column=1).fill = header_fill
-        ws2.cell(row=1, column=2, value="میانگین شدت").font = header_font
+        ws2.cell(row=1, column=2, value="مثبت").font = header_font
         ws2.cell(row=1, column=2).fill = header_fill
-        ws2.cell(row=1, column=3, value="تعداد").font = header_font
+        ws2.cell(row=1, column=3, value="منفی").font = header_font
         ws2.cell(row=1, column=3).fill = header_fill
-        ws2.cell(row=1, column=4, value="وضعیت").font = header_font
+        ws2.cell(row=1, column=4, value="الگو (بر پایهٔ نوع رفتار)").font = header_font
         ws2.cell(row=1, column=4).fill = header_fill
         
         stats = report_data.get('competency_stats', {})
         row = 2
         for name, stat in stats.items():
             ws2.cell(row=row, column=1, value=name)
-            ws2.cell(row=row, column=2, value=stat.get('avg_severity', 0))
-            ws2.cell(row=row, column=3, value=stat['count'])
-            
-            avg = stat.get('avg_severity', 0)
-            if avg >= 3.5:
-                status = "عالی"
-            elif avg >= 2.5:
-                status = "خوب"
-            elif avg >= 1.5:
-                status = "متوسط"
-            else:
-                status = "نیاز به توجه"
+            ws2.cell(row=row, column=2, value=stat.get('positive', 0))
+            ws2.cell(row=row, column=3, value=stat.get('negative', 0))
+            # بازرسی یازدهم: الگو از نوع رفتار می‌آید، نه میانگین شدت
+            status = pattern_label(classify_pattern(
+                stat.get('positive', 0), stat.get('negative', 0),
+                max(stat.get('count', 0) - stat.get('positive', 0)
+                    - stat.get('negative', 0), 0),
+                stat.get('count', 0)))
             ws2.cell(row=row, column=4, value=status)
             row += 1
         

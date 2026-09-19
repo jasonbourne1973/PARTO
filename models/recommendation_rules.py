@@ -140,9 +140,12 @@ def get_default_rules():
     """
     rules = []
     
-    # ===== قانون 1: شایستگی ضعیف =====
+    # ===== قانون 1: زمینهٔ نیازمند توجه (الگوی تکرارشوندهٔ رفتار منفی) =====
+    # بازرسی یازدهم: مبنا «نوع رفتار ثبت‌شده» است، نه میانگین شدت.
+    # تصمیم‌گیری دربارهٔ قوت/ضعف فقط از رفتارهای مثبت/منفی تکرارشونده
+    # می‌آید و شدت صرفاً اطلاعات تکمیلی است.
     def weak_competency_condition(data):
-        """شرط: وجود شایستگی با میانگین شدت <= 2 و حداقل 2 مشاهده"""
+        """شرط: وجود زمینه‌ای با الگوی تکرارشوندهٔ رفتار منفی"""
         weak_comps = data.get('weak_competencies', [])
         return len(weak_comps) > 0
     
@@ -153,23 +156,35 @@ def get_default_rules():
             return None
         
         comp = weak_comps[0]
+        negative = comp.get('negative_count', 0)
+        total = comp.get('count', 0)
+        ids = ", ".join(str(i) for i in comp.get('observation_ids', [])[:6]) or "-"
         return RecommendationResult(
             rule_id="weak_competency",
             category=RecommendationCategory.INTERVENTION,
             priority=RulePriority.HIGH,
-            title=f"نیاز به مداخله در شایستگی '{comp.get('competency_name', 'نامشخص')}'",
-            description=f"این شایستگی با میانگین شدت {comp.get('avg_severity', 0)} و {comp.get('count', 0)} مشاهده، نیاز به توجه ویژه دارد.",
-            suggested_action="ثبت مداخله هدفمند برای تقویت این شایستگی",
+            title=("زمینهٔ نیازمند توجه: "
+                   f"{comp.get('competency_name', 'نامشخص')}"),
+            description=("بر پایهٔ رفتارهای ثبت‌شده، در این زمینه الگوی "
+                         f"تکرارشوندهٔ رفتار منفی مشاهده شده است "
+                         f"({negative} رفتار منفی از {total} مشاهده؛ "
+                         f"شناسهٔ مشاهدات: {ids}). این یک «الگوی مشاهده‌شده» "
+                         "است، نه تشخیص."),
+            suggested_action=("بررسی الگو و در صورت تأیید، ثبت مداخلهٔ هدفمند "
+                              "برای این زمینه"),
             suggested_intervention_type="individual_talk",
             related_competency_id=comp.get('competency_id'),
             related_observation_ids=comp.get('observation_ids', []),
-            score=80
+            score=80,
+            metadata={'behavior_based': True, 'negative_count': negative,
+                      'total_count': total}
         )
     
     rules.append(RecommendationRule(
         id="weak_competency",
-        name="شایستگی ضعیف",
-        description="زمانی که یک شایستگی میانگین شدت پایین دارد، مداخله پیشنهاد می‌شود",
+        name="الگوی تکرارشوندهٔ رفتار منفی",
+        description=("زمانی که در یک زمینه، رفتار منفی به‌صورت تکرارشونده "
+                     "ثبت شده باشد، بررسی و اقدام پیشنهاد می‌شود"),
         priority=RulePriority.HIGH,
         category=RecommendationCategory.INTERVENTION,
         condition=weak_competency_condition,
@@ -178,9 +193,9 @@ def get_default_rules():
         tags=["weak", "competency", "intervention"]
     ))
     
-    # ===== قانون 2: شایستگی قوی =====
+    # ===== قانون 2: توانمندی (الگوی تکرارشوندهٔ رفتار مثبت) =====
     def strong_competency_condition(data):
-        """شرط: وجود شایستگی با میانگین شدت >= 3.5 و حداقل 2 مشاهده"""
+        """شرط: وجود زمینه‌ای با الگوی تکرارشوندهٔ رفتار مثبت"""
         strong_comps = data.get('strong_competencies', [])
         return len(strong_comps) > 0
     
@@ -191,22 +206,33 @@ def get_default_rules():
             return None
         
         comp = strong_comps[0]
+        positive = comp.get('positive_count', 0)
+        total = comp.get('count', 0)
+        ids = ", ".join(str(i) for i in comp.get('observation_ids', [])[:6]) or "-"
         return RecommendationResult(
             rule_id="strong_competency",
             category=RecommendationCategory.ENCOURAGEMENT,
             priority=RulePriority.MEDIUM,
-            title=f"تشویق در شایستگی '{comp.get('competency_name', 'نامشخص')}'",
-            description=f"این شایستگی با میانگین شدت {comp.get('avg_severity', 0)} و {comp.get('count', 0)} مشاهده، عملکرد خوبی دارد.",
-            suggested_action="تشویق و تقویت این شایستگی",
+            title=f"توانمندی: {comp.get('competency_name', 'نامشخص')}",
+            description=("بر پایهٔ رفتارهای ثبت‌شده، در این زمینه الگوی "
+                         f"تکرارشوندهٔ رفتار مثبت مشاهده شده است "
+                         f"({positive} رفتار مثبت از {total} مشاهده؛ "
+                         f"شناسهٔ مشاهدات: {ids}). تقویت این الگو پیشنهاد "
+                         "می‌شود."),
+            suggested_action="تشویق و تقویت این الگوی رفتاری",
             suggested_intervention_type="encouragement",
             related_competency_id=comp.get('competency_id'),
-            score=60
+            related_observation_ids=comp.get('observation_ids', []),
+            score=60,
+            metadata={'behavior_based': True, 'positive_count': positive,
+                      'total_count': total}
         )
     
     rules.append(RecommendationRule(
         id="strong_competency",
-        name="شایستگی قوی",
-        description="زمانی که یک شایستگی میانگین شدت بالا دارد، تشویق پیشنهاد می‌شود",
+        name="الگوی تکرارشوندهٔ رفتار مثبت",
+        description=("زمانی که در یک زمینه، رفتار مثبت به‌صورت تکرارشونده "
+                     "ثبت شده باشد، تقویت آن پیشنهاد می‌شود"),
         priority=RulePriority.MEDIUM,
         category=RecommendationCategory.ENCOURAGEMENT,
         condition=strong_competency_condition,
@@ -401,8 +427,11 @@ def get_default_rules():
             rule_id="high_negative_ratio",
             category=RecommendationCategory.INTERVENTION,
             priority=RulePriority.HIGH,
-            title="کاهش رفتارهای منفی",
-            description=f"{data.get('negative_ratio', 0)}% مشاهدات منفی هستند. نیاز به مداخله برای کاهش رفتارهای منفی وجود دارد.",
+            title="سهم بالای رفتارهای منفی",
+            description=(f"{data.get('negative_ratio', 0)}% از مشاهدات ثبت‌شده "
+                         "رفتار منفی است. این آمار «الگوی مشاهده‌شده» را نشان "
+                         "می‌دهد؛ بررسی زمینه و در صورت لزوم اقدام پیشنهاد "
+                         "می‌شود (نه تشخیص)."),
             suggested_action="ثبت مداخله برای کاهش رفتارهای منفی",
             suggested_intervention_type="individual_talk",
             score=85
@@ -432,8 +461,10 @@ def get_default_rules():
             rule_id="high_positive_ratio",
             category=RecommendationCategory.ENCOURAGEMENT,
             priority=RulePriority.LOW,
-            title="تشویق رفتارهای مثبت",
-            description=f"{data.get('positive_ratio', 0)}% مشاهدات مثبت هستند. عملکرد بسیار خوب است، تشویق و تقویت ادامه یابد.",
+            title="سهم بالای رفتارهای مثبت",
+            description=(f"{data.get('positive_ratio', 0)}% از مشاهدات "
+                         "ثبت‌شده رفتار مثبت است. تقویت و تشویق این الگو "
+                         "پیشنهاد می‌شود."),
             suggested_action="تشویق و تقویت رفتارهای مثبت",
             suggested_intervention_type="encouragement",
             score=50

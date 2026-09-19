@@ -30,14 +30,17 @@ from PySide6.QtWidgets import (
 
 from dal.academic_year_dal import AcademicYearDAL
 from dal.competency_dal import CompetencyDAL
+from dal.family_context_dal import FamilyContextDAL
 from dal.followup_dal import FollowUpDAL
 from dal.intervention_dal import InterventionDAL
 from dal.observation_dal import ObservationDAL
+from dal.parent_interview_dal import ParentInterviewDAL
 from dal.staff_dal import StaffDAL
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.student_dal import StudentDAL
 from services.case_timeline_service import CaseTimelineService
 from services.trend_analysis_service import TrendAnalysisService
+from utils.behavior_analysis import summarize_by_competency
 from utils.logger import get_logger
 from views.dialogs.followup_form import FollowUpForm
 from views.dialogs.intervention_form import InterventionForm
@@ -62,6 +65,9 @@ class StudentProfilePage(QWidget):
         self.academic_year_dal = AcademicYearDAL()
         self.competency_dal = CompetencyDAL()
         self.staff_dal = StaffDAL()
+        # زمینهٔ رشد (بازرسی یازدهم): زمینهٔ خانوادگی و گفت‌وگو با والدین
+        self.family_dal = FamilyContextDAL()
+        self.parent_interview_dal = ParentInterviewDAL()
         self.timeline_service = CaseTimelineService()
         self.trend_service = TrendAnalysisService()
         
@@ -384,6 +390,7 @@ class StudentProfilePage(QWidget):
         self.tabs.addTab(self.create_interventions_tab(), "🛠️ مداخلات")
         self.tabs.addTab(self.create_followups_tab(), "🔔 پیگیری‌ها")
         self.tabs.addTab(self.create_trend_tab(), "📈 روند")  # تب جدید
+        self.tabs.addTab(self.create_growth_context_tab(), "🌱 زمینهٔ رشد")
         self.tabs.addTab(self.create_summary_tab(), "📊 خلاصه")
         
         main_layout.addWidget(self.tabs)
@@ -701,6 +708,116 @@ class StudentProfilePage(QWidget):
     # تب روند (جدید)
     # ============================================================
     
+    def create_growth_context_tab(self):
+        """
+        تب «زمینهٔ رشد» — زمینهٔ خانوادگی و گفت‌وگو با والدین
+
+        بازرسی یازدهم: این اطلاعات باید در کنار رفتارها و مداخلات دیده
+        شود، ولی **زمینه‌ای** است؛ مبنای قضاوت دربارهٔ خانواده یا
+        دانش‌آموز نیست و به‌تنهایی نتیجه‌گیری نمی‌سازد.
+        """
+        tab = QWidget()
+        layout = QVBoxLayout()
+        tab.setLayout(layout)
+
+        note = QLabel(
+            "این بخش، زمینهٔ رشد دانش‌آموز را نشان می‌دهد: وضعیت خانواده و "
+            "گفت‌وگوهای والدین، در کنار رفتارهای ثبت‌شده و اقدامات انجام‌شده. "
+            "این اطلاعات زمینه‌ای است، مبنای قضاوت دربارهٔ خانواده یا "
+            "دانش‌آموز نیست و PARTO هیچ تشخیص روان‌شناختی یا برچسبی تولید "
+            "نمی‌کند.\n"
+            "مسیر تحلیل: مشاهدهٔ رفتار ← ثبت داده ← تحلیل الگو ← اقدام ← "
+            "پیگیری ← نتیجه ← بررسی روند رشد."
+        )
+        note.setWordWrap(True)
+        note.setStyleSheet(
+            "background-color: #0B2E4F; color: #F4C542; border: 1px solid #D9C36A;"
+            "border-radius: 8px; padding: 12px; font-size: 13px;")
+        layout.addWidget(note)
+
+        # ----- زمینهٔ خانوادگی -----
+        family_frame = QGroupBox("🏠 زمینهٔ خانوادگی (اطلاعات زمینه‌ای)")
+        family_frame.setStyleSheet(
+            "QGroupBox { color: #111111; background-color: #66BB6A; font-weight: bold;"
+            "border: 2px solid #8BC34A; border-radius: 8px; margin-top: 12px; padding: 10px; }")
+        family_layout = QVBoxLayout()
+        family_frame.setLayout(family_layout)
+        self.family_info_label = QLabel("اطلاعات زمینه‌ای خانواده ثبت نشده است.")
+        self.family_info_label.setWordWrap(True)
+        self.family_info_label.setStyleSheet("color: #111111; background: transparent;")
+        family_layout.addWidget(self.family_info_label)
+        layout.addWidget(family_frame)
+
+        # ----- گفت‌وگو با والدین -----
+        interview_frame = QGroupBox("👨‍👩‍👦 گفت‌وگو با والدین")
+        interview_frame.setStyleSheet(
+            "QGroupBox { color: #111111; background-color: #66BB6A; font-weight: bold;"
+            "border: 2px solid #8BC34A; border-radius: 8px; margin-top: 12px; padding: 10px; }")
+        interview_layout = QVBoxLayout()
+        interview_frame.setLayout(interview_layout)
+
+        self.interview_table = QTableWidget()
+        self.interview_table.setColumnCount(5)
+        self.interview_table.setHorizontalHeaderLabels(
+            ["تاریخ", "روش", "موضوع", "وضعیت", "نتیجه"])
+        self.interview_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.interview_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.interview_table.setMaximumHeight(200)
+        interview_layout.addWidget(self.interview_table)
+
+        self.interview_note_label = QLabel(
+            "گفت‌وگوها برای درک بهتر وضعیت دانش‌آموز ثبت می‌شوند؛ نتیجهٔ آن‌ها "
+            "به‌عنوان «زمینه» در تحلیل دیده می‌شود، نه به‌عنوان برچسب.")
+        self.interview_note_label.setWordWrap(True)
+        self.interview_note_label.setStyleSheet("color: #111111; background: transparent;")
+        interview_layout.addWidget(self.interview_note_label)
+
+        layout.addWidget(interview_frame)
+        layout.addStretch()
+        return tab
+
+    def load_growth_context(self):
+        """بارگذاری زمینهٔ رشد: زمینهٔ خانوادگی و گفت‌وگوهای والدین"""
+        if not self.profile_id:
+            return
+
+        try:
+            context = self.family_dal.get_by_student_profile(self.profile_id)
+            if context:
+                parts = []
+                parts.append(f"وضعیت سرپرستی: {getattr(context, 'guardian_status_display', '-')}")
+                parts.append(f"حمایت والدین: {getattr(context, 'parental_support', None) or '-'}")
+                parts.append(f"وضعیت اقتصادی: {getattr(context, 'economic_status', None) or '-'}")
+                parts.append(f"فضای مطالعه: {'دارد' if getattr(context, 'has_study_space', 0) else 'ندارد'}")
+                stress = getattr(context, 'family_stress', None)
+                if stress:
+                    parts.append(f"فشارهای خانوادگی ثبت‌شده: {stress}")
+                notes = getattr(context, 'educational_notes', None)
+                if notes:
+                    parts.append(f"یادداشت: {notes}")
+                self.family_info_label.setText(" | ".join(parts))
+            else:
+                self.family_info_label.setText("اطلاعات زمینه‌ای خانواده ثبت نشده است.")
+        except Exception as e:
+            logger.error(f"خطا در بارگذاری زمینهٔ خانوادگی: {e}")
+            self.family_info_label.setText("اطلاعات زمینه‌ای خانواده در دسترس نیست.")
+
+        try:
+            interviews = self.parent_interview_dal.get_by_student_profile(self.profile_id) or []
+            self.interview_table.setRowCount(len(interviews))
+            for row, interview in enumerate(interviews):
+                self.interview_table.setItem(row, 0, QTableWidgetItem(interview.interview_date or "-"))
+                self.interview_table.setItem(row, 1, QTableWidgetItem(
+                    getattr(interview, 'method_display', None) or '-'))
+                self.interview_table.setItem(row, 2, QTableWidgetItem(interview.topic or "-"))
+                self.interview_table.setItem(row, 3, QTableWidgetItem(
+                    getattr(interview, 'status_display', None) or '-'))
+                self.interview_table.setItem(row, 4, QTableWidgetItem(
+                    interview.result or interview.summary or "-"))
+        except Exception as e:
+            logger.error(f"خطا در بارگذاری گفت‌وگوهای والدین: {e}")
+            self.interview_table.setRowCount(0)
+
     def create_trend_tab(self):
         """ایجاد تب روند"""
         tab = QWidget()
@@ -732,9 +849,15 @@ class StudentProfilePage(QWidget):
         self.trend_neutral_label.setStyleSheet("color: #D9C36A;")
         summary_layout.addWidget(self.trend_neutral_label, 2, 1)
         
-        self.trend_competencies_label = QLabel("شایستگی‌های برتر: -")
+        self.trend_competencies_label = QLabel("زمینه‌های پرتکرار ثبت‌شده: -")
         self.trend_competencies_label.setWordWrap(True)
         summary_layout.addWidget(self.trend_competencies_label, 3, 0, 1, 2)
+
+        # بازرسی یازدهم: یادآوری اینکه تعداد مشاهدات، شاخص رشد نیست
+        self.trend_note_label = QLabel("")
+        self.trend_note_label.setWordWrap(True)
+        self.trend_note_label.setStyleSheet("color: #7F8C8D; font-size: 11px;")
+        summary_layout.addWidget(self.trend_note_label, 4, 0, 1, 2)
         
         layout.addWidget(summary_frame)
         
@@ -853,6 +976,7 @@ class StudentProfilePage(QWidget):
             self.load_interventions()
             self.load_followups()
             self.load_trend_chart()  # بارگذاری روند
+            self.load_growth_context()  # زمینهٔ رشد (خانواده و گفت‌وگوها)
             
         except Exception as e:
             QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{e!s}")
@@ -947,12 +1071,33 @@ class StudentProfilePage(QWidget):
             return
         
         observations = self.observation_dal.get_by_student_profile(self.profile_id)
-        
-        strengths = [obs for obs in observations if obs.behavior_type == "مثبت"]
-        weaknesses = [obs for obs in observations if obs.behavior_type == "منفی"]
-        
-        self.strengths_label.setText(f"{len(strengths)} مشاهده مثبت ثبت شده است." if strengths else "هیچ نقطه قوتی ثبت نشده است.")
-        self.weaknesses_label.setText(f"{len(weaknesses)} مشاهده نیازمند حمایت ثبت شده است." if weaknesses else "هیچ زمینه‌ای ثبت نشده است.")
+
+        # ===== اصلاح (بازرسی یازدهم) =====
+        # پیش از این فقط «تعداد مشاهدات مثبت/منفی» نمایش داده می‌شد.
+        # حالا الگوی تکرارشوندهٔ رفتارها بر پایهٔ نوع رفتار (و نه شدت)
+        # ساخته می‌شود؛ یک مشاهدهٔ منفرد نتیجه‌گیری نمی‌سازد.
+        patterns = summarize_by_competency(
+            observations, lambda cid: getattr(self.competency_dal.get_by_id(cid), 'title', None))
+
+        def _format(entries, behavior_field, empty_text):
+            if not entries:
+                return empty_text
+            parts = []
+            for entry in entries[:4]:
+                parts.append(f"{entry['competency']} "
+                             f"({entry[behavior_field]} مورد از {entry['count']} مشاهده)")
+            return " | ".join(parts)
+
+        strengths_text = _format(
+            patterns['strengths'], 'positive',
+            "الگوی تکرارشوندهٔ رفتار مثبت ثبت نشده است.")
+        needs_text = _format(
+            patterns['needs_attention'], 'negative',
+            "الگوی تکرارشوندهٔ رفتار منفی ثبت نشده است.")
+
+        self.strengths_label.setText(f"توانمندی‌ها (الگوی تکرارشوندهٔ رفتار مثبت): {strengths_text}")
+        self.weaknesses_label.setText(
+            f"زمینه‌های نیازمند توجه (الگوی تکرارشوندهٔ رفتار منفی): {needs_text}")
     
     def load_observations(self):
         """بارگذاری مشاهدات در جدول"""
@@ -1062,13 +1207,25 @@ class StudentProfilePage(QWidget):
         overall = trend['overall_trend']
         self.trend_status_label.setText(f"{overall['icon']} {overall['message']}")
         self.trend_status_label.setStyleSheet(f"color: {overall.get('color', '#F4C542')}; font-weight: bold;")
+        # یادآوری محتوایی: تعداد مشاهدات، شاخص رشد نیست (بازرسی یازدهم)
+        note = trend.get('volume_note')
+        if note and hasattr(self, 'trend_note_label'):
+            self.trend_note_label.setText(note)
         
-        # نمایش شایستگی‌های برتر
+        # نمایش زمینه‌های پرتکرار (بر پایهٔ نوع رفتار ثبت‌شده)
         if trend['top_competencies']:
-            comp_text = " | ".join([f"{name} ({count})" for name, count in trend['top_competencies'][:5]])
-            self.trend_competencies_label.setText(f"شایستگی‌های برتر: {comp_text}")
+            # بازرسی یازدهم: خروجی (نام، تعداد، برچسب الگو) است
+            parts = []
+            for item in trend['top_competencies'][:5]:
+                name, count = item[0], item[1]
+                label = item[2] if len(item) > 2 else ''
+                parts.append(f"{name} ({count} مشاهده — {label})" if label
+                             else f"{name} ({count} مشاهده)")
+            self.trend_competencies_label.setText(
+                "زمینه‌های پرتکرار ثبت‌شده: " + " | ".join(parts))
         else:
-            self.trend_competencies_label.setText("شایستگی‌های برتر: ثبت نشده")
+            self.trend_competencies_label.setText(
+                "زمینه‌های پرتکرار ثبت‌شده: ثبت نشده")
         
         # به‌روزرسانی جدول روند
         self.load_trend_table(trend['trend_data'])
@@ -1124,7 +1281,10 @@ class StudentProfilePage(QWidget):
         self.trend_positive_label.setText("مثبت: 0")
         self.trend_negative_label.setText("منفی: 0")
         self.trend_neutral_label.setText("خنثی: 0")
-        self.trend_competencies_label.setText("شایستگی‌های برتر: -")
+        self.trend_competencies_label.setText("زمینه‌های پرتکرار ثبت‌شده: -")
+        self.trend_note_label.setText("")
+        self.family_info_label.setText("اطلاعات زمینه‌ای خانواده ثبت نشده است.")
+        self.interview_table.setRowCount(0)
     
     def add_observation(self):
         if not self.student_id:

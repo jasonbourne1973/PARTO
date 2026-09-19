@@ -36,6 +36,7 @@ import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
+from utils.behavior_analysis import classify_pattern, pattern_label
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -544,19 +545,24 @@ class TeacherPerformancePage(QWidget):
             self.competency_table.setItem(row, 2, QTableWidgetItem(str(stats.get('avg_severity', 0))))
             self.competency_table.setItem(row, 3, QTableWidgetItem(str(stats.get('positive', 0))))
             
-            avg = stats.get('avg_severity', 0)
-            if avg >= 3.5:
-                status = "✅ عالی"
+            # بازرسی یازدهم: وضعیت بر پایهٔ الگوی رفتار ثبت‌شده، نه شدت
+            kind = classify_pattern(
+                stats.get('positive', 0), stats.get('negative', 0),
+                max(stats.get('count', 0) - stats.get('positive', 0)
+                    - stats.get('negative', 0), 0),
+                stats.get('count', 0))
+            if kind == 'strength':
+                status = "✅ " + pattern_label(kind)
                 color = QColor(0, 128, 0)
-            elif avg >= 2.5:
-                status = "🟡 خوب"
-                color = QColor(255, 165, 0)
-            elif avg >= 1.5:
-                status = "🟠 متوسط"
+            elif kind == 'needs_attention':
+                status = "🔴 " + pattern_label(kind)
+                color = QColor(255, 0, 0)
+            elif kind == 'mixed':
+                status = "🟠 " + pattern_label(kind)
                 color = QColor(255, 140, 0)
             else:
-                status = "🔴 نیاز به توجه"
-                color = QColor(255, 0, 0)
+                status = "⬜ " + pattern_label(kind)
+                color = QColor(158, 158, 158)
             
             item = QTableWidgetItem(status)
             item.setForeground(color)

@@ -16,6 +16,7 @@ from dal.observation_dal import ObservationDAL
 from dal.staff_dal import StaffDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
 from services.base_service import BaseService
+from utils.behavior_analysis import classify_pattern, pattern_label
 from utils.error_handler import ServiceError
 from utils.logger import get_logger
 from utils.time_utils import utc_now
@@ -165,29 +166,41 @@ class TeacherPerformanceService(BaseService):
         return stats
     
     def _analyze_strengths_weaknesses(self, competency_stats):
-        """تحلیل نقاط قوت و ضعف"""
+        """
+        تحلیل توانمندی‌ها و زمینه‌های نیازمند توجه — بر پایهٔ **نوع رفتار**
+        (بازرسی یازدهم)
+
+        معیار پیشین «میانگین شدت» بود؛ اکنون الگوی تکرارشوندهٔ رفتارهای
+        مثبت/منفی مبناست و شدت فقط به‌عنوان اطلاعات تکمیلی همراه خروجی
+        می‌آید. این تحلیل در سطح معلم/کلاس است و برچسب‌گذاری فردی نیست.
+        """
         strengths = []
         weaknesses = []
         
         for competency, stats in competency_stats.items():
-            avg = stats.get('avg_severity', 0)
             count = stats.get('count', 0)
-            
-            if count >= 2 and avg >= 3.5:
-                strengths.append({
-                    'competency': competency,
-                    'avg_severity': avg,
-                    'count': count
-                })
-            elif count >= 2 and avg <= 2.0:
-                weaknesses.append({
-                    'competency': competency,
-                    'avg_severity': avg,
-                    'count': count
-                })
+            positive = stats.get('positive', 0)
+            negative = stats.get('negative', 0)
+            kind = classify_pattern(positive, negative,
+                                    max(count - positive - negative, 0), count)
+            entry = {
+                'competency': competency,
+                'count': count,
+                'positive': positive,
+                'negative': negative,
+                'pattern': kind,
+                'pattern_label': pattern_label(kind),
+                # شدت: تکمیلی
+                'avg_severity': stats.get('avg_severity', 0),
+                'severity_is_auxiliary': True,
+            }
+            if kind == 'strength':
+                strengths.append(entry)
+            elif kind == 'needs_attention':
+                weaknesses.append(entry)
         
-        strengths.sort(key=lambda x: x['avg_severity'], reverse=True)
-        weaknesses.sort(key=lambda x: x['avg_severity'])
+        strengths.sort(key=lambda x: (x['positive'], x['count']), reverse=True)
+        weaknesses.sort(key=lambda x: (x['negative'], x['count']), reverse=True)
         
         return strengths[:5], weaknesses[:5]
     
@@ -215,10 +228,17 @@ class TeacherPerformanceService(BaseService):
                 )
         
         if competency_stats:
-            weak = [c for c, s in competency_stats.items() if s.get('avg_severity', 0) <= 2.0 and s.get('count', 0) >= 2]
+            weak = [
+                c for c, s in competency_stats.items()
+                if classify_pattern(s.get('positive', 0), s.get('negative', 0),
+                                    max(s.get('count', 0) - s.get('positive', 0)
+                                        - s.get('negative', 0), 0),
+                                    s.get('count', 0)) == 'needs_attention'
+            ]
             if weak:
                 recommendations['teacher'].append(
-                    f"📋 شایستگی‌های نیازمند توجه: {', '.join(weak[:3])}"
+                    f"📋 زمینه‌های با الگوی تکرارشوندهٔ رفتار منفی: {', '.join(weak[:3])} "
+                    "— بررسی این الگوها پیشنهاد می‌شود."
                 )
         
         if students:

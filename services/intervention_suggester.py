@@ -272,13 +272,21 @@ class InterventionSuggester(BaseService):
                     comp_obj = self.competency_dal.get_by_id(comp_id)
                     if comp_obj:
                         suggested_types = self.suggest_intervention_for_competency(comp_id)
+                        # بازرسی یازدهم: اولویت بر پایهٔ «الگوی تکرارشوندهٔ
+                        # رفتار منفی» است، نه میانگین شدت.
                         recommendations.append({
                             'competency_id': comp_id,
                             'competency_name': comp_obj.title,
-                            'avg_severity': comp.get('avg_severity', 0),
+                            'pattern': comp.get('pattern'),
+                            'pattern_label': comp.get('pattern_label'),
+                            'positive_count': comp.get('positive_count', 0),
+                            'negative_count': comp.get('negative_count', 0),
                             'observation_count': comp.get('count', 0),
                             'suggested_interventions': suggested_types[:2],
-                            'priority': 'high' if comp.get('avg_severity', 0) <= 1.5 else 'medium'
+                            # شدت فقط تکمیلی
+                            'avg_severity': comp.get('avg_severity', 0),
+                            'severity_is_auxiliary': True,
+                            'priority': 'high' if comp.get('negative_count', 0) >= 3 else 'medium',
                         })
             
             return recommendations[:limit]

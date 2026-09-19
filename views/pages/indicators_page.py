@@ -27,6 +27,10 @@ from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.student_dal import StudentDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
 from database.connection import DatabaseConnection
+from utils.behavior_analysis import (
+    classify_pattern,
+    pattern_label,
+)
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -174,7 +178,8 @@ class IndicatorsPage(QWidget):
         
         # درخت شایستگی‌ها
         self.tree = QTreeWidget()
-        self.tree.setHeaderLabels(["شایستگی / شاخص", "امتیاز", "وضعیت"])
+        self.tree.setHeaderLabels(
+            ["شایستگی / شاخص", "رفتارهای ثبت‌شده (مثبت/منفی)", "وضعیت"])
         self.tree.setColumnWidth(0, 400)
         self.tree.setColumnWidth(1, 100)
         self.tree.setColumnWidth(2, 120)
@@ -501,10 +506,20 @@ class IndicatorsPage(QWidget):
                 if obs.competency_id not in comp_scores:
                     comp_scores[obs.competency_id] = {
                         'count': 0,
-                        'total': 0
+                        'total': 0,
+                        'positive': 0,
+                        'negative': 0,
+                        'neutral': 0,
                     }
                 comp_scores[obs.competency_id]['count'] += 1
                 comp_scores[obs.competency_id]['total'] += obs.severity or 1
+                # بازرسی یازدهم: شمارش نوع رفتار برای تحلیل الگو
+                if obs.behavior_type == 'مثبت':
+                    comp_scores[obs.competency_id]['positive'] += 1
+                elif obs.behavior_type == 'منفی':
+                    comp_scores[obs.competency_id]['negative'] += 1
+                else:
+                    comp_scores[obs.competency_id]['neutral'] += 1
         
         # پیمایش درخت
         for i in range(root.childCount()):
@@ -519,28 +534,38 @@ class IndicatorsPage(QWidget):
                     count = data['count']
                     score = round(data['total'] / count, 1) if count > 0 else 0
                     
-                    comp_item.setText(1, f"{score} ({count} obs)")
+                    # ===== بازرسی یازدهم =====
+                    # ستون میانی به‌جای «امتیاز شدت»، ترکیب رفتارهای
+                    # ثبت‌شده را نشان می‌دهد و وضعیت از **نوع رفتار**
+                    # ساخته می‌شود؛ نه از میانگین شدت.
+                    positive = data['positive']
+                    negative = data['negative']
+                    neutral = data['neutral']
+                    comp_item.setText(
+                        1, f"{positive} مثبت / {negative} منفی از {count} مشاهده")
                     comp_item.setData(2, Qt.ItemDataRole.UserRole, score)
-                    
-                    # تنظیم وضعیت
+                    comp_item.setData(2, Qt.ItemDataRole.UserRole + 1, {
+                        'count': count, 'positive': positive,
+                        'negative': negative, 'neutral': neutral,
+                        # شدت فقط تکمیلی
+                        'avg_severity': score,
+                    })
+
+                    kind = classify_pattern(positive, negative, neutral, count)
                     if count < 2:
-                        # داده ناکافی برای این شایستگی خاص
-                        comp_item.setText(2, "⚠️ داده ناکافی")
+                        comp_item.setText(2, "⚠️ " + pattern_label(kind))
                         comp_item.setForeground(2, QColor(241, 196, 15))
-                    elif score >= 4:
-                        comp_item.setText(2, "✅ عالی")
+                    elif kind == 'strength':
+                        comp_item.setText(2, "✅ " + pattern_label(kind))
                         comp_item.setForeground(2, QColor(0, 128, 0))
-                    elif score >= 3:
-                        comp_item.setText(2, "🟡 خوب")
-                        comp_item.setForeground(2, QColor(255, 165, 0))
-                    elif score >= 2:
-                        comp_item.setText(2, "🟠 متوسط")
-                        comp_item.setForeground(2, QColor(255, 140, 0))
-                    elif score > 0:
-                        comp_item.setText(2, "🔴 نیاز به توجه")
+                    elif kind == 'needs_attention':
+                        comp_item.setText(2, "🔴 " + pattern_label(kind))
                         comp_item.setForeground(2, QColor(255, 0, 0))
+                    elif kind == 'mixed':
+                        comp_item.setText(2, "🟠 " + pattern_label(kind))
+                        comp_item.setForeground(2, QColor(255, 140, 0))
                     else:
-                        comp_item.setText(2, "❌ ثبت نشده")
+                        comp_item.setText(2, "❌ مشاهدهٔ ثبت‌شده‌ای ندارد")
                         comp_item.setForeground(2, QColor(128, 128, 128))
                 else:
                     comp_item.setText(1, "❓")
@@ -580,6 +605,7 @@ class IndicatorsPage(QWidget):
             comp_name = item.text(0).replace("📌 ", "")
             comp_id = item.data(1, Qt.ItemDataRole.UserRole)
             score = item.data(2, Qt.ItemDataRole.UserRole) or -1
+            behavior_stats = item.data(2, Qt.ItemDataRole.UserRole + 1) or {}
             status_text = item.text(2)
             
             # دریافت اطلاعات از دیتابیس
@@ -595,27 +621,47 @@ class IndicatorsPage(QWidget):
             📝 توضیحات:
             {description}
             
-            ⭐ امتیاز: {score if score >= 0 else 'داده ناکافی'}
+            📈 رفتارهای ثبت‌شده: {behavior_stats.get('positive', 0)} مثبت،
+            {behavior_stats.get('negative', 0)} منفی و
+            {behavior_stats.get('neutral', 0)} خنثی از
+            {behavior_stats.get('count', 0)} مشاهده
+            (میانگین شدت به‌عنوان اطلاعات تکمیلی: {score if score >= 0 else '—'})
             📈 وضعیت: {status_text}
+            ⚠️ این وضعیت بر پایهٔ نوع رفتارهای ثبت‌شده است و تشخیص یا برچسب نیست.
             
             💡 پیشنهاد:
-            {self.get_suggestion(score, status_text)}
+            {self.get_suggestion(behavior_stats, status_text)}
             """)
     
-    def get_suggestion(self, score, status_text):
-        """گرفتن پیشنهاد بر اساس امتیاز و وضعیت"""
-        if score == -1 or "داده ناکافی" in status_text:
-            return "⚠️ داده کافی برای تحلیل این شایستگی وجود ندارد. برای تحلیل دقیق‌تر، حداقل ۲ مشاهده مرتبط ثبت کنید."
-        elif score >= 4:
-            return "✅ این شایستگی در وضعیت عالی قرار دارد. ادامه دهید."
-        elif score >= 3:
-            return "🟡 این شایستگی در وضعیت خوبی است. با تمرین بیشتر می‌توانید آن را به عالی برسانید."
-        elif score >= 2:
-            return "🟠 این شایستگی نیاز به توجه بیشتری دارد. تمرین‌های هدفمند می‌تواند کمک‌کننده باشد."
-        elif score > 0:
-            return "🔴 این شایستگی نیاز به حمایت و تمرین ویژه دارد. با مشاور مدرسه هماهنگ کنید."
-        else:
-            return "❌ هنوز مشاهده‌ای برای این شایستگی ثبت نشده است. لطفاً مشاهدات مرتبط را ثبت کنید."
+    def get_suggestion(self, behavior_stats, status_text):
+        """
+        پیشنهاد محتاطانه بر پایهٔ رفتارهای ثبت‌شده (بازرسی یازدهم)
+
+        ساختار: دادهٔ ثبت‌شده ← الگوی مشاهده‌شده ← پیشنهاد بررسی/اقدام.
+        """
+        behavior_stats = behavior_stats or {}
+        count = behavior_stats.get('count', 0)
+        if count == 0:
+            return ("❌ هنوز مشاهده‌ای برای این زمینه ثبت نشده است؛ ثبت مشاهدات "
+                    "قابل مشاهده، مبنای تحلیل است.")
+        if count < 2:
+            return ("⚠️ برای تحلیل الگو به مشاهدهٔ بیشتری نیاز است؛ یک مشاهدهٔ "
+                    "منفرد مبنای نتیجه‌گیری نیست.")
+        kind = classify_pattern(behavior_stats.get('positive', 0),
+                                behavior_stats.get('negative', 0),
+                                behavior_stats.get('neutral', 0), count)
+        if kind == 'strength':
+            return ("✅ در رفتارهای ثبت‌شده این زمینه، الگوی تکرارشوندهٔ رفتار "
+                    "مثبت دیده می‌شود؛ تقویت همین مسیر پیشنهاد می‌شود.")
+        if kind == 'needs_attention':
+            return ("🔴 در رفتارهای ثبت‌شده این زمینه، الگوی تکرارشوندهٔ رفتار "
+                    "منفی مشاهده شده است؛ بررسی دقیق‌تر و در صورت تأیید، اقدام "
+                    "هدفمند پیشنهاد می‌شود (این متن تشخیص نیست).")
+        if kind == 'mixed':
+            return ("🟠 رفتارهای ثبت‌شده در این زمینه ترکیبی از مثبت و منفی است؛ "
+                    "ادامهٔ ثبت و بررسی روند پیشنهاد می‌شود.")
+        return ("⬜ دادهٔ کافی برای تحلیل الگو وجود ندارد؛ ثبت مشاهدات بیشتر "
+                "تحلیل را دقیق‌تر می‌کند.")
     
     def refresh_indicators(self):
         """به‌روزرسانی شاخص‌ها"""

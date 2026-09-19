@@ -50,6 +50,7 @@ matplotlib.use('QtAgg')
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
+from utils.behavior_analysis import classify_pattern, pattern_label
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -642,23 +643,29 @@ class TeacherReportPage(QWidget):
         weak_competencies = []
         strong_competencies = []
         
+        # بازرسی یازدهم: قوت/ضعف بر پایهٔ نوع رفتار ثبت‌شده، نه میانگین شدت
         for key, stats in data['competency_stats'].items():
-            if stats['count'] >= 2:
-                if stats['avg_severity'] <= 2.0:
-                    weak_competencies.append((key, stats['avg_severity']))
-                elif stats['avg_severity'] >= 3.5:
-                    strong_competencies.append((key, stats['avg_severity']))
+            kind = classify_pattern(
+                stats.get('positive', 0), stats.get('negative', 0),
+                max(stats.get('count', 0) - stats.get('positive', 0)
+                    - stats.get('negative', 0), 0),
+                stats.get('count', 0))
+            if kind == 'needs_attention':
+                weak_competencies.append((key, stats.get('negative', 0), stats.get('count', 0)))
+            elif kind == 'strength':
+                strong_competencies.append((key, stats.get('positive', 0), stats.get('count', 0)))
         
-        # مرتب‌سازی
-        weak_competencies.sort(key=lambda x: x[1])
-        strong_competencies.sort(key=lambda x: x[1], reverse=True)
+        # مرتب‌سازی بر پایهٔ تعداد رفتار جهت‌دار
+        weak_competencies.sort(key=lambda x: (x[1], x[2]), reverse=True)
+        strong_competencies.sort(key=lambda x: (x[1], x[2]), reverse=True)
         
         # پیشنهادات برای معلم
         if weak_competencies:
             recommendations['teacher'].append(
-                "🔴 شایستگی‌های نیازمند توجه در کلاس شما:\n" +
-                "\n".join([f"   • {name} (میانگین شدت: {avg})" for name, avg in weak_competencies[:3]]) +
-                "\n   پیشنهاد: تمرین‌های هدفمند و فعالیت‌های گروهی برای این شایستگی‌ها طراحی کنید."
+                "🔴 زمینه‌های با الگوی تکرارشوندهٔ رفتار منفی در کلاس شما:\n" +
+                "\n".join([f"   • {name} ({neg} رفتار منفی از {cnt} مشاهده)"
+                          for name, neg, cnt in weak_competencies[:3]]) +
+                "\n   پیشنهاد: بررسی این الگوها و طراحی فعالیت‌های هدفمند."
             )
         else:
             recommendations['teacher'].append("✅ وضعیت شایستگی‌های دانش‌آموزان شما خوب است. به روند فعلی ادامه دهید.")
@@ -768,19 +775,24 @@ class TeacherReportPage(QWidget):
             self.competency_table.setItem(row, 1, QTableWidgetItem(str(stat.get('avg_severity', 0))))
             self.competency_table.setItem(row, 2, QTableWidgetItem(str(stat['count'])))
             
-            avg = stat.get('avg_severity', 0)
-            if avg >= 3.5:
-                status = "✅ عالی"
+            # بازرسی یازدهم: وضعیت بر پایهٔ الگوی رفتار ثبت‌شده، نه شدت
+            kind = classify_pattern(
+                stat.get('positive', 0), stat.get('negative', 0),
+                max(stat.get('count', 0) - stat.get('positive', 0)
+                    - stat.get('negative', 0), 0),
+                stat.get('count', 0))
+            if kind == 'strength':
+                status = "✅ " + pattern_label(kind)
                 color = QColor(0, 128, 0)
-            elif avg >= 2.5:
-                status = "🟡 خوب"
-                color = QColor(255, 165, 0)
-            elif avg >= 1.5:
-                status = "🟠 متوسط"
+            elif kind == 'needs_attention':
+                status = "🔴 " + pattern_label(kind)
+                color = QColor(255, 0, 0)
+            elif kind == 'mixed':
+                status = "🟠 " + pattern_label(kind)
                 color = QColor(255, 140, 0)
             else:
-                status = "🔴 نیاز به توجه"
-                color = QColor(255, 0, 0)
+                status = "⬜ " + pattern_label(kind)
+                color = QColor(158, 158, 158)
             
             item = QTableWidgetItem(status)
             item.setForeground(color)
@@ -823,32 +835,30 @@ class TeacherReportPage(QWidget):
             self.canvas.draw()
             return
         
-        # نمودار میله‌ای شایستگی‌ها
-        items = sorted(stats.items(), key=lambda x: x[1].get('avg_severity', 0), reverse=True)[:10]
+        # نمودار میله‌ای ترکیب رفتارها (بازرسی یازدهم: به‌جای میانگین شدت)
+        items = sorted(
+            stats.items(),
+            key=lambda x: (x[1].get('positive', 0) + x[1].get('negative', 0),
+                           x[1].get('count', 0)),
+            reverse=True)[:10]
         
         names = [item[0][:15] for item in items]
-        values = [item[1].get('avg_severity', 0) for item in items]
+        positions = range(len(names))
+        positive_values = [item[1].get('positive', 0) for item in items]
+        negative_values = [item[1].get('negative', 0) for item in items]
         
         ax = self.figure.add_subplot(111)
-        bars = ax.bar(names, values, color='#0B2E4F')
-        
-        # رنگ‌بندی بر اساس مقدار
-        for i, (bar, val) in enumerate(zip(bars, values)):
-            if val >= 3.5:
-                bar.set_color('#66BB6A')
-            elif val >= 2.5:
-                bar.set_color('#F4D35E')
-            elif val >= 1.5:
-                bar.set_color('#F28C28')
-            else:
-                bar.set_color('#C62828')
-        
-        ax.set_ylabel('میانگین شدت', fontsize=12)
-        ax.set_xlabel('شایستگی‌ها', fontsize=12)
-        ax.set_title('وضعیت شایستگی‌های دانش‌آموزان کلاس', fontsize=14, fontweight='bold')
-        ax.set_ylim(0, 5)
-        ax.axhline(y=2.5, color='orange', linestyle='--', alpha=0.5, label='خط متوسط')
-        ax.legend()
+        ax.bar([p - 0.2 for p in positions], positive_values, width=0.4,
+               color='#66BB6A', label='رفتار مثبت')
+        ax.bar([p + 0.2 for p in positions], negative_values, width=0.4,
+               color='#C62828', label='رفتار منفی')
+        ax.set_xticks(list(positions))
+        ax.set_xticklabels(names)
+        ax.set_ylabel('تعداد رفتار ثبت‌شده', fontsize=12)
+        ax.set_xlabel('زمینه (شایستگی)', fontsize=12)
+        ax.set_title('ترکیب رفتارهای ثبت‌شده در کلاس (بدون رتبه‌بندی دانش‌آموزان)',
+                     fontsize=13, fontweight='bold')
+        ax.legend(fontsize=8)
         
         self.figure.tight_layout()
         self.canvas.draw()

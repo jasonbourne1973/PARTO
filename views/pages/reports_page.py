@@ -542,24 +542,31 @@ class ReportsPage(QWidget):
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**⭐ نقاط قوت**
+**⭐ توانمندی‌ها (الگوی تکرارشوندهٔ رفتار مثبت)**
 """
+        # بازرسی یازدهم: معیار قوت/ضعف «نوع رفتار ثبت‌شده» است، نه شدت.
         if report['strengths']:
             for strength in report['strengths']:
-                text += f"• {strength['competency']} (میانگین شدت: {strength['avg_severity']})\n"
+                text += (f"• {strength['competency']} — "
+                         f"{strength['positive']} رفتار مثبت از "
+                         f"{strength['count']} مشاهدهٔ ثبت‌شده\n")
         else:
-            text += "• موردی یافت نشد.\n"
+            text += "• الگوی تکرارشوندهٔ رفتار مثبت ثبت نشده است.\n"
         
         text += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**🔴 زمینه‌های نیازمند حمایت**
+**🔴 زمینه‌های نیازمند توجه (الگوی تکرارشوندهٔ رفتار منفی)**
 """
         if report['weaknesses']:
             for weakness in report['weaknesses']:
-                text += f"• {weakness['competency']} (میانگین شدت: {weakness['avg_severity']})\n"
+                text += (f"• {weakness['competency']} — "
+                         f"{weakness['negative']} رفتار منفی از "
+                         f"{weakness['count']} مشاهدهٔ ثبت‌شده\n")
         else:
-            text += "• موردی یافت نشد.\n"
+            text += "• الگوی تکرارشوندهٔ رفتار منفی ثبت نشده است.\n"
+        text += ("• توجه: این فهرست بر پایهٔ رفتارهای ثبت‌شده است و "
+                 "به‌معنای تشخیص یا برچسب نیست.\n")
         
         text += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -584,18 +591,24 @@ class ReportsPage(QWidget):
             text += f"• {rec}\n"
         
         if report['trend_data']:
+            direction = self.report_generator.calculate_trend_direction(report['trend_data'])
             text += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**📈 روند تغییرات**
+**📈 روند تغییر رفتار (بر پایهٔ ترکیب رفتارها)**
 """
             for item in report['trend_data']:
-                text += f"• {item['month']}: {item['count']} مشاهده (میانگین شدت: {item['avg_severity']})\n"
+                text += (f"• {item['month']}: {item['positive']} مثبت، "
+                         f"{item['negative']} منفی، {item['neutral']} خنثی "
+                         f"(سهم مثبت {item['positive_share']}٪) — "
+                         f"حجم ثبت: {item['count']} مشاهده\n")
+            text += f"• جهت تغییر: {direction['label']} — {direction['message']}\n"
+            text += f"• {direction['volume_note']}\n"
         else:
             text += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**📈 روند تغییرات**
+**📈 روند تغییر رفتار**
 ⚠️ داده کافی برای تحلیل روند وجود ندارد (حداقل ۳ مشاهده در بازه‌های مختلف مورد نیاز است).
 """
         
@@ -604,16 +617,79 @@ class ReportsPage(QWidget):
             text += f"""
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**📊 مقایسه نیمسال‌ها**
-• نیمسال اول: {stats['first']['count']} مشاهده (میانگین شدت: {stats['first']['avg_severity']})
-• نیمسال دوم: {stats['second']['count']} مشاهده (میانگین شدت: {stats['second']['avg_severity']})
-• روند کلی: {stats['trend']}
+**📊 مقایسه نیمسال‌ها (بر پایهٔ ترکیب رفتارها)**
+• نیمسال اول: {stats['first']['positive']} مثبت، {stats['first']['negative']} منفی از {stats['first']['count']} مشاهده (سهم مثبت {stats['first'].get('positive_share', 0)}٪)
+• نیمسال دوم: {stats['second']['positive']} مثبت، {stats['second']['negative']} منفی از {stats['second']['count']} مشاهده (سهم مثبت {stats['second'].get('positive_share', 0)}٪)
+• جهت تغییر رفتار: {stats.get('trend', '-')}
+• {stats.get('volume_note', '')}
 """
+        
+        # ===== اثربخشی مداخلات (اقدام ← پیگیری ← نتیجه) =====
+        effectiveness = report.get('intervention_effectiveness') or {}
+        if effectiveness.get('items'):
+            text += """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**🔗 اثربخشی مداخلات (اقدام ← پیگیری ← نتیجه)**
+"""
+            for item in effectiveness['items'][:10]:
+                text += f"• {item['type']} ({item['date'] or '-'}): {item['outcome']}\n"
+                if item.get('goal'):
+                    text += f"   هدف: {item['goal']}\n"
+                for follow in item['followups'][:2]:
+                    text += (f"   پیگیری {follow['date'] or ''} "
+                             f"({follow['method']}): {follow['result_label']}\n")
+            text += f"• {effectiveness['summary']}\n"
+
+        # ===== زمینهٔ خانوادگی (اطلاعات زمینه‌ای، نه قضاوت) =====
+        family = report.get('family_background') or {}
+        if family.get('contexts') or family.get('interviews'):
+            text += """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**👨‍👩‍👦 زمینهٔ خانوادگی (اطلاعات زمینه‌ای)
+"""
+            text += f"• {family.get('note', '')}\n"
+            for ctx in family['contexts'][:2]:
+                text += (f"• وضعیت سرپرست: {ctx['guardian_status']} | "
+                         f"حمایت والدین: {ctx['parental_support']} | "
+                         f"فضای مطالعه: {ctx['study_space']}\n")
+            for iv in family['interviews'][:3]:
+                text += (f"• گفت‌وگو {iv['date'] or ''} ({iv['method']}) — "
+                         f"{iv['topic'] or 'بدون موضوع'} | وضعیت: {iv['status']}\n")
+
+        # ===== لایه‌های اطلاعاتی (تفکیک مشاهده/غربالگری/تفسیر) =====
+        layers = report.get('information_layers') or {}
+        if layers:
+            text += """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**🧭 لایه‌های اطلاعاتی (مشاهده / غربالگری / تفسیر حرفه‌ای)**
+"""
+            text += f"• {layers.get('chain_note', '')}\n"
+            obs_layer = layers.get('observation', {})
+            text += f"• {obs_layer.get('title', '')}: {obs_layer.get('note', '')}\n"
+            scr = layers.get('screening', {})
+            if scr.get('items'):
+                for item in scr['items'][:3]:
+                    text += (f"• غربالگری: {item['tool']} — {item['date'] or ''} | "
+                             f"وضعیت: {item['status']} | {item['note']}\n")
+            else:
+                text += "• غربالگری: نتیجه‌ای ثبت نشده است.\n"
+            text += f"  {scr.get('note', '')}\n"
+            interp = layers.get('interpretation', {})
+            if interp.get('items'):
+                for item in interp['items'][:3]:
+                    text += (f"• تفسیر حرفه‌ای [{item['level']}]: {item['title']} "
+                             f"— {item['status']}\n")
+            else:
+                text += "• تفسیر حرفه‌ای: ثبت نشده است.\n"
+            text += f"  {interp.get('note', '')}\n"
         
         text += f"""
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**📝 خلاصه**
+**📝 جمع‌بندی سالانهٔ رشد**
 {report['summary']}
 """
         
@@ -972,18 +1048,33 @@ class ReportsPage(QWidget):
             self.canvas.draw()
             return
         
+        # ===== اصلاح (بازرسی یازدهم) =====
+        # پیش از این، نمودار بر پایهٔ «میانگین شدت» کشیده می‌شد؛ اکنون
+        # ترکیب رفتارهای مثبت/منفی هر زمینه نمایش داده می‌شود. شدت در
+        # تحلیل نقش تصمیم‌گیر ندارد.
         stats = report['competency_stats']
-        items = sorted(stats.items(), key=lambda x: x[1]['avg_severity'], reverse=True)[:8]
+        items = sorted(stats.items(),
+                       key=lambda x: ((x[1].get('positive', 0) + x[1].get('negative', 0)),
+                                      x[1].get('count', 0)),
+                       reverse=True)[:8]
         
         names = [item[0][:12] for item in items]
-        values = [item[1]['avg_severity'] for item in items]
+        positive_values = [item[1].get('positive', 0) for item in items]
+        negative_values = [item[1].get('negative', 0) for item in items]
         
         if len(names) < 3:
             ax = self.figure.add_subplot(111)
-            ax.bar(names, values, color='#0B2E4F')
-            ax.set_ylabel('میانگین شدت')
-            ax.set_title('نمودار شایستگی‌ها', fontsize=14, fontweight='bold')
-            ax.set_ylim(0, 5)
+            positions = range(len(names))
+            ax.bar([p - 0.2 for p in positions], positive_values, width=0.4,
+                   color='#66BB6A', label='رفتار مثبت')
+            ax.bar([p + 0.2 for p in positions], negative_values, width=0.4,
+                   color='#C62828', label='رفتار منفی')
+            ax.set_xticks(list(positions))
+            ax.set_xticklabels(names)
+            ax.set_ylabel('تعداد رفتار ثبت‌شده')
+            ax.set_title('ترکیب رفتارهای ثبت‌شده به تفکیک زمینه', fontsize=13,
+                         fontweight='bold')
+            ax.legend()
             self.figure.tight_layout()
             self.canvas.draw()
             return
@@ -991,19 +1082,25 @@ class ReportsPage(QWidget):
         N = len(names)
         angles = [n / float(N) * 2 * np.pi for n in range(N)]
         angles += angles[:1]
-        values_plot = values + values[:1]
+        positive_plot = positive_values + positive_values[:1]
+        negative_plot = negative_values + negative_values[:1]
         
         ax = self.figure.add_subplot(111, projection='polar')
-        ax.plot(angles, values_plot, 'o-', linewidth=2, color='#0B2E4F')
-        ax.fill(angles, values_plot, alpha=0.25, color='#0B2E4F')
+        ax.plot(angles, positive_plot, 'o-', linewidth=2, color='#2E7D32',
+                label='رفتار مثبت')
+        ax.fill(angles, positive_plot, alpha=0.20, color='#2E7D32')
+        ax.plot(angles, negative_plot, 'o-', linewidth=2, color='#C62828',
+                label='رفتار منفی')
+        ax.fill(angles, negative_plot, alpha=0.20, color='#C62828')
         
         ax.set_xticks(angles[:-1])
         ax.set_xticklabels(names, size=8)
-        ax.set_ylim(0, 5)
-        ax.set_yticks([1, 2, 3, 4, 5])
-        ax.set_yticklabels(['۱', '۲', '۳', '۴', '۵'], size=8)
+        max_value = max(positive_values + negative_values + [1])
+        ax.set_ylim(0, max_value * 1.15)
         ax.grid(True, alpha=0.3)
-        ax.set_title('نمودار وضعیت شایستگی‌ها', size=14, fontweight='bold', pad=20)
+        ax.legend(loc='upper right', bbox_to_anchor=(1.2, 1.15), fontsize=8)
+        ax.set_title('ترکیب رفتارهای ثبت‌شده به تفکیک زمینه (بدون رتبه‌بندی)',
+                     size=12, fontweight='bold', pad=20)
         
         self.figure.tight_layout()
         self.canvas.draw()
@@ -1152,9 +1249,11 @@ class ReportsPage(QWidget):
 """
             if parent_report['strengths']:
                 for strength in parent_report['strengths']:
-                    text += f"• {strength['competency']} (میانگین شدت: {strength['avg_severity']})\n"
+                    text += (f"• {strength['competency']} — "
+                             f"{strength.get('positive', 0)} رفتار مثبت از "
+                             f"{strength.get('count', 0)} مشاهده\n")
             else:
-                text += "• موردی یافت نشد.\n"
+                text += "• الگوی تکرارشوندهٔ رفتار مثبت ثبت نشده است.\n"
             
             text += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1163,9 +1262,11 @@ class ReportsPage(QWidget):
 """
             if parent_report['weaknesses']:
                 for weakness in parent_report['weaknesses']:
-                    text += f"• {weakness['competency']} (میانگین شدت: {weakness['avg_severity']})\n"
+                    text += (f"• {weakness['competency']} — "
+                             f"{weakness.get('negative', 0)} رفتار منفی از "
+                             f"{weakness.get('count', 0)} مشاهده\n")
             else:
-                text += "• موردی یافت نشد.\n"
+                text += "• الگوی تکرارشوندهٔ رفتار منفی ثبت نشده است.\n"
             
             text += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
