@@ -1354,7 +1354,7 @@ class DatabaseConnection:
             try:
                 now = jdatetime.datetime.now()
                 current_year = now.year
-            except:
+            except Exception:
                 current_year = datetime.now().year - 621
             
             current_title = f"{current_year}-{current_year+1}"

@@ -239,7 +239,7 @@ class ClassReportPage(QWidget):
                 start_month += 12
                 start_year -= 1
             self.start_date.set_date(f"{start_year:04d}/{start_month:02d}/{today.day:02d}")
-        except:
+        except Exception:
             pass
     
     def create_summary_tab(self):

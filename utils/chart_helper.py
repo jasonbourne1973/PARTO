@@ -41,7 +41,7 @@ class ChartHelper:
         if PERSIAN_FONT_SUPPORT:
             try:
                 return get_display(arabic_reshaper.reshape(str(text)))
-            except:
+            except Exception:
                 return str(text)
         return str(text)
     

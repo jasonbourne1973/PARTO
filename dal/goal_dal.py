@@ -345,7 +345,7 @@ class GoalDAL:
         if row['success_criteria']:
             try:
                 goal.success_criteria = json.loads(row['success_criteria'])
-            except:
+            except Exception:
                 goal.success_criteria = None
         else:
             goal.success_criteria = None

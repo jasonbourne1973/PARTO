@@ -157,16 +157,27 @@ class BaseService:
     # نام کاربر در ردیف تریگر از get_current_user_id() می‌آید که
     # در ورودِ کاربر (set_current_user) مقدار می‌گیرد؛ تست شد که
     # user_id درست ثبت می‌شود.
-    _ENTITY_TABLE_MAP = {
-        'student': 'students',
-        'observation': 'observations',
-        'intervention': 'interventions',
-        'followup': 'followups',
-        'student_academic_profile': 'student_academic_profiles',
-        'profile': 'student_academic_profiles',
-        'staff': 'staff',
-        'competency': 'competencies',
-    }
+    # ===== نگاشت نام موجودیت → نام جدول (بازرسی هفتم) =====
+    # این نگاشت به utils.security.AUDIT_ENTITY_ALIASES منتقل شد تا
+    # سرویس‌ها، AuditLogger و DAL همگی از «یک» منبع بخوانند؛ سه
+    # نسخهٔ جدا از هم دقیقاً همان چیزی است که باعث ناهمخوانی
+    # 'student' در برابر 'students' شده بود.
+    @staticmethod
+    def _entity_table_map():
+        try:
+            from utils.security import AUDIT_ENTITY_ALIASES
+            return AUDIT_ENTITY_ALIASES
+        except Exception:  # pragma: no cover - مسیر پشتیبان
+            return {
+                'student': 'students',
+                'observation': 'observations',
+                'intervention': 'interventions',
+                'followup': 'followups',
+                'student_academic_profile': 'student_academic_profiles',
+                'profile': 'student_academic_profiles',
+                'staff': 'staff',
+                'competency': 'competencies',
+            }
     _AUDIT_ACTIONS = ('create', 'edit', 'delete_soft', 'restore')
     _TRIGGER_CACHE = None
 
@@ -204,14 +215,23 @@ class BaseService:
         """آیا تریگرِ دیتابیس همین تغییر را ثبت می‌کند؟"""
         if action not in self._AUDIT_ACTIONS:
             return False
-        table = self._ENTITY_TABLE_MAP.get(entity_type)
+        table = self._entity_table_map().get(
+            str(entity_type).strip().lower() if entity_type else None)
         if not table:
             return False
         return table in self._trigger_audit_tables()
 
     def log_audit(self, user_id, action, entity_type, entity_id=None,
                   old_value=None, new_value=None, ip_address=None):
-        """ثبت Audit Log (بدون تکرارِ ردیف‌های تریگر)"""
+        """
+        ثبت Audit Log (بدون تکرارِ ردیف‌های تریگر)
+
+        ===== اصلاح (بازرسی هفتم) =====
+        نام موجودیت با `normalize_entity_type` یکدست می‌شود (مفرد →
+        نام جدول) تا با ردیف‌هایی که تریگرهای دیتابیس می‌نویسند
+        یکی باشد. قبلاً یک رویداد واحد با دو نام («student» و
+        «students») ثبت می‌شد و جست‌وجوی تاریخچه ناقص می‌ماند.
+        """
         if self._audit_handled_by_trigger(entity_type, action):
             self.logger.debug(
                 f"Audit تکراری ثبت نشد؛ تریگر {entity_type}/{action} "

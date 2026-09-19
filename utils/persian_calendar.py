@@ -30,7 +30,7 @@ class TimeGrouper:
             parts = date_str.split('/')
             if len(parts) == 3:
                 return f"{parts[0]}/{parts[1]}"
-        except:
+        except Exception:
             pass
         return None
     
@@ -47,7 +47,7 @@ class TimeGrouper:
                 day = int(parts[2])
                 week_num = (day - 1) // 7 + 1
                 return f"{year}/{month:02d}/W{week_num}"
-        except:
+        except Exception:
             pass
         return None
     
@@ -60,7 +60,7 @@ class TimeGrouper:
             parts = date_str.split('/')
             if len(parts) == 3:
                 return f"{parts[0]}/{parts[1]}/{parts[2]}"
-        except:
+        except Exception:
             pass
         return None
     
@@ -77,7 +77,7 @@ class TimeGrouper:
                 month_num = int(parts[1])
                 if 1 <= month_num <= 12:
                     return f"{month_names[month_num-1]} {parts[0]}"
-        except:
+        except Exception:
             pass
         return month_key
     
@@ -95,7 +95,7 @@ class TimeGrouper:
                 month_num = int(parts[1])
                 if 1 <= month_num <= 12:
                     return f"هفته {week_num} {month_names[month_num-1]}"
-        except:
+        except Exception:
             pass
         return week_key
     
@@ -212,7 +212,7 @@ class PersianCalendarWidget(QWidget):
             self.current_year = today.year
             self.current_month = today.month
             self.selected_day = today.day
-        except:
+        except Exception:
             # Fallback
             now = datetime.now()
             self.current_year = now.year - 621
@@ -232,7 +232,7 @@ class PersianCalendarWidget(QWidget):
                 self.selected_day = int(parts[2])
                 self.update_calendar()
                 return True
-        except:
+        except Exception:
             pass
         return False
     
@@ -259,7 +259,7 @@ class PersianCalendarWidget(QWidget):
         try:
             first_day = jdatetime.date(self.current_year, self.current_month, 1)
             first_weekday = first_day.weekday()  # 0=شنبه, 6=جمعه
-        except:
+        except Exception:
             first_weekday = 0
         
         # تعداد روزهای ماه
@@ -271,7 +271,7 @@ class PersianCalendarWidget(QWidget):
             else:
                 # اسفند - 29 روز (کبیسه‌گیری ساده)
                 days_in_month = 29
-        except:
+        except Exception:
             days_in_month = 30
         
         # ایجاد دکمه‌های روزها
@@ -410,7 +410,7 @@ class ShamsiDateEdit(QWidget):
             today = jdatetime.date.today()
             date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
             self.date_input.setText(date_str)
-        except:
+        except Exception:
             self.date_input.setText("")
     
     def set_date(self, date_str):

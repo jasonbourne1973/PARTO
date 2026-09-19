@@ -121,7 +121,7 @@ class TestAcademicYearDAL(unittest.TestCase):
             year = self.dal.get_active()
             # اگر سالی وجود نداشته باشد، None برمی‌گرداند
             self.assertTrue(year is None or hasattr(year, 'id'))
-        except:
+        except Exception:
             pass
 
 

@@ -292,7 +292,7 @@ class TestCaseTimelineService(unittest.TestCase):
         try:
             events = self.service.get_timeline(1)
             self.assertIsInstance(events, list)
-        except:
+        except Exception:
             pass
 
 

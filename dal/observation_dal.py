@@ -477,7 +477,7 @@ class ObservationDAL:
                 month = int(parts[1])
                 if 1 <= month <= 12:
                     return f"{month_names[month-1]} {parts[0]}"
-        except:
+        except Exception:
             pass
         return date_str
 
@@ -1172,7 +1172,7 @@ class ObservationDAL:
             comp_dal = CompetencyDAL()
             comp = comp_dal.get_by_id(competency_id)
             return comp.title if comp else f"شایستگی {competency_id}"
-        except:
+        except Exception:
             return f"شایستگی {competency_id}"
 
     def _row_to_observation(self, row):

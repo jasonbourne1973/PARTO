@@ -108,7 +108,7 @@ class ScreeningTool(BaseModel):
                 try:
                     import json
                     return json.loads(self.domains)
-                except:
+                except Exception:
                     return [self.domains]
         return []
     

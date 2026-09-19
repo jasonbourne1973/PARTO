@@ -60,7 +60,7 @@ def main():
             from config.settings import LOGO_ICON_PATH
             if os.path.exists(LOGO_ICON_PATH):
                 window.setWindowIcon(QIcon(LOGO_ICON_PATH))
-        except:
+        except Exception:
             pass
         
         print("🔵 مرحله 6: نمایش پنجره...")

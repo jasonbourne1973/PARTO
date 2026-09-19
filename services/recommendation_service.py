@@ -475,7 +475,7 @@ class RecommendationService(BaseService):
                 student = self.student_dal.get_by_id(profile.student_id)
                 if student:
                     recommendation.student_name = student.full_name
-        except:
+        except Exception:
             recommendation.student_name = "نامشخص"
         
         # افزودن نام مسئول
@@ -484,7 +484,7 @@ class RecommendationService(BaseService):
                 staff = self.staff_dal.get_by_id(recommendation.staff_id)
                 if staff:
                     recommendation.staff_name = staff.full_name
-            except:
+            except Exception:
                 recommendation.staff_name = "نامشخص"
         
         # افزودن نام شایستگی
@@ -493,7 +493,7 @@ class RecommendationService(BaseService):
                 comp = self.competency_dal.get_by_id(recommendation.related_competency_id)
                 if comp:
                     recommendation.competency_name = comp.title
-            except:
+            except Exception:
                 recommendation.competency_name = "نامشخص"
     
     def get_recommendation_summary(self, profile_id):

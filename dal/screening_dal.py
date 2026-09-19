@@ -213,7 +213,7 @@ class ScreeningDAL:
         if row['domain_scores']:
             try:
                 screening.domain_scores = json.loads(row['domain_scores'])
-            except:
+            except Exception:
                 screening.domain_scores = None
         else:
             screening.domain_scores = None

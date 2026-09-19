@@ -39,7 +39,7 @@ class AnalyticsHelpers:
                         day = int(parts[2])
                         week = (day - 1) // 7 + 1
                         key = f"{parts[0]}/{parts[1]}/W{week}"
-                    except:
+                    except Exception:
                         key = date_str[:7] if len(date_str) >= 7 else date_str
                 else:
                     key = date_str[:7] if len(date_str) >= 7 else date_str
@@ -85,7 +85,7 @@ class AnalyticsHelpers:
                 month = int(parts[1])
                 if 1 <= month <= 12:
                     return f"{month_names[month-1]} {parts[0]}"
-        except:
+        except Exception:
             pass
         return date_str
     
@@ -128,7 +128,7 @@ class AnalyticsHelpers:
             end_str = f"{end.year}/{end.month:02d}/{end.day:02d}"
             
             return start_str, end_str
-        except:
+        except Exception:
             return None, None
     
     @staticmethod

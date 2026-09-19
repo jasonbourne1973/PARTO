@@ -473,7 +473,10 @@ class MainWindow(QMainWindow):
         self.reports_page = ReportsPage()
         self.stacked_widget.addWidget(self.reports_page)
 
-        self.settings_page = SettingsPage(permission_check=self.has_permission)
+        self.settings_page = SettingsPage(
+            permission_check=self.has_permission,
+            current_user_id=self.current_user_id,
+        )
         self.stacked_widget.addWidget(self.settings_page)
 
         self.academic_structure_page = AcademicStructurePage()
@@ -752,8 +755,10 @@ class MainWindow(QMainWindow):
                 audit = AuditLogger(self.db)
                 audit.log_logout(self.current_user_id)
                 self.logger.info(f"🚪 کاربر {self.current_username} خارج شد.")
-            except:
-                pass
+            except Exception as _exc:
+                self.logger.debug(
+                    f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+                )
 
             self.close()
             import subprocess
@@ -793,8 +798,10 @@ class MainWindow(QMainWindow):
                 audit = AuditLogger(self.db)
                 audit.log_logout(self.current_user_id)
                 self.logger.info(f"🚪 کاربر {self.current_username} برنامه را بست.")
-            except:
-                pass
+            except Exception as _exc:
+                self.logger.debug(
+                    f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+                )
         event.accept()
 
     def update_notification_badge(self):

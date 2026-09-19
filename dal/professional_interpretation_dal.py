@@ -232,7 +232,7 @@ class ProfessionalInterpretationDAL:
         if row['recommendations']:
             try:
                 interpretation.recommendations = json.loads(row['recommendations'])
-            except:
+            except Exception:
                 interpretation.recommendations = None
         else:
             interpretation.recommendations = None
@@ -240,7 +240,7 @@ class ProfessionalInterpretationDAL:
         if row['next_steps']:
             try:
                 interpretation.next_steps = json.loads(row['next_steps'])
-            except:
+            except Exception:
                 interpretation.next_steps = None
         else:
             interpretation.next_steps = None

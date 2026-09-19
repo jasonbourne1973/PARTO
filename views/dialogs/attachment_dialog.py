@@ -612,8 +612,10 @@ class AttachmentDialog(QDialog):
                     self.preview_label.setPixmap(pixmap)
                     self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                     return
-            except:
-                pass
+            except Exception as _exc:
+                self.logger.debug(
+                    f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+                )
         
         # PDF
         elif file_name.endswith('.pdf'):
@@ -642,8 +644,10 @@ class AttachmentDialog(QDialog):
                         }
                     """)
                     return
-            except:
-                pass
+            except Exception as _exc:
+                self.logger.debug(
+                    f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+                )
         
         # ویدئو و صدا
         elif file_name.endswith(('.mp4', '.avi', '.mkv', '.mov', '.mp3', '.wav', '.ogg')):

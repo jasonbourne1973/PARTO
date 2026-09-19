@@ -264,7 +264,7 @@ class ExcelImporter:
                     if 'grade' in column_map and student_data.get('grade'):
                         try:
                             profile.grade = int(student_data['grade'])
-                        except:
+                        except Exception:
                             profile.grade = 1
                     else:
                         profile.grade = 1

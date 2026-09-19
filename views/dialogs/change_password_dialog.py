@@ -15,6 +15,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from database.connection import DatabaseConnection
+from dal.user_dal import UserDAL
 from utils.security import Security
 from utils.logger import get_logger
 from utils.tooltip_manager import TooltipManager
@@ -32,6 +33,7 @@ class ChangePasswordDialog(QDialog):
         self.user_id = user_id
         self.is_first_login = is_first_login
         self.db = DatabaseConnection()
+        self.user_dal = UserDAL()
         self.logger = get_logger(self.__class__.__name__)
 
         if is_first_login:
@@ -329,79 +331,51 @@ class ChangePasswordDialog(QDialog):
             return
         
         try:
-            conn = self.db.get_connection()
-            cursor = conn.cursor()
-            
-            # ===== اصلاح مهم =====
-            # نسخه قبلی دو مسیر داشت: اگر self.user_id ست بود، آن را
-            # مستقیم به عنوان users.id استفاده می‌کرد.
+            # ===== اصلاح (بازرسی هفتم — اولویت ۱) =====
+            # نسخه قبلی سه کوئری خام روی جدول users می‌زد (خواندن
+            # کاربر، بررسی رمز، نوشتن رمز جدید) — در حالی که
+            # `UserDAL.get_password_hash` و `UserDAL.update_password`
+            # از قبل وجود داشتند و حتی نسخهٔ DAL سخت‌گیرتر است:
+            # تغییر رمز را روی کاربران حذف‌شده/غیرفعال انجام نمی‌دهد
+            # و ردیف Audit هم می‌نویسد.
             #
-            # مشکل: main_window مقدار user_id را از LoginDialog می‌گیرد
-            # و بعد از اصلاح آن دیالوگ، آن مقدار staff.id است (چیزی که
-            # Audit Log به آن نیاز دارد)، نه users.id. پس UPDATE روی
-            # `WHERE id = ?` یا رکورد اشتباه را تغییر می‌داد یا هیچ
-            # رکوردی را پیدا نمی‌کرد.
-            #
-            # حالا users.id همیشه از روی username استخراج می‌شود —
-            # username یکتا است و دیالوگ همیشه آن را دارد. این
-            # ابهام را کامل از بین می‌برد.
-            cursor.execute("""
-                SELECT id, staff_id, password_hash
-                FROM users
-                WHERE username = ? AND is_deleted = 0 AND is_active = 1
-            """, (username,))
-            row = cursor.fetchone()
-
-            if not row:
+            # نکتهٔ مهمی که باید حفظ شود: users.id هرگز با staff.id
+            # قاطی نشود. main_window مقدار `user_id` را از LoginDialog
+            # می‌گیرد که staff.id است؛ پس users.id همیشه از روی
+            # username (که یکتاست) استخراج می‌شود — همان کاری که
+            # `UserDAL.get_by_username` انجام می‌دهد.
+            user = self.user_dal.get_by_username(username)
+            if not user or user.is_deleted or not user.is_active:
                 self.show_error("❌ کاربر مورد نظر یافت نشد.")
                 return
 
-            user_id = row['id']            # users.id → برای UPDATE
-            staff_id = row['staff_id']     # staff.id → برای Audit Log
-            current_password_hash = row['password_hash']
-            
+            user_id = user.id              # users.id → برای UPDATE
+            staff_id = user.staff_id       # staff.id → برای Audit Log
+
             # بررسی رمز فعلی (اگر ورود اولیه نباشد)
             if not self.is_first_login:
                 current_password = self.current_password_input.text()
+                current_password_hash = self.user_dal.get_password_hash(user_id=user_id)
                 if not Security.verify_password(current_password, current_password_hash):
                     self.show_error("❌ رمز عبور فعلی اشتباه است.")
                     self.current_password_input.clear()
                     self.current_password_input.setFocus()
                     return
-            
-            # هش کردن رمز جدید با PBKDF2
-            new_password_hash = Security.hash_password(new_password)
-            
-            # به‌روزرسانی رمز عبور و پاک کردن پرچم must_change_password
-            cursor.execute("""
-                UPDATE users 
-                SET password_hash = ?, 
-                    must_change_password = 0,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            """, (new_password_hash, user_id))
-            
-            conn.commit()
-            
+
+            # هش‌کردن و ذخیره (DAL خودش هش می‌کند، می‌کند و
+            # must_change_password را پاک می‌کند)
+            self.user_dal.update_password(
+                user_id,
+                new_password,
+                clear_must_change=True,
+                user_id_actor=staff_id,
+            )
+
             self.logger.info(f"✅ رمز عبور کاربر {username} با موفقیت تغییر کرد.")
-            
-            # ثبت در Audit Log
-            try:
-                from utils.security import AuditLogger
-                audit = AuditLogger(self.db)
-                # user_id در audit_logs به staff(id) وصل است، پس
-                # staff_id پاس داده می‌شود نه users.id
-                audit.log(staff_id, 'edit', 'user', user_id,
-                         old_value={'password_changed': True, 'first_login': self.is_first_login},
-                         new_value={'password_changed': True})
-            except Exception as e:
-                # ===== اصلاح =====
-                # `except: pass` خالی بود؛ خطا کامل ناپدید می‌شد.
-                self.logger.warning(f"خطا در ثبت Audit تغییر رمز: {e}")
-            
+
             self.password_changed.emit()
             self.accept()
-            
+
         except Exception as e:
             self.logger.error(f"خطا در تغییر رمز عبور: {e}")
             self.show_error(f"❌ خطا در تغییر رمز عبور:\n{str(e)}")

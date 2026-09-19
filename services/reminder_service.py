@@ -44,7 +44,7 @@ class ReminderService:
             try:
                 today = jdatetime.date.today()
                 today_str = f"{today.year}/{today.month:02d}/{today.day:02d}"
-            except:
+            except Exception:
                 today_str = datetime.now().strftime("%Y/%m/%d")
             
             for followup in all_pending:
@@ -68,7 +68,7 @@ class ReminderService:
             try:
                 today = jdatetime.date.today()
                 today_str = f"{today.year}/{today.month:02d}/{today.day:02d}"
-            except:
+            except Exception:
                 today_str = datetime.now().strftime("%Y/%m/%d")
             
             for followup in all_pending:

@@ -251,7 +251,7 @@ class SavedFilterDAL:
         if row['filter_params']:
             try:
                 saved_filter.filter_params = json.loads(row['filter_params'])
-            except:
+            except Exception:
                 saved_filter.filter_params = {}
         else:
             saved_filter.filter_params = {}

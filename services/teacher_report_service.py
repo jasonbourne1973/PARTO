@@ -155,7 +155,7 @@ class TeacherReportService:
             try:
                 today = jdatetime.date.today()
                 date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
-            except:
+            except Exception:
                 date_str = datetime.now().strftime("%Y/%m/%d")
             
             pdf.add_text(f"تاریخ تهیه گزارش: {date_str}")

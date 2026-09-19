@@ -298,7 +298,30 @@ class AttachmentService(BaseService):
                 errors.append(f"نوع فایل '{ext}' مجاز نیست. پسوندهای مجاز: {', '.join(all_extensions)}")
         else:
             errors.append("فایل بدون پسوند است.")
-        
+
+        # ===== افزودن (بازرسی هفتم — اولویت ۳) =====
+        # بررسی محتوای فایل، نه فقط پسوند.
+        #
+        # پیش از این، اعتبارسنجی فقط پسوند را می‌دید؛ یعنی یک فایل
+        # اجرایی با نام «عکس.png» به‌عنوان پیوست ذخیره می‌شد. ابزار
+        # `utils/file_validator.py` دقیقاً برای همین نوشته شده بود
+        # ولی هیچ‌جا import نمی‌شد و ماژول هم به‌دلیل `import magic`
+        # (که نصب نبود) اصلاً بالا نمی‌آمد.
+        #
+        # حالا محتوای مشکوک رد می‌شود. این بررسی عمداً «پسوند‌محور»
+        # نیست؛ اگر کتابخانه در دسترس نباشد، هیچ پیوستی بی‌دلیل
+        # رد نمی‌شود (شکست نرم).
+        try:
+            from utils.file_validator import FileValidator
+            danger = FileValidator._detect_dangerous(file_data)
+            if danger:
+                errors.append(
+                    f"محتوای فایل «{danger}» است و مجاز نیست؛ "
+                    "پسوند فایل با محتوای آن هم‌خوان نیست."
+                )
+        except Exception as exc:  # pragma: no cover - مسیر پشتیبان
+            self.logger.warning(f"بررسی محتوای فایل انجام نشد: {exc}")
+
         if errors:
             raise ValidationError("\n".join(errors))
     
@@ -417,5 +440,5 @@ class AttachmentService(BaseService):
                 staff = staff_dal.get_by_id(attachment.created_by)
                 if staff:
                     attachment.created_by_name = staff.full_name
-            except:
+            except Exception:
                 attachment.created_by_name = "نامشخص"

@@ -19,7 +19,6 @@ from models.student_academic_profile import StudentAcademicProfile
 from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
 from datetime import datetime
-import jdatetime
 
 
 class InterventionService(BaseService):

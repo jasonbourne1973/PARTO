@@ -196,7 +196,7 @@ class InterventionSuggester(BaseService):
             else:
                 return 'low'
                 
-        except:
+        except Exception:
             return 'medium'
     
     def _get_suggestion_details(self, suggested_types, profile_id):

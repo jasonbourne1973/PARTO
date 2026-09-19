@@ -92,7 +92,7 @@ class ScreeningResult(BaseModel):
                 try:
                     import json
                     return json.loads(self.domain_scores)
-                except:
+                except Exception:
                     return {}
         return {}
     

@@ -455,7 +455,7 @@ class BackupManager:
                             created_at = modified.isoformat()
                             created_by = 'سیستم'
                             encrypted = False
-                except:
+                except Exception:
                     name = file
                     created_at = modified.isoformat()
                     created_by = 'سیستم'
@@ -526,8 +526,10 @@ class BackupManager:
         try:
             with open(log_file, 'a', encoding='utf-8') as f:
                 f.write(log_entry)
-        except:
-            pass
+        except Exception as _exc:
+            self.logger.debug(
+                f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+            )
 
     def schedule_auto_backup(self, interval_hours=24, user_id=None, user_name=None):
         """
@@ -586,7 +588,9 @@ class BackupManager:
                     try:
                         os.remove(backup['path'])
                         print(f"🗑️ پشتیبان قدیمی حذف شد: {backup['name']}")
-                    except:
-                        pass
+                    except Exception as _exc:
+                        self.logger.debug(
+                            f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+                        )
         except Exception as e:
             print(f"⚠️ خطا در پاکسازی پشتیبان‌های قدیمی: {e}")

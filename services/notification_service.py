@@ -209,8 +209,10 @@ class NotificationService(BaseService):
                             priority = Notification.PRIORITY_HIGH
                         elif days_diff <= 3:
                             priority = Notification.PRIORITY_MEDIUM
-                except:
-                    pass
+                except Exception as _exc:
+                    self.logger.debug(
+                        f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+                    )
             
             # ایجاد اعلان
             notification = self.create_notification(
@@ -350,8 +352,10 @@ class NotificationService(BaseService):
                                 if 1 <= days_diff <= 3:
                                     self.create_reminder_for_followup(followup)
                                     created_count += 1
-                        except:
-                            pass
+                        except Exception as _exc:
+                            self.logger.debug(
+                                f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+                            )
             
             self.logger.info(f"{created_count} یادآوری و {overdue_count} اعلان معوق ایجاد شد")
             
@@ -376,7 +380,7 @@ class NotificationService(BaseService):
                     not notif.is_dismissed):
                     return True
             return False
-        except:
+        except Exception:
             return False
     
     def _enrich_notification(self, notification):
@@ -387,7 +391,7 @@ class NotificationService(BaseService):
                 staff = self.staff_dal.get_by_id(notification.user_id)
                 if staff:
                     notification.user_name = staff.full_name
-            except:
+            except Exception:
                 notification.user_name = "نامشخص"
         
         # افزودن داده‌های مرتبط
@@ -407,8 +411,10 @@ class NotificationService(BaseService):
                                     'followup_date': followup.date,
                                     'next_action_date': followup.next_action_date
                                 }
-            except:
-                pass
+            except Exception as _exc:
+                self.logger.debug(
+                    f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+                )
     
     def cleanup_old_notifications(self, days=30):
         """پاکسازی اعلان‌های قدیمی"""

@@ -19,6 +19,8 @@ from models.academic_year import AcademicYear
 from models.staff import Staff
 from config.constants import STAFF_ROLES
 from utils.security import Security, SessionManager, Permission
+from dal.user_dal import UserDAL
+from models.user import User
 from database.connection import DatabaseConnection  # ✅ اضافه شد
 import sqlite3  # ✅ اضافه شد
 import os  # ✅ این خط را اضافه کنید
@@ -27,18 +29,27 @@ import os  # ✅ این خط را اضافه کنید
 class SettingsPage(QWidget):
     """صفحه تنظیمات برنامه با مدیریت کاربران"""
     
-    def __init__(self, parent=None, permission_check=None):
+    def __init__(self, parent=None, permission_check=None, current_user_id=None):
         """
         Args:
             permission_check: تابعی که یک مجوز می‌گیرد و True/False
                 برمی‌گرداند. از MainWindow پاس داده می‌شود
                 (بازرسی ششم). اگر None باشد، همهٔ تب‌ها ساخته
                 می‌شوند (رفتار قبلی؛ برای تست‌های مستقل).
+            current_user_id: شناسهٔ staff کاربر وارد‌شده، برای ثبت
+                «چه کسی این تغییر را داد» در Audit Log
+                (بازرسی هفتم). اگر None باشد، از اتصال دیتابیس
+                خوانده می‌شود.
         """
         super().__init__(parent)
         self.academic_year_dal = AcademicYearDAL()
         self.staff_dal = StaffDAL()
+        self.user_dal = UserDAL()
         self.db = DatabaseConnection()  # ✅ اضافه شد
+        # ===== افزودن (بازرسی هفتم) =====
+        # کاربر جاری صریحاً از MainWindow می‌آید تا Audit Log
+        # عملیات کاربری ثبت‌کننده داشته باشد.
+        self.current_user_id = current_user_id
         self._permission_check = permission_check or (lambda perm: True)
 
         # ===== اصلاح (بازرسی ششم) =====
@@ -712,20 +723,48 @@ class SettingsPage(QWidget):
         except Exception as e:
             print(f"خطا در بارگذاری اعضای کادر: {e}")
     
+    def _current_staff_id(self):
+        """
+        شناسهٔ staff کاربر جاری (برای ثبت در Audit Log)
+
+        ===== اصلاح (بازرسی هفتم) =====
+        قبلاً فقط در متد حذف، شناسه از دو جای مختلف با getattr خوانده
+        می‌شد و بقیهٔ عملیات‌ها هیچ ثبت‌کننده‌ای در Audit نداشتند.
+        حالا همهٔ عملیات کاربری از همین یک کمک‌تابع استفاده می‌کنند.
+        توجه: audit_logs.user_id به staff(id) وصل است، نه users(id).
+        """
+        value = getattr(self, 'current_user_id', None)
+        if value:
+            return value
+        # پشتیبان: همان کاری که main_window در on_login_successful
+        # انجام می‌دهد (set_current_user روی اتصالِ مشترک)
+        return getattr(self.db, '_current_user_id', None)
+
     def load_users(self):
-        """بارگذاری لیست کاربران"""
+        """
+        بارگذاری لیست کاربران
+
+        ===== اصلاح (بازرسی هفتم — اولویت ۱) =====
+        آخرین کوئری خام جدول users در لایهٔ نمایش حذف شد؛ حالا
+        لیست از `UserDAL.get_all()` می‌آید (که خودش is_deleted را
+        فیلتر می‌کند و نام عضو کادر را JOIN می‌زند).
+
+        خروجی DAL شیء `User` است، ولی دکمه‌های هر ردیف (فعال/غیرفعال،
+        ریست رمز، حذف) این مقدار را به‌صورت دیکشنری می‌خواندند.
+        برای اینکه رفتار قبلی حفظ شود، اینجا به دیکشنری تبدیل
+        می‌شود — با همان کلیدها (id / username / is_active / …).
+        """
         try:
-            conn = self.db.get_connection()
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                SELECT u.*, s.full_name as staff_name, s.role as staff_role
-                FROM users u
-                LEFT JOIN staff s ON u.staff_id = s.id
-                WHERE u.is_deleted = 0
-                ORDER BY u.id
-            """)
-            rows = cursor.fetchall()
+            rows = [
+                {
+                    'id': u.id,
+                    'username': u.username,
+                    'staff_name': u.staff_name,
+                    'role': u.role,
+                    'is_active': u.is_active,
+                }
+                for u in self.user_dal.get_all()
+            ]
             
             self.user_table.setRowCount(len(rows))
             
@@ -832,56 +871,39 @@ class SettingsPage(QWidget):
             return
         
         role = self.user_role_combo.currentData()
-        
+
         try:
-            conn = self.db.get_connection()
-            cursor = conn.cursor()
+            # ===== اصلاح (بازرسی هفتم — اولویت ۱) =====
+            # این متد سه کوئری خام روی users می‌زد. حالا همه از
+            # `UserDAL` می‌گذرد. DAL همان بررسی‌ها را دارد و از
+            # این‌ها هم قوی‌تر است:
+            #   • نام کاربری یکدست می‌شود (normalize_username)
+            #   • اعتبارسنجی مدل User اجرا می‌شود (طول و نویسه‌های مجاز)
+            #   • وجود و حذف‌نشدن عضو کادر بررسی می‌شود
+            #   • نام کاربری تکراری حتی در رکوردهای حذف‌شده بررسی می‌شود
+            #   • یک عضو کادر نمی‌تواند دو حساب بگیرد
+            #   • must_change_password = 1 ست می‌شود تا کاربر رمز
+            #     خودش را انتخاب کند
+            user = User()
+            user.staff_id = staff_id
+            user.username = username
+            user.role = role
+            user.is_active = 1
+            self.user_dal.create(
+                user, raw_password=password,
+                user_id_actor=self._current_staff_id(),
+            )
 
-            # ===== اصلاح =====
-            # نسخه قبلی بررسی نمی‌کرد که این عضو کادر از قبل حساب
-            # دارد یا نه. چون users.staff_id یکتا نیست، می‌شد برای
-            # یک نفر دو حساب ساخت. موقع ورود، کوئری
-            # `WHERE username = ?` هر دو را برمی‌گرداند و fetchone()
-            # فقط یکی را می‌گرفت — یعنی ورود تصادفی می‌شد.
-            cursor.execute("""
-                SELECT username FROM users
-                WHERE staff_id = ? AND is_deleted = 0
-            """, (staff_id,))
-            existing = cursor.fetchone()
-            if existing:
-                QMessageBox.warning(
-                    self, "خطا",
-                    f"برای این عضو کادر قبلاً حساب کاربری "
-                    f"«{existing['username']}» ساخته شده است.\n"
-                    "به جای ساخت حساب جدید، رمز همان حساب را بازنشانی کنید."
-                )
-                return
-
-            password_hash = Security.hash_password(password)
-
-            # ===== اصلاح =====
-            # نسخه قبلی ستون must_change_password را در INSERT
-            # نمی‌آورد. یعنی کاربر جدید با رمز ساخته‌شده توسط مدیر
-            # وارد می‌شد و هیچ‌وقت مجبور به تغییر آن نبود.
-            cursor.execute("""
-                INSERT INTO users (
-                    staff_id, username, password_hash, role,
-                    is_active, must_change_password
-                )
-                VALUES (?, ?, ?, ?, ?, 1)
-            """, (staff_id, username, password_hash, role, 1))
-
-            conn.commit()
-            
             self.username_input.clear()
             self.password_input.clear()
             self.password_confirm_input.clear()
             self.load_users()
-            
+
             QMessageBox.information(self, "موفقیت", f"کاربر {username} با موفقیت ایجاد شد.")
-            
-        except sqlite3.IntegrityError:
-            QMessageBox.critical(self, "خطا", "این نام کاربری قبلاً ثبت شده است.")
+
+        except ValueError as e:
+            # پیام‌های اعتبارسنجی DAL از قبل فارسی و گویا هستند
+            QMessageBox.warning(self, "خطا", str(e))
         except Exception as e:
             QMessageBox.critical(self, "خطا", f"مشکل در افزودن کاربر:\n{str(e)}")
     
@@ -899,19 +921,21 @@ class SettingsPage(QWidget):
         
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                conn = self.db.get_connection()
-                cursor = conn.cursor()
-                
-                cursor.execute("""
-                    UPDATE users SET is_active = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                """, (new_status, user['id']))
-                
-                conn.commit()
+                # ===== اصلاح (بازرسی هفتم) =====
+                # SQL خام → UserDAL.set_active. نسخهٔ DAL کاربر حذف‌شده
+                # را تغییر نمی‌دهد، کاربر ناموجود را False برمی‌گرداند
+                # و ردیف Audit («چه کسی وضعیت را عوض کرد») می‌نویسد.
+                ok = self.user_dal.set_active(
+                    user['id'], new_status == 1,
+                    user_id_actor=self._current_staff_id(),
+                )
+                if not ok:
+                    QMessageBox.warning(self, "خطا", "کاربر مورد نظر یافت نشد.")
+                    return
+
                 self.load_users()
-                
                 QMessageBox.information(self, "موفقیت", f"وضعیت کاربر {user['username']} با موفقیت تغییر کرد.")
-                
+
             except Exception as e:
                 QMessageBox.critical(self, "خطا", f"مشکل در تغییر وضعیت:\n{str(e)}")
     
@@ -926,36 +950,17 @@ class SettingsPage(QWidget):
         
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                import secrets
-                import string
-                
-                # تولید رمز تصادفی
-                alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
-                new_password = ''.join(secrets.choice(alphabet) for _ in range(10))
-                
-                password_hash = Security.hash_password(new_password)
-                
-                conn = self.db.get_connection()
-                cursor = conn.cursor()
-                
-                # ===== اصلاح مهم =====
-                # نسخه قبلی فقط password_hash را به‌روز می‌کرد. یعنی
-                # کاربر با رمز تصادفی ساخته‌شده توسط مدیر وارد می‌شد
-                # و تا ابد همان رمز را نگه می‌داشت — مدیر هم رمزی را
-                # می‌دانست که نباید می‌دانست.
-                #
-                # حالا must_change_password = 1 هم ست می‌شود، پس در
-                # اولین ورود، LoginDialog سیگنال need_change_password
-                # را می‌فرستد و کاربر مجبور به انتخاب رمز خودش است.
-                cursor.execute("""
-                    UPDATE users
-                    SET password_hash = ?,
-                        must_change_password = 1,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                """, (password_hash, user['id']))
-
-                conn.commit()
+                # ===== اصلاح (بازرسی هفتم) =====
+                # تولید رمز و UPDATE خام → UserDAL.reset_password که
+                # خودش رمز تصادفی می‌سازد، must_change_password را
+                # ست می‌کند و رد Audit ثبت می‌کند.
+                new_password = self.user_dal.reset_password(
+                    user['id'],
+                    user_id_actor=self._current_staff_id(),
+                )
+                if not new_password:
+                    QMessageBox.warning(self, "خطا", "کاربر مورد نظر یافت نشد.")
+                    return
 
                 QMessageBox.information(
                     self,
@@ -965,7 +970,7 @@ class SettingsPage(QWidget):
                     "این رمز را به کاربر بدهید. در اولین ورود، سامانه "
                     "از او می‌خواهد رمز خودش را انتخاب کند."
                 )
-                
+
             except Exception as e:
                 QMessageBox.critical(self, "خطا", f"مشکل در ریست رمز:\n{str(e)}")
     
@@ -980,33 +985,16 @@ class SettingsPage(QWidget):
         
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                conn = self.db.get_connection()
-                cursor = conn.cursor()
-                
-                # ===== اصلاح =====
-                # نسخه قبلی فقط is_deleted = 1 ست می‌کرد و
-                # deleted_at و deleted_by را خالی می‌گذاشت. یعنی
-                # هیچ راهی نبود بفهمیم چه کسی و کِی این حساب را
-                # حذف کرده — برای سامانه‌ای که Audit دارد، این
-                # حفره بزرگی است.
-                #
-                # همچنین is_active دست‌نخورده می‌ماند، پس در هر
-                # کوئری‌ای که is_deleted را فیلتر نکند، کاربر «حذف‌شده»
-                # هنوز فعال دیده می‌شد.
-                current_user = getattr(self, 'current_user_id', None) \
-                    or getattr(self.db, '_current_user_id', None)
+                # ===== اصلاح (بازرسی هفتم) =====
+                # SQL خام → UserDAL.delete که deleted_at/deleted_by را
+                # هم پر می‌کند و is_active را صفر می‌کند (هر دو نکته‌ای
+                # که در نسخهٔ خام دیده شده بود، ولی حالا یک‌جا و
+                # آزمون‌پذیر است).
+                ok = self.user_dal.delete(
+                    user['id'], user_id_actor=self._current_staff_id())
+                if not ok:
+                    QMessageBox.warning(self, "خطا", "کاربر مورد نظر یافت نشد.")
 
-                cursor.execute("""
-                    UPDATE users SET
-                        is_deleted = 1,
-                        is_active = 0,
-                        deleted_at = CURRENT_TIMESTAMP,
-                        deleted_by = ?,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                """, (current_user, user['id'],))
-
-                conn.commit()
                 self.load_users()
 
                 QMessageBox.information(
@@ -1041,15 +1029,12 @@ class SettingsPage(QWidget):
             return
 
         try:
-            conn = self.db.get_connection()
-            cursor = conn.cursor()
-
-            # کاربر با همان نام کاربری فعال دیگری ساخته نشده باشد
-            cursor.execute("""
-                SELECT id FROM users
-                WHERE username = ? AND id != ? AND is_deleted = 0
-            """, (user['username'], user['id'],))
-            if cursor.fetchone():
+            # ===== اصلاح (بازرسی هفتم) =====
+            # بررسی تصاحب نام کاربری حفظ شد، ولی SQL خام → DAL.
+            # نکته: UserDAL.restore کاربر را «غیرفعال» برمی‌گرداند و
+            # خودِ برنامه تصمیم می‌گیرد فعالش کند — همان چیزی که
+            # این صفحه از قبل می‌خواست (is_active = 1).
+            if self.user_dal.username_exists(user['username']):
                 QMessageBox.warning(
                     self, "خطا",
                     f"نام کاربری «{user['username']}» اکنون در اختیار "
@@ -1057,18 +1042,15 @@ class SettingsPage(QWidget):
                 )
                 return
 
-            cursor.execute("""
-                UPDATE users SET
-                    is_deleted = 0,
-                    deleted_at = NULL,
-                    deleted_by = NULL,
-                    is_active = 1,
-                    must_change_password = 1,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            """, (user['id'],))
+            if not self.user_dal.restore(
+                    user['id'], user_id_actor=self._current_staff_id()):
+                QMessageBox.warning(self, "خطا", "کاربر مورد نظر یافت نشد.")
+                return
 
-            conn.commit()
+            # بازگردانی با حساب فعال (رفتار قبلی همین صفحه)
+            self.user_dal.set_active(
+                user['id'], True, user_id_actor=self._current_staff_id())
+
             self.load_users()
 
             QMessageBox.information(

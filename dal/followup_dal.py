@@ -562,7 +562,7 @@ class FollowUpDAL:
                             week = (day - 1) // 7 + 1
                             key = f"{parts[0]}/{parts[1]}/W{week}"
                             label = f"هفته {week} {parts[1]}"
-                        except:
+                        except Exception:
                             key = date_str[:7]
                             label = date_str[:7]
                     else:
@@ -609,7 +609,7 @@ class FollowUpDAL:
                 month = int(parts[1])
                 if 1 <= month <= 12:
                     return f"{month_names[month-1]} {parts[0]}"
-        except:
+        except Exception:
             pass
         return date_str
 

@@ -17,7 +17,6 @@ from dal.academic_year_dal import AcademicYearDAL
 from models.followup import FollowUp
 from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
-import re
 
 
 class FollowUpService(BaseService):
@@ -536,8 +535,10 @@ class FollowUpService(BaseService):
                 for f in followups:
                     if f.status == 'pending' and f.next_action_date and f.next_action_date < today_str:
                         overdue += 1
-            except:
-                pass
+            except Exception as _exc:
+                self.logger.debug(
+                    f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+                )
             
             return {
                 'total': total,

@@ -395,7 +395,7 @@ class ReportsPage(QWidget):
         try:
             student = self.student_dal.get_by_id(self.current_student_id)
             return student.full_name if student else "نامشخص"
-        except:
+        except Exception:
             return "نامشخص"
     
     def load_report(self):
@@ -1095,7 +1095,7 @@ class ReportsPage(QWidget):
         try:
             comp = self.competency_dal.get_by_id(competency_id)
             return comp.title if comp else "نامشخص"
-        except:
+        except Exception:
             return "نامشخص"
     
     def _get_staff_name(self, staff_id):
@@ -1105,7 +1105,7 @@ class ReportsPage(QWidget):
         try:
             staff = self.staff_dal.get_by_id(staff_id)
             return staff.full_name if staff else "نامشخص"
-        except:
+        except Exception:
             return "نامشخص"
     
     # ===== گزارش والدین =====

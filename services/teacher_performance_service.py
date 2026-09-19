@@ -239,7 +239,7 @@ class TeacherPerformanceService(BaseService):
         """دریافت آمار ماهانه"""
         try:
             return self.assignment_dal.get_teacher_trend(teacher_id, 'monthly', start_date, end_date)
-        except:
+        except Exception:
             return []
     
     def export_teacher_report_pdf(self, teacher_id, file_path, start_date=None, end_date=None):
@@ -300,7 +300,7 @@ class TeacherPerformanceService(BaseService):
             try:
                 today = jdatetime.date.today()
                 date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
-            except:
+            except Exception:
                 from datetime import datetime
                 date_str = datetime.now().strftime("%Y/%m/%d")
             

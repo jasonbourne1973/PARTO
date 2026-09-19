@@ -268,7 +268,7 @@ class GoalService(BaseService):
                 student = self.student_dal.get_by_id(profile.student_id)
                 if student:
                     goal.student_name = student.full_name
-        except:
+        except Exception:
             goal.student_name = "نامشخص"
         
         # نام ایجادکننده
@@ -277,7 +277,7 @@ class GoalService(BaseService):
                 creator = self.staff_dal.get_by_id(goal.created_by)
                 if creator:
                     goal.created_by_name = creator.full_name
-            except:
+            except Exception:
                 goal.created_by_name = "نامشخص"
         
         # نام مسئول
@@ -286,7 +286,7 @@ class GoalService(BaseService):
                 assignee = self.staff_dal.get_by_id(goal.assigned_to)
                 if assignee:
                     goal.assigned_to_name = assignee.full_name
-            except:
+            except Exception:
                 goal.assigned_to_name = "نامشخص"
         
         # نام شایستگی
@@ -295,5 +295,5 @@ class GoalService(BaseService):
                 comp = self.competency_dal.get_by_id(goal.related_competency_id)
                 if comp:
                     goal.competency_name = comp.title
-            except:
+            except Exception:
                 goal.competency_name = "نامشخص"

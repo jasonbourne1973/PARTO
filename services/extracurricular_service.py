@@ -275,7 +275,7 @@ class ExtracurricularService(BaseService):
                 student = self.student_dal.get_by_id(profile.student_id)
                 if student:
                     activity.student_name = student.full_name
-        except:
+        except Exception:
             activity.student_name = "نامشخص"
         
         # نام معلم
@@ -284,5 +284,5 @@ class ExtracurricularService(BaseService):
                 teacher = self.staff_dal.get_by_id(activity.teacher_id)
                 if teacher:
                     activity.teacher_name = teacher.full_name
-            except:
+            except Exception:
                 activity.teacher_name = "نامشخص"

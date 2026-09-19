@@ -335,7 +335,7 @@ class CounselingSessionDAL:
         if row['goals']:
             try:
                 session.goals = json.loads(row['goals'])
-            except:
+            except Exception:
                 session.goals = None
         else:
             session.goals = None
@@ -346,7 +346,7 @@ class CounselingSessionDAL:
         if row['interventions_discussed']:
             try:
                 session.interventions_discussed = json.loads(row['interventions_discussed'])
-            except:
+            except Exception:
                 session.interventions_discussed = None
         else:
             session.interventions_discussed = None
@@ -354,7 +354,7 @@ class CounselingSessionDAL:
         if row['recommendations']:
             try:
                 session.recommendations = json.loads(row['recommendations'])
-            except:
+            except Exception:
                 session.recommendations = None
         else:
             session.recommendations = None
@@ -362,7 +362,7 @@ class CounselingSessionDAL:
         if row['homework']:
             try:
                 session.homework = json.loads(row['homework'])
-            except:
+            except Exception:
                 session.homework = None
         else:
             session.homework = None

@@ -527,7 +527,7 @@ class TrendAnalysisService(BaseService):
                         'month': month,
                         'day': day
                     })
-            except:
+            except Exception:
                 continue
         
         sorted_keys = sorted(grouped.keys())

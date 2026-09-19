@@ -36,7 +36,8 @@ class UserDAL:
     # ایجاد
     # ============================================================
 
-    def create(self, user, raw_password=None, must_change_password=None):
+    def create(self, user, raw_password=None, must_change_password=None,
+               user_id_actor=None):
         """
         ایجاد کاربر جدید
 
@@ -46,6 +47,8 @@ class UserDAL:
                           در غیر این صورت از user.password_hash استفاده می‌شود.
             must_change_password: اگر None باشد، به‌طور پیش‌فرض ۱ ست می‌شود
                                   وقتی رمز را ادمین تعیین کرده است.
+            user_id_actor: شناسه staff کسی که این کاربر را ساخته
+                           (برای Audit Log — بازرسی هفتم)
 
         Returns:
             User: کاربر ایجاد شده
@@ -113,10 +116,24 @@ class UserDAL:
                 1 if must_change_password else 0
             ))
 
-            conn.commit()
             user.id = cursor.lastrowid
             user.staff_name = staff_row['full_name']
             user.must_change_password = 1 if must_change_password else 0
+
+            # ===== اصلاح (بازرسی هفتم) =====
+            # ساخت کاربر هیچ ردیفی در Audit Log نمی‌گذاشت؛ یعنی
+            # «چه کسی این حساب را ساخت و با چه نقشی» جایی ثبت
+            # نمی‌شد (جدول users تریگر Audit ندارد و بقیهٔ متدهای
+            # این DAL خودشان _audit می‌زنند — فقط create جا افتاده
+            # بود). حالا مثل بقیه رفتار می‌کند.
+            self._audit(cursor, user_id_actor, 'create', 'user', user.id, {
+                'username': user.username,
+                'staff_id': user.staff_id,
+                'role': user.role,
+                'must_change_password': user.must_change_password,
+            })
+
+            conn.commit()
             return user
 
         except sqlite3.IntegrityError as e:
@@ -644,6 +661,17 @@ class UserDAL:
         """
         import json
         try:
+            # ===== اصلاح (بازرسی هفتم) =====
+            # نام موجودیت یکدست می‌شود ('user' → 'users') تا با
+            # ردیف‌هایی که تریگرهای دیتابیس می‌نویسند و با
+            # AuditLogDAL.get_logs هم‌خوان باشد. قبلاً همین DAL نام
+            # مفرد می‌نوشت و جست‌وجوی تاریخچه با نام جدول نتیجه
+            # نمی‌داد.
+            try:
+                from utils.security import normalize_entity_type
+                entity_type = normalize_entity_type(entity_type)
+            except Exception:
+                pass
             cursor.execute("""
                 INSERT INTO audit_logs (
                     user_id, action, entity_type, entity_id, new_value

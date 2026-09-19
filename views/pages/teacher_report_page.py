@@ -894,7 +894,7 @@ class TeacherReportPage(QWidget):
         try:
             teacher = self.staff_dal.get_by_id(teacher_id)
             return teacher.full_name if teacher else "نامشخص"
-        except:
+        except Exception:
             return "نامشخص"
     
     def get_year_title(self, year_id):
@@ -904,7 +904,7 @@ class TeacherReportPage(QWidget):
         try:
             year = self.academic_year_dal.get_by_id(year_id)
             return year.title if year else "نامشخص"
-        except:
+        except Exception:
             return "نامشخص"
     
     def set_buttons_enabled(self, enabled):

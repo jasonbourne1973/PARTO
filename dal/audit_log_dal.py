@@ -44,8 +44,19 @@ class AuditLogDAL:
                 query += " AND al.user_id = ?"
                 params.append(user_id)
             if entity_type:
-                query += " AND al.entity_type = ?"
-                params.append(entity_type)
+                # ===== اصلاح (بازرسی هفتم) =====
+                # هم نام مفرد و هم نام جدول را قبول کن؛ تریگرهای
+                # دیتابیس نام جدول ('students') و سرویس‌ها نام
+                # موجودیت ('student') را ثبت می‌کردند و نتیجه،
+                # تاریخچهٔ ناقص بود.
+                from utils.security import normalize_entity_type
+                norm = normalize_entity_type(entity_type)
+                if norm != entity_type:
+                    query += " AND al.entity_type IN (?, ?)"
+                    params.extend([entity_type, norm])
+                else:
+                    query += " AND al.entity_type = ?"
+                    params.append(entity_type)
             if action:
                 query += " AND al.action = ?"
                 params.append(action)

@@ -353,7 +353,7 @@ class RecommendationDAL:
         if row['related_observation_ids']:
             try:
                 recommendation.related_observation_ids = json.loads(row['related_observation_ids'])
-            except:
+            except Exception:
                 recommendation.related_observation_ids = None
         else:
             recommendation.related_observation_ids = None
@@ -363,7 +363,7 @@ class RecommendationDAL:
         if row['metadata']:
             try:
                 recommendation.metadata = json.loads(row['metadata'])
-            except:
+            except Exception:
                 recommendation.metadata = None
         else:
             recommendation.metadata = None

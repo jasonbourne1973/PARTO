@@ -314,7 +314,7 @@ class SchoolReportService(BaseService):
             try:
                 today = jdatetime.date.today()
                 date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
-            except:
+            except Exception:
                 from datetime import datetime
                 date_str = datetime.now().strftime("%Y/%m/%d")
             

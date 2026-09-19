@@ -409,8 +409,10 @@ class DashboardService(BaseService):
                 today = jdatetime.date.today()
                 diff = end_date - today
                 remaining_days = f"{diff.days} روز"
-        except:
-            pass
+        except Exception as _exc:
+            self.logger.debug(
+                f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+            )
         
         is_active = getattr(year, 'is_active', 0)
         is_archived = getattr(year, 'is_archived', 0)

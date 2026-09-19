@@ -16,6 +16,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from database.connection import DatabaseConnection
+from dal.user_dal import UserDAL
 from utils.security import Security
 from utils.logger import get_logger
 from utils.tooltip_manager import TooltipManager
@@ -31,6 +32,7 @@ class LoginDialog(QDialog):
         super().__init__(parent)
 
         self.db = DatabaseConnection()
+        self.user_dal = UserDAL()
         self.logger = get_logger(self.__class__.__name__)
         self.current_user_id = None
         self.attempts = 0
@@ -359,96 +361,54 @@ class LoginDialog(QDialog):
             self.login_btn.setText("ورود به سامانه")
     
     def authenticate_user(self, username, password):
-        """احراز هویت کاربر"""
+        """
+        احراز هویت کاربر
+
+        ===== اصلاح (بازرسی هفتم — اولویت ۱) =====
+        این متد قبلاً SQL خام جدول users را مستقیم در لایهٔ نمایش
+        می‌زد. جدول `dal/user_dal.py::authenticate` از قبل وجود داشت
+        (با همان ترتیب خروجی و همان منطق: بررسی is_active کاربر،
+        فعال‌بودن عضو کادر، عدم حذف منطقی و احراز رمز)، اما کسی از
+        آن استفاده نمی‌کرد. حالا فقط لایهٔ داده به این جدول دست
+        می‌زند.
+
+        خروجی این متد تغییر نکرده (۵ عنصر با همان ترتیب) تا کد
+        فراخوان (btn_login / main_window) دست‌نخورده بماند.
+        """
         try:
             print(f"🔵 احراز هویت کاربر: {username}")
-            conn = self.db.get_connection()
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                SELECT u.id, u.staff_id, u.username, u.password_hash, u.role, 
-                       s.full_name, s.is_active as staff_active, u.is_active,
-                       u.must_change_password
-                FROM users u
-                LEFT JOIN staff s ON u.staff_id = s.id
-                WHERE u.username = ? AND u.is_deleted = 0
-            """, (username,))
-            
-            row = cursor.fetchone()
-            
-            if not row:
-                print(f"❌ کاربر {username} یافت نشد")
-                return None
-            
-            print(f"🔵 کاربر پیدا شد: {row['username']}")
-            
-            # بررسی فعال بودن کاربر
-            if row['is_active'] != 1:
-                print(f"❌ کاربر {username} غیرفعال است")
-                return None
-            
-            # بررسی فعال بودن کارمند
-            if row['staff_active'] != 1:
-                print(f"❌ کارمند مرتبط با کاربر {username} غیرفعال است")
-                return None
-            
-            # بررسی رمز عبور
-            if not Security.verify_password(password, row['password_hash']):
-                print(f"❌ رمز عبور {username} اشتباه است")
-                return None
-            
-            print(f"✅ احراز هویت {username} موفق بود")
+            auth = self.user_dal.authenticate(username, password)
 
-            # ===== اصلاح مهم (بحرانی‌ترین باگ گزارش) =====
-            # نسخه قبلی `row['id']` یعنی users.id را به عنوان user_id
-            # برمی‌گرداند. این مقدار به main_window می‌رفت و آنجا:
-            #     self.db.set_current_user(user_id)
-            # فراخوانی می‌شد. اما تریگرهای Audit Log، user_id را در
-            # ستون audit_logs.user_id می‌نویسند که کلید خارجی آن به
-            # staff(id) وصل است — نه users(id).
-            #
-            # نتیجه تست‌شده روی sqlite واقعی:
-            #     INSERT audit_logs(user_id=2)  → IntegrityError:
-            #         FOREIGN KEY constraint failed
-            # و وقتی staff_id را پاس دادیم، موفق بود.
-            #
-            # برای ادمین seed شده این باگ دیده نمی‌شد چون
-            # users.id == staff.id == 1. برای هر کاربر جدید، لاگ
-            # ورود شکست می‌خورد (و با except بلعیده می‌شد).
-            #
-            # حالا مقدار اول staff_id است (چیزی که audit نیاز دارد)
-            # و users.id به عنوان عنصر آخر برگردانده می‌شود، چون
-            # update_last_login به آن نیاز دارد.
+            if not auth:
+                print(f"❌ احراز هویت {username} ناموفق بود")
+                return None
+
+            print(f"✅ احراز هویت {auth['username']} موفق بود")
             return (
-                row['staff_id'],     # staff_id  ← برای set_current_user و Audit
-                row['role'],         # user_role
-                row['full_name'],    # full_name
-                row['must_change_password'] == 1,  # must_change_password
-                row['id']            # users.id  ← فقط برای UPDATE users
+                auth['staff_id'],                  # staff_id ← برای set_current_user و Audit
+                auth['role'],                      # user_role
+                auth['full_name'],                 # full_name
+                auth['must_change_password'],      # must_change_password
+                auth['user_id'],                   # users.id ← فقط برای UPDATE users
             )
-            
+
         except Exception as e:
             print(f"❌ خطا در احراز هویت: {e}")
             import traceback
             traceback.print_exc()
             return None
-    
+
     def update_last_login(self, user_id):
-        """به‌روزرسانی زمان آخرین ورود"""
+        """
+        به‌روزرسانی زمان آخرین ورود
+
+        ===== اصلاح (بازرسی هفتم) =====
+        SQL خام به UserDAL.update_last_login منتقل شد. امضای
+        `update_last_login(self, user_id)` در DAL دقیقاً همین است.
+        """
         try:
-            from datetime import datetime
-            conn = self.db.get_connection()
-            cursor = conn.cursor()
-            
-            now = datetime.now().isoformat()
-            cursor.execute("""
-                UPDATE users SET last_login = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            """, (now, user_id))
-            
-            conn.commit()
+            self.user_dal.update_last_login(user_id)
             print(f"✅ زمان آخرین ورود برای کاربر {user_id} به‌روزرسانی شد")
-            
         except Exception as e:
             print(f"❌ خطا در به‌روزرسانی آخرین ورود: {e}")
     

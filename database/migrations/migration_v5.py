@@ -154,7 +154,7 @@ def downgrade(connection):
         cursor.execute("ALTER TABLE screenings DROP COLUMN tool_id")
         cursor.execute("ALTER TABLE screenings DROP COLUMN domain_scores")
         cursor.execute("ALTER TABLE screenings DROP COLUMN total_score")
-    except:
+    except Exception:
         pass
     
     cursor.execute("DROP TABLE IF EXISTS screening_results")

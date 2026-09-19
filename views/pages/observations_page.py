@@ -449,7 +449,7 @@ class ObservationsPage(QWidget):
         try:
             competency = self.competency_dal.get_by_id(competency_id)
             return competency.title if competency else "نامشخص"
-        except:
+        except Exception:
             return "نامشخص"
     
     def get_abc_preview(self, obs):

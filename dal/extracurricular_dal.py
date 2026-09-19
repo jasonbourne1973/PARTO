@@ -291,7 +291,7 @@ class ExtracurricularDAL:
         if row['achievements']:
             try:
                 activity.achievements = json.loads(row['achievements'])
-            except:
+            except Exception:
                 activity.achievements = None
         else:
             activity.achievements = None

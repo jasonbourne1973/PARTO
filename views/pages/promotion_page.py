@@ -76,7 +76,7 @@ class PromotionPage(QWidget):
         try:
             jalali_now = jdatetime.datetime.now()
             current_jalali_year = jalali_now.year
-        except:
+        except Exception:
             current_jalali_year = datetime.now().year - 621
         
         for year in range(current_jalali_year - 2, current_jalali_year + 5):

@@ -128,7 +128,7 @@ class AdvancedSearchService(BaseService):
         try:
             observations = self.observation_dal.get_by_student(student_id, academic_year_id)
             return len(observations) > 0
-        except:
+        except Exception:
             return False
     
     def _has_intervention(self, student_id, academic_year_id=None):
@@ -136,7 +136,7 @@ class AdvancedSearchService(BaseService):
         try:
             interventions = self.intervention_dal.get_by_student(student_id, academic_year_id)
             return len(interventions) > 0
-        except:
+        except Exception:
             return False
     
     def _get_student_status(self, student_id, academic_year_id=None):

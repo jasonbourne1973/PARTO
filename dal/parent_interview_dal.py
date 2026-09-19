@@ -245,7 +245,7 @@ class ParentInterviewDAL:
         if row['key_points']:
             try:
                 interview.key_points = json.loads(row['key_points'])
-            except:
+            except Exception:
                 interview.key_points = None
         else:
             interview.key_points = None

@@ -95,7 +95,7 @@ class FilePreview:
                         Qt.TransformationMode.SmoothTransformation
                     )
                 return pixmap
-        except:
+        except Exception:
             pass
         return None
     
@@ -155,11 +155,11 @@ class FilePreview:
                         text = first_page.extract_text()[:300]
                         if text:
                             preview_text += f"\nمتن صفحه اول:\n{text}..."
-                    except:
+                    except Exception:
                         pass
                 
                 return preview_text
-        except:
+        except Exception:
             return "📄 فایل PDF\n\n(برای مشاهده کامل، فایل را باز کنید)"
     
     @staticmethod

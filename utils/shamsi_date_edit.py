@@ -66,6 +66,6 @@ class ShamsiDateEdit(QDateEdit):
                 shamsi_qdate = QDate(year, month, day)
                 self.setDate(shamsi_qdate)
                 return True
-            except:
+            except Exception:
                 return False
         return False

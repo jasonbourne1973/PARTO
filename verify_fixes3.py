@@ -788,14 +788,76 @@ check("مشاهدهٔ ثبت‌شده هنوز نام معلمش را دارد",
 
 
 def login_blocked_for_deleted_staff():
-    """login_dialog مقدار s.is_active را چک می‌کند؛ حذف منطقی آن را ۰ می‌گذارد"""
+    """
+    عضو کادر حذف‌شده/غیرفعال نباید بتواند وارد شود
+
+    ===== به‌روزرسانی (بازرسی هفتم) =====
+    این آزمون قبلاً وجود رشتهٔ «staff_active» در فایل
+    views/dialogs/login_dialog.py را بررسی می‌کرد. در بازرسی هفتم
+    SQL خام لاگین به `UserDAL.authenticate` منتقل شد (اولویت ۱)، پس
+    آن رشته دیگر در دیالوگ نیست — ولی خودِ بررسی حذف نشده و حتی
+    کامل‌تر است:
+        • کاربر is_deleted=1 رد می‌شود
+        • کاربر is_active=0 رد می‌شود
+        • عضو کادر حذف‌شده (staff_deleted) رد می‌شود
+        • عضو کادر غیرفعال (staff_active != 1) رد می‌شود
+    پس آزمون حالا «محل قرارگیری کد» را نمی‌سنجد، بلکه رفتار واقعی
+    ورود را می‌سنجد — که هدف اصلی این بررسی بود.
+    """
     row = CONN.execute(
         "SELECT is_active FROM staff WHERE id = ?", (CTX["teacher"],)).fetchone()
     assert row[0] != 1, \
         "عضو حذف‌شده هنوز is_active=1 دارد ⇒ می‌تواند وارد برنامه شود"
-    code = _src("views/dialogs/login_dialog.py")
-    assert "staff_active" in code, \
-        "login_dialog دیگر is_active عضو کادر را چک نمی‌کند"
+
+    # ۱) منطق بررسی باید در لایهٔ دادهٔ احراز هویت باشد
+    code = _src("dal/user_dal.py")
+    for needle in ("staff_active", "staff_deleted"):
+        assert needle in code, \
+            f"بررسی «{needle}» عضو کادر در مسیر احراز هویت پیدا نشد"
+
+    # ۲) آزمون رفتاری — با یک عضو کادر مستقل تا رکوردهای
+    #    مشترک آزمون‌های دیگر دست‌نخورده بمانند
+    from dal.user_dal import UserDAL
+    from dal.staff_dal import StaffDAL
+    from models.staff import Staff
+    from models.user import User
+
+    probe = Staff()
+    probe.full_name = "عضو آزمون ورود"
+    probe.role = "teacher"
+    probe.is_active = 1
+    probe_id = StaffDAL().create(probe).id
+
+    ud = UserDAL()
+    ghost = User()
+    ghost.staff_id = probe_id
+    ghost.username = "ghost_teacher"
+    ghost.role = "teacher"
+    ghost.is_active = 1
+    ud.create(ghost, raw_password="Ghost@12345")
+
+    # الف) وقتی همه‌چیز سالم است، ورود باید کار کند
+    assert ud.authenticate("ghost_teacher", "Ghost@12345") is not None, \
+        "ورود کاربرِ سالم کار نمی‌کند (پیش‌نیاز آزمون برقرار نیست)"
+
+    # ب) عضو کادر غیرفعال → ورود ممنوع
+    CONN.execute("UPDATE staff SET is_active = 0 WHERE id = ?", (probe_id,))
+    assert ud.authenticate("ghost_teacher", "Ghost@12345") is None, \
+        "کاربرِ عضو کادرِ غیرفعال توانست وارد شود!"
+
+    # ج) برگشت به حالت فعال → ورود باید دوباره کار کند
+    CONN.execute("UPDATE staff SET is_active = 1 WHERE id = ?", (probe_id,))
+    assert ud.authenticate("ghost_teacher", "Ghost@12345") is not None, \
+        "پس از فعال‌سازی دوباره، ورود کاربر کار نمی‌کند"
+
+    # د) عضو کادر حذف‌شده (منطقی) → ورود ممنوع
+    CONN.execute("UPDATE staff SET is_deleted = 1 WHERE id = ?", (probe_id,))
+    assert ud.authenticate("ghost_teacher", "Ghost@12345") is None, \
+        "کاربرِ عضو کادرِ حذف‌شده توانست وارد شود!"
+
+    # پاک‌سازی اثر آزمون (کاربر و عضو آزمایشی)
+    CONN.execute("UPDATE users SET is_deleted = 1 WHERE username = 'ghost_teacher'")
+    CONN.execute("UPDATE staff SET is_deleted = 1 WHERE id = ?", (probe_id,))
 
 
 check("ورود عضو کادر حذف‌شده به برنامه بسته می‌شود",

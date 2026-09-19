@@ -36,6 +36,13 @@ class UserRole(Enum):
     COUNSELOR = "counselor"       # مشاور
     SYSTEM = "system"             # سیستم (داخلی)
     VIEWER = "viewer"             # مشاهده‌گر (فقط خواندنی)
+    # ===== افزودن (بازرسی هفتم) =====
+    # این سه نقش در models/enums.py::StaffRole وجود داشتند و در
+    # جدول staff ذخیره می‌شوند، ولی در این enum نبودند.
+    SPORT_COACH = "sport_coach"   # مربی ورزش
+    QURAN_COACH = "quran_coach"   # مربی قرآن
+    ART_COACH = "art_coach"       # مربی هنر
+    OTHER = "other"               # سایر کادر
 
 
 class Permission(Enum):
@@ -163,6 +170,50 @@ ROLE_PERMISSIONS = {
         p.value for p in Permission
     ],
     UserRole.VIEWER.value: [
+        Permission.VIEW_STUDENTS.value,
+        Permission.VIEW_OBSERVATIONS.value,
+        Permission.VIEW_INTERVENTIONS.value,
+        Permission.VIEW_FOLLOWUPS.value,
+        Permission.VIEW_REPORTS.value,
+    ],
+
+    # ===== افزودن (بازرسی هفتم — اولویت ۵) =====
+    # این نقش‌ها در جدول staff وجود دارند (models/enums.py::StaffRole)
+    # و می‌توانند برای کاربران ساخته شوند، ولی قبلاً در هیچ کلیدی از
+    # ROLE_PERMISSIONS نبودند؛ مجوزشان به «پیش‌فرض» می‌افتاد و
+    # مدیر نمی‌توانست رفتارشان را تعیین کند.
+    #
+    # سیاست پیشنهادی: مربیان مثل معلم هستند ولی اجازهٔ *ثبت* مشاهده
+    # را هم دارند (چون در فعالیت‌های فوق‌برنامه با دانش‌آموز کار
+    # می‌کنند)؛ گرچه الزاماً نباید بتوانند پروندهٔ دانش‌آموز را
+    # تغییر دهند. اگر سیاست مدرسه چیز دیگری است، فقط همین لیست‌ها
+    # را ویرایش کنید — نقطهٔ واحدی برای تصمیم وجود دارد.
+    UserRole.SPORT_COACH.value: [
+        Permission.VIEW_STUDENTS.value,
+        Permission.VIEW_OBSERVATIONS.value,
+        Permission.CREATE_OBSERVATION.value,
+        Permission.VIEW_INTERVENTIONS.value,
+        Permission.VIEW_FOLLOWUPS.value,
+        Permission.VIEW_REPORTS.value,
+    ],
+    UserRole.QURAN_COACH.value: [
+        Permission.VIEW_STUDENTS.value,
+        Permission.VIEW_OBSERVATIONS.value,
+        Permission.CREATE_OBSERVATION.value,
+        Permission.VIEW_INTERVENTIONS.value,
+        Permission.VIEW_FOLLOWUPS.value,
+        Permission.VIEW_REPORTS.value,
+    ],
+    UserRole.ART_COACH.value: [
+        Permission.VIEW_STUDENTS.value,
+        Permission.VIEW_OBSERVATIONS.value,
+        Permission.CREATE_OBSERVATION.value,
+        Permission.VIEW_INTERVENTIONS.value,
+        Permission.VIEW_FOLLOWUPS.value,
+        Permission.VIEW_REPORTS.value,
+    ],
+    UserRole.OTHER.value: [
+        # «سایر»: فقط مشاهده — تصمیم دقیق با مدیر مدرسه است
         Permission.VIEW_STUDENTS.value,
         Permission.VIEW_OBSERVATIONS.value,
         Permission.VIEW_INTERVENTIONS.value,
@@ -326,7 +377,7 @@ class Security:
             computed_hash = hashlib.sha256(combined.encode('utf-8')).hexdigest()
             
             return hmac.compare_digest(computed_hash, stored_hash)
-        except:
+        except Exception:
             return False
     
     @staticmethod
@@ -493,6 +544,39 @@ class SessionManager:
         return sessions
 
 
+# ===== یکسان‌سازی نام موجودیت در Audit Log (بازرسی هفتم) =====
+# کلید = نام مفردی که سرویس‌ها استفاده می‌کنند، مقدار = نام جدول
+# دیتابیس که تریگرها در entity_type می‌نویسند.
+AUDIT_ENTITY_ALIASES = {
+    'student': 'students',
+    'observation': 'observations',
+    'intervention': 'interventions',
+    'followup': 'followups',
+    'student_academic_profile': 'student_academic_profiles',
+    'profile': 'student_academic_profiles',
+    'staff': 'staff',
+    'competency': 'competencies',
+    'user': 'users',
+    'attachment': 'attachments',
+}
+
+
+def normalize_entity_type(entity_type):
+    """
+    نام موجودیت را به شکل یکدست (نام جدول) برمی‌گرداند
+
+    Args:
+        entity_type: نام مفرد یا جمع؛ می‌تواند None باشد
+
+    Returns:
+        str | None: نام یکدست، یا همان مقدار ورودی اگر ناشناخته باشد
+    """
+    if not entity_type:
+        return entity_type
+    key = str(entity_type).strip().lower()
+    return AUDIT_ENTITY_ALIASES.get(key, key)
+
+
 class AuditLogger:
     """ثبت رویدادهای امنیتی (Audit Log)"""
     
@@ -516,7 +600,13 @@ class AuditLogger:
         try:
             conn = self.db.get_connection()
             cursor = conn.cursor()
-            
+
+            # ===== اصلاح (بازرسی هفتم) =====
+            # نام موجودیت یکدست می‌شود تا ردیف‌های این کلاس با
+            # ردیف‌های تریگرهای دیتابیس (که نام جدول را می‌نویسند)
+            # قابل جست‌وجوی مشترک باشند.
+            entity_type = normalize_entity_type(entity_type)
+
             # تبدیل دیکشنری به JSON برای ذخیره
             import json
             old_json = json.dumps(old_value, ensure_ascii=False) if old_value else None
@@ -592,8 +682,13 @@ class AuditLogger:
                 query += " AND user_id = ?"
                 params.append(user_id)
             if entity_type:
-                query += " AND entity_type = ?"
-                params.append(entity_type)
+                # ===== اصلاح (بازرسی هفتم) =====
+                # هم نام مفرد و هم نام جدول پذیرفته می‌شود؛ وگرنه
+                # کسی که 'student' می‌داد ردیف‌های تریگر (students)
+                # را از دست می‌داد و برعکس.
+                query += " AND entity_type IN (?, ?)"
+                norm = normalize_entity_type(entity_type)
+                params.extend([entity_type, norm])
             if action:
                 query += " AND action = ?"
                 params.append(action)

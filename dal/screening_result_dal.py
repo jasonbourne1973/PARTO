@@ -222,7 +222,7 @@ class ScreeningResultDAL:
         if row['raw_answers']:
             try:
                 result.raw_answers = json.loads(row['raw_answers'])
-            except:
+            except Exception:
                 result.raw_answers = None
         else:
             result.raw_answers = None
@@ -230,7 +230,7 @@ class ScreeningResultDAL:
         if row['raw_observations']:
             try:
                 result.raw_observations = json.loads(row['raw_observations'])
-            except:
+            except Exception:
                 result.raw_observations = None
         else:
             result.raw_observations = None
@@ -238,7 +238,7 @@ class ScreeningResultDAL:
         if row['domain_scores']:
             try:
                 result.domain_scores = json.loads(row['domain_scores'])
-            except:
+            except Exception:
                 result.domain_scores = None
         else:
             result.domain_scores = None

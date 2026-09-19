@@ -626,8 +626,10 @@ class ObservationForm(QDialog):
             today = jdatetime.date.today()
             date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
             self.date_input.set_date(date_str)
-        except:
-            pass
+        except Exception as _exc:
+            self.logger.debug(
+                f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+            )
 
     def update_severity_display(self, value):
         self.severity_label.setText("⭐" * value)

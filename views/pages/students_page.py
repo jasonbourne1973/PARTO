@@ -364,7 +364,7 @@ class StudentsPage(QWidget):
                     'grade': profile.grade_display,
                     'class': profile.class_name or ''
                 }
-        except:
+        except Exception:
             pass
         return {'grade': '-', 'class': '-'}
     

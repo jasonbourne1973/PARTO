@@ -299,7 +299,7 @@ class CaseTimelineService:
         try:
             staff = self.staff_dal.get_by_id(staff_id)
             return staff.full_name if staff else "نامشخص"
-        except:
+        except Exception:
             return "نامشخص"
     
     def _get_competency_name(self, competency_id):
@@ -309,7 +309,7 @@ class CaseTimelineService:
         try:
             comp = self.competency_dal.get_by_id(competency_id)
             return comp.title if comp else "نامشخص"
-        except:
+        except Exception:
             return "نامشخص"
     
     def _get_student_name_by_profile(self, profile_id):
@@ -319,6 +319,6 @@ class CaseTimelineService:
             if profile:
                 student = self.student_dal.get_by_id(profile.student_id)
                 return student.full_name if student else "نامشخص"
-        except:
+        except Exception:
             pass
         return "نامشخص"

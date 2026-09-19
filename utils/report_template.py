@@ -95,7 +95,7 @@ class ReportTemplate:
             try:
                 today = jdatetime.date.today()
                 date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
-            except:
+            except Exception:
                 date_str = datetime.now().strftime("%Y/%m/%d")
             
             lines.append(f"  تاریخ گزارش: {date_str}")
@@ -319,7 +319,7 @@ class ReportTemplate:
         try:
             now = jdatetime.datetime.now()
             time_str = f"{now.year:04d}/{now.month:02d}/{now.day:02d} {now.hour:02d}:{now.minute:02d}"
-        except:
+        except Exception:
             time_str = datetime.now().strftime("%Y/%m/%d %H:%M")
         
         items.append(("زمان تولید", time_str))
@@ -379,7 +379,7 @@ class ReportTemplate:
             try:
                 today = jdatetime.date.today()
                 date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
-            except:
+            except Exception:
                 date_str = datetime.now().strftime("%Y/%m/%d")
             lines.append(f"  تاریخ: {date_str}")
         
@@ -408,7 +408,7 @@ class ReportTemplate:
             try:
                 today = jdatetime.date.today()
                 date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
-            except:
+            except Exception:
                 date_str = datetime.now().strftime("%Y/%m/%d")
             lines.append(f"  تاریخ تهیه: {date_str}")
         
