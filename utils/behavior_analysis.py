@@ -223,9 +223,51 @@ def summarize_by_competency(observations, name_of, min_count=MIN_PATTERN_COUNT,
     return result
 
 
+def _classify_share_step(pos_change, neg_change):
+    """
+    دسته‌بندی «یک گام» تغییر ترکیب رفتار (بین دو بازهٔ پیاپی).
+
+    آستانه‌ها دقیقاً همان منطق قبلی جهت روند است:
+      • بهبود: افزایش معنادار سهم مثبت، بدون افزایش محسوس سهم منفی
+      • افت: افزایش معنادار سهم منفی، بدون افزایش محسوس سهم مثبت
+      • ثابت: هیچ‌کدام تغییر معنادار ندارند
+      • ترکیبی: در غیر این صورت (تغییرها یک‌جهت نیستند)
+
+    تعداد مشاهدات در این تصمیم هیچ نقشی ندارد.
+    """
+    if pos_change >= MEANINGFUL_SHARE_CHANGE and neg_change <= 5:
+        return 'improving'
+    if neg_change >= MEANINGFUL_SHARE_CHANGE and pos_change <= 5:
+        return 'declining'
+    if (abs(pos_change) < MEANINGFUL_SHARE_CHANGE
+            and abs(neg_change) < MEANINGFUL_SHARE_CHANGE):
+        return 'stable'
+    return 'mixed'
+
+
+_STEP_LABELS = {
+    'improving': 'تغییر به سمت رفتارهای مثبت‌تر',
+    'declining': 'افزایش سهم رفتارهای منفی',
+    'stable': 'ترکیب رفتارها تقریباً ثابت',
+    'mixed': 'تغییر ترکیبی',
+}
+
+
 def growth_direction(periods, min_periods=2):
     """
     جهت تغییر رفتار در طول زمان — بر اساس **ترکیب رفتارها**، نه تعداد مشاهدات.
+
+    ===== اصلاح (بازرسی دوازدهم) =====
+    نسخهٔ قبلی فقط **اولین بازهٔ دارای داده** را با **آخرین بازه**
+    مقایسه می‌کرد؛ یعنی اگر در بازه‌های میانی تغییر مهمی رخ داده و
+    بعد برگشته بود، نادیده گرفته می‌شد. حالا **همهٔ گام‌های پیاپی**
+    (بازهٔ ۱←۲، ۲←۳، ...) جداگانه دسته‌بندی می‌شوند:
+      • اگر همهٔ گام‌ها یک‌جهت باشند (بهبود/افت/ثبات)، همان جهت
+        گزارش می‌شود؛
+      • اگر گام‌ها یک‌جهت نباشند، نتیجه «تغییر ترکیبی» (روند
+        غیرقطعی) اعلام می‌شود، نه برآیند ابتدا و انتها.
+    تعداد مشاهدات همچنان فقط «حجم ثبت و پایش» است و در تصمیم
+    هیچ نقشی ندارد.
 
     Args:
         periods: فهرست زمانی‌مرتب‌شده از دیکشنری‌های
@@ -234,7 +276,8 @@ def growth_direction(periods, min_periods=2):
     Returns:
         dict با کلیدهای status ('improving'|'declining'|'stable'|'mixed'|
         'insufficient'), label, message, share_first/share_last و
-        volume_note (حجم ثبت، نه رشد).
+        volume_note (حجم ثبت، نه رشد)؛ به‌علاوهٔ 'steps' (جزئیات
+        گام‌به‌گام) و 'unanimous' (آیا همهٔ گام‌ها یک‌جهت‌اند؟).
     """
     usable = [p for p in (periods or []) if (p.get('total') or 0) > 0]
     if len(usable) < min_periods:
@@ -245,43 +288,66 @@ def growth_direction(periods, min_periods=2):
                         "ثبت‌شده لازم است."),
             'share_first': None,
             'share_last': None,
+            'steps': [],
+            'unanimous': True,
             'volume_note': _volume_note(len(usable), 0),
         }
 
-    first, last = usable[0], usable[-1]
-    first_share = shares({'positive': first.get('positive', 0),
-                          'negative': first.get('negative', 0),
-                          'neutral': first.get('neutral', 0),
-                          'total': first.get('total', 0)})
-    last_share = shares({'positive': last.get('positive', 0),
-                         'negative': last.get('negative', 0),
-                         'neutral': last.get('neutral', 0),
-                         'total': last.get('total', 0)})
+    period_shares = [
+        shares({'positive': p.get('positive', 0),
+                'negative': p.get('negative', 0),
+                'neutral': p.get('neutral', 0),
+                'total': p.get('total', 0)})
+        for p in usable
+    ]
 
+    steps = []
+    for index in range(1, len(usable)):
+        pos_change = (period_shares[index]['positive']
+                      - period_shares[index - 1]['positive'])
+        neg_change = (period_shares[index]['negative']
+                      - period_shares[index - 1]['negative'])
+        steps.append({
+            'from': usable[index - 1].get('label'),
+            'to': usable[index].get('label'),
+            'status': _classify_share_step(pos_change, neg_change),
+            'positive_change': round(pos_change, 1),
+            'negative_change': round(neg_change, 1),
+        })
+
+    first_share = period_shares[0]
+    last_share = period_shares[-1]
     pos_change = last_share['positive'] - first_share['positive']
     neg_change = last_share['negative'] - first_share['negative']
 
-    if pos_change >= MEANINGFUL_SHARE_CHANGE and neg_change <= 5:
-        status = 'improving'
-        label = 'تغییر به سمت رفتارهای مثبت‌تر'
-        message = ("سهم رفتارهای مثبت در آخرین بازهٔ ثبت‌شده بیشتر از "
-                   "بازهٔ نخست است؛ این تغییر بر پایهٔ **نوع رفتارهای "
-                   "ثبت‌شده** گزارش می‌شود، نه بر پایهٔ تعداد مشاهدات.")
-    elif neg_change >= MEANINGFUL_SHARE_CHANGE and pos_change <= 5:
-        status = 'declining'
-        label = 'افزایش سهم رفتارهای منفی'
-        message = ("سهم رفتارهای منفی در آخرین بازهٔ ثبت‌شده بیشتر از بازهٔ "
-                   "نخست است؛ بررسی و حمایت بیشتر پیشنهاد می‌شود. این "
-                   "گزارش، تشخیص نیست.")
-    elif abs(pos_change) < MEANINGFUL_SHARE_CHANGE and abs(neg_change) < MEANINGFUL_SHARE_CHANGE:
+    step_statuses = {s['status'] for s in steps}
+    # گام «ثابت» خنثی است: جهت کلی را عوض نمی‌کند.
+    directed = step_statuses - {'stable'}
+    unanimous = len(directed) <= 1
+
+    if not directed:
         status = 'stable'
         label = 'ترکیب رفتارها تقریباً ثابت'
         message = ("ترکیب رفتارهای مثبت و منفی در بازه‌های ثبت‌شده تغییر "
                    "معناداری نداشته است.")
+    elif directed == {'improving'}:
+        status = 'improving'
+        label = 'تغییر به سمت رفتارهای مثبت‌تر'
+        message = ("سهم رفتارهای مثبت در طول بازه‌های ثبت‌شده به‌صورت "
+                   "یک‌جهت بیشتر شده است؛ این تغییر بر پایهٔ **نوع رفتارهای "
+                   "ثبت‌شده** گزارش می‌شود، نه بر پایهٔ تعداد مشاهدات.")
+    elif directed == {'declining'}:
+        status = 'declining'
+        label = 'افزایش سهم رفتارهای منفی'
+        message = ("سهم رفتارهای منفی در طول بازه‌های ثبت‌شده به‌صورت "
+                   "یک‌جهت بیشتر شده است؛ بررسی و حمایت بیشتر پیشنهاد "
+                   "می‌شود. این گزارش، تشخیص نیست.")
     else:
         status = 'mixed'
         label = 'تغییر ترکیبی'
-        message = ("تغییر رفتارها در بازه‌های ثبت‌شده یک‌جهت نیست؛ برای "
+        message = ("تغییر رفتارها در بازه‌های ثبت‌شده یک‌جهت نیست؛ یعنی در "
+                   "بعضی بازه‌های میانی بهبود و در بعضی دیگر افت دیده "
+                   "می‌شود. پس روند، «غیرقطعی» گزارش می‌شود و برای "
                    "جمع‌بندی دقیق‌تر به مشاهدهٔ بیشتر نیاز است.")
 
     return {
@@ -293,7 +359,10 @@ def growth_direction(periods, min_periods=2):
         'positive_change': round(pos_change, 1),
         'negative_change': round(neg_change, 1),
         'periods_with_data': len(usable),
-        'volume_note': _volume_note(first.get('total', 0), last.get('total', 0)),
+        'steps': steps,
+        'unanimous': unanimous,
+        'volume_note': _volume_note(usable[0].get('total', 0),
+                                    usable[-1].get('total', 0)),
     }
 
 

@@ -89,6 +89,26 @@ class NotificationDAL:
         row = cursor.fetchone()
         return row['count'] if row else 0
     
+    def exists_for_entity(self, user_id, notification_type, entity_type,
+                          entity_id):
+        """
+        آیا برای همین (کاربر، نوع اعلان، موجودیت) اعلان فعالی وجود دارد؟
+
+        (بازرسی دوازدهم) نسخهٔ قبلی در سرویس فقط ۱۰ اعلان آخر کاربر را
+        می‌خواند و اگر اعلانِ یک پیگیری قدیمی‌تر از آن‌ها بود، پیدا
+        نمی‌شد و Reminder تکراری ساخته می‌شد. حالا مستقیم در دیتابیس و
+        بدون هیچ سقفی جست‌وجو می‌شود؛ معنای «فعال» مثل قبل است: خوانده
+        نشده، رد نشده و حذف‌نشده.
+        """
+        cursor = self.db.execute_query("""
+            SELECT 1 FROM notifications
+            WHERE user_id = ? AND type = ? AND entity_type = ?
+              AND entity_id = ? AND is_read = 0 AND is_dismissed = 0
+              AND is_deleted = 0
+            LIMIT 1
+        """, (user_id, notification_type, entity_type, entity_id))
+        return cursor.fetchone() is not None
+
     def get_by_type(self, user_id, notification_type, limit=None):
         """دریافت اعلان‌های یک نوع خاص"""
         query = """

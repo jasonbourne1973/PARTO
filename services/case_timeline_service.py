@@ -75,9 +75,21 @@ class CaseTimelineService:
             return []
         
         events = []
-        
+
         # ===== ۱. دریافت مشاهدات =====
         observations = self.observation_dal.get_by_student_profile(profile_id)
+        interventions = self.intervention_dal.get_by_student_profile(profile_id)
+        followups = self.followup_dal.get_by_student_profile(profile_id)
+
+        # (بازرسی دوازدهم) نام کادر و شایستگی با دو کوئری دسته‌ای خوانده
+        # می‌شود، نه یک کوئری برای هر رویداد (رفع N+1؛ خروجی یکسان).
+        _staff_names = self.staff_dal.get_names_by_ids(
+            [o.staff_id for o in observations]
+            + [i.staff_id for i in interventions]
+            + [f.staff_id for f in followups])
+        _comp_titles = self.competency_dal.get_titles_by_ids(
+            [o.competency_id for o in observations])
+
         for obs in observations:
             events.append({
                 'id': obs.id,
@@ -88,7 +100,8 @@ class CaseTimelineService:
                 'date': obs.observation_date,
                 'title': f"مشاهده در {obs.location or 'محیط نامشخص'}",
                 'description': obs.description,
-                'details': self._get_observation_details(obs),
+                'details': self._get_observation_details(
+                    obs, staff_names=_staff_names, comp_titles=_comp_titles),
                 'raw_data': obs,
                 'can_view': True,
                 'can_edit': True,
@@ -96,7 +109,6 @@ class CaseTimelineService:
             })
         
         # ===== ۲. دریافت مداخلات =====
-        interventions = self.intervention_dal.get_by_student_profile(profile_id)
         for inter in interventions:
             
             events.append({
@@ -108,7 +120,8 @@ class CaseTimelineService:
                 'date': inter.date,
                 'title': f"مداخله: {inter.type_display}",
                 'description': inter.description,
-                'details': self._get_intervention_details(inter),
+                'details': self._get_intervention_details(
+                    inter, staff_names=_staff_names),
                 'raw_data': inter,
                 'can_view': True,
                 'can_edit': True,
@@ -116,7 +129,6 @@ class CaseTimelineService:
             })
         
         # ===== ۳. دریافت پیگیری‌ها =====
-        followups = self.followup_dal.get_by_student_profile(profile_id)
         for follow in followups:
             
             events.append({
@@ -128,7 +140,8 @@ class CaseTimelineService:
                 'date': follow.date,
                 'title': f"پیگیری: {follow.status_display}",
                 'description': follow.description or follow.result_description or "پیگیری انجام شد",
-                'details': self._get_followup_details(follow),
+                'details': self._get_followup_details(
+                    follow, staff_names=_staff_names),
                 'raw_data': follow,
                 'can_view': True,
                 'can_edit': True,
@@ -245,10 +258,10 @@ class CaseTimelineService:
         
         return result
     
-    def _get_observation_details(self, obs):
+    def _get_observation_details(self, obs, staff_names=None, comp_titles=None):
         """دریافت جزئیات کامل یک مشاهده"""
-        staff_name = self._get_staff_name(obs.staff_id)
-        competency_name = self._get_competency_name(obs.competency_id)
+        staff_name = self._get_staff_name(obs.staff_id, staff_names)
+        competency_name = self._get_competency_name(obs.competency_id, comp_titles)
         
         details = {
             'staff': staff_name,
@@ -265,9 +278,9 @@ class CaseTimelineService:
         }
         return details
     
-    def _get_intervention_details(self, inter):
+    def _get_intervention_details(self, inter, staff_names=None):
         """دریافت جزئیات کامل یک مداخله"""
-        staff_name = self._get_staff_name(inter.staff_id)
+        staff_name = self._get_staff_name(inter.staff_id, staff_names)
         
         details = {
             'staff': staff_name,
@@ -279,9 +292,9 @@ class CaseTimelineService:
         }
         return details
     
-    def _get_followup_details(self, follow):
+    def _get_followup_details(self, follow, staff_names=None):
         """دریافت جزئیات کامل یک پیگیری"""
-        staff_name = self._get_staff_name(follow.staff_id)
+        staff_name = self._get_staff_name(follow.staff_id, staff_names)
         
         details = {
             'staff': staff_name,
@@ -293,20 +306,34 @@ class CaseTimelineService:
         }
         return details
     
-    def _get_staff_name(self, staff_id):
-        """دریافت نام مسئول از شناسه"""
+    def _get_staff_name(self, staff_id, names=None):
+        """
+        دریافت نام مسئول از شناسه
+
+        (بازرسی دوازدهم) اگر نگاشت ازپیش‌خوانده‌شده داده شود، بدون
+        کوئری از آن خوانده می‌شود؛ وگرنه مثل قبل تک‌کوئری می‌زند.
+        """
         if not staff_id:
             return "نامشخص"
+        if names is not None:
+            return names.get(staff_id, "نامشخص")
         try:
             staff = self.staff_dal.get_by_id(staff_id)
             return staff.full_name if staff else "نامشخص"
         except Exception:
             return "نامشخص"
-    
-    def _get_competency_name(self, competency_id):
-        """دریافت نام شایستگی از شناسه"""
+
+    def _get_competency_name(self, competency_id, titles=None):
+        """
+        دریافت نام شایستگی از شناسه
+
+        (بازرسی دوازدهم) اگر نگاشت ازپیش‌خوانده‌شده داده شود، بدون
+        کوئری از آن خوانده می‌شود؛ وگرنه مثل قبل تک‌کوئری می‌زند.
+        """
         if not competency_id:
             return "نامشخص"
+        if titles is not None:
+            return titles.get(competency_id, "نامشخص")
         try:
             comp = self.competency_dal.get_by_id(competency_id)
             return comp.title if comp else "نامشخص"

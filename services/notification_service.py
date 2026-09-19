@@ -370,16 +370,17 @@ class NotificationService(BaseService):
             return {'created_count': 0, 'overdue_count': 0, 'total': 0}
     
     def _check_existing_notification(self, entity_id, user_id, notification_type):
-        """بررسی وجود اعلان قبلی برای یک موجودیت"""
+        """
+        بررسی وجود اعلان قبلی برای یک موجودیت
+
+        (بازرسی دوازدهم) جست‌وجوی مستقیم و بدون سقف در دیتابیس بر اساس
+        (کاربر، نوع اعلان، نوع/شناسهٔ موجودیت)؛ دیگر به «۱۰ اعلان آخر»
+        وابسته نیست، پس حتی با صدها اعلان جدیدتر هم Reminder تکراری
+        برای یک پیگیری ساخته نمی‌شود.
+        """
         try:
-            notifications = self.notification_dal.get_by_user(user_id, limit=10)
-            for notif in notifications:
-                if (notif.entity_id == entity_id and 
-                    notif.type == notification_type and 
-                    notif.entity_type == 'followup' and
-                    not notif.is_dismissed):
-                    return True
-            return False
+            return self.notification_dal.exists_for_entity(
+                user_id, notification_type, 'followup', entity_id)
         except Exception:
             return False
     

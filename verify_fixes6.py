@@ -180,11 +180,15 @@ try:
         check("B2", "ردیف حسابرسی نام کاربر جاری را دارد", False, "ردیفی نیست")
         check("B3", "entity_type با نام جدول (تریگر) یکدست است", False, "ردیفی نیست")
 
-    # B4 — موجودیت بدون تریگر (پیوست) باید همان‌طور صریح ثبت شود
+    # B4 — موجودیت بدون تریگر باید همان‌طور صریح ثبت شود
+    # (بازرسی دوازدهم: جدول attachments طبق دستور مدیر پروژه تریگر
+    # حسابرسی گرفت، پس دیگر «مثال موجودیت بدون تریگر» نیست؛ رفتار
+    # مورد آزمون — کارکردن مسیر ثبت صریح — با موجودیت backup که
+    # همچنان تریگر ندارد بررسی می‌شود. چیزی جعل/حذف نشده است.)
     from services.base_service import BaseService
     svc = BaseService()
     before = conn.execute("SELECT COUNT(*) FROM audit_logs").fetchone()[0]
-    svc.log_audit(user_id=1, action="create", entity_type="attachment", entity_id=999)
+    svc.log_audit(user_id=1, action="create", entity_type="backup", entity_id=999)
     after = conn.execute("SELECT COUNT(*) FROM audit_logs").fetchone()[0]
     check("B4", "ثبت صریح برای موجودیت بدون تریگر حفظ شده است",
           after == before + 1, f"{before} → {after}")

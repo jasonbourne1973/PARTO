@@ -686,13 +686,50 @@ class ReportsPage(QWidget):
                 text += "• تفسیر حرفه‌ای: ثبت نشده است.\n"
             text += f"  {interp.get('note', '')}\n"
         
+        # ===== سابقهٔ رشد چندساله (بازرسی دوازدهم) =====
+        # گزارش چندساله قبلاً فقط در خروجی PDF بود؛ حالا همان روایت منسجم
+        # (تداوم الگوها، زمینه‌های تغییریافته، مداخلات مؤثرتر) در گزارش
+        # معمول برنامه هم دیده می‌شود.
+        growth = report.get('growth_narrative') or {}
+        if growth.get('has_data'):
+            text += """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**🌱 سابقهٔ رشد و مسیر طی‌شده (چندساله)**
+"""
+            text += f"• {growth.get('narrative', '')}\n"
+            synthesis = growth.get('synthesis') or {}
+            for item in (synthesis.get('persistent_strengths') or [])[:5]:
+                text += (f"• توانمندی ماندگار: {item['competency']} "
+                         f"(تکرار در {len(item['years'])} سال)\n")
+            for item in (synthesis.get('persistent_needs') or [])[:5]:
+                text += (f"• نیازمند توجه ماندگار: {item['competency']} "
+                         f"(تکرار در {len(item['years'])} سال)\n")
+            for item in (synthesis.get('changed_areas') or [])[:5]:
+                text += f"• زمینهٔ تغییریافته: {item['competency']}\n"
+            for item in (synthesis.get('effective_years') or [])[:3]:
+                text += (f"• سال {item['year']}: {item['improved']} مورد "
+                         "«بهبود مشاهده‌شده» در پیگیری‌ها\n")
+            for year in growth.get('years', []):
+                if not year.get('has_data'):
+                    continue
+                strength_text = "؛ ".join(
+                    f"{s['competency']} ({s['positive']} رفتار مثبت)"
+                    for s in year.get('strengths', [])) or "ثبت نشده"
+                need_text = "؛ ".join(
+                    f"{n['competency']} ({n['negative']} رفتار منفی)"
+                    for n in year.get('needs_attention', [])) or "ثبت نشده"
+                text += (f"• سال {year['year']} (پایهٔ {year['grade']}): "
+                         f"توانمندی‌ها: {strength_text} | "
+                         f"نیازمند توجه: {need_text}\n")
+
         text += f"""
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **📝 جمع‌بندی سالانهٔ رشد**
 {report['summary']}
 """
-        
+
         return text
     
     # ===== تب ردیابی =====

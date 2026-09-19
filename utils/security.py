@@ -546,6 +546,12 @@ class SessionManager:
 # ===== یکسان‌سازی نام موجودیت در Audit Log (بازرسی هفتم) =====
 # کلید = نام مفردی که سرویس‌ها استفاده می‌کنند، مقدار = نام جدول
 # دیتابیس که تریگرها در entity_type می‌نویسند.
+#
+# (بازرسی دوازدهم) جدول‌هایی که تازه تریگر گرفته‌اند هم اضافه شدند
+# (مفرد و جمع) تا BaseService._audit_handled_by_trigger آن‌ها را
+# بشناسد و ثبت دستیِ تکراری انجام نشود. ورودی جمعِ جدول‌های قبلی هم
+# صریحاً به خودشان نگاشت شد تا اگر سرویسی نام جدول را پاس داد، باز
+# هم تکراری ثبت نشود (رفتار normalize برای این ورودی‌ها عوض نمی‌شود).
 AUDIT_ENTITY_ALIASES = {
     'student': 'students',
     'observation': 'observations',
@@ -557,6 +563,33 @@ AUDIT_ENTITY_ALIASES = {
     'competency': 'competencies',
     'user': 'users',
     'attachment': 'attachments',
+    'family_context': 'family_contexts',
+    'parent_interview': 'parent_interviews',
+    'counseling_session': 'counseling_sessions',
+    'screening': 'screenings',
+    'screening_result': 'screening_results',
+    'professional_interpretation': 'professional_interpretations',
+    'interpretation': 'professional_interpretations',
+    'individual_goal': 'individual_goals',
+    'extracurricular_activity': 'extracurricular_activities',
+    'recommendation': 'recommendations',
+    'students': 'students',
+    'observations': 'observations',
+    'interventions': 'interventions',
+    'followups': 'followups',
+    'student_academic_profiles': 'student_academic_profiles',
+    'competencies': 'competencies',
+    'users': 'users',
+    'attachments': 'attachments',
+    'family_contexts': 'family_contexts',
+    'parent_interviews': 'parent_interviews',
+    'counseling_sessions': 'counseling_sessions',
+    'screenings': 'screenings',
+    'screening_results': 'screening_results',
+    'professional_interpretations': 'professional_interpretations',
+    'individual_goals': 'individual_goals',
+    'extracurricular_activities': 'extracurricular_activities',
+    'recommendations': 'recommendations',
 }
 
 

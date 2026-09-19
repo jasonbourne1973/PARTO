@@ -168,6 +168,7 @@ class BaseService:
             from utils.security import AUDIT_ENTITY_ALIASES
             return AUDIT_ENTITY_ALIASES
         except Exception:  # pragma: no cover - مسیر پشتیبان
+            # آینهٔ AUDIT_ENTITY_ALIASES (بازرسی دوازدهم: پوشش ۱۸ جدول)
             return {
                 'student': 'students',
                 'observation': 'observations',
@@ -177,6 +178,35 @@ class BaseService:
                 'profile': 'student_academic_profiles',
                 'staff': 'staff',
                 'competency': 'competencies',
+                'user': 'users',
+                'attachment': 'attachments',
+                'family_context': 'family_contexts',
+                'parent_interview': 'parent_interviews',
+                'counseling_session': 'counseling_sessions',
+                'screening': 'screenings',
+                'screening_result': 'screening_results',
+                'professional_interpretation': 'professional_interpretations',
+                'interpretation': 'professional_interpretations',
+                'individual_goal': 'individual_goals',
+                'extracurricular_activity': 'extracurricular_activities',
+                'recommendation': 'recommendations',
+                'students': 'students',
+                'observations': 'observations',
+                'interventions': 'interventions',
+                'followups': 'followups',
+                'student_academic_profiles': 'student_academic_profiles',
+                'competencies': 'competencies',
+                'users': 'users',
+                'attachments': 'attachments',
+                'family_contexts': 'family_contexts',
+                'parent_interviews': 'parent_interviews',
+                'counseling_sessions': 'counseling_sessions',
+                'screenings': 'screenings',
+                'screening_results': 'screening_results',
+                'professional_interpretations': 'professional_interpretations',
+                'individual_goals': 'individual_goals',
+                'extracurricular_activities': 'extracurricular_activities',
+                'recommendations': 'recommendations',
             }
     _AUDIT_ACTIONS = ('create', 'edit', 'delete_soft', 'restore')
     _TRIGGER_CACHE = None

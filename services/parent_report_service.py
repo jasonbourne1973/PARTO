@@ -138,8 +138,10 @@ class ParentReportService(BaseService):
         مرتبط با یک شایستگی. یک مشاهدهٔ منفرد نتیجه‌گیری نمی‌سازد و
         شدت رفتار در این تصمیم نقشی ندارد.
         """
-        patterns = summarize_by_competency(
-            observations, lambda cid: getattr(self.competency_dal.get_by_id(cid), 'title', None))
+        # (بازرسی دوازدهم) نام‌ها با یک کوئری دسته‌ای (رفع N+1؛ خروجی یکسان)
+        _titles = self.competency_dal.get_titles_by_ids(
+            [o.competency_id for o in observations])
+        patterns = summarize_by_competency(observations, _titles)
 
         result = []
         for entry in patterns['strengths']:
@@ -166,8 +168,10 @@ class ParentReportService(BaseService):
         رفتار منفی**؛ نه یک مشاهدهٔ منفرد و نه بر پایهٔ شدت. این گزارش
         به‌معنای تشخیص یا برچسب نیست.
         """
-        patterns = summarize_by_competency(
-            observations, lambda cid: getattr(self.competency_dal.get_by_id(cid), 'title', None))
+        # (بازرسی دوازدهم) نام‌ها با یک کوئری دسته‌ای (رفع N+1؛ خروجی یکسان)
+        _titles = self.competency_dal.get_titles_by_ids(
+            [o.competency_id for o in observations])
+        patterns = summarize_by_competency(observations, _titles)
 
         result = []
         for entry in patterns['needs_attention']:

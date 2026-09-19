@@ -7,6 +7,27 @@ import sqlite3
 from config.settings import DB_PATH, DB_VERSION
 
 
+class MigrationMissingError(Exception):
+    """
+    خطای نبودن Migration مورد نیاز (بازرسی دوازدهم)
+
+    اگر برای ارتقا/بازگشت بین دو نسخه، حتی یک Migration در بازه
+    وجود نداشته باشد، ادامه‌دادن یعنی پذیرفتن «دیتابیس
+    نیمه‌ارتقایافته به‌عنوان سالم» که خطرناک است؛ پس Migration باید
+    Fail شود و دقیقاً اعلام شود کدام نسخه‌ها جا افتاده‌اند.
+    """
+
+    def __init__(self, missing, current_version, target_version):
+        self.missing = list(missing)
+        self.current_version = current_version
+        self.target_version = target_version
+        super().__init__(
+            f"Migration برای نسخه‌های {self.missing} یافت نشد؛ "
+            f"ارتقاء از نسخه {current_version} به {target_version} متوقف شد تا "
+            f"دیتابیس نیمه‌ارتقایافته مُهر «به‌روز» نخورد."
+        )
+
+
 def _discover_migrations():
     """
     پیدا کردن خودکار همه ماژول‌های migration
@@ -124,27 +145,39 @@ class MigrationManager:
         
         if current_version < target_version:
             # ارتقاء
+            #
+            # ===== اصلاح (بازرسی دوازدهم) =====
+            # نسخهٔ قبلی وقتی Migration یک نسخه را پیدا نمی‌کرد، فقط
+            # «⚠️ ... یافت نشد» چاپ می‌کرد و رد می‌شد؛ بعد هم نسخهٔ
+            # نهایی مُهر می‌خورد. یعنی دیتابیس ناقص، «سالم» جا زده
+            # می‌شد. حالا کل بازه «قبل از اجرا» بررسی می‌شود و اگر
+            # حتی یک نسخه جا افتاده باشد، هیچ‌چیز اعمال نمی‌شود و خطای
+            # روشن بالا می‌آید.
+            missing = [v for v in range(current_version + 1, target_version + 1)
+                       if v not in migrations]
+            if missing:
+                raise MigrationMissingError(missing, current_version,
+                                            target_version)
             for version in range(current_version + 1, target_version + 1):
-                if version in migrations:
-                    migrations[version].upgrade(connection)
-                    MigrationManager.set_version(connection, version)
-                    print(f"✅ ارتقاء به نسخه {version} انجام شد.")
-                else:
-                    print(f"⚠️ Migration برای نسخه {version} یافت نشد.")
-        
+                migrations[version].upgrade(connection)
+                MigrationManager.set_version(connection, version)
+                print(f"✅ ارتقاء به نسخه {version} انجام شد.")
+
         elif current_version > target_version:
             # بازگشت (Downgrade)
+            missing = [v for v in range(current_version, target_version, -1)
+                       if v not in migrations]
+            if missing:
+                raise MigrationMissingError(missing, current_version,
+                                            target_version)
             for version in range(current_version, target_version, -1):
-                if version in migrations:
-                    # کاهش نسخه
-                    MigrationManager.set_version(connection, version - 1)
-                    
-                    # اجرای downgrade
-                    if hasattr(migrations[version], 'downgrade'):
-                        migrations[version].downgrade(connection)
-                        print(f"✅ بازگشت از نسخه {version} انجام شد.")
-                else:
-                    print(f"⚠️ Migration برای نسخه {version} یافت نشد.")
+                # کاهش نسخه
+                MigrationManager.set_version(connection, version - 1)
+
+                # اجرای downgrade
+                if hasattr(migrations[version], 'downgrade'):
+                    migrations[version].downgrade(connection)
+                    print(f"✅ بازگشت از نسخه {version} انجام شد.")
 
 
 def run_migration():

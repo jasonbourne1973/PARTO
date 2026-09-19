@@ -19,6 +19,7 @@
 """
 
 import sqlite3
+from typing import ClassVar
 
 from database.connection import DatabaseConnection
 from models.user import User
@@ -653,6 +654,38 @@ class UserDAL:
     # داخلی
     # ============================================================
 
+    # نگاشت action دستی این DAL به تریگری که همان تغییر را ثبت می‌کند
+    # (بازرسی دوازدهم: جدول users حالا تریگر حسابرسی دارد).
+    _TRIGGER_AUDIT_ACTIONS: ClassVar[dict] = {
+        'create': 'trg_users_insert_audit',
+        'edit': 'trg_users_update_audit',
+        'delete_soft': 'trg_users_soft_delete_audit',
+        'restore': 'trg_users_restore_audit',
+    }
+
+    def _audit_covered_by_trigger(self, cursor, action):
+        """
+        آیا تریگر دیتابیس همین تغییر جدول users را ثبت می‌کند؟
+
+        اگر بله، ثبت دستی باید رد شود وگرنه هر تغییر دو ردیف
+        می‌گیرد (همان منطق BaseService._audit_handled_by_trigger ولی
+        در سطح DAL؛ چون این DAL مستقیم INSERT می‌زند نه log_audit).
+        actionهایی مثل status_change/role_change تریگر ندارند و
+        همچنان دستی ثبت می‌شوند.
+        """
+        trigger = self._TRIGGER_AUDIT_ACTIONS.get(action)
+        if not trigger:
+            return False
+        try:
+            row = cursor.execute(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type = 'trigger' AND name = ?",
+                (trigger,),
+            ).fetchone()
+            return row is not None
+        except sqlite3.Error:
+            return False
+
     def _audit(self, cursor, user_id_actor, action, entity_type,
                entity_id, payload):
         """
@@ -675,6 +708,13 @@ class UserDAL:
             except (ImportError, AttributeError):
                 # نسخهٔ قدیمیِ security بدون این تابع → نام خام حفظ می‌شود
                 pass
+            # ===== اصلاح (بازرسی دوازدهم) =====
+            # اگر تریگر همان جدول/تغییر فعال است، ثبت دستی انجام
+            # نمی‌شود تا ردیف تکراری ساخته نشود. (نام کاربر در ردیف
+            # تریگر از کاربر جاریِ همان نخ می‌آید که هنگام لاگین ست
+            # شده است.)
+            if self._audit_covered_by_trigger(cursor, action):
+                return
             cursor.execute("""
                 INSERT INTO audit_logs (
                     user_id, action, entity_type, entity_id, new_value

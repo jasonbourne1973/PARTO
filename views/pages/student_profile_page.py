@@ -1076,8 +1076,13 @@ class StudentProfilePage(QWidget):
         # پیش از این فقط «تعداد مشاهدات مثبت/منفی» نمایش داده می‌شد.
         # حالا الگوی تکرارشوندهٔ رفتارها بر پایهٔ نوع رفتار (و نه شدت)
         # ساخته می‌شود؛ یک مشاهدهٔ منفرد نتیجه‌گیری نمی‌سازد.
+        #
+        # (بازرسی دوازدهم) نام شایستگی‌ها با یک کوئری دسته‌ای خوانده
+        # می‌شود، نه یک کوئری برای هر شایستگی (رفع N+1؛ خروجی یکسان).
+        _comp_titles = self.competency_dal.get_titles_by_ids(
+            [o.competency_id for o in observations])
         patterns = summarize_by_competency(
-            observations, lambda cid: getattr(self.competency_dal.get_by_id(cid), 'title', None))
+            observations, lambda cid: _comp_titles.get(cid))
 
         def _format(entries, behavior_field, empty_text):
             if not entries:
@@ -1106,16 +1111,18 @@ class StudentProfilePage(QWidget):
         
         observations = self.observation_dal.get_by_student_profile(self.profile_id)
         self.obs_table.setRowCount(len(observations))
-        
+
+        # (بازرسی دوازدهم) یک کوئری دسته‌ای به‌جای یک کوئری برای هر ردیف
+        _comp_titles = self.competency_dal.get_titles_by_ids(
+            [o.competency_id for o in observations])
+
         for row, obs in enumerate(observations):
             self.obs_table.setItem(row, 0, QTableWidgetItem(obs.observation_date or ""))
             self.obs_table.setItem(row, 1, QTableWidgetItem(obs.location or ""))
-            
+
             comp_name = "نامشخص"
             if obs.competency_id:
-                comp = self.competency_dal.get_by_id(obs.competency_id)
-                if comp:
-                    comp_name = comp.title
+                comp_name = _comp_titles.get(obs.competency_id, "نامشخص")
             self.obs_table.setItem(row, 2, QTableWidgetItem(comp_name))
             
             self.obs_table.setItem(row, 3, QTableWidgetItem(obs.behavior_type or "خنثی"))
@@ -1134,16 +1141,18 @@ class StudentProfilePage(QWidget):
         
         interventions = self.intervention_dal.get_by_student_profile(self.profile_id)
         self.inter_table.setRowCount(len(interventions))
-        
+
+        # (بازرسی دوازدهم) یک کوئری دسته‌ای به‌جای یک کوئری برای هر ردیف
+        _staff_names = self.staff_dal.get_names_by_ids(
+            [i.staff_id for i in interventions])
+
         for row, inter in enumerate(interventions):
             self.inter_table.setItem(row, 0, QTableWidgetItem(inter.date or ""))
             self.inter_table.setItem(row, 1, QTableWidgetItem(inter.type_display))
-            
+
             staff_name = "نامشخص"
             if inter.staff_id:
-                staff = self.staff_dal.get_by_id(inter.staff_id)
-                if staff:
-                    staff_name = staff.full_name
+                staff_name = _staff_names.get(inter.staff_id, "نامشخص")
             self.inter_table.setItem(row, 2, QTableWidgetItem(staff_name))
             
             self.inter_table.setItem(row, 3, QTableWidgetItem(inter.status_display))
@@ -1162,15 +1171,17 @@ class StudentProfilePage(QWidget):
         
         followups = self.followup_dal.get_by_student_profile(self.profile_id)
         self.follow_table.setRowCount(len(followups))
-        
+
+        # (بازرسی دوازدهم) یک کوئری دسته‌ای به‌جای یک کوئری برای هر ردیف
+        _staff_names = self.staff_dal.get_names_by_ids(
+            [f.staff_id for f in followups])
+
         for row, follow in enumerate(followups):
             self.follow_table.setItem(row, 0, QTableWidgetItem(follow.date or ""))
-            
+
             staff_name = "نامشخص"
             if follow.staff_id:
-                staff = self.staff_dal.get_by_id(follow.staff_id)
-                if staff:
-                    staff_name = staff.full_name
+                staff_name = _staff_names.get(follow.staff_id, "نامشخص")
             self.follow_table.setItem(row, 1, QTableWidgetItem(staff_name))
             
             self.follow_table.setItem(row, 2, QTableWidgetItem(follow.status_display))

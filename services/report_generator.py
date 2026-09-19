@@ -103,8 +103,12 @@ class ReportGenerator:
         # تحلیل شایستگی‌ها
         competency_stats = self.calculate_competency_stats(observations)
         # الگوهای رفتاری: قوت/ضعف بر اساس «نوع رفتار ثبت‌شده» (بازرسی یازدهم)
+        # (بازرسی دوازدهم) نام‌ها با یک کوئری دسته‌ای؛ summarize هم دیکشنری
+        # می‌پذیرد، پس خروجی دقیقاً یکسان است.
+        _comp_titles = self.competency_dal.get_titles_by_ids(
+            [o.competency_id for o in observations])
         behavior_patterns = summarize_by_competency(
-            observations, self._competency_name, min_count=2)
+            observations, _comp_titles, min_count=2)
         strengths = behavior_patterns['strengths']
         weaknesses = behavior_patterns['needs_attention']
         recommendations = self.generate_recommendations(
@@ -120,6 +124,15 @@ class ReportGenerator:
         information_layers = self.build_information_layers(profile_id, observations)
         # زمینهٔ خانوادگی: اطلاعات زمینه‌ای، نه قضاوت
         family_background = self.build_family_background(profile_id)
+        # روایت چندسالهٔ رشد (بازرسی دوازدهم): گزارش معمول هم باید مسیر
+        # رشد را نشان بدهد، نه فقط خروجی PDF. خطا در ساخت آن نباید گزارش
+        # سالانه را بشکند.
+        try:
+            growth_narrative = self.generate_growth_narrative(student.id)
+        except Exception as e:
+            self.logger.warning(f"ساخت روایت رشد چندساله ممکن نشد: {e}")
+            growth_narrative = {'has_data': False, 'years': [],
+                                'narrative': '', 'synthesis': {}}
         
         # داده‌های ردیابی
         traceability = self._build_traceability(observations, interventions, all_followups)
@@ -141,6 +154,7 @@ class ReportGenerator:
             'intervention_effectiveness': intervention_effectiveness,
             'information_layers': information_layers,
             'family_background': family_background,
+            'growth_narrative': growth_narrative,
             'summary': self.generate_summary(
                 observations, interventions, all_followups, competency_stats,
                 behavior_patterns=behavior_patterns,
@@ -215,13 +229,18 @@ class ReportGenerator:
         """محاسبه آمار شایستگی‌ها بر اساس مشاهدات"""
         if not observations:
             return {}
-        
+
+        # (بازرسی دوازدهم) عنوان‌ها با یک کوئری دسته‌ای، نه یکی برای هر
+        # مشاهده (رفع N+1؛ خروجی یکسان).
+        _titles = self.competency_dal.get_titles_by_ids(
+            [o.competency_id for o in observations])
+
         stats = {}
         for obs in observations:
             if obs.competency_id:
-                competency = self.competency_dal.get_by_id(obs.competency_id)
-                if competency:
-                    key = competency.title
+                title = _titles.get(obs.competency_id)
+                if title:
+                    key = title
                     if key not in stats:
                         stats[key] = {
                             'count': 0,
@@ -271,8 +290,10 @@ class ReportGenerator:
             شناسهٔ مشاهدات ثبت‌شده است.
         """
         if observations:
+            _titles = self.competency_dal.get_titles_by_ids(
+                [o.competency_id for o in observations])
             summary = summarize_by_competency(
-                observations, self._competency_name, min_count=2)
+                observations, _titles, min_count=2)
             return summary['strengths'], summary['needs_attention']
 
         # مسیر پشتیبان: اگر مشاهدات در دست نبود، از آمار شایستگی‌ها
@@ -327,8 +348,10 @@ class ReportGenerator:
         برچسب روان‌شناختی به دانش‌آموز نمی‌زند.
         """
         recommendations = {'teacher': [], 'parents': [], 'counselor': []}
+        _titles = self.competency_dal.get_titles_by_ids(
+            [o.competency_id for o in (observations or [])])
         patterns = summarize_by_competency(observations or [],
-                                           self._competency_name, min_count=2) \
+                                           _titles, min_count=2) \
             if observations else {'strengths': [], 'needs_attention': [], 'mixed': []}
 
         def _ids_text(entry, limit=6):
@@ -563,8 +586,13 @@ class ReportGenerator:
             return ("هنوز مشاهده‌ای برای این پرونده ثبت نشده است. "
                     "ثبت مشاهده، مبنای تحلیل رشد است.")
 
-        patterns = behavior_patterns or summarize_by_competency(
-            observations, self._competency_name, min_count=2)
+        if behavior_patterns is None:
+            _titles = self.competency_dal.get_titles_by_ids(
+                [o.competency_id for o in observations])
+            patterns = summarize_by_competency(
+                observations, _titles, min_count=2)
+        else:
+            patterns = behavior_patterns
         share = shares(counts)
 
         strengths = "؛ ".join(
@@ -786,12 +814,20 @@ class ReportGenerator:
 
     def generate_growth_narrative(self, student_id):
         """
-        روایت رشد چندسالهٔ دانش‌آموز (بازرسی یازدهم)
+        روایت رشد چندسالهٔ دانش‌آموز (بازرسی یازدهم + تکمیل در دوازدهم)
 
         برای گزارش پایان دورهٔ ابتدایی: مسیر رشد دانش‌آموز در سال‌های
         مختلف با هم نشان داده می‌شود — توانمندی‌ها، زمینه‌های نیازمند
         توجه، اقدامات، نتایج و جهت تغییر. مقایسه فقط با خودِ دانش‌آموز
         در طول زمان است.
+
+        ===== تکمیل (بازرسی دوازدهم) =====
+        نسخهٔ قبلی بیشتر «فهرست جداگانهٔ سال‌ها» بود. حالا علاوه بر
+        اطلاعات هر سال، یک **جمع‌بندی منسجم مسیر رشد** هم ساخته می‌شود:
+        کدام الگوها در طول سال‌ها ادامه داشته‌اند، کدام زمینه‌ها تغییر
+        کرده‌اند، کدام مداخلات نتیجهٔ پیگیری بهتری داشته‌اند و مسیر کلی
+        رشد چگونه بوده است. هیچ مقایسه‌ای با دانش‌آموزان دیگر انجام
+        نمی‌شود و هیچ تشخیص/برچسبی تولید نمی‌شود.
         """
         profiles = self.profile_dal.get_all_profiles_for_student(student_id)
         if not profiles:
@@ -800,6 +836,8 @@ class ReportGenerator:
 
         years = []
         timeline_periods = []
+        # الگوهای هر سال (نام شایستگی → نوع الگو) برای تحلیل تداوم/تغییر
+        yearly_patterns = []
         for profile in profiles:
             observations = self.observation_dal.get_by_student_profile(profile.id)
             interventions = self.intervention_dal.get_by_student_profile(profile.id)
@@ -808,11 +846,14 @@ class ReportGenerator:
                 followups.extend(self.followup_dal.get_by_intervention(inter.id))
 
             counts = count_behaviors(observations)
-            patterns = summarize_by_competency(observations, self._competency_name, 2)
+            _titles = self.competency_dal.get_titles_by_ids(
+                [o.competency_id for o in observations])
+            patterns = summarize_by_competency(observations, _titles, 2)
             effectiveness = self.build_intervention_effectiveness(interventions, followups)
+            year_title = getattr(profile, 'academic_year_title', 'نامشخص')
 
             years.append({
-                'year': getattr(profile, 'academic_year_title', 'نامشخص'),
+                'year': year_title,
                 'grade': profile.grade_display,
                 'counts': counts,
                 'shares': shares(counts),
@@ -827,13 +868,20 @@ class ReportGenerator:
                 'volume_note': observations_volume_note(counts),
                 'has_data': counts['total'] > 0,
             })
+            yearly_patterns.append({
+                'year': year_title,
+                'strengths': [e['competency'] for e in patterns['strengths']],
+                'needs': [e['competency'] for e in patterns['needs_attention']],
+            })
             timeline_periods.append({
-                'label': getattr(profile, 'academic_year_title', 'نامشخص'),
+                'label': year_title,
                 'positive': counts['positive'], 'negative': counts['negative'],
                 'neutral': counts['neutral'], 'total': counts['total'],
             })
 
         direction = growth_direction(timeline_periods)
+        synthesis = self._build_growth_synthesis(
+            years, yearly_patterns, direction)
         years_with_data = [y for y in years if y['has_data']]
         narrative = (
             f"مسیر رشد دانش‌آموز در {len(years)} سال تحصیلی ثبت‌شده بررسی شد"
@@ -841,9 +889,125 @@ class ReportGenerator:
             f"جهت کلی تغییر رفتار: {direction['label']}. {direction['message']} "
             f"{direction['volume_note']} این روایت بر پایهٔ رفتارهای ثبت‌شده "
             "است و شامل تشخیص روان‌شناختی یا مقایسه با دانش‌آموزان دیگر نیست."
+            f" {synthesis['text']}"
         )
         return {'has_data': bool(years_with_data), 'years': years,
-                'direction': direction, 'narrative': narrative}
+                'direction': direction, 'narrative': narrative,
+                'synthesis': synthesis}
+
+    def _build_growth_synthesis(self, years, yearly_patterns, direction):
+        """
+        جمع‌بندی منسجم مسیر رشد چندساله (بازرسی دوازدهم)
+
+        فقط از مقایسهٔ دانش‌آموز با خودش در طول زمان ساخته می‌شود:
+          • الگوهای ماندگار: زمینه‌هایی که در چند سال پیاپی توانمندی
+            یا نیازمند توجه بوده‌اند؛
+          • زمینه‌های تغییریافته: الگویی که از سالی به سال دیگر عوض شده؛
+          • مداخلات مؤثرتر: سال‌هایی که پیگیری‌ها «بهبود مشاهده‌شده»
+            بیشتری ثبت کرده‌اند.
+
+        Returns:
+            dict: {'text', 'persistent_strengths', 'persistent_needs',
+                   'changed_areas', 'effective_years', 'totals'}
+        """
+        from collections import Counter
+
+        strength_years = {}
+        need_years = {}
+        for entry in yearly_patterns or []:
+            for name in entry.get('strengths', []):
+                strength_years.setdefault(name, []).append(entry['year'])
+            for name in entry.get('needs', []):
+                need_years.setdefault(name, []).append(entry['year'])
+
+        persistent_strengths = [
+            {'competency': name, 'years': yrs}
+            for name, yrs in sorted(strength_years.items())
+            if len(yrs) >= 2
+        ]
+        persistent_needs = [
+            {'competency': name, 'years': yrs}
+            for name, yrs in sorted(need_years.items())
+            if len(yrs) >= 2
+        ]
+
+        # زمینه‌هایی که الگویشان در طول سال‌ها عوض شده است
+        changed_areas = []
+        for name in sorted(set(strength_years) | set(need_years)):
+            in_strength = strength_years.get(name, [])
+            in_need = need_years.get(name, [])
+            if in_strength and in_need:
+                changed_areas.append({
+                    'competency': name,
+                    'strength_years': in_strength,
+                    'need_years': in_need,
+                    'note': ('این زمینه در بعضی سال‌ها توانمندی و در بعضی '
+                             'سال‌ها نیازمند توجه بوده است؛ یعنی الگوی آن '
+                             'در طول زمان تغییر کرده است.'),
+                })
+
+        # سال‌هایی که پیگیری‌ها «بهبود مشاهده‌شده» بیشتری داشته‌اند
+        totals = Counter()
+        improved_by_year = {}
+        for year in years or []:
+            outcomes = year.get('outcomes', {}) or {}
+            for key, value in outcomes.items():
+                totals[key] += value or 0
+            improved = outcomes.get('improved', 0) or 0
+            if improved > 0:
+                improved_by_year[year.get('year')] = improved
+        effective_years = [
+            {'year': year, 'improved': count}
+            for year, count in sorted(improved_by_year.items(),
+                                      key=lambda kv: kv[1], reverse=True)
+        ]
+
+        parts = [f"مسیر کلی رشد: {direction['label']}."]
+        if persistent_strengths:
+            names = "، ".join(p['competency'] for p in persistent_strengths[:5])
+            parts.append(
+                f"توانمندی‌های ماندگار (تکرار در چند سال): {names}.")
+        if persistent_needs:
+            names = "؛ ".join(
+                f"{p['competency']} (در سال‌های "
+                f"{' و '.join(str(y) for y in p['years'][:3])})"
+                for p in persistent_needs[:5])
+            parts.append(
+                f"زمینه‌های نیازمند توجه ماندگار: {names}. این موارد اولویت "
+                "پیگیری در سال آینده‌اند؛ نه برچسبی دربارهٔ دانش‌آموز.")
+        if changed_areas:
+            names = "، ".join(c['competency'] for c in changed_areas[:5])
+            parts.append(
+                f"زمینه‌های تغییریافته در طول سال‌ها: {names}.")
+        if not persistent_strengths and not persistent_needs and not changed_areas:
+            parts.append(
+                "الگوی تکرارشوندهٔ مشترکی بین سال‌ها دیده نشد؛ هر سال الگوی "
+                "خودش را دارد و نتیجه‌گیری دربارهٔ تداوم، نیازمند مشاهدهٔ "
+                "بیشتر است.")
+        if effective_years:
+            best = effective_years[0]
+            parts.append(
+                f"از نظر نتیجهٔ پیگیری‌ها، در مجموع {totals['improved']} مورد "
+                f"«بهبود مشاهده‌شده» ثبت شده است"
+                + (f" که بیشترین آن مربوط به سال {best['year']} است."
+                   if len(effective_years) > 1 or best['improved'] > 1 else ".")
+                + " مداخلاتی که پیگیری آن‌ها بهبود را نشان داده، در سال آینده "
+                  "هم قابل تکرارند.")
+        elif totals['improved'] == 0 and any(
+                (y.get('interventions_count') or 0) > 0 for y in years or []):
+            parts.append(
+                "برای مداخلات ثبت‌شده، «بهبود مشاهده‌شده»‌ای در پیگیری‌ها ثبت "
+                "نشده است؛ ثبت دقیق نتیجهٔ پیگیری، ارزیابی اثربخشی مداخلات را "
+                "ممکن می‌کند.")
+
+        return {
+            'text': " ".join(parts),
+            'persistent_strengths': persistent_strengths,
+            'persistent_needs': persistent_needs,
+            'changed_areas': changed_areas,
+            'effective_years': effective_years,
+            'totals': dict(totals),
+        }
 
     def _build_traceability(self, observations, interventions, followups):
         """ساخت داده‌های ردیابی"""
@@ -1079,6 +1243,25 @@ class ReportGenerator:
             if narrative and narrative.get('has_data'):
                 pdf.add_subtitle("سابقهٔ رشد و مسیر طی‌شده (چندساله)")
                 pdf.add_text(f"* {narrative['narrative']}")
+                synthesis = narrative.get('synthesis') or {}
+                if synthesis.get('text'):
+                    pdf.add_bold("جمع‌بندی مسیر رشد (مقایسهٔ دانش‌آموز با خودش)")
+                    pdf.add_text(f"* {synthesis['text']}")
+                    for item in (synthesis.get('persistent_strengths') or [])[:5]:
+                        pdf.add_text(
+                            f"* توانمندی ماندگار: {item['competency']} "
+                            f"(تکرار در {len(item['years'])} سال)")
+                    for item in (synthesis.get('persistent_needs') or [])[:5]:
+                        pdf.add_text(
+                            f"* نیازمند توجه ماندگار: {item['competency']} "
+                            f"(تکرار در {len(item['years'])} سال)")
+                    for item in (synthesis.get('changed_areas') or [])[:5]:
+                        pdf.add_text(
+                            f"* زمینهٔ تغییریافته: {item['competency']}")
+                    for item in (synthesis.get('effective_years') or [])[:3]:
+                        pdf.add_text(
+                            f"* سال {item['year']}: {item['improved']} مورد "
+                            "«بهبود مشاهده‌شده» در پیگیری‌ها")
                 for year in narrative['years']:
                     if not year['has_data']:
                         continue
@@ -1186,6 +1369,9 @@ class ReportGenerator:
                 cell.alignment = header_alignment
             
             observations = report.get('observations', [])
+            # (بازرسی دوازدهم) یک کوئری دسته‌ای به‌جای یکی برای هر مشاهده
+            _titles = self.competency_dal.get_titles_by_ids(
+                [o.competency_id for o in observations])
             for row, obs in enumerate(observations, 2):
                 ws1.cell(row=row, column=1, value=row-1)
                 ws1.cell(row=row, column=2, value=obs.id)
@@ -1198,9 +1384,7 @@ class ReportGenerator:
                 
                 competency_name = ""
                 if obs.competency_id:
-                    comp = self.competency_dal.get_by_id(obs.competency_id)
-                    if comp:
-                        competency_name = comp.title
+                    competency_name = _titles.get(obs.competency_id, "")
                 ws1.cell(row=row, column=9, value=competency_name)
                 
                 ws1.cell(row=row, column=10, value=obs.behavior_type or '')

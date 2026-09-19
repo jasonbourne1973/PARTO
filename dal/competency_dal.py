@@ -68,6 +68,28 @@ class CompetencyDAL:
 
         return competency
 
+    def get_titles_by_ids(self, competency_ids, include_deleted=False):
+        """
+        دریافت عنوان چند شایستگی با «یک» کوئری (بازرسی دوازدهم: رفع N+1)
+
+        صفحهٔ پروندهٔ دانش‌آموز و گزارش‌ها قبلاً برای هر مشاهده یک
+        get_by_id جدا می‌زدند (۱۰۰ مشاهده ← ۱۰۰ کوئری). حالا شناسه‌ها
+        یک‌جا خوانده می‌شوند. رفتار فیلتر حذف‌شده‌ها دقیقاً مثل
+        get_by_id است (پیش‌فرض: حذف‌شده‌ها برنمی‌گردند).
+
+        Returns:
+            dict: {competency_id: title}
+        """
+        unique_ids = sorted({i for i in (competency_ids or []) if i is not None})
+        if not unique_ids:
+            return {}
+        placeholders = ", ".join("?" * len(unique_ids))
+        query = (f"SELECT id, title FROM competencies WHERE id IN ({placeholders})")
+        if not include_deleted:
+            query += " AND is_deleted = 0"
+        cursor = self.db.execute_query(query, tuple(unique_ids))
+        return {row['id']: row['title'] for row in cursor.fetchall()}
+
     def get_by_title(self, title, load_full=False):
         """دریافت شایستگی با عنوان"""
         cursor = self.db.execute_query(
