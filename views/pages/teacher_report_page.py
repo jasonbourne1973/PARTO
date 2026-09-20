@@ -129,7 +129,7 @@ class TeacherReportPage(QWidget):
         self.generate_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
@@ -147,7 +147,7 @@ class TeacherReportPage(QWidget):
         self.excel_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 6px 15px;
                 border: none;
                 border-radius: 5px;
@@ -180,7 +180,7 @@ class TeacherReportPage(QWidget):
         self.insufficient_data_label.setStyleSheet("""
             QLabel {
                 background-color: #C62828;
-                color: #C62828;
+                color: #FFFFFF;
                 padding: 10px;
                 border-radius: 5px;
                 font-weight: bold;

@@ -340,7 +340,7 @@ class AcademicStructurePage(QWidget):
         self.add_class_btn.setStyleSheet("""
             QPushButton {
                 background-color: #F28C28;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
@@ -352,6 +352,16 @@ class AcademicStructurePage(QWidget):
         """)
         self.add_class_btn.clicked.connect(self.add_class)
         form_layout.addWidget(self.add_class_btn, 4, 0, 1, 2)
+
+        # (بازرسی شانزدهم) حالت ویرایش با همین فرم
+        self._editing_class_id = None
+        self.cancel_edit_class_btn = QPushButton("✖ انصراف از ویرایش")
+        self.cancel_edit_class_btn.setStyleSheet(
+            "QPushButton { background-color: #08223A; color: #F4C542; padding: 8px 20px; "
+            "border: 1px solid #D9C36A; border-radius: 5px; }")
+        self.cancel_edit_class_btn.clicked.connect(self.cancel_edit_class)
+        self.cancel_edit_class_btn.setVisible(False)
+        form_layout.addWidget(self.cancel_edit_class_btn, 5, 0, 1, 2)
         
         container_layout.addWidget(form_group)
         
@@ -448,7 +458,7 @@ class AcademicStructurePage(QWidget):
         self.assign_new_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 6px 15px;
                 border: none;
                 border-radius: 5px;
@@ -599,7 +609,7 @@ class AcademicStructurePage(QWidget):
             }
             QTableWidget::item:selected {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
             }
             QHeaderView::section {
                 background-color: #66BB6A;
@@ -659,7 +669,7 @@ class AcademicStructurePage(QWidget):
         view_profile_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -816,7 +826,7 @@ class AcademicStructurePage(QWidget):
                 
                 edit_btn = QPushButton("✏️")
                 edit_btn.setFixedSize(30, 30)
-                edit_btn.setStyleSheet("background-color: #F4D35E; color: #F4C542; border: none; border-radius: 4px;")
+                edit_btn.setStyleSheet("background-color: #F4D35E; color: #111111; border: none; border-radius: 4px;")
                 edit_btn.clicked.connect(lambda checked, c=class_obj: self.edit_class(c))
                 btn_layout.addWidget(edit_btn)
                 
@@ -851,6 +861,24 @@ class AcademicStructurePage(QWidget):
             return
         
         try:
+            if self._editing_class_id:
+                # ===== حالت ویرایش (بازرسی شانزدهم) =====
+                class_obj = self.class_dal.get_by_id(self._editing_class_id)
+                if class_obj is None:
+                    raise ValueError("کلاس موردنظر دیگر وجود ندارد.")
+                class_obj.name = name
+                class_obj.grade = grade
+                class_obj.teacher_id = teacher_id
+                class_obj.capacity = capacity
+                self.class_dal.update(class_obj)
+                saved = self.class_dal.get_by_id(class_obj.id)
+                if saved is None or saved.name != name or saved.grade != grade:
+                    raise ValueError("تغییرات در دیتابیس ثبت نشد.")
+                self.cancel_edit_class()
+                self.load_classes()
+                QMessageBox.information(self, "موفقیت", f"✅ کلاس {name} ویرایش شد.")
+                return
+
             class_obj = ClassModel()
             class_obj.name = name
             class_obj.grade = grade
@@ -868,16 +896,35 @@ class AcademicStructurePage(QWidget):
             QMessageBox.information(self, "موفقیت", f"✅ کلاس {name} با موفقیت اضافه شد.")
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در افزودن کلاس:\n{e!s}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ذخیرهٔ کلاس:\n{e!s}")
     
     def edit_class(self, class_obj):
-        """ویرایش کلاس"""
-        # پیاده‌سازی ساده - می‌توان در نسخه بعدی کامل کرد
-        QMessageBox.information(
-            self,
-            "ویرایش کلاس",
-            f"ویرایش کلاس {class_obj.display_name}\n\nاین قابلیت در نسخه بعدی کامل می‌شود."
-        )
+        """
+        ویرایش کلاس با همان فرم افزودن (بازرسی شانزدهم)
+
+        قبلاً فقط پیام «در نسخهٔ بعدی» داده می‌شد، در حالی که
+        ClassDAL.update وجود داشت. سال تحصیلی کلاس در ویرایش تغییر نمی‌کند.
+        """
+        self._editing_class_id = class_obj.id
+        self.class_name_input.setText(class_obj.name or "")
+        idx = self.class_grade_combo.findData(class_obj.grade)
+        if idx >= 0:
+            self.class_grade_combo.setCurrentIndex(idx)
+        idx = self.class_teacher_combo.findData(class_obj.teacher_id)
+        self.class_teacher_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        self.class_capacity_spin.setValue(int(class_obj.capacity or 0))
+        self.add_class_btn.setText(f"💾 ذخیرهٔ تغییرات کلاس {class_obj.display_name}")
+        self.cancel_edit_class_btn.setVisible(True)
+        self.class_name_input.setFocus()
+
+    def cancel_edit_class(self):
+        """خروج از حالت ویرایش"""
+        self._editing_class_id = None
+        self.class_name_input.clear()
+        self.class_capacity_spin.setValue(30)
+        self.class_teacher_combo.setCurrentIndex(0)
+        self.add_class_btn.setText("➕ افزودن کلاس")
+        self.cancel_edit_class_btn.setVisible(False)
     
     def delete_class(self, class_obj):
         """حذف کلاس"""
@@ -937,7 +984,7 @@ class AcademicStructurePage(QWidget):
                 
                 edit_btn = QPushButton("✏️")
                 edit_btn.setFixedSize(30, 30)
-                edit_btn.setStyleSheet("background-color: #F4D35E; color: #F4C542; border: none; border-radius: 4px;")
+                edit_btn.setStyleSheet("background-color: #F4D35E; color: #111111; border: none; border-radius: 4px;")
                 edit_btn.clicked.connect(lambda checked, a=assignment: self.edit_assignment(a))
                 btn_layout.addWidget(edit_btn)
                 

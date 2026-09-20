@@ -110,7 +110,7 @@ class FilterItemWidget(QFrame):
             delete_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #EF4444;
-                    color: #F4C542;
+                    color: #111111;
                     border: none;
                     border-radius: 4px;
                     font-size: 12px;
@@ -203,7 +203,7 @@ class FilterWidget(QWidget):
         self.save_btn.setStyleSheet("""
             QPushButton {
                 background-color: #22C55E;
-                color: #F4C542;
+                color: #111111;
                 border: none;
                 border-radius: 4px;
                 padding: 4px 12px;
@@ -345,7 +345,7 @@ class FilterWidget(QWidget):
             return """
                 QPushButton {
                     background-color: #08223A;
-                    color: #475569;
+                    color: #F4C542;
                     border: none;
                     border-radius: 4px;
                     padding: 4px 12px;

@@ -109,7 +109,7 @@ class InterventionsPage(QWidget):
         self.search_btn.setStyleSheet("""
             QPushButton {
                 background-color: #F28C28;
-                color: #F4C542;
+                color: #111111;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
@@ -151,7 +151,7 @@ class InterventionsPage(QWidget):
         self.add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #F28C28;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;

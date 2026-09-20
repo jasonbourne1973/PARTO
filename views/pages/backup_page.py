@@ -132,7 +132,7 @@ class BackupPage(QWidget):
         self.create_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 10px 20px;
                 border: none;
                 border-radius: 5px;
@@ -147,7 +147,7 @@ class BackupPage(QWidget):
         self.restore_btn.setStyleSheet("""
             QPushButton {
                 background-color: #F4D35E;
-                color: #F4C542;
+                color: #111111;
                 padding: 10px 20px;
                 border: none;
                 border-radius: 5px;

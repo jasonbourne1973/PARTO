@@ -2,7 +2,7 @@
 صفحه تنظیمات برنامه - نسخه کامل با مدیریت کاربران
 """
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QComboBox,
@@ -207,7 +207,7 @@ class SettingsPage(QWidget):
         self.add_year_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
@@ -288,14 +288,14 @@ class SettingsPage(QWidget):
                 if year.is_active == 0 and year.is_archived == 0:
                     activate_btn = QPushButton("✅ فعال کن")
                     activate_btn.setFixedSize(70, 25)
-                    activate_btn.setStyleSheet("background-color: #66BB6A; color: #F4C542; border: none; border-radius: 3px;")
+                    activate_btn.setStyleSheet("background-color: #66BB6A; color: #111111; border: none; border-radius: 3px;")
                     activate_btn.clicked.connect(lambda checked, y=year: self.activate_year(y))
                     btn_layout.addWidget(activate_btn)
                 
                 if year.is_archived == 0:
                     archive_btn = QPushButton("📦 بایگانی")
                     archive_btn.setFixedSize(70, 25)
-                    archive_btn.setStyleSheet("background-color: #F4D35E; color: #F4C542; border: none; border-radius: 3px;")
+                    archive_btn.setStyleSheet("background-color: #F4D35E; color: #111111; border: none; border-radius: 3px;")
                     archive_btn.clicked.connect(lambda checked, y=year: self.archive_year(y))
                     btn_layout.addWidget(archive_btn)
                 
@@ -424,7 +424,7 @@ class SettingsPage(QWidget):
         self.add_staff_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
@@ -512,7 +512,7 @@ class SettingsPage(QWidget):
                 else:
                     activate_btn = QPushButton("🟢 فعال کن")
                     activate_btn.setFixedSize(80, 25)
-                    activate_btn.setStyleSheet("background-color: #66BB6A; color: #F4C542; border: none; border-radius: 3px;")
+                    activate_btn.setStyleSheet("background-color: #66BB6A; color: #111111; border: none; border-radius: 3px;")
                     activate_btn.clicked.connect(lambda checked, s=staff: self.toggle_staff_status(s))
                     btn_layout.addWidget(activate_btn)
                 
@@ -672,7 +672,7 @@ class SettingsPage(QWidget):
         self.add_user_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
@@ -812,13 +812,13 @@ class SettingsPage(QWidget):
                 else:
                     activate_btn = QPushButton("🟢 فعال کن")
                     activate_btn.setFixedSize(80, 25)
-                    activate_btn.setStyleSheet("background-color: #66BB6A; color: #F4C542; border: none; border-radius: 3px;")
+                    activate_btn.setStyleSheet("background-color: #66BB6A; color: #111111; border: none; border-radius: 3px;")
                     activate_btn.clicked.connect(lambda checked, u=user: self.toggle_user_status(u))
                     btn_layout.addWidget(activate_btn)
                 
                 reset_btn = QPushButton("🔑 ریست رمز")
                 reset_btn.setFixedSize(80, 25)
-                reset_btn.setStyleSheet("background-color: #F4D35E; color: #F4C542; border: none; border-radius: 3px;")
+                reset_btn.setStyleSheet("background-color: #F4D35E; color: #111111; border: none; border-radius: 3px;")
                 reset_btn.clicked.connect(lambda checked, u=user: self.reset_user_password(u))
                 btn_layout.addWidget(reset_btn)
                 
@@ -1101,13 +1101,15 @@ class SettingsPage(QWidget):
         layout.addRow("مدیر:", self.school_principal)
         
         layout.addRow(QLabel(""))
-        layout.addRow(QLabel("📌 این اطلاعات در گزارش‌ها نمایش داده می‌شود."))
-        
+        # (بازرسی شانزدهم) ادعای قبلی «در گزارش‌ها نمایش داده می‌شود» درست
+        # نبود؛ هیچ گزارشی این فیلدها را نمی‌خواند. متن صادقانه:
+        layout.addRow(QLabel("📌 این اطلاعات روی همین دستگاه ذخیره می‌شود."))
+
         save_btn = QPushButton("💾 ذخیره اطلاعات")
         save_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 10px 25px;
                 border: none;
                 border-radius: 5px;
@@ -1122,17 +1124,55 @@ class SettingsPage(QWidget):
         
         return tab
     
+    # کلیدهای ذخیره‌سازی اطلاعات مدرسه (QSettings؛ همان سازوکاری که تم برنامه
+    # از آن استفاده می‌کند — بازرسی شانزدهم)
+    SCHOOL_SETTINGS_ORG = "PARTOW"
+    SCHOOL_SETTINGS_APP = "PARTOW"
+    SCHOOL_FIELDS = (
+        ("school/name", "school_name"),
+        ("school/code", "school_code"),
+        ("school/address", "school_address"),
+        ("school/phone", "school_phone"),
+        ("school/principal", "school_principal"),
+    )
+
+    def _school_settings(self):
+        return QSettings(self.SCHOOL_SETTINGS_ORG, self.SCHOOL_SETTINGS_APP)
+
     def load_school_info(self):
-        """بارگذاری اطلاعات مدرسه"""
-        self.school_name.setText("مدرسه نمونه")
-        self.school_code.setText("12345")
-        self.school_address.setText("تهران، خیابان اصلی")
-        self.school_phone.setText("021-12345678")
-        self.school_principal.setText("مدیر مدرسه")
-    
+        """
+        بارگذاری اطلاعات مدرسه از ذخیره‌گاه واقعی
+
+        نسخهٔ قبلی مقادیر ساختگیِ ثابت را در فرم می‌گذاشت و «ذخیره» فقط پیام
+        موفقیت می‌داد؛ یعنی هر بار بازکردن برنامه همان دادهٔ ساختگی برمی‌گشت.
+        """
+        try:
+            settings = self._school_settings()
+            for key, widget_name in self.SCHOOL_FIELDS:
+                value = settings.value(key, "", type=str)
+                getattr(self, widget_name).setText(value or "")
+        except Exception as e:
+            QMessageBox.warning(self, "خطا", f"بارگذاری اطلاعات مدرسه ممکن نشد:\n{e!s}")
+
     def save_school_info(self):
-        """ذخیره اطلاعات مدرسه"""
-        QMessageBox.information(self, "موفقیت", "اطلاعات مدرسه با موفقیت ذخیره شد.")
+        """ذخیرهٔ واقعی اطلاعات مدرسه و راستی‌آزمایی پس از نوشتن"""
+        try:
+            settings = self._school_settings()
+            values = {}
+            for key, widget_name in self.SCHOOL_FIELDS:
+                values[key] = getattr(self, widget_name).text().strip()
+                settings.setValue(key, values[key])
+            settings.sync()
+            if settings.status() != QSettings.Status.NoError:
+                raise OSError(f"وضعیت ذخیره‌سازی: {settings.status()}")
+            # راستی‌آزمایی: آنچه ذخیره شد دوباره خوانده می‌شود
+            reread = QSettings(self.SCHOOL_SETTINGS_ORG, self.SCHOOL_SETTINGS_APP)
+            mismatched = [k for k, v in values.items() if (reread.value(k, "", type=str) or "") != v]
+            if mismatched:
+                raise OSError(f"مقادیر ذخیره‌شده با فرم هم‌خوان نیستند: {mismatched}")
+            QMessageBox.information(self, "موفقیت", "اطلاعات مدرسه ذخیره شد.")
+        except Exception as e:
+            QMessageBox.critical(self, "خطا", f"ذخیرهٔ اطلاعات مدرسه انجام نشد:\n{e!s}")
 
     # ===== درباره =====
 
@@ -1300,7 +1340,7 @@ class SettingsPage(QWidget):
         self.start_auto_backup_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -1461,7 +1501,7 @@ class SettingsPage(QWidget):
         self.add_class_btn.setStyleSheet("""
             QPushButton {
                 background-color: #F28C28;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
@@ -1471,9 +1511,20 @@ class SettingsPage(QWidget):
         """)
         self.add_class_btn.clicked.connect(self.add_class)
         form_layout.addWidget(self.add_class_btn, 5, 0, 1, 2)
-        
+
+        # (بازرسی شانزدهم) حالت ویرایش: همین فرم برای ویرایش کلاس انتخاب‌شده
+        # استفاده می‌شود (قبلاً دکمهٔ ✏️ فقط پیام «در نسخهٔ بعدی» می‌داد).
+        self._editing_class_id = None
+        self.cancel_edit_class_btn = QPushButton("✖ انصراف از ویرایش")
+        self.cancel_edit_class_btn.setStyleSheet(
+            "QPushButton { background-color: #08223A; color: #F4C542; padding: 8px 20px; "
+            "border: 1px solid #D9C36A; border-radius: 5px; }")
+        self.cancel_edit_class_btn.clicked.connect(self.cancel_edit_class)
+        self.cancel_edit_class_btn.setVisible(False)
+        form_layout.addWidget(self.cancel_edit_class_btn, 6, 0, 1, 2)
+
         layout.addWidget(form_group)
-        
+
         # ===== جدول کلاس‌ها =====
         self.class_table = QTableWidget()
         self.class_table.setColumnCount(6)
@@ -1586,7 +1637,7 @@ class SettingsPage(QWidget):
                 
                 edit_btn = QPushButton("✏️")
                 edit_btn.setFixedSize(30, 30)
-                edit_btn.setStyleSheet("background-color: #F4D35E; color: #F4C542; border: none; border-radius: 4px;")
+                edit_btn.setStyleSheet("background-color: #F4D35E; color: #111111; border: none; border-radius: 4px;")
                 edit_btn.clicked.connect(lambda checked, c=class_obj: self.edit_class(c))
                 btn_layout.addWidget(edit_btn)
                 
@@ -1604,7 +1655,7 @@ class SettingsPage(QWidget):
             QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری کلاس‌ها:\n{e!s}")
     
     def add_class(self):
-        """افزودن کلاس جدید"""
+        """افزودن کلاس جدید — یا ذخیرهٔ ویرایش اگر فرم در حالت ویرایش باشد"""
         name = self.class_name_input.text().strip()
         if not name:
             QMessageBox.warning(self, "خطا", "لطفاً نام کلاس را وارد کنید.")
@@ -1624,6 +1675,25 @@ class SettingsPage(QWidget):
             from models.class_model import ClassModel
             
             class_dal = ClassDAL()
+            if self._editing_class_id:
+                # ===== حالت ویرایش (بازرسی شانزدهم) =====
+                class_obj = class_dal.get_by_id(self._editing_class_id)
+                if class_obj is None:
+                    raise ValueError("کلاس موردنظر دیگر وجود ندارد.")
+                class_obj.name = name
+                class_obj.grade = grade
+                class_obj.teacher_id = teacher_id
+                class_obj.academic_year_id = academic_year_id
+                class_obj.capacity = capacity
+                class_dal.update(class_obj)
+                saved = class_dal.get_by_id(class_obj.id)
+                if saved is None or saved.name != name or saved.grade != grade:
+                    raise ValueError("تغییرات در دیتابیس ثبت نشد.")
+                self.cancel_edit_class()
+                self.load_classes()
+                QMessageBox.information(self, "موفقیت", f"کلاس {name} ویرایش شد.")
+                return
+
             class_obj = ClassModel()
             class_obj.name = name
             class_obj.grade = grade
@@ -1641,16 +1711,37 @@ class SettingsPage(QWidget):
             QMessageBox.information(self, "موفقیت", f"کلاس {name} با موفقیت اضافه شد.")
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در افزودن کلاس:\n{e!s}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ذخیرهٔ کلاس:\n{e!s}")
     
     def edit_class(self, class_obj):
-        """ویرایش کلاس"""
-        # در این نسخه ساده، یک پیام نمایش می‌دهیم
-        QMessageBox.information(
-            self,
-            "ویرایش کلاس",
-            f"ویرایش کلاس {class_obj.display_name}\n\nاین قابلیت در نسخه بعدی کامل می‌شود."
-        )
+        """
+        ویرایش کلاس: فرم بالای جدول با مقادیر کلاس پر می‌شود و دکمهٔ افزودن به
+        «ذخیرهٔ تغییرات» تبدیل می‌شود (بازرسی شانزدهم؛ قبلاً فقط پیام
+        «در نسخهٔ بعدی» نمایش داده می‌شد در حالی که ClassDAL.update وجود داشت).
+        """
+        self._editing_class_id = class_obj.id
+        self.class_name_input.setText(class_obj.name or "")
+        idx = self.class_grade_combo.findData(class_obj.grade)
+        if idx >= 0:
+            self.class_grade_combo.setCurrentIndex(idx)
+        idx = self.class_teacher_combo.findData(class_obj.teacher_id)
+        self.class_teacher_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        self.class_capacity_spin.setValue(int(class_obj.capacity or 0))
+        idx = self.class_year_combo.findData(class_obj.academic_year_id)
+        if idx >= 0:
+            self.class_year_combo.setCurrentIndex(idx)
+        self.add_class_btn.setText(f"💾 ذخیرهٔ تغییرات کلاس {class_obj.display_name}")
+        self.cancel_edit_class_btn.setVisible(True)
+        self.class_name_input.setFocus()
+
+    def cancel_edit_class(self):
+        """خروج از حالت ویرایش و بازگرداندن فرم به حالت افزودن"""
+        self._editing_class_id = None
+        self.class_name_input.clear()
+        self.class_capacity_spin.setValue(30)
+        self.class_teacher_combo.setCurrentIndex(0)
+        self.add_class_btn.setText("➕ افزودن کلاس")
+        self.cancel_edit_class_btn.setVisible(False)
     
     def delete_class(self, class_obj):
         """حذف کلاس"""

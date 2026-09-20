@@ -208,7 +208,7 @@ class LoginDialog(QDialog):
         self.change_pass_btn.setStyleSheet("""
             QPushButton {
                 background-color: #F4D35E;
-                color: #F4C542;
+                color: #111111;
                 border: none;
                 border-radius: 5px;
                 padding: 8px 15px;

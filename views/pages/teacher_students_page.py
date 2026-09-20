@@ -160,7 +160,7 @@ class TeacherStudentsPage(QWidget):
     background-color: #0B2E4F; padding: 8px; }
             QTableWidget::item:hover {
     color: #FFE8A3; background-color: #174F78; }
-            QTableWidget::item:selected { background-color: #66BB6A; color: #F4C542; }
+            QTableWidget::item:selected { background-color: #66BB6A; color: #111111; }
             QHeaderView::section {
                 background-color: #66BB6A;
                 color: #111111;
@@ -255,7 +255,7 @@ class TeacherStudentsPage(QWidget):
         self.view_profile_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
@@ -272,7 +272,7 @@ class TeacherStudentsPage(QWidget):
         self.edit_teacher_btn.setStyleSheet("""
             QPushButton {
                 background-color: #F4D35E;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;

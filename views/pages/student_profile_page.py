@@ -53,6 +53,9 @@ class StudentProfilePage(QWidget):
     """صفحه مرکز پرونده دانش‌آموز با Timeline و جستجو و انتخاب سال"""
     
     student_changed = Signal(int)
+    # (بازرسی شانزدهم) درخواست گزارش کامل: پنجرهٔ اصلی صفحهٔ گزارش‌ها را با
+    # همین دانش‌آموز باز می‌کند (قبلاً دکمه فقط پیام «به بخش گزارش‌ها بروید» می‌داد).
+    report_requested = Signal(int)
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -205,7 +208,7 @@ class StudentProfilePage(QWidget):
         self.status_label = QLabel("وضعیت: -")
         self.status_label.setStyleSheet("""
             QLabel {
-                color: #F4C542;
+                color: #111111;
                 font-size: 14px;
                 font-weight: bold;
                 background-color: #66BB6A;
@@ -240,7 +243,7 @@ class StudentProfilePage(QWidget):
         self.btn_intervention.setStyleSheet("""
             QPushButton {
                 background-color: #F28C28;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
@@ -255,7 +258,7 @@ class StudentProfilePage(QWidget):
         self.btn_followup.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
@@ -272,7 +275,7 @@ class StudentProfilePage(QWidget):
         self.btn_report.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
@@ -1163,7 +1166,7 @@ class StudentProfilePage(QWidget):
             
             view_btn = QPushButton("👁️")
             view_btn.setFixedSize(30, 30)
-            view_btn.setStyleSheet("background-color: #F28C28; color: #F4C542; border: none; border-radius: 4px;")
+            view_btn.setStyleSheet("background-color: #F28C28; color: #111111; border: none; border-radius: 4px;")
             view_btn.clicked.connect(lambda checked, i=inter: self.view_intervention(i))
             self.inter_table.setCellWidget(row, 5, view_btn)
     
@@ -1193,7 +1196,7 @@ class StudentProfilePage(QWidget):
             
             view_btn = QPushButton("👁️")
             view_btn.setFixedSize(30, 30)
-            view_btn.setStyleSheet("background-color: #66BB6A; color: #F4C542; border: none; border-radius: 4px;")
+            view_btn.setStyleSheet("background-color: #66BB6A; color: #111111; border: none; border-radius: 4px;")
             view_btn.clicked.connect(lambda checked, f=follow: self.view_followup(f))
             self.follow_table.setCellWidget(row, 5, view_btn)
     
@@ -1386,8 +1389,11 @@ class StudentProfilePage(QWidget):
         QMessageBox.information(self, "جزئیات پیگیری", details)
     
     def generate_report(self):
+        """باز کردن گزارش کامل همین دانش‌آموز در صفحهٔ گزارش‌ها (بازرسی شانزدهم)"""
         if not self.profile_id:
             QMessageBox.warning(self, "توجه", "هیچ پرونده فعالی برای این دانش‌آموز وجود ندارد.")
             return
-        
-        QMessageBox.information(self, "گزارش", "برای مشاهده گزارش کامل، از منوی اصلی به بخش گزارش‌ها بروید.")
+        if not self.student_id:
+            QMessageBox.warning(self, "توجه", "دانش‌آموزی انتخاب نشده است.")
+            return
+        self.report_requested.emit(int(self.student_id))

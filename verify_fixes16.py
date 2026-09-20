@@ -13,7 +13,11 @@
      بازیابی با پیش/پس‌شرط، جابه‌جایی امن پیوست‌ها، انتقال پوشهٔ قدیمی، توقف واقعی
      زمان‌بند، صفحهٔ پشتیبان‌گیری offscreen .......................................... ۱۲ بررسی
 
-جمع فعلی: ۲۷ بررسی
+مرحلهٔ ۳-الف — Inventory صفحات (بندهای ۲، ۳، ۱۰، ۱۸، ۱۹، ۳۶ برای views/pages + main_window):
+  C) اجرای واقعی handlerهای همهٔ صفحه‌ها و پنجرهٔ اصلی (offscreen)، چهار زنجیرهٔ تزئینی
+     تکمیل‌شده با پیش/پس‌شرط، Inventory ایستا، کنتراست کل views/، ممیزی سیگنال‌ها ... ۹ بررسی
+
+جمع فعلی: ۳۶ بررسی
 """
 
 import contextlib
@@ -696,7 +700,414 @@ except Exception as e:
 # ============================================================
 print()
 print("=" * 76)
-print(f"نتیجهٔ دور شانزدهم (مرحله‌های ۱ و ۲):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
+print("بخش C: Inventory صفحات — اجرای واقعی handlerها، زنجیره‌های تکمیل‌شده، کنتراست، سیگنال‌ها")
+print("=" * 76)
+
+import importlib  # noqa: E402
+import inspect  # noqa: E402
+
+from tools import ui_inventory as inv  # noqa: E402
+
+from PySide6.QtCore import QSettings, Qt  # noqa: E402
+from PySide6.QtWidgets import (  # noqa: E402
+    QApplication,
+    QDialog,
+    QFileDialog,
+    QInputDialog,
+    QListWidget,
+    QMessageBox,
+    QTableWidget,
+    QTreeWidget,
+    QWidget,
+)
+
+app = QApplication.instance() or QApplication(sys.argv)
+QSettings.setPath(QSettings.Format.NativeFormat, QSettings.Scope.UserScope, os.path.join(TMP, "qsettings"))
+QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, os.path.join(TMP, "qsettings"))
+
+# دادهٔ آزمایشی برای صفحه‌ها (دانش‌آموز در سال فعال با مشاهده/مداخله/پیگیری)
+from dal.academic_year_dal import AcademicYearDAL  # noqa: E402
+from dal.class_dal import ClassDAL  # noqa: E402
+from dal.competency_dal import CompetencyDAL  # noqa: E402
+from dal.followup_dal import FollowUpDAL  # noqa: E402
+from dal.intervention_dal import InterventionDAL  # noqa: E402
+from dal.observation_dal import ObservationDAL  # noqa: E402
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL  # noqa: E402
+from models.class_model import ClassModel  # noqa: E402
+from models.followup import FollowUp  # noqa: E402
+from models.intervention import Intervention  # noqa: E402
+from models.observation import Observation  # noqa: E402
+from models.student_academic_profile import StudentAcademicProfile  # noqa: E402
+
+with contextlib.redirect_stdout(io.StringIO()):
+    conn = db.get_connection(user_id=1)
+    smoke_student = _new_student("اسموک", "صفحه‌ها", "1616161616")
+    active_year = AcademicYearDAL().get_active()
+    prof = StudentAcademicProfile()
+    prof.student_id, prof.academic_year_id, prof.grade, prof.class_name = smoke_student.id, active_year.id, 2, "الف"
+    smoke_pid = StudentAcademicProfileDAL().create(prof).id
+    comps = CompetencyDAL().get_all()
+    obs_ids = []
+    for i, (bt, d) in enumerate([("منفی", "1405/07/05"), ("منفی", "1405/07/15"), ("مثبت", "1405/08/05"),
+                                 ("مثبت", "1405/08/20"), ("خنثی", "1405/09/01")]):
+        o = Observation()
+        o.student_profile_id, o.staff_id, o.competency_id = smoke_pid, 1, comps[i % 3].id
+        o.observation_date, o.description, o.behavior, o.behavior_type, o.severity = d, "شرح", "رفتار", bt, 2
+        obs_ids.append(ObservationDAL().create(o).id)
+    it = Intervention()
+    it.student_profile_id, it.staff_id, it.observation_id, it.type = smoke_pid, 1, obs_ids[0], "individual_talk"
+    it.date, it.description, it.goal, it.status = "1405/07/20", "شرح", "هدف", "done"
+    smoke_iid = InterventionDAL().create(it).id
+    fu = FollowUp()
+    fu.intervention_id, fu.staff_id, fu.date, fu.method, fu.status = smoke_iid, 1, "1405/08/01", "گفتگو", "pending"
+    fu.result_type, fu.result_description, fu.description = "improved", "ن", "پ"
+    FollowUpDAL().create(fu)
+    cls_obj = ClassModel()
+    cls_obj.name, cls_obj.grade, cls_obj.academic_year_id, cls_obj.capacity, cls_obj.is_active = "آزمون‌ویرایش", 2, active_year.id, 25, 1
+    smoke_class_id = ClassDAL().create(cls_obj).id
+
+# دیالوگ‌ها و پیام‌ها بدون تعامل کاربر
+ui_msgs = []
+QMessageBox.information = staticmethod(lambda *a, **k: ui_msgs.append(("info", str(a[2])[:100])) or QMessageBox.StandardButton.Ok)
+QMessageBox.warning = staticmethod(lambda *a, **k: ui_msgs.append(("warn", str(a[2])[:100])) or QMessageBox.StandardButton.Ok)
+QMessageBox.critical = staticmethod(lambda *a, **k: ui_msgs.append(("crit", str(a[2])[:160])) or QMessageBox.StandardButton.Ok)
+QMessageBox.question = staticmethod(lambda *a, **k: QMessageBox.StandardButton.No)
+QMessageBox.about = staticmethod(lambda *a, **k: None)
+QDialog.exec = lambda self, *a, **k: QDialog.DialogCode.Rejected
+QDialog.exec_ = QDialog.exec
+QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: ("", ""))
+QFileDialog.getOpenFileName = staticmethod(lambda *a, **k: ("", ""))
+QFileDialog.getOpenFileNames = staticmethod(lambda *a, **k: ([], ""))
+QFileDialog.getExistingDirectory = staticmethod(lambda *a, **k: "")
+QInputDialog.getText = staticmethod(lambda *a, **k: ("", False))
+QInputDialog.getItem = staticmethod(lambda *a, **k: ("", False))
+QInputDialog.getInt = staticmethod(lambda *a, **k: (0, False))
+
+SMOKE_SKIP = {'create_backup', 'restore_from_file', 'logout', 'start_auto_backup', 'stop_auto_backup',
+              'close', 'auto_logout'}
+PAGES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "views", "pages")
+
+
+def _select_first_rows(page):
+    for val in list(vars(page).values()):
+        try:
+            if isinstance(val, QTableWidget) and val.rowCount() > 0:
+                val.selectRow(0)
+                val.setCurrentCell(0, 0)
+            elif isinstance(val, QListWidget) and val.count() > 0:
+                val.setCurrentRow(0)
+            elif isinstance(val, QTreeWidget) and val.topLevelItemCount() > 0:
+                val.setCurrentItem(val.topLevelItem(0))
+        except Exception:
+            pass
+
+
+def _pick_argument(page, name, pname, model_lists):
+    if inv.LOAD_METHOD_RE.match(name) or name.startswith(('display_', 'render_', 'populate_', 'fill_', 'set_',
+                                                          'build_', 'draw_', 'format_')):
+        return None
+    if pname in ('index', 'checked', 'text', 'value', 'state', 'event', 'pos', 'position', 'data', 'idx'):
+        return None
+    if pname == 'item':
+        for val in vars(page).values():
+            if isinstance(val, QTableWidget) and val.rowCount() > 0 and val.item(0, 0) is not None:
+                return val.item(0, 0)
+            if isinstance(val, QListWidget) and val.count() > 0:
+                return val.item(0)
+        return None
+    stem = pname.rstrip('s').lower()
+    for attr, lst in model_lists.items():
+        tname = type(lst[0]).__name__.lower()
+        if stem and (stem in tname or tname in stem or stem in attr.lower()):
+            return lst[0]
+    for lst in model_lists.values():
+        if type(lst[0]).__name__.lower()[:5] in name.lower():
+            return lst[0]
+    return None
+
+
+def smoke_pages():
+    """هر صفحه ساخته می‌شود و هر handler متصل (بدون آرگومان، یا با شیء ردیف/آیتم) اجرا می‌شود."""
+    summary = {'classes': 0, 'handlers': 0, 'problems': []}
+    for fname in sorted(os.listdir(PAGES_DIR)):
+        if not fname.endswith('.py') or fname == '__init__.py':
+            continue
+        modname = 'views.pages.' + fname[:-3]
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                mod = importlib.import_module(modname)
+        except Exception as e:
+            summary['problems'].append((fname, 'IMPORT', f"{type(e).__name__}: {e}"))
+            continue
+        for cinfo in inv.analyze_file(os.path.join(PAGES_DIR, fname)):
+            cls = getattr(mod, cinfo.name, None)
+            if cls is None or not inspect.isclass(cls) or not issubclass(cls, QWidget) or cls.__name__.endswith('Worker'):
+                continue
+            summary['classes'] += 1
+            try:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    page = cls()
+            except Exception as e:
+                summary['problems'].append((f"{fname}:{cinfo.name}", 'INIT', f"{type(e).__name__}: {e}"))
+                continue
+            _select_first_rows(page)
+            model_lists = {a: v for a, v in vars(page).items()
+                           if isinstance(v, list) and v and hasattr(v[0], '__dict__') and not hasattr(v[0], 'metaObject')}
+            targets = set()
+            for b in cinfo.buttons:
+                t = b['connected_to']
+                if t and t.startswith('self.'):
+                    targets.add(t[5:].split('(')[0])
+            for c in cinfo.connects:
+                if c['target'].startswith('self.'):
+                    targets.add(c['target'][5:].split('(')[0])
+            targets.update(n for n in cinfo.methods if inv.LOAD_METHOD_RE.match(n))
+            for name in sorted(targets):
+                if name in SMOKE_SKIP:
+                    continue
+                fn = getattr(page, name, None)
+                if not callable(fn):
+                    continue
+                try:
+                    required = [p for p in inspect.signature(fn).parameters.values()
+                                if p.default is inspect._empty and p.kind == p.POSITIONAL_OR_KEYWORD]
+                except (TypeError, ValueError):
+                    continue
+                args = []
+                if required:
+                    if len(required) != 1:
+                        continue
+                    arg = _pick_argument(page, name, required[0].name, model_lists)
+                    if arg is None:
+                        continue
+                    args = [arg]
+                before = len(ui_msgs)
+                try:
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        fn(*args)
+                        app.processEvents()
+                    summary['handlers'] += 1
+                    crit = [m for m in ui_msgs[before:] if m[0] == 'crit']
+                    if crit:
+                        summary['problems'].append((f"{fname}:{cinfo.name}", name, f"CRIT_MSG: {crit[0][1]}"))
+                except Exception as e:
+                    summary['handlers'] += 1
+                    summary['problems'].append((f"{fname}:{cinfo.name}", name, f"{type(e).__name__}: {e}"))
+            page.deleteLater()
+            app.processEvents()
+    return summary
+
+
+smoke = smoke_pages()
+check("C", "همهٔ کلاس‌های صفحه (views/pages) ساخته می‌شوند و همهٔ handlerهای متصل (بدون آرگومان، با ردیف انتخاب‌شده، یا با شیء ردیف/آیتم) بدون استثنا و بدون پیام «خطا» اجرا می‌شوند",
+      smoke['classes'] >= 22 and smoke['handlers'] >= 150 and not smoke['problems'],
+      f"classes={smoke['classes']} handlers={smoke['handlers']} problems={smoke['problems'][:5]}")
+
+# --- پنجرهٔ اصلی با ورود شبیه‌سازی‌شده
+import views.dialogs.login_dialog as login_dialog_mod  # noqa: E402
+
+
+def _fake_login_exec(self, *a, **k):
+    self.login_successful.emit(1, 'admin', 'admin')
+    return QDialog.DialogCode.Accepted
+
+
+login_dialog_mod.LoginDialog.exec = _fake_login_exec
+import views.main_window as main_window_mod  # noqa: E402
+
+main_problems = []
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        win = main_window_mod.MainWindow()
+    pages_count = win.stacked_widget.count()
+    for i in range(pages_count):
+        win.stacked_widget.setCurrentIndex(i)
+        app.processEvents()
+    with contextlib.redirect_stdout(io.StringIO()):
+        win.load_academic_years()
+        win.update_notification_badge()
+        win.toggle_notifications()
+        win.toggle_notifications()
+        win.open_student_profile(smoke_student.id)
+    profile_ok = win.stacked_widget.currentWidget() is win.students_page and \
+        win.students_page.profile_page.student_id == smoke_student.id
+except Exception as e:
+    main_problems.append(f"{type(e).__name__}: {e}")
+    pages_count, profile_ok = 0, False
+check("C", "پنجرهٔ اصلی با ورود شبیه‌سازی‌شده ساخته می‌شود؛ ناوبری به همهٔ صفحه‌ها، اعلان‌ها و بازکردن پروندهٔ دانش‌آموز بدون استثنا",
+      not main_problems and pages_count >= 14 and profile_ok,
+      f"pages={pages_count} profile_ok={profile_ok} problems={main_problems}")
+
+# --- «گزارش پرونده» در پروندهٔ دانش‌آموز → صفحهٔ گزارش‌ها با همان دانش‌آموز
+with contextlib.redirect_stdout(io.StringIO()):
+    win.students_page.profile_page.generate_report()
+    app.processEvents()
+check("C", "دکمهٔ «📄 گزارش پرونده»: صفحهٔ گزارش‌ها باز و همان دانش‌آموز در کامبو انتخاب و گزارشش بارگذاری می‌شود (قبلاً فقط پیام «به بخش گزارش‌ها بروید»)",
+      win.stacked_widget.currentWidget() is win.reports_page
+      and win.reports_page.student_combo.currentData() == smoke_student.id
+      and getattr(win.reports_page, 'current_report', None) is not None,
+      f"current={type(win.stacked_widget.currentWidget()).__name__} combo={win.reports_page.student_combo.currentData()}")
+
+# --- دابل‌کلیک در داشبورد تحلیلی → سیگنال با شناسهٔ دانش‌آموز → پروندهٔ همان دانش‌آموز
+analytics = win.dashboard_page.analytics_dashboard_page
+from PySide6.QtWidgets import QTableWidgetItem  # noqa: E402
+
+analytics.students_table.setRowCount(1)
+probe_item = QTableWidgetItem("دانش‌آموز آزمایشی")
+probe_item.setData(Qt.ItemDataRole.UserRole, smoke_student.id)
+analytics.students_table.setItem(0, 0, probe_item)
+received = []
+analytics.student_selected.connect(lambda sid: received.append(sid))
+with contextlib.redirect_stdout(io.StringIO()):
+    win.stacked_widget.setCurrentIndex(0)
+    analytics.on_student_double_clicked(probe_item)
+    app.processEvents()
+check("C", "دابل‌کلیک روی دانش‌آموزِ «بدون مشاهده» در داشبورد تحلیلی: سیگنال student_selected با شناسه → پنجرهٔ اصلی پروندهٔ همان دانش‌آموز را باز می‌کند (قبلاً پیام «در نسخهٔ بعدی»)",
+      received == [smoke_student.id]
+      and win.stacked_widget.currentWidget() is win.students_page
+      and win.students_page.profile_page.student_id == smoke_student.id,
+      f"received={received}")
+
+# --- اطلاعات مدرسه: ذخیرهٔ واقعی و بازخوانی در نمونهٔ جدید
+settings_page = win.settings_page if hasattr(win, 'settings_page') else None
+if settings_page is None:
+    import views.pages.settings_page as settings_page_mod
+    with contextlib.redirect_stdout(io.StringIO()):
+        settings_page = settings_page_mod.SettingsPage()
+settings_page.school_name.setText("دبستان آزمون")
+settings_page.school_code.setText("98765")
+settings_page.school_address.setText("خیابان آزمون")
+settings_page.school_phone.setText("021-0000000")
+settings_page.school_principal.setText("مدیر آزمون")
+n_before = len(ui_msgs)
+settings_page.save_school_info()
+saved_msgs = ui_msgs[n_before:]
+import views.pages.settings_page as settings_page_mod  # noqa: E402
+
+with contextlib.redirect_stdout(io.StringIO()):
+    fresh_settings = settings_page_mod.SettingsPage()
+check("C", "«💾 ذخیره اطلاعات» مدرسه: مقادیر واقعاً ذخیره می‌شوند و در نمونهٔ تازهٔ صفحه بازخوانی می‌شوند (قبلاً فقط پیام موفقیت + دادهٔ ساختگی «مدرسه نمونه»)",
+      saved_msgs and saved_msgs[-1][0] == "info"
+      and fresh_settings.school_name.text() == "دبستان آزمون"
+      and fresh_settings.school_code.text() == "98765"
+      and fresh_settings.school_principal.text() == "مدیر آزمون"
+      and "مدرسه نمونه" not in read("views/pages/settings_page.py"),
+      f"msgs={saved_msgs} name={fresh_settings.school_name.text()!r}")
+
+# --- ویرایش کلاس (هر دو صفحه): فرم پر می‌شود، ذخیره → دیتابیس تغییر می‌کند، فرم به حالت افزودن برمی‌گردد
+class_dal = ClassDAL()
+
+
+def _edit_class_roundtrip(page, new_name):
+    target = class_dal.get_by_id(smoke_class_id)
+    page.edit_class(target)
+    filled = (page.class_name_input.text() == target.name and page._editing_class_id == smoke_class_id
+              and page.cancel_edit_class_btn.isVisible() or not page.isVisible())
+    page.class_name_input.setText(new_name)
+    page.class_capacity_spin.setValue(31)
+    before = len(ui_msgs)
+    with contextlib.redirect_stdout(io.StringIO()):
+        page.add_class()
+    msgs_after = ui_msgs[before:]
+    saved = class_dal.get_by_id(smoke_class_id)
+    return (filled and saved is not None and saved.name == new_name and saved.capacity == 31
+            and page._editing_class_id is None and page.add_class_btn.text().startswith("➕")
+            and msgs_after and msgs_after[-1][0] == "info"), (saved.name if saved else None, msgs_after)
+
+
+ok_settings, det_settings = _edit_class_roundtrip(fresh_settings, "ویرایش‌شده‌۱")
+import views.pages.academic_structure_page as acad_mod  # noqa: E402
+
+with contextlib.redirect_stdout(io.StringIO()):
+    acad_page = acad_mod.AcademicStructurePage()
+ok_acad, det_acad = _edit_class_roundtrip(acad_page, "ویرایش‌شده‌۲")
+check("C", "دکمهٔ «✏️» ویرایش کلاس در تنظیمات و ساختار آموزشی: فرم با مقادیر کلاس پر می‌شود، ذخیره → ردیف classes در دیتابیس تغییر می‌کند و فرم به حالت افزودن برمی‌گردد (قبلاً پیام «در نسخهٔ بعدی»)",
+      ok_settings and ok_acad and "نسخه بعدی" not in read("views/pages/settings_page.py")
+      and "نسخه بعدی" not in read("views/pages/academic_structure_page.py")
+      and "نسخه بعدی" not in read("views/pages/analytics_dashboard.py"),
+      f"settings={det_settings} academic={det_acad}")
+
+# --- Inventory ایستا: بدون دکمهٔ بی‌اتصال/stub؛ دکمه‌های تزئینی قبلی دیگر MSG_ONLY نیستند
+with contextlib.redirect_stdout(io.StringIO()):
+    inventory = inv.build_report(write=False)
+flagged_kinds = {(f[0], f[2]): f[5] for f in inventory['flagged']}
+decorative_before = {("views/pages/settings_page.py", "save_btn"),
+                     ("views/pages/settings_page.py", "edit_btn"),
+                     ("views/pages/academic_structure_page.py", "edit_btn"),
+                     ("views/pages/student_profile_page.py", "self.btn_report")}
+check("C", "Inventory ایستا (tools/ui_inventory.py): هیچ دکمه‌ای بدون اتصال یا با handler خالی نیست؛ چهار دکمهٔ تزئینی قبلی (ذخیرهٔ اطلاعات مدرسه، ✏️ کلاس ×۲، گزارش پرونده) دیگر «فقط پیام» نیستند",
+      inventory['totals'].get('NO_CONNECT', 0) == 0 and inventory['totals'].get('STUB', 0) == 0
+      and not any(k.startswith('MISSING') for k in inventory['totals'])
+      and not (decorative_before & set(flagged_kinds)),
+      f"totals={inventory['totals']} still_flagged={sorted(decorative_before & set(flagged_kinds))}")
+
+
+# --- کنتراست رنگ در کل views/
+def _lum(hexv):
+    h = hexv.lstrip('#')
+    if len(h) == 3:
+        h = ''.join(c * 2 for c in h)
+    r, g, b = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+
+    def f(c):
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
+
+
+def _contrast(a, b):
+    la, lb = _lum(a), _lum(b)
+    return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+
+
+low_contrast = []
+for sub in ('views', 'views/pages', 'views/dialogs', 'views/widgets'):
+    for fname in sorted(os.listdir(sub)):
+        if not fname.endswith('.py'):
+            continue
+        src = read(os.path.join(sub, fname))
+        blocks = [m.group(1) for m in re.finditer(r'\{([^{}]*)\}', src)]
+        blocks += [m.group(2) for m in re.finditer(r'setStyleSheet\(\s*(["\'])([^"\'{}]*?)\1\s*\)', src)]
+        for body in blocks:
+            fg = re.search(r'(?<![\w-])color\s*:\s*(#[0-9a-fA-F]{6})\b', body)
+            bg = re.search(r'background(?:-color)?\s*:\s*(#[0-9a-fA-F]{6})\b', body)
+            if fg and bg and _contrast(fg.group(1), bg.group(1)) < 3.0:
+                low_contrast.append((os.path.join(sub, fname), fg.group(1), bg.group(1)))
+rec_src = read("views/widgets/recommendation_widget.py")
+rec_btn_block = rec_src.split("self.generate_btn.setStyleSheet(")[1].split(")")[0]
+check("C", "کنتراست: در کل views/ هیچ بلوک استایلی با نسبت کنتراست متن/زمینه کمتر از ۳:۱ نمانده (قبلاً ۱۰۴ مورد، از جمله متن هم‌رنگ زمینه در دکمهٔ Generate پیشنهادها، دکمه‌های به‌روزرسانی داشبورد و برچسب‌های «داده ناکافی»)",
+      not low_contrast and "color: #0B2E4F;" not in rec_btn_block.split("background-color: #0B2E4F;")[1].split("}")[0],
+      f"remaining={low_contrast[:5]}")
+
+# --- سیگنال‌های سفارشی بدون گیرنده: فقط فهرست شناخته‌شده (گزارش‌شده در سند)
+KNOWN_RECEIVERLESS = {
+    ('views/dialogs/assign_teacher_dialog.py', 'assignment_saved'),
+    ('views/dialogs/attachment_dialog.py', 'attachment_added'),
+    ('views/dialogs/attachment_dialog.py', 'attachment_deleted'),
+    ('views/dialogs/change_password_dialog.py', 'password_changed'),
+    ('views/main_window.py', 'academic_year_changed'),
+    ('views/pages/academic_structure_page.py', 'assignment_changed'),
+    ('views/pages/assign_teacher_page.py', 'assignment_changed'),
+    ('views/pages/student_profile_page.py', 'student_changed'),
+    ('views/widgets/competency_tree_widget.py', 'behavior_selected'),
+    ('views/widgets/competency_tree_widget.py', 'competency_selected'),
+    ('views/widgets/competency_tree_widget.py', 'indicator_selected'),
+    ('views/widgets/filter_widget.py', 'filter_applied'),
+    ('views/widgets/help_widget.py', 'help_requested'),
+    ('views/widgets/recommendation_widget.py', 'intervention_requested'),
+    ('views/widgets/recommendation_widget.py', 'recommendation_updated'),
+}
+receiverless = {(r, sig) for r, c, sig, ln, e, recv in inventory['signals'] if not recv}
+new_receiverless = receiverless - KNOWN_RECEIVERLESS
+newly_wired = {('views/pages/student_profile_page.py', 'report_requested'),
+               ('views/pages/analytics_dashboard.py', 'student_selected')}
+check("C", "ممیزی Signal/Slot: سیگنال‌های جدید (report_requested، student_selected داشبورد تحلیلی) گیرنده دارند؛ سیگنال‌های بدون گیرنده فقط همان فهرست مستندشده‌اند (نه مورد تازه)",
+      not new_receiverless and not (newly_wired & receiverless),
+      f"new_receiverless={sorted(new_receiverless)}")
+
+# ============================================================
+print()
+print("=" * 76)
+print(f"نتیجهٔ دور شانزدهم (مرحله‌های ۱ تا ۳-الف):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
 if FAILURES:
     print("موارد ناموفق:")
     for f in FAILURES:

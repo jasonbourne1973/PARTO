@@ -283,7 +283,7 @@ class NotificationWidget(QWidget):
         self.view_all_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0B2E4F;
-                color: #0B2E4F;
+                color: #F4C542;
                 border: none;
                 border-radius: 6px;
                 padding: 6px 12px;

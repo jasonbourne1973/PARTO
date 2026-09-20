@@ -123,7 +123,7 @@ class CompetencyTreeWidget(QWidget):
             }
             QTreeWidget::item:selected {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
             }
             QTreeWidget::item:hover {
     color: #FFE8A3;
@@ -146,7 +146,7 @@ class CompetencyTreeWidget(QWidget):
             self.select_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #66BB6A;
-                    color: #F4C542;
+                    color: #111111;
                     padding: 6px 20px;
                     border: none;
                     border-radius: 4px;
@@ -299,7 +299,7 @@ class CompetencyTreeWidget(QWidget):
             self.info_label.setText(f"✅ انتخاب شده: {comp_name} (شایستگی)")
             self.info_label.setStyleSheet("""
                 QLabel {
-                    color: #66BB6A;
+                    color: #111111;
                     font-size: 12px;
                     padding: 4px 8px;
                     background-color: #eafaf1;
@@ -327,7 +327,7 @@ class CompetencyTreeWidget(QWidget):
             self.info_label.setText(f"✅ انتخاب شده: {ind_name} (شاخص)")
             self.info_label.setStyleSheet("""
                 QLabel {
-                    color: #08223A;
+                    color: #F4C542;
                     font-size: 12px;
                     padding: 4px 8px;
                     background-color: #174F78;
@@ -355,7 +355,7 @@ class CompetencyTreeWidget(QWidget):
             self.info_label.setText(f"✅ انتخاب شده: {beh_text} (رفتار قابل مشاهده)")
             self.info_label.setStyleSheet("""
                 QLabel {
-                    color: #66BB6A;
+                    color: #111111;
                     font-size: 12px;
                     padding: 4px 8px;
                     background-color: #66BB6A;
@@ -552,7 +552,7 @@ class CompetencyTreeWidget(QWidget):
         
         self.info_label.setStyleSheet("""
             QLabel {
-                color: #66BB6A;
+                color: #111111;
                 font-size: 12px;
                 padding: 4px 8px;
                 background-color: #eafaf1;

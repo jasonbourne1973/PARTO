@@ -179,7 +179,7 @@ class ReportsPage(QWidget):
         self.parent_btn.setStyleSheet("""
             QPushButton {
                 background-color: #F4D35E;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -194,7 +194,7 @@ class ReportsPage(QWidget):
         self.excel_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -227,7 +227,7 @@ class ReportsPage(QWidget):
         self.ai_export_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -243,7 +243,7 @@ class ReportsPage(QWidget):
         self.insufficient_data_label.setStyleSheet("""
             QLabel {
                 background-color: #C62828;
-                color: #C62828;
+                color: #FFFFFF;
                 padding: 10px;
                 border-radius: 5px;
                 font-weight: bold;
@@ -365,6 +365,26 @@ class ReportsPage(QWidget):
         except Exception as e:
             logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
     
+    def select_student(self, student_id):
+        """
+        انتخاب یک دانش‌آموز در کامبو (و بارگذاری گزارش او) — بازرسی شانزدهم
+
+        Returns:
+            bool: True اگر دانش‌آموز در فهرست بود و انتخاب شد
+        """
+        idx = self.student_combo.findData(student_id)
+        if idx < 0:
+            # شاید فهرست به معلم خاصی محدود شده باشد؛ فهرست کامل بارگذاری می‌شود
+            self.load_students()
+            idx = self.student_combo.findData(student_id)
+        if idx < 0:
+            return False
+        if self.student_combo.currentIndex() == idx:
+            self.load_report()
+        else:
+            self.student_combo.setCurrentIndex(idx)
+        return True
+
     def load_students(self):
         """بارگذاری دانش‌آموزان در کامبوباکس"""
         try:

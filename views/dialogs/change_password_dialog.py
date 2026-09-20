@@ -218,7 +218,7 @@ class ChangePasswordDialog(QDialog):
         self.save_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 border: none;
                 border-radius: 6px;
                 font-size: 14px;

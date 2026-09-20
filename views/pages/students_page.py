@@ -136,7 +136,7 @@ class StudentsPage(QWidget):
         self.advanced_search_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -169,7 +169,7 @@ class StudentsPage(QWidget):
         self.import_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -203,7 +203,7 @@ class StudentsPage(QWidget):
         self.sample_btn.setStyleSheet("""
             QPushButton {
                 background-color: #F4D35E;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -407,7 +407,7 @@ class StudentsPage(QWidget):
             edit_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #F4D35E;
-                    color: #F4C542;
+                    color: #111111;
                     border: none;
                     border-radius: 4px;
                     font-size: 14px;
@@ -441,7 +441,7 @@ class StudentsPage(QWidget):
             profile_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #66BB6A;
-                    color: #F4C542;
+                    color: #111111;
                     border: none;
                     border-radius: 4px;
                     font-size: 14px;

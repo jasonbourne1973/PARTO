@@ -142,7 +142,7 @@ class AttachmentDialog(QDialog):
         self.add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -402,7 +402,7 @@ class AttachmentDialog(QDialog):
         self.download_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -434,7 +434,7 @@ class AttachmentDialog(QDialog):
         self.close_btn.setStyleSheet("""
             QPushButton {
                 background-color: #D9C36A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;

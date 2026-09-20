@@ -103,7 +103,7 @@ class AssignTeacherPage(QWidget):
         self.assign_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -251,7 +251,7 @@ class AssignTeacherPage(QWidget):
         self.assign_selected_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -442,7 +442,7 @@ class AssignTeacherPage(QWidget):
             
             edit_btn = QPushButton("✏️")
             edit_btn.setFixedSize(30, 30)
-            edit_btn.setStyleSheet("background-color: #F4D35E; color: #F4C542; border: none; border-radius: 4px;")
+            edit_btn.setStyleSheet("background-color: #F4D35E; color: #111111; border: none; border-radius: 4px;")
             edit_btn.clicked.connect(lambda checked, a=assignment: self.edit_assignment(a))
             btn_layout.addWidget(edit_btn)
             

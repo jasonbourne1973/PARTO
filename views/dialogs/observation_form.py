@@ -334,7 +334,7 @@ class ObservationForm(QDialog):
                 background-color: #C62828;
                 padding: 5px 10px;
                 border-radius: 4px;
-                color: #C62828;
+                color: #FFFFFF;
                 font-size: 12px;
                 border: 1px solid #F4C542;
             }
@@ -583,7 +583,7 @@ class ObservationForm(QDialog):
         self.save_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 10px 30px;
                 border: none;
                 border-radius: 6px;
@@ -685,7 +685,7 @@ class ObservationForm(QDialog):
             self.selected_path_label.setText(f"✅ انتخاب‌شده: {full_path}")
             self.selected_path_label.setStyleSheet("""
                 QLabel {
-                    color: #66BB6A;
+                    color: #111111;
                     font-size: 12px;
                     padding: 4px 8px;
                     background-color: #eafaf1;
@@ -799,7 +799,7 @@ class ObservationForm(QDialog):
                     self.selected_path_label.setText(f"✅ انتخاب‌شده: {full_path}")
                     self.selected_path_label.setStyleSheet("""
                         QLabel {
-                            color: #66BB6A;
+                            color: #111111;
                             font-size: 12px;
                             padding: 4px 8px;
                             background-color: #eafaf1;

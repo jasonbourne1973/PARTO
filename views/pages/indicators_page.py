@@ -163,7 +163,7 @@ class IndicatorsPage(QWidget):
         self.insufficient_data_label.setStyleSheet("""
             QLabel {
                 background-color: #C62828;
-                color: #C62828;
+                color: #FFFFFF;
                 padding: 10px;
                 border-radius: 5px;
                 font-weight: bold;
@@ -199,7 +199,7 @@ class IndicatorsPage(QWidget):
             }
             QTreeWidget::item:selected {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
             }
             QTreeWidget::item:hover {
     color: #FFE8A3;

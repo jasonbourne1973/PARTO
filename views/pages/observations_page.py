@@ -131,7 +131,7 @@ class ObservationsPage(QWidget):
         self.advanced_search_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
@@ -161,7 +161,7 @@ class ObservationsPage(QWidget):
         self.add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -237,7 +237,7 @@ class ObservationsPage(QWidget):
         self.apply_filter_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;

@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import matplotlib
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QComboBox,
@@ -49,6 +49,10 @@ class AnalyticsDashboardPage(QWidget):
     - دانش‌آموزان نیازمند توجه
     - روند تغییرات
     """
+
+    # (بازرسی شانزدهم) دابل‌کلیک روی دانش‌آموزِ بدون مشاهده، پروندهٔ او را
+    # باز می‌کند (همان الگوی بقیهٔ صفحه‌ها)؛ قبلاً فقط پیام «در نسخهٔ بعدی» بود.
+    student_selected = Signal(int)
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -218,7 +222,7 @@ class AnalyticsDashboardPage(QWidget):
         self.refresh_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0B2E4F;
-                color: #0B2E4F;
+                color: #F4C542;
                 border: none;
                 border-radius: 8px;
                 padding: 6px 16px;
@@ -460,7 +464,7 @@ class AnalyticsDashboardPage(QWidget):
             }
             QTableWidget::item:selected {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
             }
             QHeaderView::section {
                 background-color: #66BB6A;
@@ -698,7 +702,9 @@ class AnalyticsDashboardPage(QWidget):
         self.students_table.setRowCount(len(students_list))
         
         for row, student in enumerate(students_list):
-            self.students_table.setItem(row, 0, QTableWidgetItem(student.get('full_name', 'نامشخص')))
+            name_item = QTableWidgetItem(student.get('full_name', 'نامشخص'))
+            name_item.setData(Qt.ItemDataRole.UserRole, student.get('id'))
+            self.students_table.setItem(row, 0, name_item)
             self.students_table.setItem(row, 1, QTableWidgetItem(
                 f"پایه {student.get('grade', '?')}" if student.get('grade') else 'نامشخص'
             ))
@@ -766,14 +772,14 @@ class AnalyticsDashboardPage(QWidget):
         self.trend_layout.addWidget(canvas)
 
     def on_student_double_clicked(self, item):
-        """باز کردن پرونده دانش‌آموز با دابل‌کلیک"""
+        """باز کردن پرونده دانش‌آموز با دابل‌کلیک (از طریق سیگنال به پنجرهٔ اصلی)"""
         row = item.row()
-        if row >= 0:
-            # دریافت student_id از جدول
-            # در این نسخه ساده، فقط یک پیام نمایش می‌دهیم
-            student_name = self.students_table.item(row, 0).text()
-            QMessageBox.information(
-                self,
-                "پرونده دانش‌آموز",
-                f"پرونده دانش‌آموز {student_name}\n\nاین قابلیت در نسخه بعدی کامل می‌شود."
-            )
+        if row < 0:
+            return
+        name_item = self.students_table.item(row, 0)
+        student_id = name_item.data(Qt.ItemDataRole.UserRole) if name_item else None
+        if not student_id:
+            QMessageBox.information(self, "پرونده دانش‌آموز",
+                                    "برای این ردیف دانش‌آموزی ثبت نشده است.")
+            return
+        self.student_selected.emit(int(student_id))

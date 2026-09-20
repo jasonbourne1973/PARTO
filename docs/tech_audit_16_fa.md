@@ -16,7 +16,7 @@ file picker و دیالوگ‌های modal اجرا نمی‌شوند. هر قا
 |---|---|---|---|
 | ۱ | Migration، تست‌های قدیمی، نسخهٔ پایتون | ۴، ۵، ۶، ۱۵، ۲۲ (بخش migration) | **انجام شد** (این سند، بخش ۱) |
 | ۲ | Backup/Restore و file handling | ۱۱، ۱۲، ۲۵ | **انجام شد** (بخش ۲) |
-| ۳ | Inventory کامل صفحات (`views/pages` + `main_window`)، کنتراست، Signal/Slot | ۲، ۳، ۱۰، ۱۸، ۱۹، ۳۶ | — |
+| ۳ | Inventory کامل صفحات (`views/pages` + `main_window`)، کنتراست، Signal/Slot | ۲، ۳، ۱۰، ۱۸، ۱۹، ۳۶ | **۳-الف انجام شد** (بخش ۳)؛ ۳-ب: دیالوگ‌ها/ویجت‌ها |
 | ۴ | دیالوگ‌ها/ویجت‌ها، Screening، Recommendation، Attachment، Thread/Race | ۷، ۸، ۹، ۲۰، ۲۱، ۳۲ | — |
 | ۵ | Exception/Return/Transaction/DAL/Constraints/Import-Export/Consistency | ۱۶، ۱۷، ۲۲، ۲۳، ۲۴، ۲۶، ۳۰، ۳۱ | — |
 | ۶ | Dead code، وابستگی‌ها، لایهٔ سرویس، ارزیابی تست‌ها، گزارش نهایی | ۱۳، ۱۴، ۲۷، ۲۸، ۲۹، ۳۳، ۳۴، ۳۷، ۳۸ | — |
@@ -550,3 +550,218 @@ STATUS: FIXED
 path + داخل پوشه + پسوند)، ۲۵ برای پشتیبان/بازیابی/پیوست‌ها (Export/Report/
 Import در مرحله‌های ۵). به‌علاوه از بندهای دیگر: ۱۸/۳۶ (دکمهٔ توقف تزئینی)،
 ۱۹ (بازتعریف `finished`)، ۳۲ (race در صفحهٔ پشتیبان)، ۱۷ (نتایج صریح).
+
+---
+
+# بخش ۳ — مرحلهٔ ۳-الف: Inventory صفحات (`views/pages` + `main_window`)
+
+پایه: کامیت `a5a1cc8`. ابزار جدید: `tools/ui_inventory.py` (تحلیل ایستای AST
+هر دکمه → connect → handler → طبقه‌بندی؛ سیگنال‌های سفارشی → emit → گیرنده؛
+connect داخل متدهای بارگذاری). خروجی کامل در `docs/ui_inventory_16.md`.
+
+## روش (بند ۲ و ۳ — نه فقط «clicked.connect دارد»)
+
+1. **ایستا:** ۱۷۷ `QPushButton(`، ۱۸۰ `clicked.connect`، ۳۹ `Signal(`، ۱۹۹ handler
+   متصل در کل `views/`. هر handler به‌صورت بازگشتی تا رسیدن به سرویس/DAL/فایل/
+   دیالوگ/سیگنال دنبال می‌شود؛ طبقه‌ها: BACKEND / DIALOG / SIGNAL / NAV /
+   UI_ONLY / MSG_ONLY / STUB / NO_CONNECT / MISSING.
+2. **پویا (offscreen):** هر ۲۲ کلاس صفحه + `MainWindow` (با ورود شبیه‌سازی‌شده)
+   روی دیتابیس موقتِ seed‌شده ساخته می‌شوند؛ ردیف اول همهٔ جدول‌ها انتخاب
+   می‌شود؛ **۱۶۷ handler** (بدون آرگومان، با ردیف انتخاب‌شده، یا با شیء ردیف/
+   آیتم) واقعاً اجرا می‌شوند؛ دیالوگ‌ها با Rejected، سؤال‌ها با No، انتخاب فایل
+   خالی. معیار شکست: استثنا یا `QMessageBox.critical`. نتیجه پس از اصلاحات:
+   **۰ استثنا، ۰ پیام خطا** (verify16 C1/C2).
+3. **بازبینی دستی** همهٔ موارد MSG_ONLY/UI_ONLY/NAV.
+
+## وضعیت صفحه‌ها (بند ۳۶)
+
+| صفحه | دکمه‌های نام‌دار | طبقه‌بندی ایستا | بازبینی دستی / وضعیت |
+|---|---|---|---|
+| `main_window.py` | ۳ (+۱۳ دکمهٔ منو در حلقه) | NAV، UI_ONLY، MSG_ONLY (`logout`) | `logout`: سؤال → ثبت Audit → بستن و اجرای دوبارهٔ فرایند ✔ (سنگین ولی واقعی)؛ **کامبوی سال تحصیلی در هدر: BROKEN/تزئینی** (BUG-023، تصمیم لازم) |
+| `academic_structure_page.py` | ۹ | BACKEND=9 | ✏️ ویرایش کلاس قبلاً MSG_ONLY → **FIXED** (BUG-019) |
+| `activities_page.py` | ۴ | BACKEND=2، DIALOG=1، MSG_ONLY=1 | 👁️ جزئیات = نمایش دادهٔ رکورد (VERIFIED read-only) |
+| `analysis_page.py` | ۳ | BACKEND=2، NAV=1 | VERIFIED |
+| `analytics_dashboard.py` | ۱ (+ دابل‌کلیک) | BACKEND | دابل‌کلیک قبلاً «در نسخهٔ بعدی» → **FIXED** (BUG-020) |
+| `assign_teacher_page.py` | ۵ | BACKEND=5 | VERIFIED؛ سیگنال `assignment_changed` هرگز emit/دریافت نمی‌شود (کد مرده، بند ۲۷) |
+| `backup_page.py` | ۵ | BACKEND=5 | مرحلهٔ ۲ |
+| `class_report_page.py` | ۳ | BACKEND=3 | VERIFIED (تولید فایل: مرحلهٔ ۵) |
+| `counseling_page.py` | ۵ | BACKEND/DIALOG/SIGNAL | VERIFIED |
+| `dashboard_page.py` | ۱ | BACKEND | VERIFIED |
+| `followups_page.py` | ۵ | BACKEND=4، MSG_ONLY=1 (👁️) | VERIFIED |
+| `goals_page.py` | ۵ | BACKEND/DIALOG/SIGNAL | VERIFIED |
+| `indicators_page.py` | ۳ | BACKEND=2، NAV=1 | VERIFIED |
+| `interventions_page.py` | ۵ | BACKEND=4، MSG_ONLY=1 (👁️) | VERIFIED |
+| `observations_page.py` | ۸ | BACKEND=6، MSG_ONLY=1 (👁️)، UI_ONLY=1 (پاک‌کردن جست‌وجو) | VERIFIED |
+| `promotion_page.py` | ۵ | BACKEND=5 | VERIFIED (اجرای واقعی ارتقا: مرحلهٔ ۵ — تراکنش) |
+| `reports_page.py` | ۶ | BACKEND/DIALOG/NAV | VERIFIED؛ `select_student` افزوده شد (BUG-021) |
+| `settings_page.py` | ۲۰ | BACKEND=20 | «💾 ذخیره اطلاعات مدرسه» قبلاً **تزئینی با موفقیت دروغین** → **FIXED** (BUG-018)؛ ✏️ کلاس → FIXED؛ توقف پشتیبان خودکار → مرحلهٔ ۲ |
+| `student_profile_page.py` | ۹ | BACKEND=5، MSG_ONLY=3 (👁️ ×۳)، NAV=1 | «📄 گزارش پرونده» قبلاً فقط پیام → **FIXED** (BUG-021)؛ سیگنال `student_changed` هرگز emit نمی‌شود (کد مرده) |
+| `students_page.py` | ۱۰ | BACKEND/DIALOG/SIGNAL | VERIFIED |
+| `teacher_performance_page.py` | ۲ | BACKEND=2 | VERIFIED |
+| `teacher_report_page.py` | ۳ | BACKEND=3 | VERIFIED |
+| `teacher_students_page.py` | ۳ | BACKEND/SIGNAL | VERIFIED |
+
+«VERIFIED» در این جدول یعنی: زنجیرهٔ دکمه → handler → سرویس/DAL از نظر ایستا
+کامل است **و** اجرای واقعی handler روی دیتابیس seed‌شده بدون استثنا/پیام خطا
+بوده است. صحت عمیق داده (Create/Edit/Delete با پیش/پس‌شرط، تراکنش، Export
+فایل واقعی) موضوع مرحله‌های ۵ است. کلیک واقعی موس و دیالوگ‌های modal:
+`NOT_TESTED - GUI EXECUTION REQUIRED`.
+
+## [BUG-018]
+### بخش
+```text
+views/pages/settings_page.py — create_school_tab / load_school_info / save_school_info
+```
+### وضعیت
+`BROKEN` (P1 — دکمهٔ تزئینی با موفقیت دروغین + دادهٔ ساختگی)
+### مشکل
+فرم «اطلاعات مدرسه» همیشه مقادیر ثابت ساختگی را نشان می‌داد، «💾 ذخیره
+اطلاعات» فقط پیام «با موفقیت ذخیره شد» می‌داد و هیچ‌چیز ذخیره نمی‌شد؛ برچسب
+«این اطلاعات در گزارش‌ها نمایش داده می‌شود» هم نادرست بود (هیچ گزارشی آن را
+نمی‌خواند).
+### اصلاح
+ذخیره/بارگذاری با `QSettings` (همان سازوکار موجودِ تم برنامه؛ بدون جدول/
+migration جدید)، `sync()` + بازخوانی و مقایسه پس از نوشتن، خطا → پیام خطا؛
+برچسب صادقانه «روی همین دستگاه ذخیره می‌شود».
+### تست
+verify16 C5: مقادیر → ذخیره → نمونهٔ تازهٔ صفحه همان مقادیر را می‌خواند.
+```text
+STATUS: FIXED (اتصال به گزارش‌ها عمداً اضافه نشد — قابلیت جدید می‌بود)
+```
+
+## [BUG-019]
+### بخش
+```text
+views/pages/settings_page.py, views/pages/academic_structure_page.py — edit_class / add_class
+```
+### وضعیت
+`PARTIALLY_BROKEN` (P2 — backend داشت، UI نداشت؛ حالت ۴)
+### مشکل
+دکمهٔ ✏️ در جدول کلاس‌ها فقط «این قابلیت در نسخهٔ بعدی کامل می‌شود» می‌گفت،
+در حالی که `ClassDAL.update` و `get_by_id` موجود بودند.
+### اصلاح
+همان فرم افزودن در «حالت ویرایش» استفاده می‌شود: پرشدن فیلدها، تبدیل دکمه به
+«💾 ذخیرهٔ تغییرات»، دکمهٔ «انصراف»، `update` + بازخوانی از DB برای تأیید،
+بازگشت فرم به حالت افزودن. (در ساختار آموزشی، سال تحصیلی کلاس در ویرایش تغییر
+نمی‌کند.)
+### تست
+verify16 C6 (هر دو صفحه: پرشدن فرم → ذخیره → ردیف `classes` با نام/ظرفیت
+جدید → فرم reset).
+```text
+STATUS: FIXED
+```
+
+## [BUG-020]
+### بخش
+```text
+views/pages/analytics_dashboard.py — on_student_double_clicked ؛ views/main_window.py
+```
+### وضعیت
+`BROKEN` (P2 — حالت ۳)
+### مشکل
+دابل‌کلیک روی دانش‌آموزِ «بدون مشاهده» فقط پیام «در نسخهٔ بعدی» می‌داد؛ شناسهٔ
+دانش‌آموز در همان دادهٔ سرویس بود.
+### اصلاح
+شناسه در `UserRole` ردیف؛ سیگنال `student_selected(int)` (الگوی بقیهٔ
+صفحه‌ها)؛ `MainWindow` آن را به `open_student_profile` وصل می‌کند.
+### تست
+verify16 C4 (emit با شناسهٔ درست → پروندهٔ همان دانش‌آموز باز می‌شود).
+```text
+STATUS: FIXED
+```
+
+## [BUG-021]
+### بخش
+```text
+views/pages/student_profile_page.py — generate_report ؛ views/pages/reports_page.py — select_student ؛ views/main_window.py — open_student_report
+```
+### وضعیت
+`BROKEN` (P3 — حالت ۳)
+### مشکل
+«📄 گزارش پرونده» فقط پیام «به بخش گزارش‌ها بروید» می‌داد.
+### اصلاح
+سیگنال `report_requested(student_id)`؛ پنجرهٔ اصلی صفحهٔ گزارش‌ها را باز و
+با `ReportsPage.select_student` همان دانش‌آموز را انتخاب می‌کند (گزارش با
+همان مسیر موجود بارگذاری می‌شود).
+### تست
+verify16 C3 (صفحهٔ جاری = گزارش‌ها، کامبو = همان دانش‌آموز، `current_report` پر).
+```text
+STATUS: FIXED
+```
+
+## [BUG-022]
+### بخش
+```text
+۴۰ فایل در views/ (صفحه‌ها، دیالوگ‌ها، ویجت‌ها) — بلوک‌های setStyleSheet
+```
+### وضعیت
+`PARTIALLY_BROKEN` (P2 — خوانایی؛ در چند مورد متن عملاً نامرئی)
+### مشکل
+اسکن نسبت کنتراست WCAG روی همهٔ جفت‌های `color`/`background-color` در یک بلوک:
+**۱۰۴ مورد زیر ۳:۱** — از جمله متن هم‌رنگ زمینه (نامرئی): دکمهٔ Generate
+پیشنهادها (`#0B2E4F` روی `#0B2E4F`)، دکمه‌های «🔄 به‌روزرسانی» داشبورد اصلی و
+تحلیلی، برچسب‌های «داده ناکافی» در ۶ صفحه (`#C62828` روی `#C62828`)، و طلایی
+`#F4C542` روی سبز/زرد/نارنجی (نسبت ۱٫۱ تا ۱٫۵) در ۸۲ دکمه/برچسب.
+### اصلاح
+قاعده‌مند و بدون بازطراحی: فقط مقدار `color` همان بلوک عوض شد — روی زمینهٔ
+سرمه‌ای همان طلایی استاندارد برنامه، روی زمینه‌های روشن `#111111` (که در
+همین پروژه استفاده می‌شود)، روی زمینهٔ تیرهٔ اشباع `#FFFFFF`. زمینه‌ها و بقیهٔ
+استایل دست‌نخورده.
+### تست
+verify16 C8: اسکن دوباره → ۰ مورد زیر ۳:۱؛ دکمهٔ Generate پیشنهادها دیگر
+هم‌رنگ زمینه نیست.
+```text
+STATUS: FIXED
+```
+
+## [BUG-023] — نیازمند تصمیم
+### بخش
+```text
+views/main_window.py — year_combo / on_year_changed / academic_year_changed
+```
+### وضعیت
+`BROKEN` (P2 — کنترل تزئینی؛ حالت ۵: UI و backend هست، اتصال نیست)
+### مشکل
+کامبوی «سال تحصیلی» در هدر فقط برچسب را عوض می‌کند و سیگنال
+`academic_year_changed` را emit می‌کند که **هیچ گیرنده‌ای ندارد**؛ همهٔ صفحه‌ها
+سال فعال دیتابیس (`AcademicYearDAL.get_active`) را می‌خوانند. کاربر سال را
+عوض می‌کند و هیچ داده‌ای عوض نمی‌شود.
+### گزینه‌ها
+(الف) انتخاب در هدر = فعال‌سازی همان سال در دیتابیس (با تأیید؛ سال‌های
+بایگانی‌شده مستثنا) + بارگذاری دوبارهٔ صفحه‌ها — تغییر رفتار داده‌ای، نیاز به
+تأیید شما؛ (ب) کامبو فقط نمایشی شود (فعال‌سازی در صفحهٔ ساختار آموزشی می‌ماند)؛
+(ج) فعلاً فقط گزارش.
+```text
+STATUS: NOT_FIXED (منتظر تصمیم)
+```
+
+## یافته‌های جانبی این مرحله (بدون تغییر کد)
+- سیگنال‌های هرگز-emit-نشده: `StudentProfilePage.student_changed`،
+  `AcademicStructurePage.assignment_changed`، `AssignTeacherPage.assignment_changed`
+  → کد مرده (فهرست بند ۲۷، مرحلهٔ ۶).
+- `BackupWorker.progress` تعریف و متصل است ولی هرگز emit نمی‌شود → نوار
+  پیشرفت همیشه ۰ (P4، آرایشی).
+- `auto_logout` پس از ۳۰ دقیقه بی‌کاری همان `logout` را صدا می‌زند که با
+  دیالوگ تأیید شروع می‌شود (خروج خودکار عملاً منتظر کلیک می‌ماند) — P4،
+  تغییر رفتار امنیتی بدون تأیید انجام نشد.
+- سیگنال‌های بدون گیرنده در دیالوگ‌ها/ویجت‌ها (`attachment_added/deleted`،
+  `password_changed`، `assignment_saved`، `filter_applied`، `help_requested`،
+  `recommendation_*`) → مرحلهٔ ۳-ب.
+
+## نتیجهٔ اجرای آزمون‌ها پس از مرحلهٔ ۳-الف
+
+| مجموعه | نتیجه |
+|---|---|
+| `pytest -q tests` | 26 passed |
+| verify_fixes 1 … 15 | همه سبز |
+| **verify_fixes16 (۱ تا ۳-الف)** | **36 / 36** |
+| `ruff check .` | All checks passed |
+
+آزمون تغییریافته: هیچ. (`verify_fixes14` §I یک‌بار به‌خاطر import ابزار
+جدید قرمز شد؛ با ساخت بستهٔ `tools/` و import بسته‌ای رفع شد، نه با تغییر آزمون.)
+
+## بندهای مأموریت در این مرحله
+۲ و ۳ (Inventory و اجرای واقعی زنجیره‌ها برای صفحه‌ها و پنجرهٔ اصلی)، ۱۰
+(کنتراست کل `views/`)، ۱۸ (دکمه‌های تزئینی صفحه‌ها: ۴ مورد رفع، ۱ مورد منتظر
+تصمیم)، ۱۹ (ممیزی سیگنال‌ها: صفحه‌ها)، ۳۶ (جدول وضعیت). دیالوگ‌ها/ویجت‌ها در
+۳-ب.

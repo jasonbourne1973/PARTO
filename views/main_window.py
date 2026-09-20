@@ -256,7 +256,7 @@ class MainWindow(QMainWindow):
 
         # ===== انتخاب سال تحصیلی =====
         self.year_label = QLabel("📅 سال: بارگذاری...")
-        self.year_label.setStyleSheet("color: #F4C542; font-size: 11px; font-weight: bold; padding: 5px 8px; background-color: #66BB6A; border-radius: 4px; margin: 3px 8px;")
+        self.year_label.setStyleSheet("color: #111111; font-size: 11px; font-weight: bold; padding: 5px 8px; background-color: #66BB6A; border-radius: 4px; margin: 3px 8px;")
         self.year_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         menu_layout.addWidget(self.year_label)
 
@@ -464,6 +464,10 @@ class MainWindow(QMainWindow):
 
         self.students_page = StudentsPage()
         self.students_page.student_double_clicked.connect(self.open_student_profile)
+        # (بازرسی شانزدهم) دکمهٔ «گزارش پرونده» در پروندهٔ دانش‌آموز
+        self.students_page.profile_page.report_requested.connect(self.open_student_report)
+        # (بازرسی شانزدهم) دابل‌کلیک در داشبورد تحلیلی
+        self.dashboard_page.analytics_dashboard_page.student_selected.connect(self.open_student_profile)
         self.students_page.table.itemDoubleClicked.connect(self.on_student_double_clicked)
         self.stacked_widget.addWidget(self.students_page)
 
@@ -752,6 +756,16 @@ class MainWindow(QMainWindow):
             return
         self.students_page.open_profile_tab(student_id)
         self.stacked_widget.setCurrentIndex(2)
+
+    def open_student_report(self, student_id):
+        """رفتن به صفحهٔ گزارش‌ها با دانش‌آموز انتخاب‌شده (بازرسی شانزدهم)"""
+        if not student_id:
+            QMessageBox.warning(self, "توجه", "لطفاً یک دانش‌آموز را انتخاب کنید.")
+            return
+        if not self.reports_page.select_student(student_id):
+            QMessageBox.warning(self, "توجه", "این دانش‌آموز در فهرست گزارش‌ها یافت نشد.")
+            return
+        self.stacked_widget.setCurrentWidget(self.reports_page)
 
     def logout(self):
         reply = QMessageBox.question(

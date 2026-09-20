@@ -76,7 +76,7 @@ class RecommendationWidget(QWidget):
         self.generate_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0B2E4F;
-                color: #0B2E4F;
+                color: #F4C542;
                 border: none;
                 border-radius: 6px;
                 padding: 4px 14px;
@@ -278,7 +278,7 @@ class RecommendationWidget(QWidget):
                 background-color: #08223A;
                 padding: 2px 10px;
                 border-radius: 10px;
-                color: #475569;
+                color: #F4C542;
             }
         """)
         top_row.addWidget(status_label)
@@ -365,7 +365,7 @@ class RecommendationWidget(QWidget):
             implement_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #174F78;
-                    color: #0B2E4F;
+                    color: #F4C542;
                     border: none;
                     border-radius: 4px;
                     padding: 4px 12px;

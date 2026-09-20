@@ -259,7 +259,7 @@ class InterventionForm(QDialog):
         self.save_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 12px 40px;
                 border: none;
                 border-radius: 6px;

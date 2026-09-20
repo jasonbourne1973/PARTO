@@ -242,7 +242,7 @@ class DashboardPage(QWidget):
         self.refresh_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0B2E4F;
-                color: #0B2E4F;
+                color: #F4C542;
                 border: none;
                 border-radius: 8px;
                 padding: 6px 16px;
@@ -556,7 +556,7 @@ class DashboardPage(QWidget):
             }
             QTableWidget::item:selected {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
             }
             QHeaderView::section {
                 background-color: #66BB6A;

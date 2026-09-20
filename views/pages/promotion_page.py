@@ -144,7 +144,7 @@ class PromotionPage(QWidget):
         self.search_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
@@ -205,7 +205,7 @@ class PromotionPage(QWidget):
         self.promote_all_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 10px 20px;
                 border: none;
                 border-radius: 5px;
@@ -220,7 +220,7 @@ class PromotionPage(QWidget):
         self.promote_selected_btn.setStyleSheet("""
             QPushButton {
                 background-color: #F4D35E;
-                color: #F4C542;
+                color: #111111;
                 padding: 10px 20px;
                 border: none;
                 border-radius: 5px;
