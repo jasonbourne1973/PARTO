@@ -1219,9 +1219,22 @@ class StudentProfilePage(QWidget):
         self.trend_status_label.setText(f"{overall['icon']} {overall['message']}")
         self.trend_status_label.setStyleSheet(f"color: {overall.get('color', '#F4C542')}; font-weight: bold;")
         # یادآوری محتوایی: تعداد مشاهدات، شاخص رشد نیست (بازرسی یازدهم)
+        # + مسیر تغییر بین بازه‌ها (بازرسی سیزدهم): جهت روند فقط از
+        #   ابتدا/انتها گرفته نمی‌شود؛ گام‌های میانی هم نشان داده می‌شوند.
+        note_lines = []
+        path_text = overall.get('path_text') or ''
+        if path_text:
+            note_lines.append(f"مسیر تغییر بین بازه‌ها: {path_text}")
+        direction = overall.get('direction') or {}
+        if direction.get('message'):
+            note_lines.append(direction['message'])
+        for caution in direction.get('caution_notes') or []:
+            note_lines.append(caution)
         note = trend.get('volume_note')
-        if note and hasattr(self, 'trend_note_label'):
-            self.trend_note_label.setText(note)
+        if note:
+            note_lines.append(note)
+        if note_lines and hasattr(self, 'trend_note_label'):
+            self.trend_note_label.setText("\n".join(note_lines))
         
         # نمایش زمینه‌های پرتکرار (بر پایهٔ نوع رفتار ثبت‌شده)
         if trend['top_competencies']:

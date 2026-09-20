@@ -629,6 +629,7 @@ class ReportGenerator:
 ۴) اقدامات و نتایج: {len(interventions)} مداخله و {len(followups)} پیگیری ثبت شده است.
    نتیجهٔ پیگیری‌ها → {outcome_text}
 ۵) روند تغییر رفتار در سال: {direction['label']} — {direction['message']}
+   مسیر تغییر بین بازه‌ها: {direction.get('path_text') or 'دادهٔ کافی برای ترسیم مسیر وجود ندارد'}
 
 یادداشت‌های محتوایی:
 • {observations_volume_note(counts)}
@@ -814,25 +815,37 @@ class ReportGenerator:
 
     def generate_growth_narrative(self, student_id):
         """
-        روایت رشد چندسالهٔ دانش‌آموز (بازرسی یازدهم + تکمیل در دوازدهم)
+        روایت رشد چندسالهٔ دانش‌آموز (بازرسی یازدهم → تکمیل در دوازدهم و سیزدهم)
 
         برای گزارش پایان دورهٔ ابتدایی: مسیر رشد دانش‌آموز در سال‌های
         مختلف با هم نشان داده می‌شود — توانمندی‌ها، زمینه‌های نیازمند
         توجه، اقدامات، نتایج و جهت تغییر. مقایسه فقط با خودِ دانش‌آموز
         در طول زمان است.
 
-        ===== تکمیل (بازرسی دوازدهم) =====
-        نسخهٔ قبلی بیشتر «فهرست جداگانهٔ سال‌ها» بود. حالا علاوه بر
-        اطلاعات هر سال، یک **جمع‌بندی منسجم مسیر رشد** هم ساخته می‌شود:
-        کدام الگوها در طول سال‌ها ادامه داشته‌اند، کدام زمینه‌ها تغییر
-        کرده‌اند، کدام مداخلات نتیجهٔ پیگیری بهتری داشته‌اند و مسیر کلی
-        رشد چگونه بوده است. هیچ مقایسه‌ای با دانش‌آموزان دیگر انجام
-        نمی‌شود و هیچ تشخیص/برچسبی تولید نمی‌شود.
+        ===== تکمیل (بازرسی سیزدهم) =====
+        خروجی دیگر «فهرست جداگانهٔ سال‌ها» نیست؛ علاوه بر اطلاعات هر سال،
+        یک **روایت منسجم مسیر رشد** ساخته می‌شود که در همهٔ خروجی‌ها
+        (گزارش معمول برنامه، PDF و Excel) با یک قالب مشترک رندر می‌شود:
+
+          ۱) مسیر کلی تغییر رفتار سال‌به‌سال (با لحاظ سال‌های میانی)
+          ۲) الگوهایی که در طول سال‌ها ادامه داشته‌اند (و آیا هنوز
+             در آخرین سال هم دیده می‌شوند)
+          ۳) زمینه‌هایی که تغییر کرده‌اند — با جهت تغییر (بهبود / افت /
+             تازه پدیدآمده / دیگر به‌صورت الگو ثبت نشده)
+          ۴) کدام نوع مداخله‌ها در پیگیری نتیجهٔ بهتری داشته‌اند (و در
+             کدام زمینه‌ها)، کدام‌ها بدون بهبود ثبت‌شده و کدام‌ها بدون
+             پیگیری بوده‌اند
+          ۵) جمع‌بندی مسیر رشد و اولویت‌های ادامهٔ مسیر
+
+        هیچ مقایسه‌ای با دانش‌آموزان دیگر انجام نمی‌شود و هیچ
+        تشخیص/برچسبی تولید نمی‌شود.
         """
+        empty = {'has_data': False, 'years': [], 'narrative': '',
+                 'synthesis': {}, 'direction': None,
+                 'message': 'برای این دانش‌آموز پرونده‌ای ثبت نشده است.'}
         profiles = self.profile_dal.get_all_profiles_for_student(student_id)
         if not profiles:
-            return {'has_data': False,
-                    'message': 'برای این دانش‌آموز پرونده‌ای ثبت نشده است.'}
+            return empty
 
         years = []
         timeline_periods = []
@@ -852,11 +865,33 @@ class ReportGenerator:
             effectiveness = self.build_intervention_effectiveness(interventions, followups)
             year_title = getattr(profile, 'academic_year_title', 'نامشخص')
 
+            # پیوند مداخله ← مشاهدهٔ مبنا ← زمینه (شایستگی)
+            observation_area = {
+                getattr(o, 'id', None): _titles.get(getattr(o, 'competency_id', None))
+                for o in observations
+            }
+            intervention_items = []
+            for item in effectiveness['items']:
+                last_result = (item['followups'][-1]['result_type']
+                               if item['followups'] else None)
+                intervention_items.append({
+                    'intervention_id': item['intervention_id'],
+                    'type': item['type'],
+                    'date': item['date'],
+                    'competency': observation_area.get(item.get('observation_id')),
+                    'result_type': last_result,
+                    'result_label': item['outcome'],
+                    'followups_count': len(item['followups']),
+                })
+
+            year_shares = shares(counts)
             years.append({
                 'year': year_title,
                 'grade': profile.grade_display,
                 'counts': counts,
-                'shares': shares(counts),
+                'shares': year_shares,
+                'positive_share': year_shares['positive'],
+                'negative_share': year_shares['negative'],
                 'strengths': [{'competency': e['competency'],
                                'positive': e['positive'], 'count': e['count']}
                               for e in patterns['strengths'][:3]],
@@ -864,14 +899,20 @@ class ReportGenerator:
                                      'negative': e['negative'], 'count': e['count']}
                                     for e in patterns['needs_attention'][:3]],
                 'interventions_count': len(interventions),
+                'followups_count': len(followups),
                 'outcomes': effectiveness['outcome_counts'],
+                'intervention_items': intervention_items,
                 'volume_note': observations_volume_note(counts),
                 'has_data': counts['total'] > 0,
             })
             yearly_patterns.append({
                 'year': year_title,
+                'grade': profile.grade_display,
+                'has_data': counts['total'] > 0,
                 'strengths': [e['competency'] for e in patterns['strengths']],
                 'needs': [e['competency'] for e in patterns['needs_attention']],
+                'mixed': [e['competency'] for e in patterns['mixed']],
+                'observed': [e['competency'] for e in patterns['all']],
             })
             timeline_periods.append({
                 'label': year_title,
@@ -880,73 +921,274 @@ class ReportGenerator:
             })
 
         direction = growth_direction(timeline_periods)
-        synthesis = self._build_growth_synthesis(
-            years, yearly_patterns, direction)
+        synthesis = self._build_growth_synthesis(years, yearly_patterns, direction)
         years_with_data = [y for y in years if y['has_data']]
+        total_obs = sum(y['counts']['total'] for y in years)
+        total_inter = sum(y['interventions_count'] for y in years)
         narrative = (
-            f"مسیر رشد دانش‌آموز در {len(years)} سال تحصیلی ثبت‌شده بررسی شد"
-            f"؛ در {len(years_with_data)} سال، مشاهدهٔ رفتاری ثبت شده است. "
-            f"جهت کلی تغییر رفتار: {direction['label']}. {direction['message']} "
-            f"{direction['volume_note']} این روایت بر پایهٔ رفتارهای ثبت‌شده "
-            "است و شامل تشخیص روان‌شناختی یا مقایسه با دانش‌آموزان دیگر نیست."
-            f" {synthesis['text']}"
+            f"مسیر رشد دانش‌آموز در {len(years)} سال تحصیلی ثبت‌شده بررسی شد؛ در "
+            f"{len(years_with_data)} سال، مشاهدهٔ رفتاری ثبت شده است (در مجموع "
+            f"{total_obs} مشاهده و {total_inter} مداخله). "
+            f"جهت کلی تغییر رفتار در طول سال‌ها: {direction['label']}. "
+            "این روایت بر پایهٔ رفتارهای ثبت‌شده است، فقط دانش‌آموز را با خودش در "
+            "طول زمان مقایسه می‌کند و شامل تشخیص روان‌شناختی یا مقایسه با "
+            "دانش‌آموزان دیگر نیست. جزئیات در پنج بخش زیر آمده است: مسیر "
+            "سال‌به‌سال، الگوهای ادامه‌دار، زمینه‌های تغییریافته، نتیجهٔ مداخلات و "
+            "جمع‌بندی."
         )
         return {'has_data': bool(years_with_data), 'years': years,
                 'direction': direction, 'narrative': narrative,
                 'synthesis': synthesis}
 
-    def _build_growth_synthesis(self, years, yearly_patterns, direction):
+    # ----- کمکی‌های روایت چندساله ---------------------------------------
+
+    @staticmethod
+    def _years_text(years, limit=3):
+        years = [str(y) for y in (years or []) if y is not None]
+        if not years:
+            return ''
+        text = ' و '.join(years[:limit])
+        if len(years) > limit:
+            text += ' و …'
+        return text
+
+    @staticmethod
+    def _share_text(value):
+        if value is None:
+            return '-'
+        value = float(value)
+        return str(int(value)) if value.is_integer() else str(value)
+
+    def _classify_area_changes(self, yearly_patterns):
         """
-        جمع‌بندی منسجم مسیر رشد چندساله (بازرسی دوازدهم)
+        تغییر الگوی هر زمینه در طول سال‌ها — فقط مقایسهٔ دانش‌آموز با خودش.
 
-        فقط از مقایسهٔ دانش‌آموز با خودش در طول زمان ساخته می‌شود:
-          • الگوهای ماندگار: زمینه‌هایی که در چند سال پیاپی توانمندی
-            یا نیازمند توجه بوده‌اند؛
-          • زمینه‌های تغییریافته: الگویی که از سالی به سال دیگر عوض شده؛
-          • مداخلات مؤثرتر: سال‌هایی که پیگیری‌ها «بهبود مشاهده‌شده»
-            بیشتری ثبت کرده‌اند.
-
-        Returns:
-            dict: {'text', 'persistent_strengths', 'persistent_needs',
-                   'changed_areas', 'effective_years', 'totals'}
+        برای هر زمینه، الگوی سال‌های قبلی با الگوی «آخرین سال دارای داده»
+        مقایسه می‌شود:
+          • need_to_strength : قبلاً نیازمند توجه، در آخرین سال توانمندی (بهبود)
+          • strength_to_need : قبلاً توانمندی، در آخرین سال نیازمند توجه (افت)
+          • need_resolved    : قبلاً نیازمند توجه، در آخرین سال دیگر الگوی
+                               تکرارشونده‌ای ثبت نشده (با احتیاط تفسیر شود)
+          • strength_faded   : قبلاً توانمندی، در آخرین سال دیگر الگو نیست
+          • need_emerged     : فقط در آخرین سال به‌عنوان نیاز پدید آمده
+          • strength_emerged : فقط در آخرین سال به‌عنوان توانمندی پدید آمده
         """
-        from collections import Counter
+        data_years = [yp for yp in (yearly_patterns or []) if yp.get('has_data')]
+        if len(data_years) < 2:
+            return []
+        latest = data_years[-1]
+        earlier = data_years[:-1]
 
-        strength_years = {}
-        need_years = {}
-        for entry in yearly_patterns or []:
+        strength_years, need_years = {}, {}
+        for entry in earlier:
             for name in entry.get('strengths', []):
                 strength_years.setdefault(name, []).append(entry['year'])
             for name in entry.get('needs', []):
                 need_years.setdefault(name, []).append(entry['year'])
 
-        persistent_strengths = [
-            {'competency': name, 'years': yrs}
-            for name, yrs in sorted(strength_years.items())
-            if len(yrs) >= 2
-        ]
-        persistent_needs = [
-            {'competency': name, 'years': yrs}
-            for name, yrs in sorted(need_years.items())
-            if len(yrs) >= 2
-        ]
+        latest_strengths = set(latest.get('strengths', []))
+        latest_needs = set(latest.get('needs', []))
+        latest_observed = set(latest.get('observed', []))
+        latest_mixed = set(latest.get('mixed', []))
 
-        # زمینه‌هایی که الگویشان در طول سال‌ها عوض شده است
-        changed_areas = []
+        notes = {
+            'need_to_strength': ('این زمینه در سال(های) قبل «نیازمند توجه» بود و در '
+                                 'آخرین سال، الگوی تکرارشوندهٔ رفتار مثبت دارد؛ یعنی '
+                                 'تغییر به سمت توانمندی ثبت شده است.'),
+            'strength_to_need': ('این زمینه در سال(های) قبل «توانمندی» بود و در آخرین '
+                                 'سال، الگوی تکرارشوندهٔ رفتار منفی دارد؛ بررسی علت این '
+                                 'تغییر پیشنهاد می‌شود (این یک پیشنهاد بررسی است، نه '
+                                 'تشخیص).'),
+            'need_resolved': ('این زمینه در سال(های) قبل «نیازمند توجه» بود اما در '
+                              'آخرین سال، دیگر الگوی تکرارشوندهٔ رفتار منفی ثبت نشده '
+                              'است. این می‌تواند نشانهٔ تغییر باشد، ولی چون نبودِ الگو '
+                              'ممکن است ناشی از ثبت کمتر باشد، تأیید آن به مشاهدهٔ '
+                              'بیشتر نیاز دارد.'),
+            'strength_faded': ('این زمینه در سال(های) قبل «توانمندی» بود اما در آخرین '
+                               'سال، الگوی تکرارشوندهٔ رفتار مثبت برای آن ثبت نشده است؛ '
+                               'ثبت مشاهدهٔ بیشتر روشن می‌کند که تغییر رخ داده یا فقط '
+                               'کمتر ثبت شده است.'),
+            'need_emerged': ('این زمینه در سال‌های قبل الگوی تکرارشونده‌ای نداشت و در '
+                             'آخرین سال به‌عنوان «نیازمند توجه» پدید آمده است؛ پیگیری '
+                             'در ادامهٔ مسیر پیشنهاد می‌شود.'),
+            'strength_emerged': ('این زمینه در سال‌های قبل الگوی تکرارشونده‌ای نداشت و در '
+                                 'آخرین سال به‌عنوان «توانمندی» پدید آمده است.'),
+        }
+        labels = {
+            'need_to_strength': 'بهبود: از نیازمند توجه به توانمندی',
+            'strength_to_need': 'افت: از توانمندی به نیازمند توجه',
+            'need_resolved': 'نیاز پیشین که دیگر به‌صورت الگو ثبت نشده',
+            'strength_faded': 'توانمندی پیشین که دیگر به‌صورت الگو ثبت نشده',
+            'need_emerged': 'نیاز تازه‌پدیدآمده در آخرین سال',
+            'strength_emerged': 'توانمندی تازه‌پدیدآمده در آخرین سال',
+        }
+
+        changes = []
+
+        def _add(name, change, extra=None):
+            entry = {
+                'competency': name,
+                'change': change,
+                'change_label': labels[change],
+                'strength_years': list(strength_years.get(name, [])),
+                'need_years': list(need_years.get(name, [])),
+                'latest_year': latest['year'],
+                'note': notes[change],
+            }
+            if extra:
+                entry.update(extra)
+            changes.append(entry)
+
         for name in sorted(set(strength_years) | set(need_years)):
-            in_strength = strength_years.get(name, [])
-            in_need = need_years.get(name, [])
-            if in_strength and in_need:
-                changed_areas.append({
-                    'competency': name,
-                    'strength_years': in_strength,
-                    'need_years': in_need,
-                    'note': ('این زمینه در بعضی سال‌ها توانمندی و در بعضی '
-                             'سال‌ها نیازمند توجه بوده است؛ یعنی الگوی آن '
-                             'در طول زمان تغییر کرده است.'),
-                })
+            was_strength = name in strength_years
+            was_need = name in need_years
+            if name in latest_strengths:
+                if was_need:
+                    _add(name, 'need_to_strength')
+                # توانمندی که توانمندی مانده → ماندگار (در بخش دیگر گزارش می‌شود)
+            elif name in latest_needs:
+                if was_strength:
+                    _add(name, 'strength_to_need')
+                # نیازی که نیاز مانده → ماندگار
+            else:
+                observed_note = (
+                    'در آخرین سال مشاهده‌ای برای این زمینه ثبت نشده است.'
+                    if name not in latest_observed else
+                    ('در آخرین سال رفتارهای ثبت‌شدهٔ این زمینه ترکیبی است.'
+                     if name in latest_mixed else
+                     'در آخرین سال تعداد رفتارهای ثبت‌شدهٔ این زمینه برای الگو کافی نیست.')
+                )
+                if was_need:
+                    _add(name, 'need_resolved', {'latest_status': observed_note})
+                elif was_strength:
+                    _add(name, 'strength_faded', {'latest_status': observed_note})
 
-        # سال‌هایی که پیگیری‌ها «بهبود مشاهده‌شده» بیشتری داشته‌اند
+        earlier_pattern_names = set(strength_years) | set(need_years)
+        for name in sorted(latest_needs - earlier_pattern_names):
+            _add(name, 'need_emerged')
+        for name in sorted(latest_strengths - earlier_pattern_names):
+            _add(name, 'strength_emerged')
+
+        return changes
+
+    def _summarize_interventions_by_type(self, years):
+        """
+        اثربخشی مداخلات در طول سال‌ها — به تفکیک «نوع مداخله» و زمینه.
+
+        منبع: زنجیرهٔ ثبت‌شدهٔ مداخله ← پیگیری ← نتیجه در همهٔ سال‌ها.
+        «مؤثرتر» یعنی در پیگیری‌های ثبت‌شده، «بهبود مشاهده‌شده» بیشتری
+        داشته است؛ نه قضاوت دربارهٔ خود روش. مداخلهٔ بدون پیگیری، قابل
+        ارزیابی نیست و جداگانه گزارش می‌شود.
+        """
+        from collections import Counter
+
+        by_type = {}
+        area_map = {}
+        for year in years or []:
+            for item in year.get('intervention_items') or []:
+                bucket = by_type.setdefault(item['type'], {
+                    'type': item['type'], 'total': 0, 'with_followup': 0,
+                    'improved': 0, 'no_change': 0, 'continued': 0,
+                    'new_status': 0, 'insufficient': 0, 'needs_more': 0,
+                    'no_followup': 0, 'years': [], 'competencies': Counter(),
+                })
+                bucket['total'] += 1
+                if year['year'] not in bucket['years']:
+                    bucket['years'].append(year['year'])
+                if item.get('competency'):
+                    bucket['competencies'][item['competency']] += 1
+                result = item.get('result_type')
+                if not result:
+                    bucket['no_followup'] += 1
+                else:
+                    bucket['with_followup'] += 1
+                    key = result if result in bucket else 'insufficient'
+                    bucket[key] += 1
+                if item.get('competency'):
+                    area = area_map.setdefault(item['competency'], {})
+                    stats = area.setdefault(item['type'], {'total': 0, 'improved': 0,
+                                                           'with_followup': 0})
+                    stats['total'] += 1
+                    if result:
+                        stats['with_followup'] += 1
+                    if result == 'improved':
+                        stats['improved'] += 1
+
+        summary = []
+        for bucket in by_type.values():
+            share = (round(bucket['improved'] / bucket['with_followup'] * 100)
+                     if bucket['with_followup'] else None)
+            bucket['improved_share'] = share
+            bucket['competencies'] = [name for name, _ in bucket['competencies'].most_common(3)]
+            if bucket['with_followup'] == 0:
+                bucket['verdict'] = 'not_evaluable'
+                bucket['verdict_label'] = 'بدون پیگیری ثبت‌شده — قابل ارزیابی نیست'
+            elif bucket['improved'] > 0 and share >= 50:
+                bucket['verdict'] = 'improved'
+                bucket['verdict_label'] = 'در پیگیری، بهبود ثبت شده است'
+            elif bucket['improved'] > 0:
+                bucket['verdict'] = 'partial'
+                bucket['verdict_label'] = 'نتیجهٔ پیگیری ترکیبی (بهبود فقط در بخشی از موارد)'
+            else:
+                bucket['verdict'] = 'no_improvement'
+                bucket['verdict_label'] = 'در پیگیری‌های ثبت‌شده، بهبودی ثبت نشده است'
+            summary.append(bucket)
+
+        summary.sort(key=lambda b: (b['improved'], b['improved_share'] or 0,
+                                    b['with_followup'], b['total']), reverse=True)
+        return summary, area_map
+
+    def _build_growth_synthesis(self, years, yearly_patterns, direction):
+        """
+        جمع‌بندی منسجم مسیر رشد چندساله (بازرسی دوازدهم → تکمیل در سیزدهم)
+
+        فقط از مقایسهٔ دانش‌آموز با خودش در طول زمان ساخته می‌شود.
+
+        Returns:
+            dict با کلیدهای:
+              text (متن فشرده)، sections (بخش‌های روایت برای رندر یکسان در
+              همهٔ خروجی‌ها)، trajectory، persistent_strengths،
+              persistent_needs، changed_areas، effective_interventions،
+              area_interventions، priorities، caveats، effective_years،
+              totals (برای سازگاری با نسخهٔ قبل).
+        """
+        from collections import Counter
+
+        data_patterns = [yp for yp in (yearly_patterns or []) if yp.get('has_data')]
+        latest = data_patterns[-1] if data_patterns else None
+        latest_year = latest['year'] if latest else None
+
+        # ---------- ۱) الگوهای ماندگار ----------
+        strength_years, need_years = {}, {}
+        for entry in data_patterns:
+            for name in entry.get('strengths', []):
+                strength_years.setdefault(name, []).append(entry['year'])
+            for name in entry.get('needs', []):
+                need_years.setdefault(name, []).append(entry['year'])
+
+        def _persistent(mapping, latest_names):
+            items = [
+                {'competency': name, 'years': yrs, 'count': len(yrs),
+                 'still_present': name in latest_names}
+                for name, yrs in mapping.items() if len(yrs) >= 2
+            ]
+            items.sort(key=lambda x: (x['still_present'], x['count'], x['competency']),
+                       reverse=True)
+            return items
+
+        latest_strength_names = set(latest.get('strengths', [])) if latest else set()
+        latest_need_names = set(latest.get('needs', [])) if latest else set()
+        persistent_strengths = _persistent(strength_years, latest_strength_names)
+        persistent_needs = _persistent(need_years, latest_need_names)
+
+        # ---------- ۲) زمینه‌های تغییریافته (با جهت تغییر) ----------
+        changed_areas = self._classify_area_changes(yearly_patterns)
+
+        # ---------- ۳) مداخلات به تفکیک نوع و زمینه ----------
+        effective_interventions, area_interventions = \
+            self._summarize_interventions_by_type(years)
+
+        # سازگاری با نسخهٔ قبل: سال‌هایی که «بهبود مشاهده‌شده» بیشتری داشتند
         totals = Counter()
         improved_by_year = {}
         for year in years or []:
@@ -962,52 +1204,361 @@ class ReportGenerator:
                                       key=lambda kv: kv[1], reverse=True)
         ]
 
+        # ---------- ۴) مسیر سال‌به‌سال ----------
+        step_by_to = {s['to']: s for s in (direction.get('steps') or [])}
+        patterns_by_year = {yp['year']: yp for yp in data_patterns}
+        per_year = []
+        for year in years or []:
+            if not year.get('has_data'):
+                continue
+            step = step_by_to.get(year['year'])
+            year_patterns = patterns_by_year.get(year['year'], {})
+            per_year.append({
+                'year': year['year'],
+                'grade': year.get('grade'),
+                'positive_share': year.get('positive_share'),
+                'negative_share': year.get('negative_share'),
+                'total': year['counts']['total'],
+                'strengths_count': len(year_patterns.get('strengths', [])),
+                'needs_count': len(year_patterns.get('needs', [])),
+                'step_label': step['label'] if step else None,
+                'step_status': step['status'] if step else None,
+            })
+        trajectory = {
+            'status': direction['status'],
+            'label': direction['label'],
+            'message': direction['message'],
+            'path_text': direction.get('path_text', ''),
+            'turning_points': direction.get('turning_points', []),
+            'per_year': per_year,
+            'overall_status': direction.get('overall_status'),
+            'volume_note': direction.get('volume_note', ''),
+        }
+
+        # ---------- ۵) اولویت‌های ادامهٔ مسیر ----------
+        priorities = []
+        for item in persistent_needs:
+            if item['still_present']:
+                tried = area_interventions.get(item['competency'], {})
+                helpful = [f"{t} ({s['improved']} از {s['with_followup']})"
+                           for t, s in tried.items() if s['improved'] > 0]
+                priorities.append({
+                    'kind': 'persistent_need',
+                    'competency': item['competency'],
+                    'text': (f"«{item['competency']}» در {item['count']} سال (از جمله آخرین "
+                             "سال) نیازمند توجه بوده است"
+                             + (f"؛ مداخلاتی که پیگیری آن‌ها در این زمینه بهبود نشان داده: "
+                                f"{'، '.join(helpful)}" if helpful else
+                                "؛ برای این زمینه هنوز مداخله‌ای با نتیجهٔ «بهبود» در "
+                                "پیگیری ثبت نشده است")
+                             + "."),
+                })
+        for change in changed_areas:
+            if change['change'] == 'need_emerged':
+                priorities.append({
+                    'kind': 'new_need', 'competency': change['competency'],
+                    'text': (f"«{change['competency']}» در آخرین سال به‌عنوان زمینهٔ "
+                             "نیازمند توجه پدید آمده و برای ادامهٔ مسیر باید پایش شود."),
+                })
+            elif change['change'] == 'strength_to_need':
+                priorities.append({
+                    'kind': 'reversed', 'competency': change['competency'],
+                    'text': (f"«{change['competency']}» از توانمندی به نیازمند توجه تغییر "
+                             "کرده است؛ بررسی زمینهٔ این تغییر پیشنهاد می‌شود."),
+                })
+        build_on = [p['competency'] for p in persistent_strengths if p['still_present']]
+        build_on += [c['competency'] for c in changed_areas
+                     if c['change'] in ('need_to_strength', 'strength_emerged')]
+        if build_on:
+            priorities.append({
+                'kind': 'build_on', 'competency': None,
+                'text': ("توانمندی‌هایی که در آخرین سال هم دیده می‌شوند و می‌توان بر "
+                         f"آن‌ها تکیه کرد: {'، '.join(dict.fromkeys(build_on))}."),
+            })
+
+        # ---------- ۶) بخش‌های روایت ----------
+        sections = []
+
+        # ۱) مسیر کلی
+        lines = []
+        if per_year:
+            for entry in per_year:
+                line = (f"سال {entry['year']} (پایهٔ {entry['grade']}): "
+                        f"{self._share_text(entry['positive_share'])}٪ مثبت / "
+                        f"{self._share_text(entry['negative_share'])}٪ منفی از "
+                        f"{entry['total']} مشاهده؛ {entry['strengths_count']} توانمندی و "
+                        f"{entry['needs_count']} زمینهٔ نیازمند توجه")
+                if entry['step_label']:
+                    line += f" — نسبت به سال قبل: {entry['step_label']}"
+                lines.append(line)
+        if direction['status'] == 'insufficient':
+            lines.append("فقط یک سال با مشاهدهٔ ثبت‌شده وجود دارد؛ مقایسهٔ سال‌به‌سال "
+                         "هنوز ممکن نیست و مسیر با ثبت سال‌های بعد کامل می‌شود.")
+        else:
+            lines.append(f"جهت کلی در طول سال‌ها: {direction['label']} — "
+                         f"{direction['message']}")
+            if direction.get('turning_points'):
+                lines.append("نقطهٔ برگشت جهت: سال "
+                             f"{self._years_text(direction['turning_points'])}")
+        lines.append(direction.get('volume_note', ''))
+        sections.append({'key': 'trajectory',
+                         'title': '۱) مسیر کلی تغییر رفتار در طول سال‌ها',
+                         'lines': [x for x in lines if x]})
+
+        # ۲) الگوهای ماندگار
+        lines = []
+        for item in persistent_strengths:
+            lines.append(
+                f"توانمندی ماندگار: {item['competency']} — در سال‌های "
+                f"{self._years_text(item['years'])}"
+                + (" (در آخرین سال هم دیده می‌شود)" if item['still_present']
+                   else " (در آخرین سال به‌صورت الگو ثبت نشده)"))
+        for item in persistent_needs:
+            lines.append(
+                f"نیازمند توجه ماندگار: {item['competency']} — در سال‌های "
+                f"{self._years_text(item['years'])}"
+                + (" (هنوز در آخرین سال هم ادامه دارد)" if item['still_present']
+                   else " (در آخرین سال به‌صورت الگو ثبت نشده)"))
+        if not lines:
+            lines.append("الگوی تکرارشوندهٔ مشترکی بین سال‌ها دیده نشد؛ هر سال الگوی "
+                         "خودش را دارد و نتیجه‌گیری دربارهٔ تداوم، نیازمند مشاهدهٔ "
+                         "بیشتر است.")
+        sections.append({'key': 'persistent',
+                         'title': '۲) الگوهایی که در طول سال‌ها ادامه داشته‌اند',
+                         'lines': lines})
+
+        # ۳) زمینه‌های تغییریافته
+        lines = []
+        order = ['need_to_strength', 'strength_emerged', 'need_resolved',
+                 'strength_to_need', 'need_emerged', 'strength_faded']
+        for change_kind in order:
+            for change in changed_areas:
+                if change['change'] != change_kind:
+                    continue
+                detail = ''
+                if change['change'] in ('need_to_strength', 'need_resolved'):
+                    detail = f" (نیازمند توجه در سال {self._years_text(change['need_years'])})"
+                elif change['change'] in ('strength_to_need', 'strength_faded'):
+                    detail = f" (توانمندی در سال {self._years_text(change['strength_years'])})"
+                line = f"{change['change_label']}: {change['competency']}{detail}"
+                if change.get('latest_status'):
+                    line += f" — {change['latest_status']}"
+                lines.append(line)
+        if not lines:
+            if len(data_patterns) < 2:
+                lines.append("برای شناسایی تغییر الگو، دست‌کم دو سال با مشاهدهٔ ثبت‌شده "
+                             "لازم است.")
+            else:
+                lines.append("زمینه‌ای که الگوی آن بین سال‌ها عوض شده باشد، ثبت نشده است.")
+        sections.append({'key': 'changes',
+                         'title': '۳) زمینه‌هایی که در طول سال‌ها تغییر کرده‌اند',
+                         'lines': lines})
+
+        # ۴) مداخلات
+        lines = []
+        improved_types = [b for b in effective_interventions if b['verdict'] == 'improved']
+        partial_types = [b for b in effective_interventions if b['verdict'] == 'partial']
+        flat_types = [b for b in effective_interventions if b['verdict'] == 'no_improvement']
+        unknown_types = [b for b in effective_interventions if b['verdict'] == 'not_evaluable']
+        for bucket in improved_types:
+            areas = f" در زمینهٔ {'، '.join(bucket['competencies'])}" if bucket['competencies'] else ''
+            lines.append(
+                f"مؤثرتر بر اساس پیگیری: {bucket['type']}{areas} — "
+                f"{bucket['improved']} «بهبود مشاهده‌شده» از {bucket['with_followup']} "
+                f"مداخلهٔ پیگیری‌شده (از مجموع {bucket['total']} مورد در سال‌های "
+                f"{self._years_text(bucket['years'])})")
+        for bucket in partial_types:
+            areas = f" در زمینهٔ {'، '.join(bucket['competencies'])}" if bucket['competencies'] else ''
+            lines.append(
+                f"نتیجهٔ ترکیبی: {bucket['type']}{areas} — فقط {bucket['improved']} «بهبود "
+                f"مشاهده‌شده» از {bucket['with_followup']} مداخلهٔ پیگیری‌شده (بدون تغییر: "
+                f"{bucket['no_change']}، تداوم وضعیت: {bucket['continued']}، نیازمند پیگیری "
+                f"بیشتر: {bucket['needs_more']})")
+        for bucket in flat_types:
+            lines.append(
+                f"بدون بهبود ثبت‌شده: {bucket['type']} — {bucket['with_followup']} مداخلهٔ "
+                "پیگیری‌شده، بدون «بهبود مشاهده‌شده» (بدون تغییر: "
+                f"{bucket['no_change']}، تداوم وضعیت: {bucket['continued']}، نیازمند "
+                f"پیگیری بیشتر: {bucket['needs_more']})")
+        if unknown_types:
+            lines.append(
+                "قابل ارزیابی نیست (پیگیری ثبت نشده): "
+                + "، ".join(f"{b['type']} ({b['total']} مورد)" for b in unknown_types))
+        if effective_interventions:
+            lines.append(
+                f"در مجموع {totals['improved']} «بهبود مشاهده‌شده» در پیگیری‌ها ثبت شده است"
+                + (f"؛ بیشترین آن در سال {effective_years[0]['year']}." if effective_years else ".")
+                + " «مؤثرتر» یعنی نتیجهٔ پیگیریِ ثبت‌شده بهتر بوده است، نه قضاوت دربارهٔ "
+                  "خود روش؛ مداخلات بدون پیگیری قابل ارزیابی نیستند.")
+        else:
+            lines.append("در هیچ‌یک از سال‌ها مداخله‌ای ثبت نشده است؛ ارزیابی اثربخشی "
+                         "ممکن نیست.")
+        sections.append({'key': 'interventions',
+                         'title': '۴) مداخلات و نتیجهٔ پیگیری آن‌ها در طول سال‌ها',
+                         'lines': lines})
+
+        # ۵) جمع‌بندی و اولویت‌ها
+        lines = [self._overall_course_text(direction, per_year, persistent_strengths,
+                                           persistent_needs, changed_areas)]
+        for item in priorities:
+            lines.append(item['text'])
+        if latest_year and not priorities:
+            lines.append("اولویت خاصی از الگوهای چندساله برنمی‌آید؛ ادامهٔ ثبت مشاهده و "
+                         "پیگیری مداخلات پیشنهاد می‌شود.")
+        sections.append({'key': 'conclusion',
+                         'title': '۵) جمع‌بندی مسیر رشد و اولویت‌های ادامهٔ مسیر',
+                         'lines': lines})
+
+        caveats = [
+            "این جمع‌بندی فقط دانش‌آموز را با خودش در طول زمان مقایسه می‌کند؛ هیچ "
+            "مقایسه‌ای با دانش‌آموزان دیگر انجام نمی‌شود.",
+            "همهٔ نتیجه‌ها از رفتارهای ثبت‌شده و شناسهٔ آن‌ها قابل ردیابی است و هیچ "
+            "تشخیص روان‌شناختی یا برچسب قطعی ارائه نمی‌شود.",
+            "تعداد مشاهدات هر سال فقط «حجم ثبت و پایش» است؛ کم یا زیاد شدن آن به‌تنهایی "
+            "بهبود یا افت نیست و نبودِ الگو در یک سال می‌تواند ناشی از ثبت کمتر باشد.",
+            "نتایج غربالگری و تفسیر حرفه‌ای لایه‌های جداگانه‌اند و در این جمع‌بندی "
+            "رفتاری با مشاهده‌ها مخلوط نشده‌اند.",
+        ]
+        sections.append({'key': 'caveats', 'title': 'یادداشت‌های محتوایی',
+                         'lines': caveats})
+
+        # ---------- متن فشرده (سازگار با نسخهٔ قبل) ----------
         parts = [f"مسیر کلی رشد: {direction['label']}."]
         if persistent_strengths:
-            names = "، ".join(p['competency'] for p in persistent_strengths[:5])
-            parts.append(
-                f"توانمندی‌های ماندگار (تکرار در چند سال): {names}.")
+            parts.append("توانمندی‌های ماندگار (تکرار در چند سال): "
+                         + "، ".join(p['competency'] for p in persistent_strengths[:5]) + ".")
         if persistent_needs:
-            names = "؛ ".join(
-                f"{p['competency']} (در سال‌های "
-                f"{' و '.join(str(y) for y in p['years'][:3])})"
-                for p in persistent_needs[:5])
             parts.append(
-                f"زمینه‌های نیازمند توجه ماندگار: {names}. این موارد اولویت "
-                "پیگیری در سال آینده‌اند؛ نه برچسبی دربارهٔ دانش‌آموز.")
+                "زمینه‌های نیازمند توجه ماندگار: "
+                + "؛ ".join(f"{p['competency']} (در سال‌های {self._years_text(p['years'])})"
+                            for p in persistent_needs[:5])
+                + ". این موارد اولویت پیگیری در ادامهٔ مسیرند؛ نه برچسبی دربارهٔ "
+                  "دانش‌آموز.")
         if changed_areas:
-            names = "، ".join(c['competency'] for c in changed_areas[:5])
-            parts.append(
-                f"زمینه‌های تغییریافته در طول سال‌ها: {names}.")
+            parts.append("زمینه‌های تغییریافته در طول سال‌ها: "
+                         + "؛ ".join(f"{c['competency']} ({c['change_label']})"
+                                     for c in changed_areas[:5]) + ".")
         if not persistent_strengths and not persistent_needs and not changed_areas:
-            parts.append(
-                "الگوی تکرارشوندهٔ مشترکی بین سال‌ها دیده نشد؛ هر سال الگوی "
-                "خودش را دارد و نتیجه‌گیری دربارهٔ تداوم، نیازمند مشاهدهٔ "
-                "بیشتر است.")
-        if effective_years:
-            best = effective_years[0]
-            parts.append(
-                f"از نظر نتیجهٔ پیگیری‌ها، در مجموع {totals['improved']} مورد "
-                f"«بهبود مشاهده‌شده» ثبت شده است"
-                + (f" که بیشترین آن مربوط به سال {best['year']} است."
-                   if len(effective_years) > 1 or best['improved'] > 1 else ".")
-                + " مداخلاتی که پیگیری آن‌ها بهبود را نشان داده، در سال آینده "
-                  "هم قابل تکرارند.")
+            parts.append("الگوی تکرارشوندهٔ مشترکی بین سال‌ها دیده نشد؛ هر سال الگوی "
+                         "خودش را دارد و نتیجه‌گیری دربارهٔ تداوم، نیازمند مشاهدهٔ "
+                         "بیشتر است.")
+        if improved_types or partial_types:
+            parts.append("مداخلاتی که پیگیری آن‌ها بهبود نشان داده: "
+                         + "، ".join(f"{b['type']} ({b['improved']} از {b['with_followup']})"
+                                     for b in (improved_types + partial_types)[:3])
+                         + "؛ اقدامات با نتیجهٔ بهبود، در ادامهٔ مسیر قابل تکرارند.")
         elif totals['improved'] == 0 and any(
                 (y.get('interventions_count') or 0) > 0 for y in years or []):
-            parts.append(
-                "برای مداخلات ثبت‌شده، «بهبود مشاهده‌شده»‌ای در پیگیری‌ها ثبت "
-                "نشده است؛ ثبت دقیق نتیجهٔ پیگیری، ارزیابی اثربخشی مداخلات را "
-                "ممکن می‌کند.")
+            parts.append("برای مداخلات ثبت‌شده، «بهبود مشاهده‌شده»‌ای در پیگیری‌ها ثبت "
+                         "نشده است؛ ثبت دقیق نتیجهٔ پیگیری، ارزیابی اثربخشی مداخلات را "
+                         "ممکن می‌کند.")
 
         return {
             'text': " ".join(parts),
+            'sections': sections,
+            'trajectory': trajectory,
             'persistent_strengths': persistent_strengths,
             'persistent_needs': persistent_needs,
             'changed_areas': changed_areas,
+            'effective_interventions': effective_interventions,
+            'area_interventions': area_interventions,
+            'priorities': priorities,
+            'caveats': caveats,
             'effective_years': effective_years,
             'totals': dict(totals),
+            'latest_year': latest_year,
         }
+
+    def _overall_course_text(self, direction, per_year, persistent_strengths,
+                             persistent_needs, changed_areas):
+        """یک جملهٔ جمع‌بندی دربارهٔ مسیر کلی؛ فقط مقایسهٔ دانش‌آموز با خودش."""
+        if not per_year:
+            return "هنوز مشاهده‌ای در هیچ سالی ثبت نشده است؛ مسیر رشد قابل جمع‌بندی نیست."
+        first, last = per_year[0], per_year[-1]
+        span = (f"از سال {first['year']} ({self._share_text(first['positive_share'])}٪ مثبت) "
+                f"تا سال {last['year']} ({self._share_text(last['positive_share'])}٪ مثبت)")
+        improved = [c for c in changed_areas if c['change'] == 'need_to_strength']
+        resolved = [c for c in changed_areas if c['change'] == 'need_resolved']
+        worsened = [c for c in changed_areas if c['change'] in ('strength_to_need', 'need_emerged')]
+        continuing = [p for p in persistent_needs if p['still_present']]
+        status = direction['status']
+        if status == 'insufficient':
+            core = ("تا کنون فقط یک سال با مشاهدهٔ ثبت‌شده وجود دارد؛ مسیر کلی رشد پس از "
+                    "ثبت سال‌های بعد قابل جمع‌بندی است")
+        elif status == 'improving':
+            core = f"مسیر کلی رشد {span} به سمت رفتارهای مثبت‌تر بوده و در سال‌های میانی افت معناداری ثبت نشده است"
+        elif status == 'declining':
+            core = f"مسیر کلی رشد {span} با افزایش سهم رفتارهای منفی همراه بوده و در سال‌های میانی بهبود معناداری ثبت نشده است"
+        elif status == 'stable':
+            core = f"ترکیب رفتارها {span} در مجموع تغییر معناداری نداشته است"
+        else:
+            core = (f"مسیر رشد {span} یکنواخت نبوده است؛ در بعضی سال‌ها بهبود و در بعضی "
+                    "دیگر افت ثبت شده و روند کلی «غیرقطعی» است")
+        details = []
+        if improved:
+            details.append("زمینه‌های بهبودیافته (از نیاز به توانمندی): "
+                           + "، ".join(c['competency'] for c in improved[:4]))
+        if resolved:
+            details.append("نیازهای پیشین که در آخرین سال دیگر به‌صورت الگو ثبت نشده‌اند "
+                           "(نیازمند تأیید با مشاهدهٔ بیشتر): "
+                           + "، ".join(c['competency'] for c in resolved[:4]))
+        if worsened:
+            details.append("زمینه‌های نیازمند بررسی تازه: "
+                           + "، ".join(c['competency'] for c in worsened[:4]))
+        if continuing:
+            details.append("نیازهای ادامه‌دار: "
+                           + "، ".join(p['competency'] for p in continuing[:4]))
+        text = core + "."
+        if details:
+            text += " " + "؛ ".join(details) + "."
+        return text
+
+    def growth_narrative_lines(self, narrative, include_years=True):
+        """
+        رندر مشترک روایت چندساله برای همهٔ خروجی‌ها (بازرسی سیزدهم)
+
+        گزارش معمول برنامه، PDF و Excel همگی از همین فهرست استفاده می‌کنند
+        تا روایت در همه‌جا به یک شکل «کامل و یکپارچه» باشد.
+
+        Returns:
+            list[tuple[str, str]]: (kind, text) که kind یکی از
+            'text' | 'heading' | 'bullet' است.
+        """
+        lines = []
+        if not narrative or not narrative.get('has_data'):
+            return lines
+        if narrative.get('narrative'):
+            lines.append(('text', narrative['narrative']))
+        synthesis = narrative.get('synthesis') or {}
+        for section in synthesis.get('sections') or []:
+            lines.append(('heading', section['title']))
+            for line in section.get('lines') or []:
+                lines.append(('bullet', line))
+        if include_years:
+            lines.append(('heading', 'اطلاعات هر سال (مبنای جمع‌بندی)'))
+            for year in narrative.get('years') or []:
+                if not year.get('has_data'):
+                    lines.append(('bullet', f"سال {year['year']} (پایهٔ {year['grade']}): "
+                                            "مشاهده‌ای ثبت نشده است."))
+                    continue
+                strength_text = "؛ ".join(
+                    f"{s['competency']} ({s['positive']} رفتار مثبت از {s['count']})"
+                    for s in year.get('strengths', [])) or "ثبت نشده"
+                need_text = "؛ ".join(
+                    f"{n['competency']} ({n['negative']} رفتار منفی از {n['count']})"
+                    for n in year.get('needs_attention', [])) or "ثبت نشده"
+                outcomes = year.get('outcomes') or {}
+                counts = year.get('counts') or {}
+                lines.append(('bullet', (
+                    f"سال {year['year']} (پایهٔ {year['grade']}): توانمندی‌ها: {strength_text} | "
+                    f"نیازمند توجه: {need_text} | ترکیب رفتارها: {counts.get('positive', 0)} مثبت، "
+                    f"{counts.get('negative', 0)} منفی، {counts.get('neutral', 0)} خنثی از "
+                    f"{counts.get('total', 0)} مشاهده | مداخلات: {year.get('interventions_count', 0)} "
+                    f"| نتایج پیگیری: بهبود {outcomes.get('improved', 0)}، بدون تغییر "
+                    f"{outcomes.get('no_change', 0)}، تداوم {outcomes.get('continued', 0)}، "
+                    f"نیازمند پیگیری بیشتر {outcomes.get('needs_more', 0)}، بدون پیگیری "
+                    f"{outcomes.get('no_followup', 0)}")))
+        return lines
 
     def _build_traceability(self, observations, interventions, followups):
         """ساخت داده‌های ردیابی"""
@@ -1137,6 +1688,11 @@ class ReportGenerator:
                     )
                 direction = self.calculate_trend_direction(report['trend_data'])
                 pdf.add_text(f"* جهت تغییر: {direction['label']} — {direction['message']}")
+                # بازرسی سیزدهم: مسیر بین بازه‌ها (نه فقط ابتدا/انتها)
+                if direction.get('path_text'):
+                    pdf.add_text(f"* مسیر تغییر بین بازه‌ها: {direction['path_text']}")
+                for caution in direction.get('caution_notes') or []:
+                    pdf.add_text(f"* توجه: {caution}")
                 pdf.add_text(f"* {direction['volume_note']}")
             pdf.add_spacer(0.3)
 
@@ -1235,58 +1791,24 @@ class ReportGenerator:
                 pdf.add_spacer(0.3)
 
             # ===== سابقهٔ رشد چندساله =====
-            try:
-                narrative = self.generate_growth_narrative(student.id)
-            except Exception as exc:
-                narrative = None
-                self.logger.warning(f"ساخت روایت رشد ممکن نشد: {exc}")
+            # (بازرسی سیزدهم) همان روایت منسجمی که در گزارش معمول برنامه و
+            # Excel هست، با رندر مشترک؛ نه فهرست جداگانهٔ سال‌ها.
+            narrative = report.get('growth_narrative')
+            if not narrative or not narrative.get('has_data'):
+                try:
+                    narrative = self.generate_growth_narrative(student.id)
+                except Exception as exc:
+                    narrative = None
+                    self.logger.warning(f"ساخت روایت رشد ممکن نشد: {exc}")
             if narrative and narrative.get('has_data'):
                 pdf.add_subtitle("سابقهٔ رشد و مسیر طی‌شده (چندساله)")
-                pdf.add_text(f"* {narrative['narrative']}")
-                synthesis = narrative.get('synthesis') or {}
-                if synthesis.get('text'):
-                    pdf.add_bold("جمع‌بندی مسیر رشد (مقایسهٔ دانش‌آموز با خودش)")
-                    pdf.add_text(f"* {synthesis['text']}")
-                    for item in (synthesis.get('persistent_strengths') or [])[:5]:
-                        pdf.add_text(
-                            f"* توانمندی ماندگار: {item['competency']} "
-                            f"(تکرار در {len(item['years'])} سال)")
-                    for item in (synthesis.get('persistent_needs') or [])[:5]:
-                        pdf.add_text(
-                            f"* نیازمند توجه ماندگار: {item['competency']} "
-                            f"(تکرار در {len(item['years'])} سال)")
-                    for item in (synthesis.get('changed_areas') or [])[:5]:
-                        pdf.add_text(
-                            f"* زمینهٔ تغییریافته: {item['competency']}")
-                    for item in (synthesis.get('effective_years') or [])[:3]:
-                        pdf.add_text(
-                            f"* سال {item['year']}: {item['improved']} مورد "
-                            "«بهبود مشاهده‌شده» در پیگیری‌ها")
-                for year in narrative['years']:
-                    if not year['has_data']:
-                        continue
-                    strength_text = "؛ ".join(
-                        f"{s['competency']} ({s['positive']} رفتار مثبت)"
-                        for s in year['strengths']) or "ثبت نشده"
-                    need_text = "؛ ".join(
-                        f"{n['competency']} ({n['negative']} رفتار منفی)"
-                        for n in year['needs_attention']) or "ثبت نشده"
-                    pdf.add_bold(f"سال {year['year']} (پایهٔ {year['grade']})")
-                    pdf.add_text(f"* توانمندی‌ها: {strength_text}")
-                    pdf.add_text(f"* زمینه‌های نیازمند توجه: {need_text}")
-                    pdf.add_text(
-                        f"* تعداد مداخلات: {year['interventions_count']} | "
-                        f"ترکیب رفتارها: {year['counts']['positive']} مثبت، "
-                        f"{year['counts']['negative']} منفی از "
-                        f"{year['counts']['total']} مشاهده"
-                    )
-                    outcomes = year['outcomes']
-                    pdf.add_text(
-                        f"* نتایج پیگیری: بهبود {outcomes.get('improved', 0)} | "
-                        f"بدون تغییر {outcomes.get('no_change', 0)} | "
-                        f"نیازمند پیگیری بیشتر {outcomes.get('needs_more', 0)} | "
-                        f"بدون پیگیری {outcomes.get('no_followup', 0)}"
-                    )
+                for kind, line in self.growth_narrative_lines(narrative):
+                    if kind == 'heading':
+                        pdf.add_bold(line)
+                    elif kind == 'bullet':
+                        pdf.add_text(f"* {line}")
+                    else:
+                        pdf.add_text(line)
                 pdf.add_spacer(0.3)
             
             # ===== جدول مشاهدات =====
@@ -1547,6 +2069,30 @@ class ReportGenerator:
             ws3.column_dimensions['E'].width = 15
             ws3.column_dimensions['F'].width = 20
             ws3.column_dimensions['G'].width = 30
+
+            # ===== برگه چهارم: مسیر رشد چندساله (بازرسی سیزدهم) =====
+            # همان روایت منسجم گزارش معمول/PDF با رندر مشترک
+            growth = report.get('growth_narrative') or {}
+            if growth.get('has_data'):
+                ws4 = wb.create_sheet("مسیر رشد چندساله")
+                ws4.cell(row=1, column=1,
+                         value="سابقهٔ رشد و مسیر طی‌شده (مقایسهٔ دانش‌آموز با خودش)"
+                         ).font = Font(name='B Nazanin', size=14, bold=True)
+                row = 3
+                for kind, line in self.growth_narrative_lines(growth):
+                    if kind == 'heading':
+                        row += 1
+                        cell = ws4.cell(row=row, column=1, value=line)
+                        cell.font = Font(name='B Nazanin', size=12, bold=True, color='2C3E50')
+                    elif kind == 'bullet':
+                        ws4.cell(row=row, column=1, value=f"• {line}").font = Font(
+                            name='B Nazanin', size=11)
+                    else:
+                        ws4.cell(row=row, column=1, value=line).font = Font(
+                            name='B Nazanin', size=11)
+                    ws4.cell(row=row, column=1).alignment = Alignment(wrap_text=True)
+                    row += 1
+                ws4.column_dimensions['A'].width = 120
             
             wb.save(file_path)
             return True, f"فایل با موفقیت در {file_path} ذخیره شد."

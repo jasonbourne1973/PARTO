@@ -42,7 +42,7 @@ if not os.path.exists(LOGO_ICON_PATH):
 
 APP_NAME = "PARTO"  # اصلاح: PARTOW -> PARTO
 APP_FULL_NAME = "پرتو"
-APP_VERSION = "27.2.3"
+APP_VERSION = "27.2.4"
 APP_AUTHOR = "سید محسن رسول زاده اصل بیرجند"
 APP_EMAIL = "jaadougaroz1960@gmail.com"
 APP_WEBSITE = "www.jaadougaroz1960.com"

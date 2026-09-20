@@ -603,6 +603,12 @@ class ReportsPage(QWidget):
                          f"(سهم مثبت {item['positive_share']}٪) — "
                          f"حجم ثبت: {item['count']} مشاهده\n")
             text += f"• جهت تغییر: {direction['label']} — {direction['message']}\n"
+            # بازرسی سیزدهم: مسیر بین بازه‌ها هم نشان داده می‌شود تا روشن
+            # باشد نتیجه فقط از مقایسهٔ اولین و آخرین بازه گرفته نشده است.
+            if direction.get('path_text'):
+                text += f"• مسیر تغییر بین بازه‌ها: {direction['path_text']}\n"
+            for caution in direction.get('caution_notes') or []:
+                text += f"• ⚠️ {caution}\n"
             text += f"• {direction['volume_note']}\n"
         else:
             text += """
@@ -686,42 +692,24 @@ class ReportsPage(QWidget):
                 text += "• تفسیر حرفه‌ای: ثبت نشده است.\n"
             text += f"  {interp.get('note', '')}\n"
         
-        # ===== سابقهٔ رشد چندساله (بازرسی دوازدهم) =====
-        # گزارش چندساله قبلاً فقط در خروجی PDF بود؛ حالا همان روایت منسجم
-        # (تداوم الگوها، زمینه‌های تغییریافته، مداخلات مؤثرتر) در گزارش
-        # معمول برنامه هم دیده می‌شود.
+        # ===== سابقهٔ رشد چندساله (بازرسی دوازدهم → تکمیل سیزدهم) =====
+        # گزارش معمول برنامه همان روایت منسجم PDF/Excel را با رندر مشترک
+        # نشان می‌دهد: مسیر سال‌به‌سال، الگوهای ادامه‌دار، زمینه‌های
+        # تغییریافته (با جهت)، مداخلات مؤثرتر بر اساس پیگیری و جمع‌بندی.
         growth = report.get('growth_narrative') or {}
         if growth.get('has_data'):
             text += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**🌱 سابقهٔ رشد و مسیر طی‌شده (چندساله)**
+**🌱 سابقهٔ رشد و مسیر طی‌شده (چندساله — مقایسهٔ دانش‌آموز با خودش)**
 """
-            text += f"• {growth.get('narrative', '')}\n"
-            synthesis = growth.get('synthesis') or {}
-            for item in (synthesis.get('persistent_strengths') or [])[:5]:
-                text += (f"• توانمندی ماندگار: {item['competency']} "
-                         f"(تکرار در {len(item['years'])} سال)\n")
-            for item in (synthesis.get('persistent_needs') or [])[:5]:
-                text += (f"• نیازمند توجه ماندگار: {item['competency']} "
-                         f"(تکرار در {len(item['years'])} سال)\n")
-            for item in (synthesis.get('changed_areas') or [])[:5]:
-                text += f"• زمینهٔ تغییریافته: {item['competency']}\n"
-            for item in (synthesis.get('effective_years') or [])[:3]:
-                text += (f"• سال {item['year']}: {item['improved']} مورد "
-                         "«بهبود مشاهده‌شده» در پیگیری‌ها\n")
-            for year in growth.get('years', []):
-                if not year.get('has_data'):
-                    continue
-                strength_text = "؛ ".join(
-                    f"{s['competency']} ({s['positive']} رفتار مثبت)"
-                    for s in year.get('strengths', [])) or "ثبت نشده"
-                need_text = "؛ ".join(
-                    f"{n['competency']} ({n['negative']} رفتار منفی)"
-                    for n in year.get('needs_attention', [])) or "ثبت نشده"
-                text += (f"• سال {year['year']} (پایهٔ {year['grade']}): "
-                         f"توانمندی‌ها: {strength_text} | "
-                         f"نیازمند توجه: {need_text}\n")
+            for kind, line in self.report_generator.growth_narrative_lines(growth):
+                if kind == 'heading':
+                    text += f"\n**{line}**\n"
+                elif kind == 'bullet':
+                    text += f"• {line}\n"
+                else:
+                    text += f"{line}\n"
 
         text += f"""
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from config.settings import APP_VERSION
 from dal.user_dal import UserDAL
 from database.connection import DatabaseConnection
 from utils.logger import get_logger
@@ -241,7 +242,8 @@ class LoginDialog(QDialog):
         main_layout.addLayout(bottom_layout)
 
         # ===== نسخه برنامه =====
-        version_label = QLabel("نسخه 27.2.3")
+        # نسخه از یک منبع واحد خوانده می‌شود (config/settings.py)
+        version_label = QLabel(f"نسخه {APP_VERSION}")
         version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         version_label.setStyleSheet("""
             QLabel {

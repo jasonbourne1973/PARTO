@@ -652,38 +652,57 @@ class TrendAnalysisService(BaseService):
         return result
     
     def _analyze_overall_trend(self, trend_data):
-        """تحلیل روند کلی"""
-        if len(trend_data) < 2:
+        """
+        تحلیل روند کلی — با لحاظ همهٔ بازه‌های میانی (بازرسی سیزدهم)
+
+        نسخهٔ قبلی فقط «اولین بازه» را با «آخرین بازه» مقایسه می‌کرد
+        (``trend_data[0]`` در برابر ``trend_data[-1]``)؛ یعنی اگر در
+        بازه‌های میانی تغییر مهمی رخ داده و برگشته بود، نادیده گرفته
+        می‌شد. اکنون همان منطق مشترک ``growth_direction`` استفاده می‌شود
+        که مسیر بین همهٔ بازه‌ها را می‌سنجد و اگر تغییرات یک‌جهت نباشد،
+        «تغییر ترکیبی / روند غیرقطعی» اعلام می‌کند. تعداد مشاهدات در این
+        تصمیم نقشی ندارد (فقط حجم ثبت و پایش است).
+
+        شکل خروجی برای سازگاری با صفحهٔ پرونده حفظ شده است:
+        status / message / icon / color؛ به‌علاوهٔ direction (جزئیات
+        کامل) و path_text (مسیر خوانا بین بازه‌ها).
+        """
+        direction = growth_direction([
+            {'label': p.get('label'), 'positive': p.get('positive', 0),
+             'negative': p.get('negative', 0), 'neutral': p.get('neutral', 0),
+             'total': p.get('total', 0)}
+            for p in (trend_data or [])
+        ])
+
+        if direction['status'] == 'insufficient':
             return {
                 'status': 'insufficient_data',
                 'message': 'داده کافی برای تحلیل روند وجود ندارد.',
-                'icon': '❓'
+                'icon': '❓',
+                'color': '#95a5a6',
+                'direction': direction,
+                'path_text': '',
             }
-        
-        first = trend_data[0]
-        last = trend_data[-1]
-        
-        if last['positive_percent'] > first['positive_percent'] + 10:
-            return {
-                'status': 'improving',
-                'message': 'روند بهبود مشاهده می‌شود.',
-                'icon': '📈',
-                'color': '#27ae60'
-            }
-        elif last['positive_percent'] < first['positive_percent'] - 10:
-            return {
-                'status': 'declining',
-                'message': 'توجه بیشتر نیاز است.',
-                'icon': '📉',
-                'color': '#e74c3c'
-            }
-        else:
-            return {
-                'status': 'stable',
-                'message': 'روند ثابت است.',
-                'icon': '➡️',
-                'color': '#f39c12'
-            }
+
+        presets = {
+            'improving': ('تغییر به سمت رفتارهای مثبت‌تر (در طول بازه‌ها).',
+                          '📈', '#27ae60'),
+            'declining': ('افزایش سهم رفتارهای منفی (در طول بازه‌ها)؛ '
+                          'بررسی بیشتر پیشنهاد می‌شود.', '📉', '#e74c3c'),
+            'stable': ('ترکیب رفتارها در طول بازه‌ها تقریباً ثابت است.',
+                       '➡️', '#f39c12'),
+            'mixed': ('تغییر ترکیبی / روند غیرقطعی: تغییرات بین بازه‌ها '
+                      'یک‌جهت نیست.', '🔀', '#f39c12'),
+        }
+        message, icon, color = presets.get(direction['status'], presets['mixed'])
+        return {
+            'status': direction['status'],
+            'message': message,
+            'icon': icon,
+            'color': color,
+            'direction': direction,
+            'path_text': direction.get('path_text', ''),
+        }
     
     def _get_top_competencies(self, observations):
         """

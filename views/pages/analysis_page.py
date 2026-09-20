@@ -676,7 +676,7 @@ class AnalysisPage(QWidget):
 
 📈 **جهت تغییر رفتار:** {direction['label']}
 {direction['message']}
-🗒️ {direction['volume_note']}
+{self._format_path_lines(direction)}🗒️ {direction['volume_note']}
 
 🏷️ **ترکیب رفتارهای ثبت‌شده:**
 • ✅ مثبت: {counts['positive']} مورد ({share['positive']}٪)
@@ -692,6 +692,22 @@ class AnalysisPage(QWidget):
 """
         self.analysis_text.setText(analysis)
     
+    @staticmethod
+    def _format_path_lines(direction):
+        """
+        مسیر تغییر بین بازه‌ها (بازرسی سیزدهم)
+
+        جهت روند فقط از مقایسهٔ اولین و آخرین بازه گرفته نمی‌شود؛ برای
+        شفافیت، گام‌های میانی و یادداشت‌های احتیاطی هم نمایش داده می‌شوند.
+        """
+        lines = []
+        path_text = (direction or {}).get('path_text') or ''
+        if path_text:
+            lines.append(f"🧭 مسیر تغییر بین بازه‌ها: {path_text}")
+        for caution in (direction or {}).get('caution_notes') or []:
+            lines.append(f"⚠️ {caution}")
+        return ("\n".join(lines) + "\n") if lines else ""
+
     def get_student_name(self):
         try:
             student = self.student_dal.get_by_id(self.current_student_id)
