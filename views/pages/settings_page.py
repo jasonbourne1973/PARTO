@@ -1336,23 +1336,28 @@ class SettingsPage(QWidget):
     def start_auto_backup(self):
         """شروع پشتیبان‌گیری خودکار"""
         try:
-            # ✅ ایمپورت‌های مورد نیاز
-            import os  # ✅ این خط را داخل تابع اضافه کنید
-
-            from config.settings import ATTACHMENTS_DIR, DB_PATH
+            # (بازرسی شانزدهم) همان پوشهٔ واحد صفحهٔ پشتیبان‌گیری
+            from config.settings import ATTACHMENTS_DIR, BACKUP_DIR, DB_PATH
             from utils.backup import BackupManager
-            
-            # ایجاد پوشه backup
-            backup_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backups")
-            
+
+            backup_dir = BACKUP_DIR
+
+            # اگر زمان‌بند قبلی هنوز زنده است، اول همان متوقف شود تا دو نخ
+            # هم‌زمان پشتیبان نگیرند.
+            previous = getattr(self, 'auto_backup_thread', None)
+            if previous is not None and hasattr(previous, 'stop'):
+                previous.stop()
+
             backup_manager = BackupManager(DB_PATH, ATTACHMENTS_DIR, backup_dir)
-            
+
             interval = self.auto_backup_interval.currentData()
-            
-            # ذخیره مرجع به ترد برای توقف
+
+            # دستگیرهٔ قابل توقف (قبلاً یک نخ بی‌پایان بود که «توقف» فقط
+            # مرجعش را None می‌کرد و پشتیبان‌گیری ادامه می‌یافت).
+            # پشتیبان خودکار کار سیستم است، نه کاربر شمارهٔ ۱.
             self.auto_backup_thread = backup_manager.schedule_auto_backup(
                 interval_hours=interval,
-                user_id=1,
+                user_id=None,
                 user_name="سیستم"
             )
             
@@ -1369,11 +1374,17 @@ class SettingsPage(QWidget):
     def stop_auto_backup(self):
         """توقف پشتیبان‌گیری خودکار"""
         try:
-            if hasattr(self, 'auto_backup_thread'):
-                # در Python، تردهای daemon با بسته شدن برنامه متوقف می‌شوند
-                # اما ما وضعیت را تغییر می‌دهیم
-                self.auto_backup_thread = None
-            
+            handle = getattr(self, 'auto_backup_thread', None)
+            if handle is not None and hasattr(handle, 'stop'):
+                # (بازرسی شانزدهم) توقف واقعی نخ زمان‌بند
+                stopped = handle.stop()
+                if not stopped:
+                    QMessageBox.warning(
+                        self, "توقف ناتمام",
+                        "درخواست توقف ثبت شد ولی نخ پشتیبان‌گیری هنوز مشغول است "
+                        "(احتمالاً وسط یک پشتیبان‌گیری)؛ پس از پایان کار فعلی متوقف می‌شود.")
+            self.auto_backup_thread = None
+
             self.auto_backup_status.setText("⏹️ غیرفعال")
             self.auto_backup_status.setStyleSheet("color: #C62828; font-weight: bold;")
             self.start_auto_backup_btn.setEnabled(True)

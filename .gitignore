@@ -24,3 +24,8 @@ env/
 .DS_Store
 Thumbs.db
 *.swp
+
+# ===== پشتیبان‌ها (دادهٔ کاربر، نه کد — بازرسی شانزدهم) =====
+backups/
+*.partobak
+*.partobak.sha256

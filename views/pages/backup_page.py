@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from config.settings import ATTACHMENTS_DIR, DB_PATH
+from config.settings import ATTACHMENTS_DIR, BACKUP_DIR, DB_PATH, LEGACY_BACKUP_DIR
 from dal.staff_dal import StaffDAL
 from database.connection import DatabaseConnection
 from utils.backup import BackupManager
@@ -39,9 +39,13 @@ class BackupWorker(QThread):
     اعمال می‌شود؛ زمان‌بند خودکار همچنان «سیستم» است.
     """
     
+    # (بازرسی شانزدهم) نام سیگنال از `finished` به `operation_finished` تغییر
+    # کرد: `finished` سیگنال داخلی خودِ QThread است (بدون آرگومان) و
+    # بازتعریف آن با امضای (bool, str) دو سیگنال هم‌نام با امضای متفاوت روی
+    # یک شیء می‌ساخت — منبع کلاسیک اتصال به handler اشتباه/اجرای دوباره.
     progress = Signal(int)
-    finished = Signal(bool, str)
-    
+    operation_finished = Signal(bool, str)
+
     def __init__(self, backup_manager, action, backup_file=None):
         super().__init__()
         self.backup_manager = backup_manager
@@ -64,32 +68,48 @@ class BackupWorker(QThread):
         return user_id, user_name
     
     def run(self):
-        with DatabaseConnection().worker_context(self.user_id):
-            if self.action == "create":
-                result = self.backup_manager.create_backup(
-                    user_id=self.user_id, user_name=self.user_name)
-                self.finished.emit(result['success'], result['message'])
-            elif self.action == "restore":
-                result = self.backup_manager.restore_backup(
-                    self.backup_file, user_id=self.user_id,
-                    user_name=self.user_name)
-                self.finished.emit(result['success'], result['message'])
-            elif self.action == "delete":
-                success, message = self.backup_manager.delete_backup(
-                    self.backup_file, user_id=self.user_id,
-                    user_name=self.user_name)
-                self.finished.emit(success, message)
+        try:
+            with DatabaseConnection().worker_context(self.user_id):
+                if self.action == "create":
+                    result = self.backup_manager.create_backup(
+                        user_id=self.user_id, user_name=self.user_name)
+                    self.operation_finished.emit(result['success'], result['message'])
+                elif self.action == "restore":
+                    result = self.backup_manager.restore_backup(
+                        self.backup_file, user_id=self.user_id,
+                        user_name=self.user_name)
+                    self.operation_finished.emit(result['success'], result['message'])
+                elif self.action == "delete":
+                    success, message = self.backup_manager.delete_backup(
+                        self.backup_file, user_id=self.user_id,
+                        user_name=self.user_name)
+                    self.operation_finished.emit(success, message)
+                else:
+                    self.operation_finished.emit(False, f"عملیات ناشناخته: {self.action}")
+        except Exception as e:
+            # (بازرسی شانزدهم) استثنای نخ کارگر نباید بی‌صدا بمیرد و صفحه
+            # را در حالت «در حال اجرا» با دکمه‌های غیرفعال رها کند.
+            self.operation_finished.emit(False, f"❌ خطای غیرمنتظره در عملیات پشتیبان: {e!s}")
 
 
 class BackupPage(QWidget):
     """صفحه مدیریت پشتیبان‌گیری"""
-    
+
+    STATUS_COLORS = {  # noqa: RUF012 - نگاشت ثابت فقط‌خواندنی
+        'ok': (200, 255, 200),
+        'no_checksum': (255, 240, 200),
+        'mismatch': (255, 205, 205),
+        'corrupt': (255, 205, 205),
+    }
+
     def __init__(self, parent=None):
         super().__init__(parent)
         
-        # مسیرهای پیش‌فرض
-        self.backup_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backups")
+        # مسیر واحد پشتیبان‌ها از تنظیمات (بازرسی شانزدهم)؛ فایل‌های پوشهٔ
+        # قدیمی داخل درخت کد (views/backups) یک‌بار منتقل می‌شوند.
+        self.backup_dir = BACKUP_DIR
         self.backup_manager = BackupManager(DB_PATH, ATTACHMENTS_DIR, self.backup_dir)
+        self.backup_manager.adopt_legacy_backups(LEGACY_BACKUP_DIR)
         self.worker = None
         
         self.setup_ui()
@@ -229,9 +249,12 @@ class BackupPage(QWidget):
                 )
                 self.table.setItem(row, 2, QTableWidgetItem(backup['size_display']))
                 
-                # وضعیت
-                status_item = QTableWidgetItem("✅ سالم")
-                status_item.setBackground(QColor(200, 255, 200))
+                # وضعیت واقعی فایل (ZIP + checksum کناری) — بازرسی شانزدهم؛
+                # قبلاً برای همهٔ فایل‌ها بدون بررسی «✅ سالم» نوشته می‌شد.
+                status = backup.get('status', 'no_checksum')
+                status_item = QTableWidgetItem(backup.get('status_display', status))
+                status_item.setBackground(QColor(*self.STATUS_COLORS.get(status, (255, 240, 200))))
+                status_item.setForeground(QColor('#111111'))
                 self.table.setItem(row, 3, status_item)
                 
                 # دکمه‌ها
@@ -241,7 +264,9 @@ class BackupPage(QWidget):
                 
                 restore_btn = QPushButton("🔄 بازیابی")
                 restore_btn.setFixedSize(70, 25)
-                restore_btn.setStyleSheet("background-color: #F4D35E; color: #F4C542; border: none; border-radius: 3px;")
+                # (بازرسی شانزدهم) زرد روی زرد (#F4C542 روی #F4D35E) خوانا نبود
+                restore_btn.setStyleSheet("background-color: #F4D35E; color: #0B2E4F; border: none; border-radius: 3px;")
+                restore_btn.setEnabled(status != 'corrupt')
                 restore_btn.clicked.connect(lambda checked, b=backup: self.restore_backup(b))
                 btn_layout.addWidget(restore_btn)
                 
@@ -258,19 +283,44 @@ class BackupPage(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری Backupها:\n{e!s}")
     
+    def _operation_in_progress(self):
+        """
+        آیا عملیات دیگری در حال اجراست؟ (بازرسی شانزدهم)
+
+        قبلاً `self.worker` بدون بررسی جایگزین می‌شد؛ اگر کاربر وسط یک
+        پشتیبان‌گیری روی «بازیابی»/«حذف» یک ردیف کلیک می‌کرد (دکمه‌های ردیف
+        غیرفعال نمی‌شدند)، QThread قبلی در حال اجرا از دست می‌رفت
+        («QThread: Destroyed while thread is still running») و دو عملیات
+        روی همان فایل‌ها هم‌زمان می‌شدند.
+        """
+        if self.worker is not None and self.worker.isRunning():
+            QMessageBox.information(
+                self, "لطفاً صبر کنید",
+                "یک عملیات پشتیبان‌گیری/بازیابی در حال اجراست؛ پس از پایان آن دوباره تلاش کنید.")
+            return True
+        return False
+
+    def _start_worker(self, action, backup_file=None, show_progress=True):
+        """ساخت و اجرای کارگر برای یک عملیات، با قفل‌کردن رابط تا پایان"""
+        if show_progress:
+            self.progress_bar.setVisible(True)
+            self.progress_bar.setValue(0)
+        self.set_buttons_enabled(False)
+        self.worker = BackupWorker(self.backup_manager, action, backup_file)
+        self.worker.progress.connect(self.update_progress)
+        self.worker.operation_finished.connect(self.backup_finished)
+        self.worker.start()
+
     def create_backup(self):
         """ایجاد پشتیبان جدید"""
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setValue(0)
-        self.set_buttons_enabled(False)
-        
-        self.worker = BackupWorker(self.backup_manager, "create")
-        self.worker.progress.connect(self.update_progress)
-        self.worker.finished.connect(self.backup_finished)
-        self.worker.start()
+        if self._operation_in_progress():
+            return
+        self._start_worker("create")
     
     def restore_backup(self, backup):
         """بازیابی از یک Backup موجود"""
+        if self._operation_in_progress():
+            return
         reply = QMessageBox.question(
             self,
             "تأیید بازیابی",
@@ -279,17 +329,12 @@ class BackupPage(QWidget):
         )
         
         if reply == QMessageBox.StandardButton.Yes:
-            self.progress_bar.setVisible(True)
-            self.progress_bar.setValue(0)
-            self.set_buttons_enabled(False)
-            
-            self.worker = BackupWorker(self.backup_manager, "restore", backup['path'])
-            self.worker.progress.connect(self.update_progress)
-            self.worker.finished.connect(self.backup_finished)
-            self.worker.start()
-    
+            self._start_worker("restore", backup['path'])
+
     def restore_from_file(self):
         """بازیابی از فایل خارجی"""
+        if self._operation_in_progress():
+            return
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "انتخاب فایل پشتیبان",
@@ -306,28 +351,21 @@ class BackupPage(QWidget):
             )
             
             if reply == QMessageBox.StandardButton.Yes:
-                self.progress_bar.setVisible(True)
-                self.progress_bar.setValue(0)
-                self.set_buttons_enabled(False)
-                
-                self.worker = BackupWorker(self.backup_manager, "restore", file_path)
-                self.worker.progress.connect(self.update_progress)
-                self.worker.finished.connect(self.backup_finished)
-                self.worker.start()
-    
+                self._start_worker("restore", file_path)
+
     def delete_backup(self, backup):
         """حذف فایل پشتیبان"""
+        if self._operation_in_progress():
+            return
         reply = QMessageBox.question(
             self,
             "تأیید حذف",
             f"آیا از حذف فایل '{backup['name']}' اطمینان دارید؟",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
-        
+
         if reply == QMessageBox.StandardButton.Yes:
-            self.worker = BackupWorker(self.backup_manager, "delete", backup['path'])
-            self.worker.finished.connect(self.backup_finished)
-            self.worker.start()
+            self._start_worker("delete", backup['path'], show_progress=False)
     
     def update_progress(self, value):
         """به‌روزرسانی نوار پیشرفت"""
@@ -345,7 +383,9 @@ class BackupPage(QWidget):
             QMessageBox.critical(self, "خطا", message)
     
     def set_buttons_enabled(self, enabled):
-        """فعال/غیرفعال کردن دکمه‌ها"""
+        """فعال/غیرفعال کردن دکمه‌ها (نوار ابزار و جدول، تا دکمه‌های ردیف هم قفل شوند)"""
         self.create_btn.setEnabled(enabled)
         self.restore_btn.setEnabled(enabled)
+        self.refresh_btn.setEnabled(enabled)
+        self.table.setEnabled(enabled)
         self.refresh_btn.setEnabled(enabled)

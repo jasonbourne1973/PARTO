@@ -5,8 +5,10 @@
 import hashlib
 import json
 import os
+import re
 import shutil
 import sqlite3
+import threading
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -16,6 +18,49 @@ from utils.logger import get_logger
 from utils.time_utils import utc_now, utc_now_iso
 
 logger = get_logger(__name__)
+
+# پسوند فایل پشتیبان و پسوند فایل کنارِ آن (checksum)
+BACKUP_EXTENSION = '.partobak'
+CHECKSUM_SUFFIX = '.sha256'
+
+# نویسه‌های مجاز در نام پشتیبان (بازرسی شانزدهم): نام از ورودی می‌آید و
+# نباید بتواند با «..» یا جداکنندهٔ مسیر از پوشهٔ پشتیبان بیرون برود.
+_UNSAFE_NAME_CHARS = re.compile(r'[^\w\-.]', re.UNICODE)
+
+
+class AutoBackupHandle:
+    """
+    دستگیرهٔ پشتیبان‌گیری خودکار (بازرسی شانزدهم)
+
+    نسخهٔ قبلی فقط یک `threading.Thread` با حلقهٔ `while True` برمی‌گرداند
+    که هیچ راهی برای توقف نداشت؛ دکمهٔ «توقف» در تنظیمات فقط مرجع را None
+    می‌کرد و پشتیبان‌گیری در پس‌زمینه ادامه می‌یافت. حالا حلقه روی یک
+    Event منتظر می‌ماند و `stop()` واقعاً آن را تمام می‌کند.
+    """
+
+    def __init__(self, interval_hours):
+        self.interval_hours = interval_hours
+        self._stop_event = threading.Event()
+        self.thread = None
+        self.last_result = None
+
+    def stop(self, timeout=5):
+        """درخواست توقف و انتظار (کوتاه) برای پایان نخ؛ True اگر نخ تمام شد."""
+        self._stop_event.set()
+        if self.thread is not None and self.thread.is_alive():
+            self.thread.join(timeout)
+        return not self.is_running()
+
+    def is_running(self):
+        return self.thread is not None and self.thread.is_alive()
+
+    # سازگاری با کد قدیمی که thread را نگه می‌داشت
+    def is_alive(self):
+        return self.is_running()
+
+    def wait_interval(self):
+        """False یعنی توقف خواسته شده است."""
+        return not self._stop_event.wait(self.interval_hours * 3600)
 
 
 class BackupManager:
@@ -50,10 +95,104 @@ class BackupManager:
             import logging
             self.logger = logging.getLogger(self.__class__.__name__)
         
-        # ایجاد پوشه Backup اگر وجود ندارد
-        if not os.path.exists(backup_dir):
-            os.makedirs(backup_dir)
-    
+        # مسیر پوشهٔ پشتیبان همیشه canonical نگه داشته می‌شود تا بررسی
+        # «فایل داخل پوشهٔ پشتیبان است» در delete_backup قابل اتکا باشد.
+        self.backup_dir = os.path.realpath(backup_dir)
+        os.makedirs(self.backup_dir, exist_ok=True)
+
+    # ------------------------------------------------------------------
+    # ابزارهای مسیر/نام (بازرسی شانزدهم)
+    # ------------------------------------------------------------------
+    @staticmethod
+    def sanitize_backup_name(name):
+        """
+        نام پشتیبان را به یک نام فایل امن تبدیل می‌کند
+
+        فقط حروف/اعداد/خط تیره/زیرخط/نقطه می‌مانند؛ جداکنندهٔ مسیر و «..»
+        حذف می‌شوند تا فایل هرگز بیرون از پوشهٔ پشتیبان ساخته نشود.
+        """
+        base = os.path.basename(str(name or '').strip().replace('\\', '/'))
+        if base.lower().endswith(BACKUP_EXTENSION):
+            base = base[:-len(BACKUP_EXTENSION)]
+        cleaned = _UNSAFE_NAME_CHARS.sub('_', base).strip('.')
+        while '..' in cleaned:
+            cleaned = cleaned.replace('..', '.')
+        return cleaned
+
+    def _is_inside_backup_dir(self, path):
+        """آیا مسیر canonical داده‌شده داخل پوشهٔ پشتیبان است؟"""
+        try:
+            return os.path.commonpath([self.backup_dir, path]) == self.backup_dir
+        except ValueError:
+            # درایوهای متفاوت در ویندوز
+            return False
+
+    def _resolve_backup_path(self, backup_file):
+        """
+        اعتبارسنجی مسیر یک فایل پشتیبان برای عملیات مخرب (حذف)
+
+        Returns:
+            (path | None, error_message | None)
+        """
+        if not backup_file:
+            return None, "❌ مسیر فایل پشتیبان مشخص نشده است."
+        real = os.path.realpath(str(backup_file))
+        if not self._is_inside_backup_dir(real) or real == self.backup_dir:
+            return None, ("❌ این فایل داخل پوشهٔ پشتیبان نیست؛ برای حفاظت از فایل‌های دیگر، "
+                          "حذف انجام نشد.")
+        if not real.lower().endswith(BACKUP_EXTENSION):
+            return None, f"❌ فقط فایل‌های {BACKUP_EXTENSION} قابل حذف‌اند."
+        if os.path.islink(str(backup_file)):
+            return None, "❌ پیوند نمادین به‌عنوان فایل پشتیبان پذیرفته نمی‌شود."
+        if not os.path.isfile(real):
+            return None, "❌ فایل پشتیبان وجود ندارد."
+        return real, None
+
+    def adopt_legacy_backups(self, legacy_dir):
+        """
+        انتقال یک‌بارهٔ پشتیبان‌های پوشهٔ قدیمی (views/backups) به پوشهٔ استاندارد
+
+        نسخه‌های قبلی صفحهٔ پشتیبان‌گیری فایل‌ها را داخل درخت کد (`views/backups`)
+        می‌ساختند. برای اینکه پشتیبان‌های کاربران گم نشوند، هنگام راه‌اندازی
+        صفحه، فایل‌های آن پوشه (اگر باشد) به پوشهٔ استاندارد منتقل می‌شوند؛
+        فایل هم‌نام موجود بازنویسی نمی‌شود.
+
+        Returns:
+            list[str]: نام فایل‌های منتقل‌شده
+        """
+        moved = []
+        try:
+            legacy_real = os.path.realpath(legacy_dir)
+            if legacy_real == self.backup_dir or not os.path.isdir(legacy_real):
+                return moved
+            for entry in os.listdir(legacy_real):
+                if not (entry.endswith((BACKUP_EXTENSION, BACKUP_EXTENSION + CHECKSUM_SUFFIX))
+                        or entry == 'backup_log.txt'):
+                    continue
+                src = os.path.join(legacy_real, entry)
+                dst = os.path.join(self.backup_dir, entry)
+                if not os.path.isfile(src):
+                    continue
+                if entry == 'backup_log.txt' and os.path.exists(dst):
+                    # لاگ قدیمی به انتهای لاگ فعلی افزوده می‌شود، نه بازنویسی
+                    with open(src, encoding='utf-8', errors='replace') as old_log, \
+                            open(dst, 'a', encoding='utf-8') as new_log:
+                        new_log.write(old_log.read())
+                    os.remove(src)
+                    moved.append(entry)
+                    continue
+                if os.path.exists(dst):
+                    continue
+                shutil.move(src, dst)
+                moved.append(entry)
+            if moved:
+                self.logger.info(
+                    f"{len(moved)} فایل پشتیبان از پوشهٔ قدیمی «{legacy_real}» به "
+                    f"«{self.backup_dir}» منتقل شد.")
+        except OSError as e:
+            self.logger.warning(f"انتقال پشتیبان‌های قدیمی ممکن نشد: {e}")
+        return moved
+
     def create_backup(self, name=None, user_id=None, user_name=None):
         """
         ایجاد نسخه پشتیبان کامل
@@ -61,13 +200,26 @@ class BackupManager:
         Returns:
             dict: اطلاعات Backup ایجاد شده
         """
+        tmp_db_snapshot = None
+        tmp_zip = None
         try:
-            # ایجاد نام فایل
+            # ایجاد نام فایل (امن‌شده؛ بازرسی شانزدهم)
             if not name:
                 timestamp = utc_now().strftime("%Y%m%d_%H%M%S")
                 name = f"backup_{timestamp}"
-            
-            backup_file = os.path.join(self.backup_dir, f"{name}.partobak")
+            safe_name = self.sanitize_backup_name(name)
+            if not safe_name:
+                raise ValueError(f"نام پشتیبان معتبر نیست: {name!r}")
+            if safe_name != str(name):
+                self.logger.warning(
+                    f"نام پشتیبان «{name}» به «{safe_name}» امن‌سازی شد.")
+            name = safe_name
+
+            backup_file = os.path.join(self.backup_dir, f"{name}{BACKUP_EXTENSION}")
+            # نوشتن اتمیک: اول در فایل موقتِ همان پوشه، بعد جایگزینی.
+            # اگر وسط کار (دیسک پر، قطع برق) شکست بخورد، هیچ فایل
+            # .partobak نیمه‌کاره‌ای در فهرست پشتیبان‌ها ظاهر نمی‌شود.
+            tmp_zip = backup_file + '.tmp'
             
             # ===== اصلاح مهم: پشتیبان از دیتابیس زنده =====
             # نسخه قبلی فایل SQLite را در حالی که برنامه باز و در حال
@@ -112,6 +264,13 @@ class BackupManager:
                     dst = sqlite3.connect(tmp_db_snapshot)
                     try:
                         src.backup(dst)      # کپی سازگار و اتمیک
+                        # (بازرسی شانزدهم) اسنپ‌شات حالت WAL منبع را به ارث
+                        # می‌برد؛ با تبدیل به journal_mode=DELETE همهٔ صفحات
+                        # داخل خودِ فایل .db می‌نشینند و فایل خودبسنده است
+                        # (قبلاً کنار هر پشتیبان دو فایل .db.tmp-wal/-shm
+                        # جا می‌ماند). دیتابیس بازیابی‌شده هنگام بازکردن در
+                        # برنامه دوباره WAL می‌شود.
+                        dst.execute("PRAGMA journal_mode=DELETE")
                     finally:
                         dst.close()
                 finally:
@@ -129,8 +288,9 @@ class BackupManager:
                 raise RuntimeError(
                     f"اسنپ‌شات دیتابیس معتبر نیست؛ پشتیبان ساخته نشد: {snapshot_detail}")
 
-            # ایجاد فایل ZIP
-            with zipfile.ZipFile(backup_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            # ایجاد فایل ZIP (در فایل موقت)
+            self._remove_quietly(tmp_zip)
+            with zipfile.ZipFile(tmp_zip, 'w', zipfile.ZIP_DEFLATED) as zipf:
                 # 1. دیتابیس (از اسنپ‌شات سازگار و راستی‌آزمایی‌شده)
                 zipf.write(tmp_db_snapshot, "database/partow.db")
                 
@@ -157,49 +317,68 @@ class BackupManager:
                     'encrypted': False,
                 }
                 zipf.writestr("metadata.json", json.dumps(metadata, ensure_ascii=False, indent=2))
-            
-            # پاک کردن نسخه موقت دیتابیس
-            if os.path.exists(tmp_db_snapshot):
-                try:
-                    os.remove(tmp_db_snapshot)
-                except OSError as e:
-                    self.logger.warning(f"خطا در حذف فایل موقت پشتیبان: {e}")
 
-            # محاسبه checksum
-            checksum = self._calculate_checksum(backup_file)
+            # راستی‌آزمایی ZIP نوشته‌شده پیش از نهایی‌کردن
+            with zipfile.ZipFile(tmp_zip, 'r') as zipf:
+                bad = zipf.testzip()
+                if bad is not None:
+                    raise RuntimeError(f"فایل پشتیبان نوشته‌شده سالم نیست: {bad}")
+
+            # محاسبه checksum روی فایل موقت (همان بایت‌ها پس از جایگزینی)
+            checksum = self._calculate_checksum(tmp_zip)
+
+            # جایگزینی اتمیک
+            os.replace(tmp_zip, backup_file)
+            tmp_zip = None
 
             # ===== اصلاح =====
             # checksum محاسبه می‌شد ولی هیچ‌جا ذخیره نمی‌شد، پس موقع
-            # بازیابی چیزی برای مقایسه وجود نداشت. حالا داخل
-            # metadata کنار فایل نوشته می‌شود تا در restore قابل
-            # راستی‌آزمایی باشد.
-            sidecar = backup_file + '.sha256'
+            # بازیابی چیزی برای مقایسه وجود نداشت. حالا کنار فایل نوشته
+            # می‌شود تا در restore قابل راستی‌آزمایی باشد.
+            # (بازرسی شانزدهم) الگوریتم واقعاً SHA-256 است (قبلاً MD5 در
+            # فایلی با پسوند .sha256 نوشته می‌شد).
+            sidecar = backup_file + CHECKSUM_SUFFIX
+            checksum_saved = True
             try:
                 with open(sidecar, 'w', encoding='utf-8') as f:
                     f.write(checksum)
             except OSError as e:
+                checksum_saved = False
                 self.logger.warning(f"خطا در ذخیره checksum: {e}")
-            
+
             # ثبت در لاگ
             self._log_backup_operation('create', name, user_id, user_name)
-            
+
+            size = os.path.getsize(backup_file)
+            message = f"✅ Backup با موفقیت در {backup_file} ایجاد شد."
+            if not checksum_saved:
+                message += "\n⚠️ فایل checksum کنار آن ذخیره نشد؛ هنگام بازیابی یکپارچگی راستی‌آزمایی نخواهد شد."
             return {
                 'success': True,
                 'file': backup_file,
                 'name': name,
-                'size': os.path.getsize(backup_file),
-                'size_display': self._format_size(os.path.getsize(backup_file)),
+                'size': size,
+                'size_display': self._format_size(size),
                 'checksum': checksum,
+                'checksum_saved': checksum_saved,
                 'created_at': metadata['created_at'],
                 'created_by': user_id,
-                'message': f"✅ Backup با موفقیت در {backup_file} ایجاد شد."
+                'message': message,
             }
-            
+
         except Exception as e:
+            self.logger.error(f"خطا در ایجاد Backup: {e}", exc_info=True)
             return {
                 'success': False,
                 'message': f"❌ خطا در ایجاد Backup: {e!s}"
             }
+        finally:
+            # هیچ فایل موقتی (اسنپ‌شات، ژورنال‌های آن یا ZIP نیمه‌کاره) باقی نمی‌ماند
+            if tmp_db_snapshot:
+                for suffix in ('', '-wal', '-shm', '-journal'):
+                    self._remove_quietly(tmp_db_snapshot + suffix)
+            if tmp_zip:
+                self._remove_quietly(tmp_zip)
     
     def _quiesce_database(self):
         """
@@ -372,16 +551,9 @@ class BackupManager:
             # و در صورت عدم تطابق عملیات متوقف می‌شود.
             checksum = self._calculate_checksum(backup_file)
 
-            sidecar = backup_file + '.sha256'
-            if os.path.exists(sidecar):
-                try:
-                    with open(sidecar, encoding='utf-8') as f:
-                        expected = f.read().strip()
-                except OSError as e:
-                    expected = None
-                    self.logger.warning(f"خطا در خواندن checksum: {e}")
-
-                if expected and expected != checksum:
+            expected = self._read_sidecar(backup_file)
+            if expected is not None:
+                if not self._checksum_matches(backup_file, expected):
                     return {
                         'success': False,
                         'message': (
@@ -521,37 +693,80 @@ class BackupManager:
                 self._remove_quietly(safety_copy)
             
             # بازیابی فایل‌های پیوست
+            # (بازرسی شانزدهم) نسخهٔ قبلی اول پوشهٔ پیوست‌های فعلی را پاک
+            # می‌کرد و بعد کپی می‌کرد؛ اگر کپی وسط کار شکست می‌خورد، هم
+            # پیوست‌های قدیمی از دست رفته بودند هم جدیدها ناقص بودند.
+            # حالا پوشهٔ فعلی کنار گذاشته می‌شود و فقط پس از کپی موفق حذف
+            # می‌شود؛ در شکست، همان پوشه برمی‌گردد و نتیجه صریح می‌گوید
+            # «دیتابیس بازیابی شد ولی پیوست‌ها نه».
             attachments_backup = os.path.join(extract_dir, "attachments")
+            attachments_restored = None
+            attachments_error = None
             if os.path.exists(attachments_backup):
-                if os.path.exists(self.attachments_dir):
-                    shutil.rmtree(self.attachments_dir)
-                shutil.copytree(attachments_backup, self.attachments_dir)
-            
-            # پاک کردن فایل‌های موقت
-            shutil.rmtree(extract_dir)
-            
+                attachments_restored, attachments_error = self._swap_attachments_dir(
+                    attachments_backup)
+
             # ثبت در لاگ
             self._log_backup_operation('restore', os.path.basename(backup_file), user_id, user_name)
-            
+
+            message = (
+                f"✅ بازیابی با موفقیت از {os.path.basename(backup_file)} "
+                f"انجام شد.\n({detail})\n\n"
+                "برای اطمینان، برنامه را یک بار ببندید و دوباره باز کنید "
+                "تا همهٔ صفحه‌ها دادهٔ بازیابی‌شده را نشان دهند."
+            )
+            if attachments_restored is False:
+                message = (
+                    f"⚠️ دیتابیس از {os.path.basename(backup_file)} بازیابی شد ({detail})، "
+                    f"ولی بازیابی پوشهٔ پیوست‌ها ناموفق بود و پیوست‌های قبلی سر جای خود "
+                    f"ماندند: {attachments_error}"
+                )
             return {
                 'success': True,
-                'message': (
-                    f"✅ بازیابی با موفقیت از {os.path.basename(backup_file)} "
-                    f"انجام شد.\n({detail})\n\n"
-                    "برای اطمینان، برنامه را یک بار ببندید و دوباره باز کنید "
-                    "تا همهٔ صفحه‌ها دادهٔ بازیابی‌شده را نشان دهند."
-                ),
+                'message': message,
                 'pre_restore_file': pre_restore.get('file'),
                 'checksum': checksum,
                 'journal_removed': journal_removed,
-                'detail': detail
+                'detail': detail,
+                'attachments_restored': attachments_restored,
+                'attachments_error': attachments_error,
             }
-            
+
         except Exception as e:
+            self.logger.error(f"خطا در بازیابی: {e}", exc_info=True)
             return {
                 'success': False,
                 'message': f"❌ خطا در بازیابی: {e!s}"
             }
+        finally:
+            # پوشهٔ استخراج موقت در هر حالت (موفق/ناموفق/استثنا) پاک می‌شود
+            shutil.rmtree(os.path.join(self.backup_dir, "temp_restore"), ignore_errors=True)
+
+    def _swap_attachments_dir(self, new_attachments_dir):
+        """
+        جایگزینی امن پوشهٔ پیوست‌ها با نسخهٔ استخراج‌شده از پشتیبان
+
+        Returns:
+            (True, None) در موفقیت؛ (False, پیام خطا) در شکست (پوشهٔ قبلی برگردانده شده)
+        """
+        safety_dir = self.attachments_dir.rstrip('/\\') + '.restore_safety'
+        had_previous = os.path.isdir(self.attachments_dir)
+        try:
+            shutil.rmtree(safety_dir, ignore_errors=True)
+            if had_previous:
+                os.replace(self.attachments_dir, safety_dir)
+            try:
+                shutil.copytree(new_attachments_dir, self.attachments_dir)
+            except Exception as copy_error:
+                shutil.rmtree(self.attachments_dir, ignore_errors=True)
+                if had_previous and os.path.isdir(safety_dir):
+                    os.replace(safety_dir, self.attachments_dir)
+                raise RuntimeError(f"کپی پیوست‌ها ناموفق بود: {copy_error}") from copy_error
+            shutil.rmtree(safety_dir, ignore_errors=True)
+            return True, None
+        except Exception as e:
+            self.logger.error(f"بازیابی پوشهٔ پیوست‌ها ناموفق بود: {e}", exc_info=True)
+            return False, str(e)
     
     def _cleanup_pre_restore_files(self):
         """پاک کردن فایل‌های pre_restore قدیمی (فایل و sidecar آن‌ها)"""
@@ -569,11 +784,18 @@ class BackupManager:
         except OSError as e:
             self.logger.warning(f"خطا در پاکسازی pre_restore: {e}")
 
+    STATUS_LABELS = {  # noqa: RUF012 - نگاشت ثابت فقط‌خواندنی
+        'ok': '✅ سالم',
+        'no_checksum': '⚠️ بدون checksum',
+        'mismatch': '❌ checksum نامعتبر',
+        'corrupt': '❌ خراب',
+    }
+
     def list_backups(self):
-        """لیست فایل‌های پشتیبان موجود"""
+        """لیست فایل‌های پشتیبان موجود (با وضعیت واقعی هر فایل)"""
         backups = []
         for file in os.listdir(self.backup_dir):
-            if file.endswith('.partobak') and not file.startswith('pre_restore'):
+            if file.endswith(BACKUP_EXTENSION) and not file.startswith('pre_restore'):
                 file_path = os.path.join(self.backup_dir, file)
                 size = os.path.getsize(file_path)
                 modified = datetime.fromtimestamp(os.path.getmtime(file_path))
@@ -598,9 +820,11 @@ class BackupManager:
                     created_by = 'سیستم'
                     encrypted = False
                 
-                # محاسبه checksum
-                checksum = self._calculate_checksum(file_path)
-                
+                # وضعیت واقعی فایل (ZIP + checksum کناری) — بازرسی شانزدهم
+                status = self.backup_status(file_path)
+                expected = self._read_sidecar(file_path)
+                checksum_display = (expected[:8] + '...') if expected else '—'
+
                 backups.append({
                     'file': file,
                     'path': file_path,
@@ -611,7 +835,9 @@ class BackupManager:
                     'name': name,
                     'created_by': created_by,
                     'encrypted': encrypted,
-                    'checksum': checksum[:8] + '...'
+                    'checksum': checksum_display,
+                    'status': status,
+                    'status_display': self.STATUS_LABELS.get(status, status),
                 })
         
         # مرتب‌سازی بر اساس تاریخ (جدیدترین اول)
@@ -619,15 +845,40 @@ class BackupManager:
         return backups
     
     def delete_backup(self, backup_file, user_id=None, user_name=None):
-        """حذف فایل پشتیبان با ثبت"""
+        """
+        حذف فایل پشتیبان با ثبت (بازرسی شانزدهم)
+
+        ۱) مسیر canonical می‌شود و باید داخل پوشهٔ پشتیبان، با پسوند
+           .partobak و یک فایل معمولی باشد؛ وگرنه هیچ چیزی حذف نمی‌شود.
+        ۲) فایل checksum کناری (.sha256) هم حذف می‌شود؛ اگر حذف آن شکست
+           بخورد، در نتیجه و لاگ صریحاً گفته می‌شود.
+
+        Returns:
+            (bool, str)
+        """
+        real_path, error = self._resolve_backup_path(backup_file)
+        if error:
+            self.logger.warning(f"حذف پشتیبان رد شد ({backup_file}): {error}")
+            return False, error
+        base_name = os.path.basename(real_path)
         try:
-            if os.path.exists(backup_file):
-                os.remove(backup_file)
-                self._log_backup_operation('delete', os.path.basename(backup_file), user_id, user_name)
-                return True, "✅ فایل پشتیبان با موفقیت حذف شد."
-            return False, "❌ فایل پشتیبان وجود ندارد."
-        except Exception as e:
+            os.remove(real_path)
+        except OSError as e:
+            self.logger.error(f"حذف فایل پشتیبان {base_name} ناموفق بود: {e}", exc_info=True)
             return False, f"❌ خطا در حذف فایل: {e!s}"
+
+        self._log_backup_operation('delete', base_name, user_id, user_name)
+
+        sidecar = real_path + CHECKSUM_SUFFIX
+        if os.path.exists(sidecar):
+            try:
+                os.remove(sidecar)
+            except OSError as e:
+                self.logger.warning(
+                    f"فایل پشتیبان {base_name} حذف شد ولی فایل checksum کنار آن حذف نشد: {e}")
+                return False, (f"⚠️ فایل پشتیبان حذف شد، ولی فایل checksum کنار آن "
+                               f"({os.path.basename(sidecar)}) حذف نشد: {e!s}")
+        return True, "✅ فایل پشتیبان (و فایل checksum آن) با موفقیت حذف شد."
     
     def _count_attachments(self):
         """تعداد فایل‌های پیوست"""
@@ -637,13 +888,61 @@ class BackupManager:
                 count += len(files)
         return count
     
-    def _calculate_checksum(self, file_path):
-        """محاسبه Checksum فایل"""
-        hash_md5 = hashlib.md5()
+    def _calculate_checksum(self, file_path, algorithm='sha256'):
+        """
+        محاسبه Checksum فایل
+
+        (بازرسی شانزدهم) پیش‌فرض SHA-256 است — هم‌نام با پسوند فایل کناری.
+        نسخهٔ قبلی MD5 را در فایلی با پسوند .sha256 می‌نوشت؛ برای اینکه
+        پشتیبان‌های قدیمی همچنان راستی‌آزمایی شوند، هنگام مقایسه اگر مقدار
+        ثبت‌شده ۳۲ رقمی باشد، با MD5 مقایسه می‌شود (`_checksum_matches`).
+        """
+        hasher = hashlib.new(algorithm)
         with open(file_path, "rb") as f:
-            for chunk in iter(lambda: f.read(4096), b""):
-                hash_md5.update(chunk)
-        return hash_md5.hexdigest()
+            for chunk in iter(lambda: f.read(65536), b""):
+                hasher.update(chunk)
+        return hasher.hexdigest()
+
+    def _checksum_matches(self, file_path, expected):
+        """مقایسهٔ checksum فایل با مقدار ثبت‌شده (SHA-256 یا MD5 قدیمی)"""
+        expected = (expected or '').strip().lower()
+        if len(expected) == 32:
+            return self._calculate_checksum(file_path, 'md5') == expected
+        return self._calculate_checksum(file_path, 'sha256') == expected
+
+    def _read_sidecar(self, backup_file):
+        """مقدار checksum ثبت‌شده کنار فایل، یا None اگر نبود/خوانده نشد"""
+        sidecar = backup_file + CHECKSUM_SUFFIX
+        if not os.path.exists(sidecar):
+            return None
+        try:
+            with open(sidecar, encoding='utf-8') as f:
+                return f.read().strip() or None
+        except OSError as e:
+            self.logger.warning(f"خطا در خواندن checksum: {e}")
+            return None
+
+    def backup_status(self, backup_file):
+        """
+        وضعیت واقعی یک فایل پشتیبان (بازرسی شانزدهم)
+
+        قبلاً صفحهٔ پشتیبان‌گیری برای همهٔ فایل‌ها «✅ سالم» نشان می‌داد بدون
+        هیچ بررسی. حالا:
+          ok           → ZIP سالم و checksum با فایل کناری برابر
+          no_checksum  → ZIP سالم ولی فایل checksum کنارش نیست
+          mismatch     → checksum با فایل کناری برابر نیست (خراب/دستکاری)
+          corrupt      → ZIP باز نمی‌شود یا عضو خراب دارد
+        """
+        try:
+            with zipfile.ZipFile(backup_file, 'r') as zipf:
+                if zipf.testzip() is not None:
+                    return 'corrupt'
+        except (zipfile.BadZipFile, OSError):
+            return 'corrupt'
+        expected = self._read_sidecar(backup_file)
+        if expected is None:
+            return 'no_checksum'
+        return 'ok' if self._checksum_matches(backup_file, expected) else 'mismatch'
     
     def _format_size(self, size):
         """فرمت‌سازی حجم فایل"""
@@ -670,64 +969,58 @@ class BackupManager:
 
     def schedule_auto_backup(self, interval_hours=24, user_id=None, user_name=None):
         """
-        تنظیم پشتیبان‌گیری خودکار
-        
+        تنظیم پشتیبان‌گیری خودکار (قابل توقف — بازرسی شانزدهم)
+
         Args:
             interval_hours: فاصله زمانی بین پشتیبان‌گیری‌ها (ساعت)
-            user_id: شناسه کاربر
+            user_id: شناسه کاربر (None = سیستم)
             user_name: نام کاربر
+
+        Returns:
+            AutoBackupHandle: با `stop()` واقعاً متوقف می‌شود؛ `is_running()`
         """
-        import threading
-        import time
-        
+        handle = AutoBackupHandle(interval_hours)
+
         def auto_backup_worker():
-            while True:
-                time.sleep(interval_hours * 3600)
+            while handle.wait_interval():
                 try:
-                    # ایجاد پشتیبان
                     timestamp = utc_now().strftime("%Y%m%d_%H%M%S")
                     name = f"auto_backup_{timestamp}"
                     result = self.create_backup(name, user_id, user_name)
-                    
+                    handle.last_result = result
                     if result['success']:
-                        # حذف پشتیبان‌های قدیمی (نگهداری ۱۰ تا)
+                        # حذف پشتیبان‌های خودکار قدیمی (نگهداری ۱۰ تا)
                         self._cleanup_old_backups(keep_count=10)
-                        
-                        # ثبت در لاگ
-                        self._log_backup_operation(
-                            'auto_backup', 
-                            name, 
-                            user_id, 
-                            user_name
-                        )
+                        self._log_backup_operation('auto_backup', name, user_id, user_name)
+                    else:
+                        self.logger.error(f"پشتیبان‌گیری خودکار ناموفق بود: {result.get('message')}")
                 except Exception as e:
-                    logger.error(f"⚠️ خطا در پشتیبان‌گیری خودکار: {e}")
-        
-        # شروع ترد
-        thread = threading.Thread(target=auto_backup_worker, daemon=True)
-        thread.start()
-        logger.debug(f"✅ پشتیبان‌گیری خودکار هر {interval_hours} ساعت فعال شد.")
-        return thread
-    
+                    self.logger.error(f"خطا در پشتیبان‌گیری خودکار: {e}", exc_info=True)
+            self.logger.info("پشتیبان‌گیری خودکار متوقف شد.")
+
+        handle.thread = threading.Thread(
+            target=auto_backup_worker, daemon=True, name="parto-auto-backup")
+        handle.thread.start()
+        self.logger.info(f"پشتیبان‌گیری خودکار هر {interval_hours} ساعت فعال شد.")
+        return handle
+
     def _cleanup_old_backups(self, keep_count=10):
-        """حذف پشتیبان‌های قدیمی (به جز فایل‌های auto_backup)"""
+        """حذف پشتیبان‌های خودکار قدیمی (فایل و checksum کناری)، بقیه دست‌نخورده"""
         try:
             backups = self.list_backups()
-            # فیلتر کردن پشتیبان‌های خودکار
             auto_backups = [b for b in backups if b['name'].startswith('auto_backup_')]
-            
+
             if len(auto_backups) > keep_count:
                 # مرتب‌سازی بر اساس تاریخ (قدیمی‌ترین اول)
                 auto_backups.sort(key=lambda x: x['created_at'])
                 to_delete = auto_backups[:-keep_count]
-                
+
                 for backup in to_delete:
-                    try:
-                        os.remove(backup['path'])
-                        logger.debug(f"🗑️ پشتیبان قدیمی حذف شد: {backup['name']}")
-                    except Exception as _exc:
-                        self.logger.debug(
-                            f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
-                        )
+                    ok, message = self.delete_backup(backup['path'], None, 'سیستم')
+                    if ok:
+                        self.logger.info(f"پشتیبان خودکار قدیمی حذف شد: {backup['name']}")
+                    else:
+                        self.logger.warning(
+                            f"حذف پشتیبان خودکار قدیمی {backup['name']} ناموفق بود: {message}")
         except Exception as e:
-            logger.error(f"⚠️ خطا در پاکسازی پشتیبان‌های قدیمی: {e}")
+            self.logger.error(f"خطا در پاکسازی پشتیبان‌های قدیمی: {e}", exc_info=True)

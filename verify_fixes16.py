@@ -8,7 +8,12 @@
   A) کشف پویا از فایل‌سیستم، شکست بلند بارگذاری، ترتیب Downgrade، تراکنش هر گام،
      logging با traceback، مسیر خطای main.py، makeSuite، نسخهٔ پایتون ........ ۱۵ بررسی
 
-جمع فعلی: ۱۵ بررسی
+مرحلهٔ ۲ — Backup/Restore و file handling (بندهای ۱۱، ۱۲، ۲۵):
+  B) نام امن، نوشتن اتمیک، پاکسازی در شکست، وضعیت واقعی فهرست، حذف امن با sidecar،
+     بازیابی با پیش/پس‌شرط، جابه‌جایی امن پیوست‌ها، انتقال پوشهٔ قدیمی، توقف واقعی
+     زمان‌بند، صفحهٔ پشتیبان‌گیری offscreen .......................................... ۱۲ بررسی
+
+جمع فعلی: ۲۷ بررسی
 """
 
 import contextlib
@@ -348,7 +353,350 @@ check("A", "نسخهٔ پشتیبانی‌شدهٔ Python صریح و یکدست
 # ============================================================
 print()
 print("=" * 76)
-print(f"نتیجهٔ دور شانزدهم (مرحلهٔ ۱):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
+print("بخش B: Backup/Restore و file handling — حذف امن، نوشتن اتمیک، وضعیت واقعی، توقف واقعی")
+print("=" * 76)
+
+import hashlib  # noqa: E402
+import time  # noqa: E402
+import zipfile  # noqa: E402
+
+# --- دیتابیس موقت برنامه (برای سناریوهای بازیابی واقعی)
+TEST_DB = os.path.join(TMP, "partow.db")
+import config.settings as settings  # noqa: E402
+import database.connection as dbc  # noqa: E402
+
+settings.DB_PATH = TEST_DB
+dbc.DB_PATH = TEST_DB
+dbc.DatabaseConnection._instance = None
+with contextlib.redirect_stdout(io.StringIO()):
+    db = dbc.DatabaseConnection()
+    conn = db.get_connection(user_id=1)
+
+import utils.backup as backup_mod  # noqa: E402
+from utils.backup import BackupManager  # noqa: E402
+
+for _h in list(backup_mod.logger.handlers):
+    if isinstance(_h, logging.StreamHandler) and not isinstance(_h, logging.FileHandler):
+        _h.setLevel(logging.CRITICAL)
+
+ATT_DIR = os.path.join(TMP, "attachments")
+BK_DIR = os.path.join(TMP, "backups")
+os.makedirs(ATT_DIR, exist_ok=True)
+with open(os.path.join(ATT_DIR, "keep_me.txt"), "w", encoding="utf-8") as fh:
+    fh.write("attachment content")
+bm = BackupManager(TEST_DB, ATT_DIR, BK_DIR)
+for _h in list(bm.logger.handlers):
+    if isinstance(_h, logging.StreamHandler) and not isinstance(_h, logging.FileHandler):
+        _h.setLevel(logging.CRITICAL)
+
+
+def _sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        h.update(fh.read())
+    return h.hexdigest()
+
+
+def _dir_files(d):
+    return sorted(os.listdir(d)) if os.path.isdir(d) else []
+
+
+# --- B1: نام با پیمایش مسیر → فایل فقط داخل پوشهٔ پشتیبان
+res_evil = bm.create_backup("../../evil_name", user_id=1, user_name="آزمون")
+outside_candidates = [os.path.join(TMP, "evil_name.partobak"),
+                      os.path.join(os.path.dirname(TMP), "evil_name.partobak")]
+check("B", "نام پشتیبان امن‌سازی می‌شود: «../../evil_name» فقط evil_name.partobak داخل پوشهٔ پشتیبان می‌سازد و هیچ فایلی بیرون پوشه ساخته نمی‌شود",
+      res_evil["success"] and res_evil["name"] == "evil_name"
+      and os.path.realpath(res_evil["file"]) == os.path.join(os.path.realpath(BK_DIR), "evil_name.partobak")
+      and not any(os.path.exists(c) for c in outside_candidates),
+      str(res_evil.get("message"))[:100])
+
+# --- B2: نوشتن اتمیک + checksum واقعاً SHA-256
+res_ok = bm.create_backup("good_one", user_id=1, user_name="آزمون")
+good_file = res_ok.get("file")
+sidecar = good_file + ".sha256"
+leftovers = [f for f in _dir_files(BK_DIR) if f.endswith((".tmp", ".db.tmp", "-wal", "-shm", "-journal"))]
+check("B", "پشتیبان موفق: بدون فایل موقت باقی‌مانده (قبلاً کنار هر پشتیبان .db.tmp-wal/-shm جا می‌ماند)؛ فایل .sha256 کنار آن واقعاً SHA-256 همان فایل است (قبلاً MD5 با پسوند sha256)",
+      res_ok["success"] and os.path.exists(good_file) and os.path.exists(sidecar)
+      and not leftovers and res_ok.get("checksum_saved") is True
+      and open(sidecar, encoding="utf-8").read().strip() == _sha256(good_file) == res_ok["checksum"]
+      and len(res_ok["checksum"]) == 64,
+      f"leftovers={leftovers}")
+
+# --- B3: شکست وسط ساخت → هیچ .partobak نیمه‌کاره/موقت باقی نمی‌ماند
+before_fail = _dir_files(BK_DIR)
+real_count = BackupManager._count_attachments
+
+
+def _boom(self):
+    raise OSError("disk exploded during metadata")
+
+
+BackupManager._count_attachments = _boom
+try:
+    res_fail = bm.create_backup("half_written", user_id=1, user_name="آزمون")
+finally:
+    BackupManager._count_attachments = real_count
+after_fail = _dir_files(BK_DIR)
+check("B", "شکست وسط ساخت پشتیبان: success=False با پیام، و هیچ فایل نیمه‌کاره (.partobak/.tmp/.db.tmp) در پوشه نمی‌ماند",
+      res_fail["success"] is False and "disk exploded" in res_fail["message"]
+      and after_fail == before_fail,
+      f"diff={sorted(set(after_fail) ^ set(before_fail))}")
+
+# --- B4: وضعیت واقعی فایل‌ها در فهرست
+tampered = os.path.join(BK_DIR, "tampered.partobak")
+shutil.copy2(good_file, tampered)
+shutil.copy2(sidecar, tampered + ".sha256")
+with open(tampered, "ab") as fh:
+    fh.write(b"garbage appended after archive")
+corrupt = os.path.join(BK_DIR, "corrupt.partobak")
+with open(corrupt, "wb") as fh:
+    fh.write(b"this is not a zip file at all")
+nochk = os.path.join(BK_DIR, "nochecksum.partobak")
+shutil.copy2(good_file, nochk)
+statuses = {b["file"]: b["status"] for b in bm.list_backups()}
+check("B", "list_backups وضعیت واقعی می‌دهد: سالم=ok، دستکاری‌شده=mismatch، غیر-ZIP=corrupt، بدون فایل کناری=no_checksum (قبلاً همه «✅ سالم»)",
+      statuses.get("good_one.partobak") == "ok"
+      and statuses.get("tampered.partobak") == "mismatch"
+      and statuses.get("corrupt.partobak") == "corrupt"
+      and statuses.get("nochecksum.partobak") == "no_checksum",
+      str(statuses))
+
+# --- B5: delete_backup — فقط داخل پوشه، فقط .partobak، بدون پیوند نمادین؛ sidecar هم حذف می‌شود
+outside_file = os.path.join(TMP, "outside.partobak")
+with open(outside_file, "wb") as fh:
+    fh.write(b"x")
+wrong_ext = os.path.join(BK_DIR, "notes.txt")
+with open(wrong_ext, "w", encoding="utf-8") as fh:
+    fh.write("x")
+link_path = os.path.join(BK_DIR, "link.partobak")
+link_ok = True
+try:
+    os.symlink(outside_file, link_path)
+except (OSError, NotImplementedError):
+    link_ok = False
+r_out = bm.delete_backup(outside_file)
+r_ext = bm.delete_backup(wrong_ext)
+r_link = bm.delete_backup(link_path) if link_ok else (False, "symlink unsupported")
+r_traversal = bm.delete_backup(os.path.join(BK_DIR, "..", "outside.partobak"))
+r_dir = bm.delete_backup(BK_DIR)
+r_good = bm.delete_backup(tampered, user_id=1, user_name="آزمون")
+r_again = bm.delete_backup(tampered)
+check("B", "delete_backup: مسیر بیرون پوشه، پیمایش «..»، پسوند غیر .partobak، پیوند نمادین و خود پوشه رد می‌شوند و چیزی حذف نمی‌شود؛ فایل معتبر با .sha256 کنارش حذف می‌شود؛ حذف دوباره «وجود ندارد»",
+      r_out[0] is False and os.path.exists(outside_file)
+      and r_ext[0] is False and os.path.exists(wrong_ext)
+      and r_link[0] is False and os.path.exists(outside_file)
+      and r_traversal[0] is False and os.path.exists(outside_file)
+      and r_dir[0] is False and os.path.isdir(BK_DIR)
+      and r_good[0] is True and not os.path.exists(tampered) and not os.path.exists(tampered + ".sha256")
+      and r_again[0] is False and "وجود ندارد" in r_again[1],
+      f"out={r_out[1][:40]} ext={r_ext[1][:40]} link={r_link[1][:40]} good={r_good[1][:40]} again={r_again[1][:40]}")
+if link_ok and os.path.lexists(link_path):
+    os.remove(link_path)
+
+# --- B6: شکست حذف sidecar → نتیجهٔ صریح (نه موفقیت ظاهری)
+victim = os.path.join(BK_DIR, "victim.partobak")
+shutil.copy2(good_file, victim)
+shutil.copy2(sidecar, victim + ".sha256")
+real_remove = os.remove
+
+
+def _remove_but_not_sidecar(path):
+    if str(path).endswith("victim.partobak.sha256"):
+        raise PermissionError("sidecar locked")
+    return real_remove(path)
+
+
+os.remove = _remove_but_not_sidecar
+try:
+    r_partial = bm.delete_backup(victim)
+finally:
+    os.remove = real_remove
+check("B", "اگر حذف فایل .sha256 شکست بخورد: فایل اصلی حذف شده ولی نتیجه False با پیام صریح دربارهٔ sidecar است",
+      r_partial[0] is False and "checksum" in r_partial[1] and "sidecar locked" in r_partial[1]
+      and not os.path.exists(victim) and os.path.exists(victim + ".sha256"),
+      str(r_partial))
+os.remove(victim + ".sha256")
+
+# --- B7: بازیابی واقعی با پیش/پس‌شرط روی دیتابیس و پیوست‌ها
+from dal.student_dal import StudentDAL  # noqa: E402
+from models.student import Student  # noqa: E402
+
+student_dal = StudentDAL()
+
+
+def _new_student(first, last, code):
+    st = Student()
+    st.first_name, st.last_name, st.national_code = first, last, code
+    st.birth_date = "1395/01/01"
+    st.gender = "male"
+    return student_dal.create(st)
+
+
+for i in range(3):
+    _new_student("دانش‌آموز", f"شمارهٔ {i}", f"00000000{i}1")
+count_before = conn.execute("SELECT COUNT(*) FROM students WHERE is_deleted = 0").fetchone()[0]
+snap = bm.create_backup("snapshot_for_restore", user_id=1, user_name="آزمون")
+# تغییر وضعیت پس از پشتیبان: یک دانش‌آموز جدید + حذف فایل پیوست
+_new_student("بعد", "از پشتیبان", "0000000099")
+os.remove(os.path.join(ATT_DIR, "keep_me.txt"))
+count_changed = conn.execute("SELECT COUNT(*) FROM students WHERE is_deleted = 0").fetchone()[0]
+with contextlib.redirect_stdout(io.StringIO()):
+    res_restore = bm.restore_backup(snap["file"], user_id=1, user_name="آزمون")
+    conn = db.get_connection(user_id=1)
+count_after = conn.execute("SELECT COUNT(*) FROM students WHERE is_deleted = 0").fetchone()[0]
+check("B", "بازیابی واقعی: تعداد دانش‌آموزان به مقدار زمان پشتیبان برمی‌گردد، پیوست حذف‌شده برمی‌گردد، پوشهٔ موقت و پوشهٔ ایمنی باقی نمی‌مانند",
+      snap["success"] and count_changed == count_before + 1
+      and res_restore["success"] and count_after == count_before
+      and res_restore.get("attachments_restored") is True
+      and os.path.exists(os.path.join(ATT_DIR, "keep_me.txt"))
+      and not os.path.exists(os.path.join(BK_DIR, "temp_restore"))
+      and not os.path.exists(ATT_DIR + ".restore_safety")
+      and not os.path.exists(TEST_DB + ".restore_safety"),
+      f"before={count_before} changed={count_changed} after={count_after} msg={str(res_restore.get('message'))[:80]}")
+
+# --- B8: شکست بازیابی پیوست‌ها → دیتابیس بازیابی شده، پیوست‌های قبلی حفظ، نتیجهٔ صریح
+_new_student("دوباره", "بعد از پشتیبان", "0000000098")
+with open(os.path.join(ATT_DIR, "current_only.txt"), "w", encoding="utf-8") as fh:
+    fh.write("exists only now")
+real_copytree = shutil.copytree
+
+
+def _copytree_fail(src, dst, *a, **k):
+    raise OSError("copy interrupted")
+
+
+shutil.copytree = _copytree_fail
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        res_partial = bm.restore_backup(snap["file"], user_id=1, user_name="آزمون")
+        conn = db.get_connection(user_id=1)
+finally:
+    shutil.copytree = real_copytree
+count_partial = conn.execute("SELECT COUNT(*) FROM students WHERE is_deleted = 0").fetchone()[0]
+check("B", "اگر کپی پیوست‌ها شکست بخورد: دیتابیس بازیابی شده، پوشهٔ پیوست‌های قبلی دست‌نخورده برگشته (نه پاک‌شده)، نتیجه صریحاً attachments_restored=False با ⚠️، بدون پوشهٔ ایمنی/موقت",
+      res_partial["success"] and count_partial == count_before
+      and res_partial.get("attachments_restored") is False
+      and "copy interrupted" in str(res_partial.get("attachments_error"))
+      and res_partial["message"].startswith("⚠️")
+      and os.path.exists(os.path.join(ATT_DIR, "current_only.txt"))
+      and not os.path.exists(ATT_DIR + ".restore_safety")
+      and not os.path.exists(os.path.join(BK_DIR, "temp_restore")),
+      f"count={count_partial} msg={str(res_partial.get('message'))[:90]}")
+
+# --- B9: انتقال پشتیبان‌های پوشهٔ قدیمی (views/backups) بدون بازنویسی
+legacy_dir = os.path.join(TMP, "views", "backups")
+os.makedirs(legacy_dir, exist_ok=True)
+shutil.copy2(good_file, os.path.join(legacy_dir, "old_one.partobak"))
+shutil.copy2(sidecar, os.path.join(legacy_dir, "old_one.partobak.sha256"))
+shutil.copy2(good_file, os.path.join(legacy_dir, "good_one.partobak"))  # هم‌نام با موجود
+with open(os.path.join(legacy_dir, "backup_log.txt"), "w", encoding="utf-8") as fh:
+    fh.write("legacy log\n")
+moved = bm.adopt_legacy_backups(legacy_dir)
+merged_log = read(os.path.join(BK_DIR, "backup_log.txt"))
+check("B", "پشتیبان‌های پوشهٔ قدیمی داخل درخت کد به پوشهٔ استاندارد منتقل می‌شوند (فایل، sidecar؛ لاگ قدیمی به لاگ فعلی افزوده می‌شود)؛ فایل هم‌نام موجود بازنویسی نمی‌شود",
+      sorted(moved) == ["backup_log.txt", "old_one.partobak", "old_one.partobak.sha256"]
+      and os.path.exists(os.path.join(BK_DIR, "old_one.partobak"))
+      and not os.path.exists(os.path.join(legacy_dir, "backup_log.txt"))
+      and "legacy log" in merged_log and "create" in merged_log
+      and os.path.exists(os.path.join(legacy_dir, "good_one.partobak"))
+      and _sha256(good_file) == _sha256(os.path.join(BK_DIR, "good_one.partobak")),
+      str(moved))
+
+# --- B10: زمان‌بند خودکار واقعاً متوقف می‌شود
+auto_before = [f for f in _dir_files(BK_DIR) if f.startswith("auto_backup_")]
+handle = bm.schedule_auto_backup(interval_hours=0.0003, user_id=None, user_name="سیستم")  # ≈۱٫۱ ثانیه
+deadline = time.time() + 8
+while time.time() < deadline and not [f for f in _dir_files(BK_DIR) if f.startswith("auto_backup_") and f.endswith(".partobak")]:
+    time.sleep(0.2)
+auto_created = [f for f in _dir_files(BK_DIR) if f.startswith("auto_backup_") and f.endswith(".partobak")]
+stopped = handle.stop(timeout=10)
+count_at_stop = len([f for f in _dir_files(BK_DIR) if f.startswith("auto_backup_") and f.endswith(".partobak")])
+time.sleep(2.5)
+count_later = len([f for f in _dir_files(BK_DIR) if f.startswith("auto_backup_") and f.endswith(".partobak")])
+check("B", "پشتیبان‌گیری خودکار: پس از فاصلهٔ زمانی یک پشتیبان auto_backup_* ساخته می‌شود؛ stop() نخ را واقعاً تمام می‌کند و بعد از آن پشتیبان جدیدی ساخته نمی‌شود (قبلاً «توقف» فقط مرجع را None می‌کرد)",
+      not auto_before and len(auto_created) >= 1 and stopped is True
+      and not handle.is_running() and count_later == count_at_stop,
+      f"created={auto_created} stopped={stopped} at_stop={count_at_stop} later={count_later}")
+
+# --- B11: اتصال صفحه‌ها به پوشهٔ واحد، سیگنال کارگر، قفل هم‌زمانی، مخزن بدون فایل پشتیبان
+page_src = read("views/pages/backup_page.py")
+settings_page_src = read("views/pages/settings_page.py")
+settings_src = read("config/settings.py")
+gitignore = read(".gitignore")
+tracked_backups = subprocess.run(["git", "ls-files", "*.partobak", "**/*.partobak"],
+                                 capture_output=True, text=True).stdout.strip()
+check("B", "هر دو صفحه از BACKUP_DIR واحد استفاده می‌کنند؛ کارگر سیگنال operation_finished دارد (نه بازتعریف finished)؛ هر ۴ عمل قفل هم‌زمانی دارند؛ جدول هنگام عملیات قفل می‌شود؛ backups/ در .gitignore و هیچ .partobak در مخزن نیست",
+      "BACKUP_DIR = os.path.join(BASE_DIR, \"backups\")" in settings_src
+      and "self.backup_dir = BACKUP_DIR" in page_src
+      and "backup_dir = BACKUP_DIR" in settings_page_src
+      and "operation_finished = Signal(bool, str)" in page_src
+      and "finished = Signal(bool, str)\n" not in page_src.replace("operation_finished = Signal(bool, str)\n", "")
+      and page_src.count("if self._operation_in_progress():") == 4
+      and "self.table.setEnabled(enabled)" in page_src
+      and "backups/" in gitignore and tracked_backups == "",
+      f"tracked={tracked_backups!r}")
+
+# --- B12: صفحهٔ پشتیبان‌گیری (offscreen): ایجاد و حذف از مسیر UI → کارگر → مدیر → فایل → تازه‌سازی جدول
+gui_detail = ""
+try:
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication, QMessageBox
+
+    app = QApplication.instance() or QApplication(sys.argv)
+    import views.pages.backup_page as backup_page_mod
+
+    backup_page_mod.BACKUP_DIR = BK_DIR
+    backup_page_mod.LEGACY_BACKUP_DIR = os.path.join(TMP, "no_legacy_here")
+    shown = []
+    QMessageBox.information = staticmethod(lambda *a, **k: shown.append(("info", a[2])))
+    QMessageBox.critical = staticmethod(lambda *a, **k: shown.append(("crit", a[2])))
+    QMessageBox.warning = staticmethod(lambda *a, **k: shown.append(("warn", a[2])))
+    QMessageBox.question = staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes)
+    with contextlib.redirect_stdout(io.StringIO()):
+        page = backup_page_mod.BackupPage()
+
+    def _wait_worker(p, timeout=60):
+        end = time.time() + timeout
+        while time.time() < end:
+            app.processEvents()
+            if p.worker is None or not p.worker.isRunning():
+                app.processEvents()
+                return True
+            time.sleep(0.05)
+        return False
+
+    rows_before = page.table.rowCount()
+    files_before = len([f for f in _dir_files(BK_DIR) if f.endswith(".partobak") and not f.startswith("pre_restore")])
+    page.create_backup()
+    finished_ok = _wait_worker(page)
+    app.processEvents()
+    rows_after_create = page.table.rowCount()
+    files_after_create = len([f for f in _dir_files(BK_DIR) if f.endswith(".partobak") and not f.startswith("pre_restore")])
+    # حذف از مسیر UI
+    target = next(b for b in page.backup_manager.list_backups() if b["file"] == "nochecksum.partobak")
+    page.delete_backup(target)
+    finished_del = _wait_worker(page)
+    app.processEvents()
+    rows_after_delete = page.table.rowCount()
+    gui_detail = (f"rows {rows_before}->{rows_after_create}->{rows_after_delete} files {files_before}->{files_after_create} "
+                  f"shown={[k for k, _ in shown]} enabled={page.create_btn.isEnabled()}")
+    check("B", "صفحهٔ پشتیبان‌گیری (offscreen): «ایجاد پشتیبان» → کارگر → فایل جدید روی دیسک → پیام موفقیت → جدول +۱؛ «حذف» ردیف → فایل حذف → جدول −۱؛ دکمه‌ها دوباره فعال",
+          finished_ok and finished_del and rows_before == files_before
+          and files_after_create == files_before + 1 and rows_after_create == rows_before + 1
+          and rows_after_delete == rows_after_create - 1
+          and not os.path.exists(os.path.join(BK_DIR, "nochecksum.partobak"))
+          and shown and all(k == "info" for k, _ in shown)
+          and page.create_btn.isEnabled() and page.table.isEnabled(),
+          gui_detail)
+except Exception as e:
+    check("B", "صفحهٔ پشتیبان‌گیری (offscreen): زنجیرهٔ UI → کارگر → فایل → جدول", False,
+          f"{type(e).__name__}: {e} {gui_detail}")
+
+# ============================================================
+print()
+print("=" * 76)
+print(f"نتیجهٔ دور شانزدهم (مرحله‌های ۱ و ۲):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
 if FAILURES:
     print("موارد ناموفق:")
     for f in FAILURES:
