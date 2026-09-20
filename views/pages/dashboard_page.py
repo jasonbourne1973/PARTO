@@ -746,6 +746,8 @@ class DashboardPage(QWidget):
                 'academic_year': 'سال تحصیلی',
                 'auth': 'امنیت و ورود',
                 'user': 'کاربر سامانه',
+                'notification': 'اعلان',
+                'notifications': 'اعلان',
             }
 
             self.activity_table.setRowCount(min(len(logs), 6))

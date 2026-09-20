@@ -573,6 +573,7 @@ AUDIT_ENTITY_ALIASES = {
     'individual_goal': 'individual_goals',
     'extracurricular_activity': 'extracurricular_activities',
     'recommendation': 'recommendations',
+    'notification': 'notifications',
     'students': 'students',
     'observations': 'observations',
     'interventions': 'interventions',
@@ -590,6 +591,7 @@ AUDIT_ENTITY_ALIASES = {
     'individual_goals': 'individual_goals',
     'extracurricular_activities': 'extracurricular_activities',
     'recommendations': 'recommendations',
+    'notifications': 'notifications',
 }
 
 

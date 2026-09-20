@@ -191,6 +191,7 @@ class BaseService:
                 'individual_goal': 'individual_goals',
                 'extracurricular_activity': 'extracurricular_activities',
                 'recommendation': 'recommendations',
+                'notification': 'notifications',
                 'students': 'students',
                 'observations': 'observations',
                 'interventions': 'interventions',
@@ -208,6 +209,7 @@ class BaseService:
                 'individual_goals': 'individual_goals',
                 'extracurricular_activities': 'extracurricular_activities',
                 'recommendations': 'recommendations',
+                'notifications': 'notifications',
             }
     _AUDIT_ACTIONS = ('create', 'edit', 'delete_soft', 'restore', 'delete')
     _TRIGGER_CACHE = None

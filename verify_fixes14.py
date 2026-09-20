@@ -700,7 +700,7 @@ check("D", "Migration گمشده (v7) → MigrationMissingError با نام نس
       f"error={type(gap_error).__name__} version={gap_version}")
 
 # --- D2: در DatabaseConnection هم خطا بالا می‌آید و نسخه مُهر نمی‌خورد (بدون fallback خاموش)
-migrate_body = conn_src.split("def _migrate_database")[1].split("def _migrate_to_v1")[0]
+migrate_body = conn_src.split("def _migrate_database")[1].split("def _create_all_tables")[0]
 check("D", "_migrate_database بدون «مسیر جایگزین خاموش»: خطا بالا می‌آید و _set_db_version فقط بعد از موفقیت",
       "raise" in migrate_body
       and migrate_body.index("MigrationManager.migrate(") < migrate_body.index("self._set_db_version(to_version)")
@@ -1031,8 +1031,10 @@ for table in PM_AUDIT_TABLES:
                    for suffix in ("insert", "update", "soft_delete", "restore", "hard_delete"))
     if kinds != {"INSERT", "UPDATE", "DELETE"} or not names_ok:
         missing_cov.append((table, sorted(kinds), names_ok))
+# (دور ۱۵) notifications هم به فهرست مدیریت‌شده اضافه شد؛ پس «همهٔ ۱۸
+# جدول مدیر پروژه زیرمجموعهٔ فهرست» بررسی می‌شود، نه برابری دقیق.
 check("F", "هر ۱۸ جدول فهرست مدیر پروژه (۷ جدول قبلی + ۱۱ جدول جدید) پنج تریگر insert/update/soft_delete/restore/hard_delete دارند",
-      not missing_cov and tuple(dbc.DatabaseConnection._AUDIT_TABLES) == PM_AUDIT_TABLES,
+      not missing_cov and set(PM_AUDIT_TABLES) <= set(dbc.DatabaseConnection._AUDIT_TABLES),
       f"missing={missing_cov}")
 
 # --- F2: ویرایش زمینهٔ خانوادگی → old/new کامل و تفاوت واقعی قابل دیدن

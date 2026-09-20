@@ -289,14 +289,20 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
         if not os.path.exists(db_dir):
             os.makedirs(db_dir)
 
-        # ===== اصلاح (بازرسی دوازدهم): هر نخ، اتصال خودش =====
-        # قبلاً یک اتصال واحد با check_same_thread=False بین همهٔ نخ‌ها
-        # مشترک بود. حالا هر نخ اتصال جداگانه می‌گیرد؛ چون هر اتصال
-        # فقط در نخ سازنده‌اش استفاده می‌شود، تداخل تراکنش و رفتار
-        # تعریف‌نشدهٔ SQLite از بین می‌رود. پرچم check_same_thread=False
-        # نگه داشته شده تا اگر مسیری قدیمی اتصال را جابه‌جا کرد، برنامه
-        # با خطای ناگهانی روبه‌رو نشود؛ ایزولاسیون واقعی را همین
-        # نخ‌محلی‌بودن تضمین می‌کند.
+        # ===== هر نخ، اتصال خودش (بازرسی دوازدهم و چهاردهم) =====
+        # این اتصال فقط در نخ سازنده‌اش برای خواندن/نوشتن استفاده
+        # می‌شود (get_connection نخ‌محلی است)؛ هیچ اتصالی بین نخ‌ها به
+        # اشتراک گذاشته نمی‌شود، پس تداخل تراکنش و رفتار تعریف‌نشدهٔ
+        # SQLite پیش نمی‌آید.
+        #
+        # چرا با این حال check_same_thread=False است؟ (بازرسی پانزدهم)
+        # تنها استفادهٔ بین‌نخی، «بستن» است: close_all() هنگام بازیابی
+        # پشتیبان و بستن برنامه باید بتواند اتصال نخ‌های دیگر (زمان‌بند
+        # اعلان‌ها، کارگرهای آپلود) را زیر DB_THREAD_LOCK ببندد تا فایل
+        # دیتابیس بدون اتصال باز جایگزین شود. با مقدار پیش‌فرض، همان
+        # conn.close() از نخ دیگر ProgrammingError می‌داد. این پرچم
+        # مجوز «استفادهٔ هم‌زمان» نیست؛ ایزولاسیون را نخ‌محلی‌بودن
+        # اتصال‌ها تضمین می‌کند (verify14 §A، verify15 §H).
         conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=10)
         conn.row_factory = sqlite3.Row
 
@@ -752,39 +758,26 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
         self._connection.commit()
     
     def _migrate_database(self, from_version, to_version):
-        """انجام Migration بین نسخه‌ها
+        """
+        انجام Migration بین نسخه‌ها — یا کامل، یا با خطای روشن
 
-        ===== اصلاح مهم =====
-        نسخه قبلی فقط یک دیکشنری دستی داشت:
+        همهٔ فایل‌های database/migrations/migration_vN.py در بازهٔ
+        (from_version, to_version] توسط `MigrationManager` (که آن‌ها را
+        با `_discover_migrations()` پیدا می‌کند) به‌ترتیب اجرا می‌شوند و
+        شمارهٔ نسخه فقط پس از موفقیت همهٔ آن‌ها ثبت می‌شود.
 
-            migrations = {1: self._migrate_to_v1}
-
-        بنابراین برای ارتقاء از نسخه ۲ به ۷ هیچ کاری انجام نمی‌شد جز
-        اینکه در پایان `_set_db_version(7)` صدا زده می‌شد! یعنی دیتابیس
-        قدیمی بدون دریافت هیچ‌کدام از تغییرات v2..v7، مُهر نسخه ۷
-        می‌خورد و برای همیشه ناقص می‌ماند — در حالی که کلاس
-        `MigrationManager` (database/migrations/manager.py) با تابع
-        `_discover_migrations()` همه فایل‌های migration_vN.py را پیدا و
-        اجرا می‌کند. آن کلاس درست کار می‌کرد ولی هیچ‌وقت از اینجا
-        صدا زده نمی‌شد.
-
-        حالا اول از MigrationManager واقعی استفاده می‌شود و اگر به هر
-        دلیلی شکست خورد، مسیر قدیمی به عنوان fallback اجرا می‌شود تا
-        برنامه بالا بیاید (به‌علاوه _heal_schema ساختار را ترمیم می‌کند).
+        هیچ مسیر جایگزین/پشتیبانی وجود ندارد: اگر Migrationی در بازه
+        نباشد (`MigrationMissingError`) یا اجرای یکی شکست بخورد، خطا با
+        پیام روشن بالا می‌آید، تغییرات rollback می‌شود و نسخه مُهر
+        نمی‌خورد؛ برنامه هرگز یک دیتابیس نیمه‌ارتقایافته را «به‌روز»
+        وانمود نمی‌کند (بازرسی دوازدهم؛ آزمون‌های verify12 §H و
+        verify14 §D). ترمیم ساختار (`_heal_schema`) جدا از این متد و
+        پس از آن اجرا می‌شود.
         """
         print(f"🔄 ارتقاء دیتابیس از نسخه {from_version} به {to_version}")
 
-        # ===== اصلاح (بازرسی دوازدهم): شکستِ بلند =====
-        # نسخهٔ قبلی اگر MigrationManager خطا می‌داد، سراغ یک «مسیر
-        # جایگزین» می‌رفت که عملاً هیچ‌کدام از نسخه‌های v2..v9 را اعمال
-        # نمی‌کرد (فقط کلید 1 را داشت) ولی در پایان **بی‌قیدوشرط**
-        # `_set_db_version(to_version)` می‌زد! یعنی یک دیتابیس
-        # نیمه‌ارتقایافته مُهر «سالم و به‌روز» می‌خورد و خطای واقعی
-        # بعداً وسط کار کاربر بیرون می‌زد.
-        #
-        # حالا: یا همهٔ Migrationهای لازم با موفقیت اجرا می‌شوند، یا
-        # خطا با پیام روشن بالا می‌آید و نسخه مُهر نمی‌خورد تا برنامه
-        # وانمود نکند Migration کامل انجام شده است.
+        # (بازرسی دوازدهم) شکستِ بلند: یا همهٔ Migrationهای لازم با
+        # موفقیت اجرا می‌شوند، یا خطا بالا می‌آید و نسخه مُهر نمی‌خورد.
         from database.migrations.manager import MigrationManager
 
         try:
@@ -798,13 +791,6 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
             raise
         self._set_db_version(to_version)
 
-    
-    def _migrate_to_v1(self):
-        """Migration به نسخه 1 - ایجاد جداول اولیه"""
-        self._create_all_tables()
-        self._create_indexes()
-        self._create_audit_triggers()
-        self._seed_default_data()
     
     def _create_all_tables(self):
         """ایجاد تمام جداول دیتابیس با مدل نهایی و فیلدهای Soft Delete"""
@@ -1484,11 +1470,18 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
         self._connection.commit()
         print("✅ ایندکس‌های دیتابیس با موفقیت ایجاد شدند.")
     
-    # جدول‌هایی که تغییرشان (ساخت/ویرایش/حذف منطقی/بازیابی) در
-    # Audit Log ردیابی می‌شود (بازرسی دوازدهم: یکپارچه‌سازی).
-    # توجه: audit_logs خودش تریگر ندارد (وگرنه بازگشت بی‌نهایت
-    # می‌شد) و تریگرهای notifications (ساختهٔ migration_v6) هم
-    # دست‌نخورده می‌مانند.
+    # جدول‌هایی که تغییرشان (ساخت/ویرایش/حذف منطقی/بازیابی/حذف
+    # فیزیکی) در Audit Log ردیابی می‌شود (بازرسی دوازدهم:
+    # یکپارچه‌سازی). توجه: audit_logs خودش تریگر ندارد (وگرنه بازگشت
+    # بی‌نهایت می‌شد).
+    #
+    # (بازرسی پانزدهم) notifications هم به همین فهرست آمد: تریگرهای
+    # قدیمی آن (ساختهٔ migration_v6 به‌صورت «فقط اگر وجود نداشت» و
+    # فقط با id، و user_id = گیرندهٔ اعلان به‌جای انجام‌دهنده) روی
+    # دیتابیس‌های موجود هرگز به‌روز نمی‌شدند. چون نام تریگرهای مدیریت‌شده
+    # همان نام‌های قدیمی است، DROP + CREATE در هر راه‌اندازی آن‌ها را
+    # با نسخهٔ کامل (JSON کل ردیف، انجام‌دهندهٔ واقعی) جایگزین می‌کند —
+    # بدون حذف حتی یک ردیف از audit_logs.
     _AUDIT_TABLES = (
         'students',
         'observations',
@@ -1508,6 +1501,7 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
         'recommendations',
         'users',
         'attachments',
+        'notifications',
     )
 
     # ستون‌هایی که عمداً در Audit ثبت نمی‌شوند (حساسیت امنیتی)
@@ -1564,6 +1558,12 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
            و تصویر کامل ردیف قبل از حذف؛ تا permanent_delete و حذف
            آبشاری هم بدون رد نمانند. اقدام‌ها:
            create / edit / delete_soft / restore / delete
+
+        ===== افزوده (بازرسی پانزدهم) =====
+        ۵) notifications نوزدهمین جدول این فهرست است؛ تریگرهای قدیمیِ
+           فقط-id آن (migration_v6) با همین سازوکار DROP + CREATE روی
+           دیتابیس‌های موجود جایگزین می‌شوند. هیچ ردیفی از audit_logs
+           پاک نمی‌شود؛ فقط تعریف تریگرها عوض می‌شود.
         """
         conn = self._connection
         cursor = conn.cursor()
@@ -1916,6 +1916,8 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
                     conn.close()
                 self._open_connections.pop(threading.get_ident(), None)
             self._connection = None
+            # نوشتن روی نام کلاسی، از طریق متاکلاس به وضعیت «نخ جاری»
+            # می‌رود (نه یک مقدار سراسری بین نخ‌ها).
             DatabaseConnection._transaction_depth = 0
             type(self)._set_thread_value('_initialized', False, reset_schema=False)
 

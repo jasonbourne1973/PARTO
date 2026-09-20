@@ -44,41 +44,16 @@ def upgrade(connection):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_notifications_scheduled_at ON notifications(scheduled_at)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_notifications_is_deleted ON notifications(is_deleted)")
     
-    # ===== ایجاد تریگرهای Audit =====
-    cursor.execute("""
-        CREATE TRIGGER IF NOT EXISTS trg_notifications_insert_audit
-        AFTER INSERT ON notifications
-        BEGIN
-            INSERT INTO audit_logs (
-                user_id, action, entity_type, entity_id, new_value
-            ) VALUES (
-                NEW.user_id,
-                'create',
-                'notification',
-                NEW.id,
-                json_object('id', NEW.id, 'type', NEW.type)
-            );
-        END
-    """)
-    
-    cursor.execute("""
-        CREATE TRIGGER IF NOT EXISTS trg_notifications_update_audit
-        AFTER UPDATE ON notifications
-        WHEN NEW.is_deleted = 0 AND OLD.is_deleted = 0
-        BEGIN
-            INSERT INTO audit_logs (
-                user_id, action, entity_type, entity_id, old_value, new_value
-            ) VALUES (
-                NEW.user_id,
-                'edit',
-                'notification',
-                NEW.id,
-                json_object('id', OLD.id),
-                json_object('id', NEW.id)
-            );
-        END
-    """)
-    
+    # ===== تریگرهای Audit =====
+    # (بازرسی پانزدهم) این migration دیگر تریگر نمی‌سازد. نسخهٔ قبلی
+    # دو تریگر را به‌صورت «فقط اگر وجود نداشت» و فقط با id
+    # می‌ساخت؛ یعنی روی دیتابیس‌های موجود هرگز به‌روز نمی‌شدند و
+    # user_id گیرندهٔ اعلان را به‌جای انجام‌دهنده ثبت می‌کردند. تریگرهای
+    # همهٔ جدول‌های حسابرسی‌شده (از جمله notifications) به‌صورت متمرکز در
+    # DatabaseConnection._ensure_audit_triggers با DROP + CREATE در هر
+    # راه‌اندازی ساخته/به‌روز می‌شوند (JSON کامل ردیف، انجام‌دهندهٔ
+    # واقعی)، بدون حذف داده‌ای از audit_logs.
+
     connection.commit()
     print("✅ Migration به نسخه 6 با موفقیت انجام شد.")
 

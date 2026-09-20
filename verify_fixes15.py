@@ -1,12 +1,18 @@
 """
-بررسی‌های دور پانزدهم — مرحلهٔ ۱: سه ایراد محتوایی داوری مدیر پروژه
+بررسی‌های دور پانزدهم — داوری دوم مدیر پروژه (مرحله‌های ۱ و ۲)
 
+مرحلهٔ ۱ — سه ایراد محتوایی:
   A) روند رشد: بازه‌های میانی در همهٔ مسیرها (سرویس چندساله + گزارش سالانه) ... ۹ بررسی
   B) روایت چندساله: مسیر هر زمینه و «تغییر پس از مداخله» .................. ۱۰ بررسی
   C) گزارش والدین: یک منبع واحد، بدون اطلاعات داخلی ......................... ۹ بررسی
   D) نگهبان‌های بدون پس‌روندگی ................................................ ۴ بررسی
+مرحلهٔ ۲ — باقی‌ماندهٔ فنی در کد فعلی:
+  E) تریگرهای Audit جدول notifications: جایگزینی روی دیتابیس‌های موجود بدون حذف داده ... ۶ بررسی
+  F) توضیحات/داک‌استرینگ‌های کهنه که کد خطرناک قدیمی را نقل می‌کردند ........ ۳ بررسی
+  G) ثبت خطای بارگذاری Migration در لاگ برنامه (نه فقط print) ................ ۲ بررسی
+  H) دلیل واقعی check_same_thread=False: فقط بستن بین‌نخی در close_all ........ ۱ بررسی
 
-جمع: ۳۲ بررسی
+جمع: ۴۴ بررسی
 
 هر بررسی روی یک دیتابیس موقت اجرا می‌شود و به داده‌های کاربر دست نمی‌زند.
 """
@@ -553,7 +559,284 @@ check("D", "دکمهٔ گزارش والدین و مسیر اصلی صفحهٔ �
 # ============================================================
 print()
 print("=" * 76)
-print(f"نتیجهٔ دور پانزدهم (مرحلهٔ ۱):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
+print("بخش E: تریگرهای Audit جدول notifications (IF NOT EXISTS → DROP/CREATE مدیریت‌شده)")
+print("=" * 76)
+
+import json  # noqa: E402
+import threading  # noqa: E402
+
+from dal.notification_dal import NotificationDAL  # noqa: E402
+from models.notification import Notification  # noqa: E402
+from utils.security import normalize_entity_type  # noqa: E402
+
+notif_dal = NotificationDAL()
+
+
+def _notification_triggers(connection):
+    return {r[0]: (r[1] or '') for r in connection.execute(
+        "SELECT name, sql FROM sqlite_master WHERE type = 'trigger' "
+        "AND tbl_name = 'notifications'")}
+
+
+def _make_notification(title, recipient=1):
+    n = Notification()
+    n.user_id = recipient
+    n.type = 'reminder'
+    n.title = title
+    n.message = 'پیام آزمایشی اعلان'
+    n.entity_type = 'followup'
+    n.entity_id = 1
+    return notif_dal.create(n).id
+
+
+fresh_triggers = _notification_triggers(conn)
+v6_src = read('database/migrations/migration_v6.py')
+check("E", "notifications در فهرست مدیریت‌شده است: ۵ تریگر با JSON کامل ردیف؛ migration_v6 دیگر تریگر IF NOT EXISTS نمی‌سازد",
+      'notifications' in dbc.DatabaseConnection._AUDIT_TABLES
+      and set(fresh_triggers) == {f'trg_notifications_{k}_audit' for k in
+                                  ('insert', 'update', 'soft_delete', 'restore', 'hard_delete')}
+      and "'title', NEW.\"title\"" in fresh_triggers['trg_notifications_insert_audit']
+      and "'type', NEW.type)" not in fresh_triggers['trg_notifications_insert_audit']
+      and 'CREATE TRIGGER' not in v6_src,
+      str(sorted(fresh_triggers)))
+
+# شبیه‌سازی دیتابیس موجود با تریگرهای قدیمی migration_v6 (فقط id، IF NOT EXISTS)
+for name in fresh_triggers:
+    conn.execute(f'DROP TRIGGER IF EXISTS "{name}"')
+conn.execute("""
+    CREATE TRIGGER IF NOT EXISTS trg_notifications_insert_audit
+    AFTER INSERT ON notifications
+    BEGIN
+        INSERT INTO audit_logs (user_id, action, entity_type, entity_id, new_value)
+        VALUES (NEW.user_id, 'create', 'notification', NEW.id,
+                json_object('id', NEW.id, 'type', NEW.type));
+    END
+""")
+conn.execute("""
+    CREATE TRIGGER IF NOT EXISTS trg_notifications_update_audit
+    AFTER UPDATE ON notifications
+    WHEN NEW.is_deleted = 0 AND OLD.is_deleted = 0
+    BEGIN
+        INSERT INTO audit_logs (user_id, action, entity_type, entity_id, old_value, new_value)
+        VALUES (NEW.user_id, 'edit', 'notification', NEW.id,
+                json_object('id', OLD.id), json_object('id', NEW.id));
+    END
+""")
+conn.commit()
+legacy_id = _make_notification('اعلان قدیمی')
+audit_before = conn.execute("SELECT COUNT(*) FROM audit_logs").fetchone()[0]
+legacy_row = conn.execute(
+    "SELECT new_value FROM audit_logs WHERE entity_type = 'notification' AND entity_id = ?",
+    (legacy_id,)).fetchone()
+
+# «راه‌اندازی دوباره»: بستن همهٔ اتصال‌ها و بازکردن (نسل جدید → تضمین اسکیما/تریگرها)
+with contextlib.redirect_stdout(io.StringIO()):
+    db.close_all()
+    conn = db.get_connection(user_id=1)
+upgraded = _notification_triggers(conn)
+audit_after = conn.execute("SELECT COUNT(*) FROM audit_logs").fetchone()[0]
+legacy_still = conn.execute(
+    "SELECT COUNT(*) FROM audit_logs WHERE entity_type = 'notification' AND entity_id = ?",
+    (legacy_id,)).fetchone()[0]
+check("E", "روی دیتابیس موجود، تریگرهای قدیمی با همان نام‌ها جایگزین می‌شوند (۵ تریگر، JSON کامل) و هیچ ردیفی از audit_logs حذف نمی‌شود",
+      legacy_row is not None and json.loads(legacy_row[0]) == {'id': legacy_id, 'type': 'reminder'}
+      and len(upgraded) == 5
+      and "'title', NEW.\"title\"" in upgraded['trg_notifications_insert_audit']
+      and "'type', NEW.type)" not in upgraded['trg_notifications_insert_audit']
+      and audit_after == audit_before and legacy_still == 1,
+      f"triggers={len(upgraded)} audit {audit_before}->{audit_after}")
+
+managed_id = _make_notification('اعلان مدیریت‌شده')
+create_rows = conn.execute(
+    "SELECT user_id, new_value FROM audit_logs WHERE entity_type = 'notifications' "
+    "AND action = 'create' AND entity_id = ?", (managed_id,)).fetchall()
+create_json = json.loads(create_rows[0][1]) if create_rows else {}
+check("E", "ایجاد اعلان: دقیقاً یک ردیف Audit با انجام‌دهندهٔ واقعی (نه گیرنده)، نوع موجودیت یکدست و تصویر کامل ردیف",
+      len(create_rows) == 1 and create_rows[0][0] == 1
+      and create_json.get('title') == 'اعلان مدیریت‌شده'
+      and create_json.get('user_id') == 1 and 'message' in create_json,
+      str(create_rows[:1]))
+
+notif_dal.mark_as_read(managed_id)
+edit_rows = conn.execute(
+    "SELECT old_value, new_value FROM audit_logs WHERE entity_type = 'notifications' "
+    "AND action = 'edit' AND entity_id = ?", (managed_id,)).fetchall()
+check("E", "خوانده‌شدن اعلان: یک ردیف «ویرایش» با old/new کامل (is_read از ۰ به ۱)",
+      len(edit_rows) == 1
+      and json.loads(edit_rows[0][0]).get('is_read') == 0
+      and json.loads(edit_rows[0][1]).get('is_read') == 1,
+      str(len(edit_rows)))
+
+scheduler_result = {}
+
+
+def _scheduler_like_worker():
+    with db.worker_context(None):
+        scheduler_result['id'] = _make_notification('اعلان زمان‌بند')
+
+
+worker = threading.Thread(target=_scheduler_like_worker)
+worker.start()
+worker.join()
+sched_row = conn.execute(
+    "SELECT user_id FROM audit_logs WHERE entity_type = 'notifications' "
+    "AND action = 'create' AND entity_id = ?", (scheduler_result.get('id'),)).fetchone()
+check("E", "اعلانِ ساختهٔ نخ زمان‌بند (worker_context بدون کاربر) با user_id تهی ثبت می‌شود، نه به نام گیرنده",
+      sched_row is not None and sched_row[0] is None,
+      str(sched_row))
+
+conn.execute("UPDATE notifications SET created_at = '2000-01-01 00:00:00' WHERE id = ?",
+             (managed_id,))
+conn.commit()
+notif_dal.delete_old(days=30)
+soft_rows = conn.execute(
+    "SELECT old_value FROM audit_logs WHERE entity_type = 'notifications' "
+    "AND action = 'delete_soft' AND entity_id = ?", (managed_id,)).fetchall()
+dash_src = read('views/pages/dashboard_page.py')
+check("E", "پاکسازی اعلان‌های قدیمی (حذف منطقی) ردیف delete_soft با تصویر قبلی دارد؛ نام‌های قدیمی/جدید یکدست و برچسب داشبورد موجود",
+      len(soft_rows) == 1 and json.loads(soft_rows[0][0]).get('title') == 'اعلان مدیریت‌شده'
+      and normalize_entity_type('notification') == 'notifications'
+      and normalize_entity_type('notifications') == 'notifications'
+      and "'notifications': 'اعلان'" in dash_src,
+      str(len(soft_rows)))
+
+# ============================================================
+print()
+print("=" * 76)
+print("بخش F: توضیحات کهنه‌ای که کد خطرناک قدیمی را نقل می‌کردند")
+print("=" * 76)
+
+conn_src = read('database/connection.py')
+migrate_body = conn_src.split("def _migrate_database")[1].split("def _create_all_tables")[0]
+check("F", "connection.py: نه متد مردهٔ _migrate_to_v1 و نه نقلِ «migrations = {1: …}»؛ _migrate_database فقط MigrationManager، خطا قبل از مُهر نسخه",
+      '_migrate_to_v1' not in conn_src and 'migrations = {1' not in conn_src
+      and 'هیچ مسیر جایگزین' in migrate_body
+      and 'raise' in migrate_body
+      and migrate_body.index("MigrationManager.migrate(") < migrate_body.index("self._set_db_version(to_version)"),
+      "")
+
+connect_block = conn_src.split("def _open_thread_connection")[1].split("conn.row_factory")[0]
+check("F", "توضیح کنار check_same_thread=False دلیل واقعی (بستن بین‌نخی در close_all زیر قفل) را می‌گوید، نه «برای مسیرهای قدیمی»",
+      'close_all()' in connect_block and 'DB_THREAD_LOCK' in connect_block
+      and 'مجوز «استفادهٔ هم‌زمان» نیست' in connect_block
+      and 'اگر مسیری قدیمی اتصال را جابه‌جا کرد' not in connect_block,
+      "")
+
+backup_src = read('utils/backup.py')
+restore_body = backup_src.split("def restore_backup")[1]
+check("F", "backup.py: نقلِ کد قدیمی (کپی زنده / استخراج بدون اعتبارسنجی) از داک‌استرینگ‌ها حذف شد؛ copy2 فقط در جایگزینی فایل هنگام بازیابی، پس از اعتبارسنجی و زیر قفل",
+      backup_src.count('shutil.copy2(db_backup, self.db_path)') == 1
+      and 'shutil.copy2(db_backup, self.db_path)' in restore_body
+      and 'extractall' not in backup_src
+      and '_safe_extract(' in restore_body
+      and restore_body.index('_safe_extract(')
+      < restore_body.index('_verify_sqlite_file(')
+      < restore_body.index('_quiesce_database()')
+      < restore_body.index('shutil.copy2(db_backup, self.db_path)'),
+      "")
+
+# ============================================================
+print()
+print("=" * 76)
+print("بخش G: خطای بارگذاری Migration در لاگ برنامه")
+print("=" * 76)
+
+import importlib  # noqa: E402
+import logging  # noqa: E402
+
+import database.migrations.manager as migration_manager  # noqa: E402
+
+manager_src = read('database/migrations/manager.py')
+discover_src = manager_src.split("def _discover_migrations")[1].split("class MigrationManager")[0]
+check("G", "_discover_migrations دیگر print ندارد و از logger برنامه استفاده می‌کند",
+      'print(' not in discover_src and 'logger.error(' in discover_src
+      and 'logger.warning(' in discover_src and 'from utils.logger import get_logger' in manager_src,
+      "")
+
+
+class _CaptureHandler(logging.Handler):
+    def __init__(self):
+        super().__init__(level=logging.DEBUG)
+        self.records = []
+
+    def emit(self, record):
+        self.records.append(record)
+
+
+capture = _CaptureHandler()
+migration_manager.logger.addHandler(capture)
+real_import = importlib.import_module
+
+
+def _broken_import(name, *args, **kwargs):
+    if name.endswith('migration_v51'):
+        raise RuntimeError('ماژول آزمایشی خراب است')
+    return real_import(name, *args, **kwargs)
+
+
+importlib.import_module = _broken_import
+stdout_buf = io.StringIO()
+try:
+    with contextlib.redirect_stdout(stdout_buf):
+        found = migration_manager._discover_migrations()
+finally:
+    importlib.import_module = real_import
+    migration_manager.logger.removeHandler(capture)
+logged = [r for r in capture.records if 'migration_v51' in r.getMessage()]
+check("G", "ماژول migration خراب: در لاگ برنامه (ERROR) ثبت می‌شود، چیزی چاپ نمی‌شود و ماژول‌های سالم همچنان پیدا می‌شوند",
+      len(logged) == 1 and logged[0].levelno == logging.ERROR
+      and 'migration_v51' not in stdout_buf.getvalue()
+      and 51 not in found and set(range(1, 10)) <= set(found),
+      f"logged={len(logged)} found={sorted(found)[:10]}")
+
+# ============================================================
+print()
+print("=" * 76)
+print("بخش H: check_same_thread=False فقط برای بستن بین‌نخی")
+print("=" * 76)
+
+worker_state = {}
+worker_ready = threading.Event()
+worker_release = threading.Event()
+
+
+def _holding_worker():
+    worker_conn = db.get_connection()
+    worker_state['conn'] = worker_conn
+    worker_state['same_object_as_main'] = worker_conn is conn
+    worker_ready.set()
+    worker_release.wait(timeout=30)
+    try:
+        worker_conn.execute("SELECT 1")
+        worker_state['usable_after_close_all'] = True
+    except Exception as e:
+        worker_state['usable_after_close_all'] = False
+        worker_state['error'] = type(e).__name__
+
+
+holder = threading.Thread(target=_holding_worker)
+holder.start()
+worker_ready.wait(timeout=30)
+close_error = None
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        db.close_all()
+except Exception as e:
+    close_error = e
+worker_release.set()
+holder.join(timeout=30)
+with contextlib.redirect_stdout(io.StringIO()):
+    conn = db.get_connection(user_id=1)
+check("H", "اتصال نخ کارگر جدا از نخ اصلی است؛ close_all از نخ اصلی آن را بدون خطا می‌بندد و نخ کارگر دیگر نمی‌تواند از آن استفاده کند",
+      worker_state.get('same_object_as_main') is False and close_error is None
+      and worker_state.get('usable_after_close_all') is False
+      and worker_state.get('error') == 'ProgrammingError',
+      str(worker_state))
+
+# ============================================================
+print()
+print("=" * 76)
+print(f"نتیجهٔ دور پانزدهم (مرحله‌های ۱ و ۲):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
 if FAILURES:
     print("موارد ناموفق:")
     for item in FAILURES:

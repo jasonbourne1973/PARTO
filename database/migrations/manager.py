@@ -5,6 +5,9 @@
 import sqlite3
 
 from config.settings import DB_PATH, DB_VERSION
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class MigrationMissingError(Exception):
@@ -52,17 +55,19 @@ def _discover_migrations():
             # (که ممکن است دستی اضافه شده باشند) از قلم نیفتند.
             continue
         except Exception as e:
-            print(f"⚠️ خطا در بارگذاری {module_name}: {e}")
+            # (بازرسی پانزدهم) ثبت در لاگ برنامه، نه فقط چاپ در کنسول؛
+            # نسخهٔ گمشده در ادامه با MigrationMissingError متوقف می‌شود.
+            logger.error(f"خطا در بارگذاری {module_name}: {e}")
             continue
 
         if not hasattr(module, 'upgrade'):
-            print(f"⚠️ {module_name} متد upgrade ندارد؛ نادیده گرفته شد.")
+            logger.warning(f"{module_name} متد upgrade ندارد؛ نادیده گرفته شد.")
             continue
 
         found[version] = module
 
     if not found:
-        print("⚠️ هیچ ماژول migration یافت نشد.")
+        logger.warning("هیچ ماژول migration یافت نشد.")
 
     return found
 
