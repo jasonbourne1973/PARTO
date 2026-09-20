@@ -133,10 +133,11 @@ class BaseService:
     # جلوگیری از Audit تکراری (باگ بازرسی ششم)
     # ============================================================
     #
-    # دیتابیس برنامه ۲۸ تریگر حسابرسی دارد:
-    #     trg_<table>_{insert,update,soft_delete,restore}_audit
-    # برای جدول‌های students, observations, interventions, followups,
-    # student_academic_profiles, staff, competencies.
+    # دیتابیس برنامه برای هر جدول حساس (۱۸ جدول از بازرسی دوازدهم)
+    # تریگر حسابرسی دارد:
+    #     trg_<table>_{insert,update,soft_delete,restore,hard_delete}_audit
+    # (ابتدا ۷ جدول students, observations, interventions, followups,
+    # student_academic_profiles, staff, competencies بود.)
     #
     # این تریگرها خودشان بعد از هر نوشتن یک ردیف در audit_logs
     # می‌سازند. اما سرویس‌ها هم صریحاً log_audit صدا می‌زنند؛
@@ -208,7 +209,7 @@ class BaseService:
                 'extracurricular_activities': 'extracurricular_activities',
                 'recommendations': 'recommendations',
             }
-    _AUDIT_ACTIONS = ('create', 'edit', 'delete_soft', 'restore')
+    _AUDIT_ACTIONS = ('create', 'edit', 'delete_soft', 'restore', 'delete')
     _TRIGGER_CACHE = None
 
     def _trigger_audit_tables(self):
@@ -231,7 +232,8 @@ class BaseService:
             for (name,) in cursor.fetchall():
                 # trg_<table>_insert_audit / ..._update_audit / ...
                 rest = name[len('trg_'):-len('_audit')]
-                for suffix in ('_insert', '_update', '_soft_delete', '_restore'):
+                for suffix in ('_insert', '_update', '_soft_delete', '_restore',
+                               '_hard_delete'):
                     if rest.endswith(suffix):
                         tables.add(rest[:-len(suffix)])
                         break

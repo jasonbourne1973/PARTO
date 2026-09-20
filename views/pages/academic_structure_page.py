@@ -793,6 +793,9 @@ class AcademicStructurePage(QWidget):
             
             grade_names = {1: "اول", 2: "دوم", 3: "سوم", 4: "چهارم", 5: "پنجم", 6: "ششم"}
             
+            # نام معلم‌ها یک‌جا خوانده می‌شود (رفع N+1)
+            teacher_names = self.staff_dal.get_names_by_ids(
+                it['class'].teacher_id for it in classes)
             for row, item in enumerate(classes):
                 class_obj = item['class']
                 
@@ -800,11 +803,7 @@ class AcademicStructurePage(QWidget):
                 self.class_table.setItem(row, 1, QTableWidgetItem(class_obj.name or ""))
                 self.class_table.setItem(row, 2, QTableWidgetItem(grade_names.get(class_obj.grade, str(class_obj.grade)) if class_obj.grade else "-"))
                 
-                teacher_name = "بدون معلم"
-                if class_obj.teacher_id:
-                    teacher = self.staff_dal.get_by_id(class_obj.teacher_id)
-                    if teacher:
-                        teacher_name = teacher.full_name
+                teacher_name = teacher_names.get(class_obj.teacher_id) or "بدون معلم"
                 self.class_table.setItem(row, 3, QTableWidgetItem(teacher_name))
                 
                 self.class_table.setItem(row, 4, QTableWidgetItem(str(item['student_count'])))

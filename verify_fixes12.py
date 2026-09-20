@@ -576,13 +576,30 @@ print("=" * 76)
 print("بخش G: یک مسیر واحد برای DAL تفسیر حرفه‌ای")
 print("=" * 76)
 
-from dal.interpretation_dal import InterpretationDAL  # noqa: E402
+import importlib.util  # noqa: E402
+import pathlib  # noqa: E402
+import re  # noqa: E402
+
 from dal.professional_interpretation_dal import (  # noqa: E402
     ProfessionalInterpretationDAL,
 )
 
-check("G", "نام قدیمی و مرجع به یک کلاس واحد می‌رسند",
-      InterpretationDAL is ProfessionalInterpretationDAL)
+# (به‌روزرسانی در دور چهاردهم — مورد ۱۰) در دور دوازدهم فایل قدیمی
+# dal/interpretation_dal.py به یک shim تبدیل شده بود؛ در دور چهاردهم، بعد
+# از بررسی اینکه هیچ ماژولی آن را import نمی‌کند، خود فایل هم حذف شد تا
+# فقط «یک» مسیر (ProfessionalInterpretationDAL) باقی بماند.
+_shim_gone = importlib.util.find_spec("dal.interpretation_dal") is None
+_shim_imports = []
+_shim_import_rx = re.compile(r"^\s*(from\s+dal\.interpretation_dal\s+import|import\s+dal\.interpretation_dal)",
+                             re.MULTILINE)
+for _py in pathlib.Path(__file__).parent.rglob("*.py"):
+    if ".venv" in _py.parts or "venv" in _py.parts:
+        continue
+    if _shim_import_rx.search(_py.read_text(encoding="utf-8", errors="ignore")):
+        _shim_imports.append(str(_py))
+check("G", "DAL تکراری حذف شده و هیچ ماژولی مسیر قدیمی را import نمی‌کند (فقط ProfessionalInterpretationDAL)",
+      _shim_gone and not _shim_imports, f"shim_gone={_shim_gone} imports={_shim_imports}")
+InterpretationDAL = ProfessionalInterpretationDAL
 
 from models.professional_interpretation import (  # noqa: E402
     ProfessionalInterpretation,
@@ -597,7 +614,7 @@ interp.detailed_text = "متن تفسیری آزمایشی برای بررسی �
 interp.status = "draft"
 created_interp = InterpretationDAL().create(interp)
 fetched = ProfessionalInterpretationDAL().get_by_id(created_interp.id)
-check("G", "CRUD از مسیر واحد (نام قدیمی) کار می‌کند",
+check("G", "CRUD از مسیر واحد ProfessionalInterpretationDAL کار می‌کند",
       fetched is not None and fetched.title == "تفسیر آزمایشی ۱۲")
 
 # ============================================================

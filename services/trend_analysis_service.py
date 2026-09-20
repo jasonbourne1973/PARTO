@@ -358,12 +358,14 @@ class TrendAnalysisService(BaseService):
                 year_data.append(year_info)
                 observation_counts.append(len(observations))
                 
-                # تحلیل شایستگی‌ها در هر سال
+                # تحلیل شایستگی‌ها در هر سال (عنوان‌ها یک‌جا خوانده می‌شوند — رفع N+1)
+                year_titles = self.competency_dal.get_titles_by_ids(
+                    o.competency_id for o in observations)
                 for obs in observations:
                     if obs.competency_id:
-                        comp = self.competency_dal.get_by_id(obs.competency_id)
-                        if comp:
-                            competency_trend[comp.title].append({
+                        comp_title = year_titles.get(obs.competency_id)
+                        if comp_title:
+                            competency_trend[comp_title].append({
                                 'year': getattr(profile, 'academic_year_title', 'نامشخص'),
                                 'severity': obs.severity or 1,
                                 'behavior_type': obs.behavior_type
@@ -714,18 +716,21 @@ class TrendAnalysisService(BaseService):
         """
         stats = defaultdict(lambda: {'positive': 0, 'negative': 0, 'total': 0})
         names = {}
+        # عنوان شایستگی‌ها یک‌جا خوانده می‌شود (رفع N+1)
+        titles = self.competency_dal.get_titles_by_ids(
+            o.competency_id for o in observations)
         for obs in observations:
             if not obs.competency_id:
                 continue
-            comp = self.competency_dal.get_by_id(obs.competency_id)
-            if not comp:
+            title = titles.get(obs.competency_id)
+            if not title:
                 continue
-            names[comp.title] = names.get(comp.title, comp.title)
-            stats[comp.title]['total'] += 1
+            names[title] = names.get(title, title)
+            stats[title]['total'] += 1
             if obs.behavior_type == "مثبت":
-                stats[comp.title]['positive'] += 1
+                stats[title]['positive'] += 1
             elif obs.behavior_type == "منفی":
-                stats[comp.title]['negative'] += 1
+                stats[title]['negative'] += 1
 
         result = []
         for title, data in stats.items():

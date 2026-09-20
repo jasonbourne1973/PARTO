@@ -396,9 +396,12 @@ class AssignTeacherPage(QWidget):
         
         self.no_teacher_table.setRowCount(len(no_teacher_students))
         
+        # پروندهٔ فعال دانش‌آموزان یک‌جا خوانده می‌شود (رفع N+1)
+        profile_map = (self.profile_dal.get_active_by_students(s.id for s in no_teacher_students)
+                       if hasattr(self, 'profile_dal') else {})
         for row, student in enumerate(no_teacher_students):
             # دریافت اطلاعات پرونده
-            profile = self.profile_dal.get_active_by_student(student.id) if hasattr(self, 'profile_dal') else None
+            profile = profile_map.get(student.id)
             grade_text = profile.grade_display if profile else "نامشخص"
             class_name = profile.class_name if profile else ""
             

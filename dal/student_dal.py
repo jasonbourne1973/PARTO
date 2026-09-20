@@ -7,6 +7,7 @@ import sqlite3
 
 from database.connection import DatabaseConnection
 from models.student import Student
+from utils.batch_query import id_chunks, placeholders
 from utils.logger import get_logger
 from utils.time_utils import utc_now_iso
 
@@ -71,6 +72,27 @@ class StudentDAL:
         if row:
             return self._row_to_student(row)
         return None
+
+    def get_by_ids(self, student_ids, include_deleted=False):
+        """
+        دریافت چند دانش‌آموز با «یک» کوئری (بازرسی چهاردهم: رفع N+1)
+
+        معناشناسی دقیقاً مثل get_by_id است (پیش‌فرض: حذف‌شده‌ها
+        برنمی‌گردند؛ شناسهٔ ناموجود در خروجی نیست).
+
+        Returns:
+            dict: {student_id: Student}
+        """
+        result = {}
+        for chunk in id_chunks(student_ids):
+            query = f"SELECT * FROM students WHERE id IN ({placeholders(len(chunk))})"
+            if not include_deleted:
+                query += " AND is_deleted = 0"
+            cursor = self.db.execute_query(query, tuple(chunk))
+            for row in cursor.fetchall():
+                student = self._row_to_student(row)
+                result[student.id] = student
+        return result
 
     def get_all(self, limit=None, offset=None, include_deleted=False):
         """دریافت همه دانش‌آموزان - فقط رکوردهای موجود"""

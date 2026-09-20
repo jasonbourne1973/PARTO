@@ -730,6 +730,7 @@ class DashboardPage(QWidget):
                 'create': ('➕ ایجاد', '#66BB6A'),
                 'edit': ('✏️ ویرایش', '#0B2E4F'),
                 'delete_soft': ('🗑️ حذف', '#DC2626'),
+                'delete': ('🗑️ حذف دائم', '#991B1B'),
                 'restore': ('↩️ بازیابی', '#66BB6A'),
                 'login_success': ('🔓 ورود', '#7C3AED'),
                 'logout': ('🚪 خروج', '#D9C36A'),

@@ -265,11 +265,14 @@ class InterventionSuggester(BaseService):
             weak_comps = self.observation_dal.get_weak_competencies_for_student(profile_id, limit)
             
             recommendations = []
+            # شایستگی‌ها یک‌جا خوانده می‌شوند (رفع N+1)
+            comp_map = self.competency_dal.get_by_ids(
+                c.get('competency_id') for c in weak_comps)
             
             for comp in weak_comps:
                 comp_id = comp.get('competency_id')
                 if comp_id:
-                    comp_obj = self.competency_dal.get_by_id(comp_id)
+                    comp_obj = comp_map.get(comp_id)
                     if comp_obj:
                         suggested_types = self.suggest_intervention_for_competency(comp_id)
                         # بازرسی یازدهم: اولویت بر پایهٔ «الگوی تکرارشوندهٔ

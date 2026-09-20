@@ -1550,7 +1550,12 @@ def backup_restore_roundtrip():
             "فایل checksum کنار پشتیبان ساخته نشد"
 
         # --- خراب‌کردن عمدی ---
+        # (به‌روزرسانی در دور چهاردهم) از این دور حذف فیزیکی هم تریگر
+        # حسابرسی دارد (trg_<table>_hard_delete_audit) که مثل تریگرهای
+        # INSERT/UPDATE تابع get_current_user_id() برنامه را صدا می‌زند؛
+        # پس اتصال خامِ شبیه‌ساز خرابی باید همان تابع را ثبت کند.
         c = sqlite3.connect(db2)
+        c.create_function("get_current_user_id", 0, lambda: None)
         c.execute("DELETE FROM students")
         c.commit()
         c.close()

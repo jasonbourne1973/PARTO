@@ -356,8 +356,10 @@ class PromotionPage(QWidget):
         self.table.setRowCount(len(students))
         grade_names = {1: "اول", 2: "دوم", 3: "سوم", 4: "چهارم", 5: "پنجم", 6: "ششم"}
         
+        # پروندهٔ فعال دانش‌آموزان یک‌جا خوانده می‌شود (رفع N+1)
+        profile_map = self.profile_dal.get_active_by_students(s.id for s in students)
         for row, student in enumerate(students):
-            profile = self.profile_dal.get_active_by_student(student.id)
+            profile = profile_map.get(student.id)
             
             if profile:
                 current_grade = profile.grade

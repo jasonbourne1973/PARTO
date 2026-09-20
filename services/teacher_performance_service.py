@@ -138,11 +138,13 @@ class TeacherPerformanceService(BaseService):
             return {}
         
         stats = {}
+        # عنوان شایستگی‌ها یک‌جا خوانده می‌شود (رفع N+1)
+        titles = self.competency_dal.get_titles_by_ids(
+            o.competency_id for o in observations)
         for obs in observations:
             if obs.competency_id:
-                competency = self.competency_dal.get_by_id(obs.competency_id)
-                if competency:
-                    key = competency.title
+                key = titles.get(obs.competency_id)
+                if key:
                     if key not in stats:
                         stats[key] = {
                             'count': 0,

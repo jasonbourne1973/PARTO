@@ -661,6 +661,7 @@ class UserDAL:
         'edit': 'trg_users_update_audit',
         'delete_soft': 'trg_users_soft_delete_audit',
         'restore': 'trg_users_restore_audit',
+        'delete': 'trg_users_hard_delete_audit',
     }
 
     def _audit_covered_by_trigger(self, cursor, action):

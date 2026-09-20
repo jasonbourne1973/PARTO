@@ -367,9 +367,12 @@ class ObservationService(BaseService):
             
             # فیلتر بر اساس سال (اگر مشخص شده باشد)
             if year_id:
+                # خوانش دسته‌ای پرونده‌ها (رفع N+1؛ معناشناسی قبلی حفظ شده)
+                profile_map = self.profile_dal.get_by_ids(
+                    o.student_profile_id for o in observations)
                 filtered = []
                 for obs in observations:
-                    profile = self.profile_dal.get_by_id(obs.student_profile_id)
+                    profile = profile_map.get(obs.student_profile_id)
                     if profile and profile.academic_year_id == year_id:
                         filtered.append(obs)
                 observations = filtered

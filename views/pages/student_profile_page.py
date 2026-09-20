@@ -428,8 +428,11 @@ class StudentProfilePage(QWidget):
             self.all_students = self.student_dal.get_all()
             self.student_select_combo.clear()
             self.student_select_combo.addItem("انتخاب دانش‌آموز...", None)
+            # پروندهٔ فعال دانش‌آموزان یک‌جا خوانده می‌شود (رفع N+1)
+            profile_map = self.profile_dal.get_active_by_students(
+                s.id for s in self.all_students)
             for student in self.all_students:
-                profile = self.profile_dal.get_active_by_student(student.id)
+                profile = profile_map.get(student.id)
                 grade_text = profile.grade_display if profile else "نامشخص"
                 display_text = f"{student.full_name} - پایه {grade_text}"
                 self.student_select_combo.addItem(display_text, student.id)

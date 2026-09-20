@@ -1558,6 +1558,12 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
            دیتابیس‌های موجود هستند، اول DROP و بعد CREATE می‌شوند تا
            ارتقا واقعاً اعمال شود (IF NOT EXISTS به‌تنهایی بدنهٔ
            قدیمی را نگه می‌داشت).
+
+        ===== افزوده (بازرسی چهاردهم) =====
+        ۴) تریگر پنجم برای حذف فیزیکی (AFTER DELETE) با اقدام 'delete'
+           و تصویر کامل ردیف قبل از حذف؛ تا permanent_delete و حذف
+           آبشاری هم بدون رد نمانند. اقدام‌ها:
+           create / edit / delete_soft / restore / delete
         """
         conn = self._connection
         cursor = conn.cursor()
@@ -1595,6 +1601,7 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
                     f'trg_{table}_update_audit',
                     f'trg_{table}_soft_delete_audit',
                     f'trg_{table}_restore_audit',
+                    f'trg_{table}_hard_delete_audit',
                 ):
                     cursor.execute(f'DROP TRIGGER IF EXISTS "{trigger}"')
 
@@ -1673,6 +1680,27 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
                             );
                         END
                     """)
+
+                # ===== افزوده (بازرسی چهاردهم — مورد ۷) =====
+                # حذف فیزیکی (permanent_delete در DALها و حذف آبشاری
+                # کلید خارجی) قبلاً هیچ ردی در Audit نمی‌گذاشت؛ حالا
+                # تصویر کامل ردیفِ حذف‌شده با اقدام 'delete' ثبت می‌شود.
+                cursor.execute(f"""
+                    CREATE TRIGGER trg_{table}_hard_delete_audit
+                    AFTER DELETE ON "{table}"
+                    BEGIN
+                        INSERT INTO audit_logs (
+                            user_id, action, entity_type, entity_id,
+                            old_value
+                        ) VALUES (
+                            get_current_user_id(),
+                            'delete',
+                            '{table}',
+                            OLD.id,
+                            {old_values}
+                        );
+                    END
+                """)
 
                 created += 1
             except sqlite3.Error as e:

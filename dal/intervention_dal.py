@@ -7,6 +7,7 @@ import sqlite3
 
 from database.connection import DatabaseConnection
 from models.intervention import Intervention
+from utils.batch_query import id_chunks, placeholders
 from utils.logger import get_logger
 from utils.time_utils import utc_now_iso
 
@@ -57,6 +58,26 @@ class InterventionDAL:
             return self._row_to_intervention(row)
         return None
     
+    def get_by_ids(self, intervention_ids, include_deleted=False):
+        """
+        دریافت چند مداخله با «یک» کوئری (بازرسی چهاردهم: رفع N+1)
+
+        معناشناسی مثل get_by_id (پیش‌فرض: حذف‌شده‌ها برنمی‌گردند).
+
+        Returns:
+            dict: {intervention_id: Intervention}
+        """
+        result = {}
+        for chunk in id_chunks(intervention_ids):
+            query = f"SELECT * FROM interventions WHERE id IN ({placeholders(len(chunk))})"
+            if not include_deleted:
+                query += " AND is_deleted = 0"
+            cursor = self.db.execute_query(query, tuple(chunk))
+            for row in cursor.fetchall():
+                intervention = self._row_to_intervention(row)
+                result[intervention.id] = intervention
+        return result
+
     def get_by_student_profile(self, profile_id, limit=None, include_deleted=False):
         """دریافت مداخلات یک پرونده دانش‌آموز - فقط رکوردهای موجود"""
         query = "SELECT * FROM interventions WHERE student_profile_id = ?"

@@ -338,17 +338,25 @@ class AnalysisPage(QWidget):
                 year_id = self.year_combo.currentData()
                 assignments = self.assignment_dal.get_by_teacher(self.selected_teacher_id, year_id)
                 
+                # خوانش دسته‌ای دانش‌آموزان و پروندهٔ فعال‌شان (رفع N+1؛
+                # قبلاً برای هر تخصیص دو کوئری جدا زده می‌شد)
+                student_map = self.student_dal.get_by_ids(
+                    a.student_id for a in assignments)
+                profile_map = self.profile_dal.get_active_by_students(student_map.keys())
                 for assignment in assignments:
-                    student = self.student_dal.get_by_id(assignment.student_id)
+                    student = student_map.get(assignment.student_id)
                     if student:
-                        profile = self.profile_dal.get_active_by_student(student.id)
+                        profile = profile_map.get(student.id)
                         grade_text = profile.grade_display if profile else "نامشخص"
                         display_text = f"{student.full_name} - پایه {grade_text}"
                         self.student_combo.addItem(display_text, student.id)
             else:
                 self.all_students = self.student_dal.get_all()
+                # پروندهٔ فعال دانش‌آموزان یک‌جا خوانده می‌شود (رفع N+1)
+                profile_map = self.profile_dal.get_active_by_students(
+                    s.id for s in self.all_students)
                 for student in self.all_students:
-                    profile = self.profile_dal.get_active_by_student(student.id)
+                    profile = profile_map.get(student.id)
                     grade_text = profile.grade_display if profile else "نامشخص"
                     display_text = f"{student.full_name} - پایه {grade_text}"
                     self.student_combo.addItem(display_text, student.id)
@@ -380,8 +388,11 @@ class AnalysisPage(QWidget):
             self.all_students = self.student_dal.get_all()
             self.student_combo.clear()
             self.student_combo.addItem("انتخاب دانش‌آموز...", None)
+            # پروندهٔ فعال دانش‌آموزان یک‌جا خوانده می‌شود (رفع N+1)
+            profile_map = self.profile_dal.get_active_by_students(
+                s.id for s in self.all_students)
             for student in self.all_students:
-                profile = self.profile_dal.get_active_by_student(student.id)
+                profile = profile_map.get(student.id)
                 grade_text = profile.grade_display if profile else "نامشخص"
                 display_text = f"{student.full_name} - پایه {grade_text}"
                 self.student_combo.addItem(display_text, student.id)

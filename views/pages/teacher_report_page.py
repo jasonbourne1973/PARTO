@@ -551,14 +551,18 @@ class TeacherReportPage(QWidget):
             'recommendations': {'teacher': [], 'counselor': []}
         }
         
+        # دانش‌آموزان و پروندهٔ فعال‌شان یک‌جا خوانده می‌شوند (رفع N+1)
+        student_map = self.student_dal.get_by_ids(a.student_id for a in assignments)
+        profile_map = (self.profile_dal.get_active_by_students(student_map.keys())
+                       if hasattr(self, 'profile_dal') else {})
         for assignment in assignments:
             student_id = assignment.student_id
-            student = self.student_dal.get_by_id(student_id)
+            student = student_map.get(student_id)
             if not student:
                 continue
             
             # دریافت پرونده فعال دانش‌آموز
-            profile = self.profile_dal.get_active_by_student(student_id) if hasattr(self, 'profile_dal') else None
+            profile = profile_map.get(student_id)
             
             if profile:
                 # دریافت مشاهدات
@@ -602,12 +606,13 @@ class TeacherReportPage(QWidget):
                 data['negative_observations'] += negative
                 data['neutral_observations'] += neutral
                 
-                # آمار شایستگی‌ها
+                # آمار شایستگی‌ها (عنوان‌ها یک‌جا خوانده می‌شوند — رفع N+1)
+                comp_titles = self.competency_dal.get_titles_by_ids(
+                    o.competency_id for o in observations)
                 for obs in observations:
                     if obs.competency_id:
-                        competency = self.competency_dal.get_by_id(obs.competency_id)
-                        if competency:
-                            key = competency.title
+                        key = comp_titles.get(obs.competency_id)
+                        if key:
                             if key not in data['competency_stats']:
                                 data['competency_stats'][key] = {
                                     'count': 0,
@@ -671,9 +676,16 @@ class TeacherReportPage(QWidget):
             recommendations['teacher'].append("✅ وضعیت شایستگی‌های دانش‌آموزان شما خوب است. به روند فعلی ادامه دهید.")
         
         if strong_competencies:
+            # ===== 🔴 اصلاح (بازرسی چهاردهم) =====
+            # آیتم‌های strong_competencies از بازرسی یازدهم سه‌تایی
+            # (نام، تعداد رفتار مثبت، تعداد مشاهده) هستند؛ این خط هنوز
+            # دوتایی (نام، میانگین شدت) باز می‌کرد و با ValueError کل
+            # گزارش معلم را می‌شکست. متن هم مطابق همان منطق رفتارمحور
+            # (نه شدت‌محور) شد.
             recommendations['teacher'].append(
                 "⭐ شایستگی‌های برتر در کلاس شما:\n" +
-                "\n".join([f"   • {name} (میانگین شدت: {avg})" for name, avg in strong_competencies[:3]])
+                "\n".join([f"   • {name} ({pos} رفتار مثبت از {cnt} مشاهده)"
+                          for name, pos, cnt in strong_competencies[:3]])
             )
         
         # تحلیل عمومی

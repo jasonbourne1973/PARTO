@@ -9,6 +9,7 @@ from dal.indicator_dal import IndicatorDAL
 from dal.observable_behavior_dal import ObservableBehaviorDAL
 from database.connection import DatabaseConnection
 from models.competency import Competency
+from utils.batch_query import id_chunks, placeholders
 from utils.logger import get_logger
 from utils.time_utils import utc_now_iso
 
@@ -80,15 +81,35 @@ class CompetencyDAL:
         Returns:
             dict: {competency_id: title}
         """
-        unique_ids = sorted({i for i in (competency_ids or []) if i is not None})
-        if not unique_ids:
-            return {}
-        placeholders = ", ".join("?" * len(unique_ids))
-        query = (f"SELECT id, title FROM competencies WHERE id IN ({placeholders})")
-        if not include_deleted:
-            query += " AND is_deleted = 0"
-        cursor = self.db.execute_query(query, tuple(unique_ids))
-        return {row['id']: row['title'] for row in cursor.fetchall()}
+        result = {}
+        for chunk in id_chunks(competency_ids):
+            query = f"SELECT id, title FROM competencies WHERE id IN ({placeholders(len(chunk))})"
+            if not include_deleted:
+                query += " AND is_deleted = 0"
+            cursor = self.db.execute_query(query, tuple(chunk))
+            result.update({row['id']: row['title'] for row in cursor.fetchall()})
+        return result
+
+    def get_by_ids(self, competency_ids, include_deleted=False):
+        """
+        دریافت چند شایستگی (شیء کامل، بدون شاخص‌ها) با «یک» کوئری
+
+        (بازرسی چهاردهم: رفع N+1 در گزارش معلم، روند چندساله و پیشنهادگر)
+        معناشناسی مثل get_by_id با load_full=False.
+
+        Returns:
+            dict: {competency_id: Competency}
+        """
+        result = {}
+        for chunk in id_chunks(competency_ids):
+            query = f"SELECT * FROM competencies WHERE id IN ({placeholders(len(chunk))})"
+            if not include_deleted:
+                query += " AND is_deleted = 0"
+            cursor = self.db.execute_query(query, tuple(chunk))
+            for row in cursor.fetchall():
+                competency = self._row_to_competency(row)
+                result[competency.id] = competency
+        return result
 
     def get_by_title(self, title, load_full=False):
         """دریافت شایستگی با عنوان"""

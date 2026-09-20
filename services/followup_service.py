@@ -386,11 +386,16 @@ class FollowUpService(BaseService):
             
             # فیلتر بر اساس سال (اگر مشخص شده باشد)
             if year_id:
+                # خوانش دسته‌ای مداخله‌ها و پرونده‌ها (رفع N+1؛ معناشناسی قبلی حفظ شده)
+                intervention_map = self.intervention_dal.get_by_ids(
+                    f.intervention_id for f in followups)
+                profile_map = self.profile_dal.get_by_ids(
+                    i.student_profile_id for i in intervention_map.values())
                 filtered = []
                 for follow in followups:
-                    intervention = self.intervention_dal.get_by_id(follow.intervention_id)
+                    intervention = intervention_map.get(follow.intervention_id)
                     if intervention:
-                        profile = self.profile_dal.get_by_id(intervention.student_profile_id)
+                        profile = profile_map.get(intervention.student_profile_id)
                         if profile and profile.academic_year_id == year_id:
                             filtered.append(follow)
                 followups = filtered

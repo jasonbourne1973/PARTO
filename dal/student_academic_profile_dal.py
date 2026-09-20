@@ -8,6 +8,7 @@ import sqlite3
 
 from database.connection import DatabaseConnection
 from models.student_academic_profile import StudentAcademicProfile
+from utils.batch_query import id_chunks, placeholders
 from utils.logger import get_logger
 from utils.time_utils import utc_now_iso
 
@@ -90,6 +91,57 @@ class StudentAcademicProfileDAL:
         if row:
             return self._row_to_profile(row)
         return None
+
+    def get_by_ids(self, profile_ids):
+        """
+        دریافت چند پرونده با «یک» کوئری (بازرسی چهاردهم: رفع N+1)
+
+        معناشناسی مثل get_by_id (فقط پرونده‌های حذف‌نشده).
+
+        Returns:
+            dict: {profile_id: StudentAcademicProfile}
+        """
+        result = {}
+        for chunk in id_chunks(profile_ids):
+            cursor = self.db.execute_query(
+                "SELECT * FROM student_academic_profiles "
+                f"WHERE id IN ({placeholders(len(chunk))}) AND is_deleted = 0",
+                tuple(chunk))
+            for row in cursor.fetchall():
+                profile = self._row_to_profile(row)
+                result[profile.id] = profile
+        return result
+
+    def get_active_by_students(self, student_ids):
+        """
+        پروندهٔ فعال (سال جاری) چند دانش‌آموز با «یک» کوئری (رفع N+1)
+
+        همان شرط‌های get_active_by_student (سال فعالِ حذف‌نشده و
+        بایگانی‌نشده، وضعیت غیرپایانی) و همان قاعدهٔ «اولین پرونده بر
+        اساس id» برای هر دانش‌آموز.
+
+        Returns:
+            dict: {student_id: StudentAcademicProfile}
+        """
+        result = {}
+        for chunk in id_chunks(student_ids):
+            cursor = self.db.execute_query(f"""
+                SELECT sap.* FROM student_academic_profiles sap
+                JOIN academic_years ay ON sap.academic_year_id = ay.id
+                WHERE sap.student_id IN ({placeholders(len(chunk))})
+                  AND ay.is_active = 1
+                  AND ay.is_deleted = 0
+                  AND ay.is_archived = 0
+                  AND sap.is_deleted = 0
+                  AND COALESCE(sap.status, 'active')
+                      NOT IN ('graduated', 'dropped', 'transferred', 'archived')
+                ORDER BY sap.id ASC
+            """, tuple(chunk))
+            for row in cursor.fetchall():
+                # اولین پرونده (کوچک‌ترین id) هر دانش‌آموز نگه داشته می‌شود
+                if row['student_id'] not in result:
+                    result[row['student_id']] = self._row_to_profile(row)
+        return result
 
     def get_by_student_and_year(self, student_id, academic_year_id):
         """دریافت پرونده یک دانش‌آموز در یک سال خاص"""

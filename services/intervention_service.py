@@ -366,9 +366,12 @@ class InterventionService(BaseService):
             
             # فیلتر بر اساس سال (اگر مشخص شده باشد)
             if year_id:
+                # خوانش دسته‌ای پرونده‌ها (رفع N+1؛ معناشناسی قبلی حفظ شده)
+                profile_map = self.profile_dal.get_by_ids(
+                    i.student_profile_id for i in interventions)
                 filtered = []
                 for inter in interventions:
-                    profile = self.profile_dal.get_by_id(inter.student_profile_id)
+                    profile = profile_map.get(inter.student_profile_id)
                     if profile and profile.academic_year_id == year_id:
                         filtered.append(inter)
                 interventions = filtered

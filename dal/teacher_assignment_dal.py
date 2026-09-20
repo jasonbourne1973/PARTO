@@ -623,10 +623,16 @@ class TeacherAssignmentDAL:
         assignment.deleted_at = row['deleted_at']
         assignment.deleted_by = row['deleted_by']
         
-        # ستون‌های JOIN شده ممکن است در همهٔ کوئری‌ها نباشند؛
-        # row.get مقدار پیش‌فرض None می‌دهد (بازرسی دهم: ساده‌سازی SIM401)
-        assignment.student_name = row.get('student_name')
-        assignment.teacher_name = row.get('teacher_name')
-        assignment.academic_year_title = row.get('academic_year_title')
+        # ستون‌های JOIN شده ممکن است در همهٔ کوئری‌ها نباشند.
+        # ===== 🔴 اصلاح (بازرسی چهاردهم) =====
+        # نسخهٔ قبلی `row.get('student_name')` بود؛ اما sqlite3.Row
+        # متد get ندارد و هر خوانشِ انتساب (لیست دانش‌آموزانِ معلم،
+        # داشبورد معلم، صفحه‌های تحلیل/گزارش با انتخاب معلم) با
+        # AttributeError می‌شکست. حالا وجود ستون با keys() بررسی می‌شود.
+        available = set(row.keys()) if hasattr(row, 'keys') else set()
+        assignment.student_name = row['student_name'] if 'student_name' in available else None
+        assignment.teacher_name = row['teacher_name'] if 'teacher_name' in available else None
+        assignment.academic_year_title = (
+            row['academic_year_title'] if 'academic_year_title' in available else None)
         
         return assignment

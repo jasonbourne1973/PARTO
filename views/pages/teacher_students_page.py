@@ -617,16 +617,14 @@ class TeacherStudentsPage(QWidget):
             
             interventions = self.intervention_dal.get_by_student_profile(profile.id, limit=10)
             self.inter_table.setRowCount(len(interventions))
+            # نام کادر یک‌جا خوانده می‌شود (رفع N+1)
+            staff_names = self.staff_dal.get_names_by_ids(i.staff_id for i in interventions)
             
             for row, inter in enumerate(interventions):
                 self.inter_table.setItem(row, 0, QTableWidgetItem(inter.date or ""))
                 self.inter_table.setItem(row, 1, QTableWidgetItem(inter.type_display))
                 
-                staff_name = "نامشخص"
-                if inter.staff_id:
-                    staff = self.staff_dal.get_by_id(inter.staff_id)
-                    if staff:
-                        staff_name = staff.full_name
+                staff_name = staff_names.get(inter.staff_id) or "نامشخص"
                 self.inter_table.setItem(row, 2, QTableWidgetItem(staff_name))
                 
                 self.inter_table.setItem(row, 3, QTableWidgetItem(inter.status_display))

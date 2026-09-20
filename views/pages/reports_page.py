@@ -320,10 +320,15 @@ class ReportsPage(QWidget):
                 year_id = self.year_combo.currentData()
                 assignments = self.assignment_dal.get_by_teacher(self.selected_teacher_id, year_id)
                 
+                # خوانش دسته‌ای دانش‌آموزان و پروندهٔ فعال‌شان (رفع N+1؛
+                # قبلاً برای هر تخصیص دو کوئری جدا زده می‌شد)
+                student_map = self.student_dal.get_by_ids(
+                    a.student_id for a in assignments)
+                profile_map = self.profile_dal.get_active_by_students(student_map.keys())
                 for assignment in assignments:
-                    student = self.student_dal.get_by_id(assignment.student_id)
+                    student = student_map.get(assignment.student_id)
                     if student:
-                        profile = self.profile_dal.get_active_by_student(student.id)
+                        profile = profile_map.get(student.id)
                         grade_text = profile.grade_display if profile else "نامشخص"
                         display_text = f"{student.full_name} - پایه {grade_text}"
                         self.student_combo.addItem(display_text, student.id)
@@ -874,6 +879,9 @@ class ReportsPage(QWidget):
         """نمایش مشاهدات در جدول با شناسه"""
         self.obs_table.setRowCount(len(observations))
         
+        # عنوان شایستگی‌ها یک‌جا خوانده می‌شود (رفع N+1)
+        comp_titles = self.competency_dal.get_titles_by_ids(
+            o.competency_id for o in observations)
         for row, obs in enumerate(observations):
             id_item = QTableWidgetItem(str(obs.id))
             id_item.setForeground(QColor(52, 152, 219))
@@ -883,11 +891,7 @@ class ReportsPage(QWidget):
             self.obs_table.setItem(row, 1, QTableWidgetItem(obs.observation_date or ""))
             self.obs_table.setItem(row, 2, QTableWidgetItem(obs.location or ""))
             
-            comp_name = "نامشخص"
-            if obs.competency_id:
-                comp = self.competency_dal.get_by_id(obs.competency_id)
-                if comp:
-                    comp_name = comp.title
+            comp_name = comp_titles.get(obs.competency_id) or "نامشخص"
             self.obs_table.setItem(row, 3, QTableWidgetItem(comp_name))
             
             type_item = QTableWidgetItem(obs.behavior_type or "خنثی")
@@ -955,6 +959,9 @@ class ReportsPage(QWidget):
         """نمایش مداخلات در جدول با شناسه"""
         self.inter_table.setRowCount(len(interventions))
         
+        # نام کادر یک‌جا خوانده می‌شود (رفع N+1)
+        staff_names = self.staff_dal.get_names_by_ids(
+            x.staff_id for x in interventions)
         for row, inter in enumerate(interventions):
             id_item = QTableWidgetItem(str(inter.id))
             id_item.setForeground(QColor(230, 126, 34))
@@ -964,11 +971,7 @@ class ReportsPage(QWidget):
             self.inter_table.setItem(row, 1, QTableWidgetItem(inter.date or ""))
             self.inter_table.setItem(row, 2, QTableWidgetItem(inter.type_display))
             
-            staff_name = "نامشخص"
-            if inter.staff_id:
-                staff = self.staff_dal.get_by_id(inter.staff_id)
-                if staff:
-                    staff_name = staff.full_name
+            staff_name = staff_names.get(inter.staff_id) or "نامشخص"
             self.inter_table.setItem(row, 3, QTableWidgetItem(staff_name))
             
             self.inter_table.setItem(row, 4, QTableWidgetItem(inter.status_display))
@@ -1027,6 +1030,9 @@ class ReportsPage(QWidget):
         """نمایش پیگیری‌ها در جدول با شناسه"""
         self.follow_table.setRowCount(len(followups))
         
+        # نام کادر یک‌جا خوانده می‌شود (رفع N+1)
+        staff_names = self.staff_dal.get_names_by_ids(
+            x.staff_id for x in followups)
         for row, follow in enumerate(followups):
             id_item = QTableWidgetItem(str(follow.id))
             id_item.setForeground(QColor(142, 68, 173))
@@ -1035,11 +1041,7 @@ class ReportsPage(QWidget):
             
             self.follow_table.setItem(row, 1, QTableWidgetItem(follow.date or ""))
             
-            staff_name = "نامشخص"
-            if follow.staff_id:
-                staff = self.staff_dal.get_by_id(follow.staff_id)
-                if staff:
-                    staff_name = staff.full_name
+            staff_name = staff_names.get(follow.staff_id) or "نامشخص"
             self.follow_table.setItem(row, 2, QTableWidgetItem(staff_name))
             
             self.follow_table.setItem(row, 3, QTableWidgetItem(follow.status_display))

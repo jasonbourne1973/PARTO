@@ -1,17 +1,25 @@
 """
-بررسی‌های دور چهاردهم: داوری فنی مدیر پروژه (۱۵ مورد) — مرحلهٔ ۱: اولویت قرمز
+بررسی‌های دور چهاردهم: داوری فنی مدیر پروژه (۱۵ مورد)
 
+مرحلهٔ ۱ — اولویت قرمز:
   A) اتصال SQLite و تراکنش در چند نخ (موارد ۱، ۳، ۴) ................ ۹ بررسی
   B) هویت کاربر/سیستم در Audit بین نخ‌ها (مورد ۲) ..................... ۶ بررسی
   C) پشتیبان امن، بازیابی امن و Path Traversal (موارد ۵، ۶، ۱۳) ...... ۱۰ بررسی
   D) یکپارچگی Migration (مورد ۱۱) ...................................... ۳ بررسی
 
-جمع مرحلهٔ ۱: ۲۸ بررسی  (مرحلهٔ ۲ — موارد نارنجی/زرد — در ادامهٔ همین فایل
-اضافه می‌شود)
+مرحلهٔ ۲ — اولویت نارنجی/زرد:
+  E) رفع N+1 با خوانش دسته‌ای و همان معناشناسی (مورد ۱۵) ............. ۸ بررسی
+  F) پوشش تریگرهای Audit و old/new معنادار (موارد ۷، ۸) .............. ۶ بررسی
+  G) یادآوری بدون تکرار با جست‌وجوی موجودیت (مورد ۹) .................. ۲ بررسی
+  H) یک مسیر واحد برای DAL تفسیر حرفه‌ای (مورد ۱۰) ..................... ۲ بررسی
+  I) وابستگی‌ها فقط از requirements.txt (مورد ۱۲) ...................... ۲ بررسی
+  J) پاکسازی اعلان‌ها واقعاً هر ۲۴ ساعت (مورد ۱۴) ...................... ۲ بررسی
+
+جمع: ۵۰ بررسی
 
 هر بررسی روی یک دیتابیس موقت اجرا می‌شود و به داده‌های کاربر دست نمی‌زند.
-بخش B به PySide6 نیاز دارد (کارگرهای واقعی QThread)؛ با QT_QPA_PLATFORM=offscreen
-اجرا می‌شود.
+بخش‌های B و E به PySide6 نیاز دارند (کارگرهای واقعی QThread و صفحهٔ واقعی
+پروندهٔ دانش‌آموز)؛ با QT_QPA_PLATFORM=offscreen اجرا می‌شود.
 """
 
 import contextlib
@@ -705,11 +713,682 @@ check("D", "دیتابیس تازه دقیقاً در نسخهٔ DB_VERSION اس
 
 # ============================================================================
 print("=" * 76)
-print(f"نتیجهٔ دور چهاردهم (مرحلهٔ ۱):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
+print("بخش E: رفع N+1 — خوانش دسته‌ای با همان معناشناسی (مورد ۱۵)")
+print("=" * 76)
+
+import ast  # noqa: E402
+import re  # noqa: E402
+
+from dal.academic_year_dal import AcademicYearDAL  # noqa: E402
+from dal.competency_dal import CompetencyDAL  # noqa: E402
+from dal.intervention_dal import InterventionDAL  # noqa: E402
+from dal.observation_dal import ObservationDAL  # noqa: E402
+from dal.staff_dal import StaffDAL  # noqa: E402
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL  # noqa: E402
+from dal.student_dal import StudentDAL  # noqa: E402
+from dal.teacher_assignment_dal import TeacherAssignmentDAL  # noqa: E402
+from models.observation import Observation  # noqa: E402
+from models.student import Student  # noqa: E402
+from models.student_academic_profile import StudentAcademicProfile  # noqa: E402
+from models.teacher_assignment import TeacherAssignment  # noqa: E402
+
+student_dal = StudentDAL()
+profile_dal = StudentAcademicProfileDAL()
+competency_dal = CompetencyDAL()
+intervention_dal = InterventionDAL()
+staff_dal = StaffDAL()
+observation_dal = ObservationDAL()
+active_year = AcademicYearDAL().get_active()
+
+# --- داده‌های آزمایشی: ۱۵ دانش‌آموز با پروندهٔ فعال + ۱ حذف‌شده + ۱ فقط فارغ‌التحصیل
+e_ids = []
+with quiet():
+    for i in range(17):
+        st = Student()
+        st.first_name = f"دسته{i}"
+        st.last_name = "چهاردهم"
+        st.national_code = f"14{i:08d}"
+        st.is_active = 1
+        sid = student_dal.create(st).id
+        e_ids.append(sid)
+        prof = StudentAcademicProfile()
+        prof.student_id = sid
+        prof.academic_year_id = active_year.id
+        prof.grade = (i % 6) + 1
+        prof.class_name = "الف"
+        if i == 16:
+            prof.status = "graduated"
+        profile_dal.create(prof)
+        if i < 15:
+            ta = TeacherAssignment()
+            ta.student_id = sid
+            ta.staff_id = 1
+            ta.academic_year_id = active_year.id
+            ta.grade = prof.grade
+            ta.is_active = 1
+            TeacherAssignmentDAL().create(ta)
+    student_dal.delete(e_ids[15])
+    e_comps = competency_dal.get_all()[:3]
+    e_profile = profile_dal.get_active_by_student(e_ids[0])
+    for k in range(12):
+        o = Observation()
+        o.student_profile_id = e_profile.id
+        o.staff_id = 1
+        o.competency_id = e_comps[k % 3].id
+        o.observation_date = f"1405/07/{(k % 28) + 1:02d}"
+        o.description = "شرح آزمایشی"
+        o.behavior = "رفتار ثبت‌شدهٔ آزمایشی"
+        o.behavior_type = "مثبت" if k % 2 == 0 else "منفی"
+        o.severity = 2
+        observation_dal.create(o)
+
+QUERY_LOG = []
+
+
+def _trace(statement):
+    QUERY_LOG.append(statement)
+
+
+def _count(pattern):
+    rx = re.compile(pattern, re.IGNORECASE)
+    return sum(1 for q in QUERY_LOG if rx.search(q))
+
+
+def _reset():
+    del QUERY_LOG[:]
+
+
+conn.set_trace_callback(_trace)
+
+# --- E1: StudentDAL.get_by_ids ≡ get_by_id (حذف‌شده‌ها بیرون، ناموجود بیرون) و «یک» کوئری
+_reset()
+single_students = {sid: student_dal.get_by_id(sid) for sid in e_ids}
+n_single = _count(r"FROM students\b")
+_reset()
+batch_students = student_dal.get_by_ids(e_ids + [None, 987654])
+n_batch = _count(r"FROM students\b")
+same_students = all(
+    (single_students[sid] is None) == (sid not in batch_students)
+    and (single_students[sid] is None
+         or single_students[sid].full_name == batch_students[sid].full_name)
+    for sid in e_ids)
+check("E", "StudentDAL.get_by_ids همان نتیجهٔ get_by_id را برای ۱۷ شناسه می‌دهد (حذف‌شده/ناموجود بیرون) با ۱ کوئری به‌جای ۱۷",
+      same_students and n_single == 17 and n_batch == 1
+      and e_ids[15] not in batch_students
+      and e_ids[15] in student_dal.get_by_ids([e_ids[15]], include_deleted=True),
+      f"single={n_single} batch={n_batch} same={same_students}")
+
+# --- E2: پروندهٔ فعال دسته‌ای ≡ get_active_by_student (سال فعال، وضعیت غیرپایانی)
+_reset()
+single_profiles = {sid: profile_dal.get_active_by_student(sid) for sid in e_ids}
+n_single = _count(r"FROM student_academic_profiles\b")
+_reset()
+batch_profiles = profile_dal.get_active_by_students(e_ids)
+n_batch = _count(r"FROM student_academic_profiles\b")
+same_profiles = all(
+    (single_profiles[sid] is None) == (sid not in batch_profiles)
+    and (single_profiles[sid] is None
+         or single_profiles[sid].id == batch_profiles[sid].id)
+    for sid in e_ids)
+check("E", "get_active_by_students همان پروندهٔ فعالِ get_active_by_student را می‌دهد (فارغ‌التحصیل بیرون) با ۱ کوئری به‌جای ۱۷",
+      same_profiles and n_single == 17 and n_batch == 1
+      and e_ids[16] not in batch_profiles and len(batch_profiles) == 16,
+      f"single={n_single} batch={n_batch} same={same_profiles} n={len(batch_profiles)}")
+
+# --- E3: سایر خوانش‌های دسته‌ای: پرونده/شایستگی/مداخله/کادر + تکه‌تکه‌شدن IN
+pids = [pr.id for pr in batch_profiles.values()]
+_reset()
+by_pid = profile_dal.get_by_ids(pids + [None])
+n_p = _count(r"FROM student_academic_profiles\b")
+_reset()
+comp_objs = competency_dal.get_by_ids([c.id for c in e_comps] * 4)
+comp_titles = competency_dal.get_titles_by_ids([c.id for c in e_comps])
+n_c = _count(r"FROM competencies\b")
+_reset()
+inter_map = intervention_dal.get_by_ids([1, 2, 3, 999999])
+n_i = _count(r"FROM interventions\b")
+_reset()
+staff_names = staff_dal.get_names_by_ids([1, None, 999999])
+n_s = _count(r"full_name FROM staff\b")
+_reset()
+big = student_dal.get_by_ids(list(range(1, 1201)))
+n_big = _count(r"FROM students\b")
+_reset()
+empty_calls = (student_dal.get_by_ids([]), profile_dal.get_active_by_students([None]),
+               competency_dal.get_titles_by_ids(None))
+n_empty = len(QUERY_LOG)
+check("E", "پرونده/شایستگی/مداخله/کادر هم دسته‌ای خوانده می‌شوند؛ ۱۲۰۰ شناسه در ۳ تکهٔ IN؛ ورودی خالی → صفر کوئری",
+      set(by_pid) == set(pids) and n_p == 1
+      and {c.id for c in e_comps} == set(comp_objs)
+      and all(comp_objs[c.id].title == c.title == comp_titles[c.id] for c in e_comps)
+      and n_c == 2 and n_i == 1 and isinstance(inter_map, dict)
+      and staff_names.get(1) and n_s == 1
+      and n_big == 3 and len(big) >= 17
+      and empty_calls == ({}, {}, {}) and n_empty == 0,
+      f"p={n_p} c={n_c} i={n_i} s={n_s} big={n_big} empty={n_empty}")
+
+# --- E4: سرویس‌های تحلیلی: آمار شایستگی از روی ۱۲ مشاهده با ۱ کوئری شایستگی (قبلاً ۱۲)
+from services.teacher_performance_service import TeacherPerformanceService  # noqa: E402
+from services.trend_analysis_service import TrendAnalysisService  # noqa: E402
+
+obs_list = observation_dal.get_by_student_profile(e_profile.id)
+_reset()
+comp_stats = TeacherPerformanceService()._calculate_competency_stats(obs_list)
+n_perf = _count(r"FROM competencies\b")
+_reset()
+trend_stats = TrendAnalysisService()._competency_stats(obs_list) \
+    if hasattr(TrendAnalysisService(), "_competency_stats") else None
+n_trend = _count(r"FROM competencies\b")
+expected_titles = {c.title for c in e_comps}
+check("E", "TeacherPerformanceService: آمار ۱۲ مشاهده روی ۳ شایستگی با ۱ کوئری شایستگی و همان شمارش‌ها",
+      set(comp_stats) == expected_titles and n_perf == 1
+      and sum(v["count"] for v in comp_stats.values()) == 12
+      and sum(v["positive"] for v in comp_stats.values()) == 6
+      and n_trend <= 1,
+      f"titles={sorted(comp_stats)} perf={n_perf} trend={n_trend}")
+
+# --- E5: داشبورد معلم با فیلتر سال: ۱۵ دانش‌آموز → تعداد کوئری مستقل از N
+from services.dashboard_service import DashboardService  # noqa: E402
+
+_reset()
+with quiet():
+    teacher_stats = DashboardService()._get_teacher_stats(1, active_year.id)
+n_students_q = _count(r"FROM students\b")
+n_profiles_q = _count(r"FROM student_academic_profiles\b")
+check("E", "DashboardService._get_teacher_stats با ۱۵ دانش‌آموز و فیلتر سال: ۱ کوئری دانش‌آموز و ≤۲ کوئری پرونده (قبلاً یکی به ازای هر رکورد)",
+      teacher_stats is not None and teacher_stats["students_count"] == 15
+      and teacher_stats["observations_count"] >= 12
+      and n_students_q == 1 and n_profiles_q <= 2,
+      f"stats={teacher_stats} students_q={n_students_q} profiles_q={n_profiles_q}")
+
+# --- E6: صفحهٔ پروندهٔ دانش‌آموز (رابط واقعی): لیست دانش‌آموزان با ۱ کوئری پرونده
+page_error = None
+combo_count = -1
+n_page_profiles = -1
+n_page_students = -1
+try:
+    from views.pages.student_profile_page import StudentProfilePage
+
+    with quiet():
+        page = StudentProfilePage()
+    _reset()
+    with quiet():
+        page.load_student_list()
+    n_page_profiles = _count(r"FROM student_academic_profiles\b")
+    n_page_students = _count(r"FROM students\b")
+    combo_count = page.student_select_combo.count()
+except Exception as e:  # pragma: no cover
+    page_error = str(e)
+all_students_count = len(student_dal.get_all())
+check("E", "StudentProfilePage.load_student_list: همهٔ دانش‌آموزان با پایه نمایش داده می‌شوند ولی فقط ۱ کوئری پرونده زده می‌شود (نه یکی برای هر دانش‌آموز)",
+      page_error is None and combo_count == all_students_count + 1
+      and n_page_profiles == 1 and n_page_students == 1,
+      f"error={page_error} combo={combo_count} students={all_students_count} "
+      f"profile_q={n_page_profiles} student_q={n_page_students}")
+
+conn.set_trace_callback(None)
+
+
+# --- E7: بازرسی ایستا: هیچ حلقه‌ای در سرویس‌ها/صفحه‌ها برای هر رکورد get_by_id/get_active_by_student نمی‌زند
+def _n_plus_one_sites():
+    sites = []
+    roots = [os.path.join("services"), os.path.join("views", "pages")]
+    for root in roots:
+        for name in sorted(os.listdir(root)):
+            if not name.endswith(".py"):
+                continue
+            path = os.path.join(root, name)
+            tree = ast.parse(read(path))
+            for node in ast.walk(tree):
+                if not isinstance(node, (ast.For, ast.ListComp, ast.GeneratorExp)):
+                    continue
+                for sub in ast.walk(node):
+                    if (isinstance(sub, ast.Call) and isinstance(sub.func, ast.Attribute)
+                            and sub.func.attr in ("get_by_id", "get_active_by_student")
+                            and isinstance(sub.func.value, ast.Attribute)
+                            and sub.func.value.attr in (
+                                "student_dal", "profile_dal", "competency_dal",
+                                "staff_dal", "intervention_dal")):
+                        sites.append(f"{path}:{sub.lineno}")
+    return sorted(set(sites))
+
+
+residual = _n_plus_one_sites()
+# تنها استثنا: حلقهٔ «ارتقاء» که برای هر دانش‌آموز پرونده را می‌خواند و «می‌نویسد»
+# (مسیر نوشتن تراکنشی، نه نمایش)؛ عمداً دست نخورده است.
+allowed = {site for site in residual if site.startswith(os.path.join("views", "pages", "promotion_page.py"))}
+check("E", "بازرسی ایستا: در سرویس‌ها و صفحه‌ها هیچ حلقهٔ نمایشی «برای هر رکورد یک get_by_id/get_active_by_student» باقی نمانده",
+      set(residual) == allowed and len(allowed) <= 1,
+      f"residual={residual}")
+
+# --- E8: دو خرابیِ واقعی که همین بازرسی در مسیر معلم پیدا کرد (رگرسیون‌گیر)
+#   ۱) TeacherAssignmentDAL._row_to_assignment از row.get استفاده می‌کرد؛ sqlite3.Row
+#      متد get ندارد → هر خوانش انتسابِ معلم AttributeError می‌داد.
+#   ۲) TeacherReportPage.generate_recommendations سه‌تایی‌های «شایستگی برتر» را
+#      دوتایی باز می‌کرد → ValueError و شکست کل گزارش معلم.
+teacher_assignments = TeacherAssignmentDAL().get_by_teacher(1, active_year.id)
+assignment_ok = (len(teacher_assignments) >= 15
+                 and all(a.student_name for a in teacher_assignments)
+                 and all(a.teacher_name for a in teacher_assignments))
+report_error = None
+strength_line = ""
+try:
+    from views.pages.teacher_report_page import TeacherReportPage
+
+    with quiet():
+        # سه رفتار مثبت دیگر روی شایستگی اول → الگوی «توانمندی» (۵ مثبت از ۷)
+        for k in range(3):
+            o = Observation()
+            o.student_profile_id = e_profile.id
+            o.staff_id = 1
+            o.competency_id = e_comps[0].id
+            o.observation_date = f"1405/08/{k + 1:02d}"
+            o.description = "شرح آزمایشی"
+            o.behavior = "رفتار مثبت ثبت‌شده"
+            o.behavior_type = "مثبت"
+            o.severity = 1
+            observation_dal.create(o)
+        report_page = TeacherReportPage()
+        report_data = report_page.collect_report_data(
+            teacher_assignments, "1405/01/01", "1405/12/29")
+        recs = report_page.generate_recommendations(report_data)
+    strength_line = next((line for line in recs["teacher"] if "شایستگی‌های برتر" in line), "")
+except Exception as e:  # pragma: no cover
+    report_error = f"{type(e).__name__}: {e}"
+check("E", "مسیر معلم سالم است: انتساب‌های معلم بدون AttributeError خوانده می‌شوند و گزارش معلم با الگوی «توانمندی» بدون ValueError ساخته می‌شود (متن رفتارمحور، نه شدت‌محور)",
+      assignment_ok and report_error is None
+      and e_comps[0].title in strength_line and "رفتار مثبت از" in strength_line
+      and "میانگین شدت" not in strength_line
+      and report_data["total_observations"] >= 15,
+      f"assignments={len(teacher_assignments)} ok={assignment_ok} error={report_error} line={strength_line[:80]!r}")
+
+# ============================================================================
+print("=" * 76)
+print("بخش F: پوشش تریگرهای Audit و ثبت معنادار قبل/بعد (موارد ۷ و ۸)")
+print("=" * 76)
+
+PM_AUDIT_TABLES = (
+    "students", "observations", "interventions", "followups",
+    "student_academic_profiles", "staff", "competencies",
+    "family_contexts", "parent_interviews", "counseling_sessions",
+    "screenings", "screening_results", "professional_interpretations",
+    "individual_goals", "extracurricular_activities", "recommendations",
+    "users", "attachments",
+)
+trigger_rows = conn.execute(
+    "SELECT tbl_name, sql FROM sqlite_master WHERE type = 'trigger'").fetchall()
+triggers_by_table = {}
+for row in trigger_rows:
+    triggers_by_table.setdefault(row[0], []).append((row[1] or "").upper())
+missing_cov = []
+trigger_names = {row[0] for row in conn.execute(
+    "SELECT name FROM sqlite_master WHERE type = 'trigger'").fetchall()}
+for table in PM_AUDIT_TABLES:
+    sqls = triggers_by_table.get(table, [])
+    kinds = {kind for kind in ("INSERT", "UPDATE", "DELETE")
+             if any(re.search(rf"AFTER\s+{kind}\s+ON", sql) for sql in sqls)}
+    names_ok = all(f"trg_{table}_{suffix}_audit" in trigger_names
+                   for suffix in ("insert", "update", "soft_delete", "restore", "hard_delete"))
+    if kinds != {"INSERT", "UPDATE", "DELETE"} or not names_ok:
+        missing_cov.append((table, sorted(kinds), names_ok))
+check("F", "هر ۱۸ جدول فهرست مدیر پروژه (۷ جدول قبلی + ۱۱ جدول جدید) پنج تریگر insert/update/soft_delete/restore/hard_delete دارند",
+      not missing_cov and tuple(dbc.DatabaseConnection._AUDIT_TABLES) == PM_AUDIT_TABLES,
+      f"missing={missing_cov}")
+
+# --- F2: ویرایش زمینهٔ خانوادگی → old/new کامل و تفاوت واقعی قابل دیدن
+from dal.family_context_dal import FamilyContextDAL  # noqa: E402
+from models.family_context import FamilyContext  # noqa: E402
+
+with quiet():
+    fc = FamilyContext()
+    fc.student_profile_id = e_profile.id
+    fc.parental_support = "low"
+    fc.guardian_status = "both_parents"
+    fc.recorded_by = 1
+    fc = FamilyContextDAL().create(fc)
+    fc.parental_support = "high"
+    FamilyContextDAL().update(fc)
+fc_audit = conn.execute(
+    "SELECT action, old_value, new_value, user_id FROM audit_logs "
+    "WHERE entity_type = 'family_contexts' AND entity_id = ? ORDER BY id",
+    (fc.id,)).fetchall()
+fc_actions = [r[0] for r in fc_audit]
+edit_row = next((r for r in fc_audit if r[0] == "edit"), None)
+try:
+    fc_old = json.loads(edit_row[1]) if edit_row else {}
+    fc_new = json.loads(edit_row[2]) if edit_row else {}
+except (TypeError, ValueError):
+    fc_old, fc_new = {}, {}
+check("F", "ویرایش family_contexts: Audit با old/new کاملِ JSON (نه فقط id) و تغییر parental_support از low به high قابل دیدن است",
+      fc_actions[:2] == ["create", "edit"]
+      and fc_old.get("parental_support") == "low" and fc_new.get("parental_support") == "high"
+      and len(fc_old) > 5 and fc_old.get("id") == fc.id,
+      f"actions={fc_actions} old_keys={len(fc_old)} old={fc_old.get('parental_support')} new={fc_new.get('parental_support')}")
+
+# --- F3: users: تغییر رمز ثبت می‌شود ولی password_hash هرگز در Audit نمی‌آید
+from dal.user_dal import UserDAL  # noqa: E402
+
+admin_row = conn.execute("SELECT id FROM users ORDER BY id LIMIT 1").fetchone()
+with quiet():
+    UserDAL().update_password(admin_row[0], "Round14!Secure#pass", user_id_actor=1)
+user_audit = conn.execute(
+    "SELECT action, old_value, new_value FROM audit_logs "
+    "WHERE entity_type = 'users' AND entity_id = ? ORDER BY id DESC LIMIT 1",
+    (admin_row[0],)).fetchone()
+leak = any(
+    (val and "password_hash" in val) for val in (user_audit[1], user_audit[2])) if user_audit else True
+check("F", "users: ویرایش کاربر در Audit ثبت می‌شود اما ستون password_hash نه در old_value است و نه در new_value",
+      user_audit is not None and user_audit[0] == "edit" and not leak
+      and json.loads(user_audit[2]).get("id") == admin_row[0],
+      f"row={user_audit and user_audit[0]} leak={leak}")
+
+# --- F4: سرویس + تریگر → فقط «یک» ردیف Audit برای ایجاد (بدون تکرار BaseService)
+from services.student_service import StudentService  # noqa: E402
+
+with quiet():
+    svc_student = StudentService().create_student(
+        {"first_name": "سرویس", "last_name": "چهاردهم", "national_code": "1414141414",
+         "grade": 2}, user_id=1)
+svc_rows = conn.execute(
+    "SELECT action, user_id FROM audit_logs WHERE entity_type = 'students' AND entity_id = ?",
+    (svc_student.id,)).fetchall()
+check("F", "ایجاد دانش‌آموز از مسیر سرویس: دقیقاً یک ردیف Audit «create» با user_id واقعی (تریگر + BaseService تکرار نمی‌کنند)",
+      len(svc_rows) == 1 and svc_rows[0][0] == "create" and svc_rows[0][1] == 1,
+      f"rows={svc_rows}")
+
+# --- F5: حذف نرم و بازیابی هم با مقدار قبل/بعد معنادار ثبت می‌شوند
+with quiet():
+    student_dal.delete(svc_student.id)
+    student_dal.restore(svc_student.id)
+sd_rows = conn.execute(
+    "SELECT action, old_value, new_value FROM audit_logs "
+    "WHERE entity_type = 'students' AND entity_id = ? ORDER BY id",
+    (svc_student.id,)).fetchall()
+sd_actions = [r[0] for r in sd_rows]
+soft = next((r for r in sd_rows if r[0] == "delete_soft"), None)
+rest = next((r for r in sd_rows if r[0] == "restore"), None)
+soft_ok = (soft and soft[1] and json.loads(soft[1]).get("is_deleted") == 0
+           and json.loads(soft[1]).get("first_name") == "سرویس")
+rest_ok = (rest and rest[2] and json.loads(rest[2]).get("is_deleted") == 0
+           and json.loads(rest[2]).get("id") == svc_student.id)
+check("F", "حذف نرم و بازیابی: delete_soft تصویر کامل ردیف قبل از حذف و restore تصویر کامل بعد از بازیابی را ثبت می‌کنند",
+      sd_actions == ["create", "delete_soft", "restore"] and bool(soft_ok) and bool(rest_ok),
+      f"actions={sd_actions} soft_ok={bool(soft_ok)} rest_ok={bool(rest_ok)}")
+
+# --- F6: حذف فیزیکی (permanent_delete) هم بدون رد نمی‌ماند
+with quiet():
+    hard_obs = Observation()
+    hard_obs.student_profile_id = e_profile.id
+    hard_obs.staff_id = 1
+    hard_obs.competency_id = e_comps[0].id
+    hard_obs.observation_date = "1405/07/20"
+    hard_obs.description = "مشاهدهٔ حذف فیزیکی"
+    hard_obs.behavior = "رفتار آزمایشی"
+    hard_obs.behavior_type = "خنثی"
+    hard_obs.severity = 1
+    hard_obs = observation_dal.create(hard_obs)
+    observation_dal.permanent_delete(hard_obs.id)
+hard_rows = conn.execute(
+    "SELECT action, old_value, new_value, user_id FROM audit_logs "
+    "WHERE entity_type = 'observations' AND entity_id = ? ORDER BY id", (hard_obs.id,)).fetchall()
+hard_actions = [r[0] for r in hard_rows]
+hard = next((r for r in hard_rows if r[0] == "delete"), None)
+hard_old = json.loads(hard[1]) if hard and hard[1] else {}
+still_there = conn.execute("SELECT COUNT(*) FROM observations WHERE id = ?", (hard_obs.id,)).fetchone()[0]
+check("F", "حذف فیزیکی (permanent_delete): تریگر AFTER DELETE یک ردیف «delete» با تصویر کامل ردیف حذف‌شده و کاربر واقعی ثبت می‌کند",
+      hard_actions == ["create", "delete"] and hard_old.get("description") == "مشاهدهٔ حذف فیزیکی"
+      and hard_old.get("id") == hard_obs.id and hard[3] == 1 and still_there == 0,
+      f"actions={hard_actions} old_keys={len(hard_old)}")
+
+# ============================================================================
+print("=" * 76)
+print("بخش G: جلوگیری از یادآوری تکراری با جست‌وجوی موجودیت (مورد ۹)")
+print("=" * 76)
+
+import jdatetime  # noqa: E402
+
+from dal.followup_dal import FollowUpDAL  # noqa: E402
+from dal.notification_dal import NotificationDAL  # noqa: E402
+from models.followup import FollowUp  # noqa: E402
+from models.intervention import Intervention  # noqa: E402
+from models.notification import Notification  # noqa: E402
+from services.notification_service import NotificationService  # noqa: E402
+
+yesterday = jdatetime.date.today() - jdatetime.timedelta(days=1)
+with quiet():
+    inter = Intervention()
+    inter.student_profile_id = e_profile.id
+    inter.staff_id = 1
+    inter.type = "counseling"
+    inter.date = "1405/07/01"
+    inter.description = "مداخلهٔ آزمایشی چهاردهم"
+    inter = intervention_dal.create(inter)
+    fu = FollowUp()
+    fu.intervention_id = inter.id
+    fu.staff_id = 1
+    fu.date = "1405/07/02"
+    fu.method = "phone"
+    fu.description = "پیگیری آزمایشی"
+    fu.status = "pending"
+    fu.next_action_date = f"{yesterday.year}/{yesterday.month:02d}/{yesterday.day:02d}"
+    fu = FollowUpDAL().create(fu)
+
+notif_service = NotificationService()
+notif_dal = NotificationDAL()
+
+
+def _overdue_count():
+    return conn.execute(
+        "SELECT COUNT(*) FROM notifications WHERE entity_type = 'followup' AND entity_id = ? "
+        "AND type = ? AND is_deleted = 0", (fu.id, Notification.TYPE_OVERDUE)).fetchone()[0]
+
+
+with quiet():
+    first_run = notif_service.check_and_create_reminders()
+after_first = _overdue_count()
+# ۱۲ اعلان جدیدتر برای همان کاربر → اعلان پیگیری دیگر جزو «۱۰ اعلان آخر» نیست
+# (اعلان پیگیری به سه روز قبل برده می‌شود تا ترتیب created_at قطعی باشد)
+with quiet():
+    conn.execute(
+        "UPDATE notifications SET created_at = datetime('now', '-3 days') "
+        "WHERE entity_type = 'followup' AND entity_id = ?", (fu.id,))
+    conn.commit()
+    for k in range(12):
+        notif_service.create_notification(
+            user_id=1, notification_type=Notification.TYPE_SYSTEM
+            if hasattr(Notification, "TYPE_SYSTEM") else "system",
+            title=f"اعلان پرکننده {k}", message="برای جابه‌جا کردن اعلان پیگیری از ۱۰ مورد آخر")
+    second_run = notif_service.check_and_create_reminders()
+after_second = _overdue_count()
+recent_ids = [n.entity_id for n in notif_dal.get_by_user(1, limit=10)]
+check("G", "پیگیری معوق: اجرای اول یک اعلان می‌سازد؛ بعد از ۱۲ اعلان جدیدتر (خارج از ۱۰ مورد آخر) اجرای دوم اعلان تکراری نمی‌سازد",
+      after_first == 1 and after_second == 1 and fu.id not in recent_ids
+      and second_run["total"] == 0,
+      f"first={after_first} second={after_second} in_recent={fu.id in recent_ids} run2={second_run}")
+
+# --- G2: معنای «فعال» حفظ شده: اعلان خوانده‌شده مانع اعلان جدید نیست؛ پرس‌وجو بر اساس موجودیت است
+exists_before = notif_service._check_existing_notification(fu.id, 1, Notification.TYPE_OVERDUE)
+other_user = notif_service._check_existing_notification(fu.id, 2, Notification.TYPE_OVERDUE)
+other_type = notif_service._check_existing_notification(fu.id, 1, Notification.TYPE_REMINDER)
+notif_id = conn.execute(
+    "SELECT id FROM notifications WHERE entity_type = 'followup' AND entity_id = ? AND type = ?",
+    (fu.id, Notification.TYPE_OVERDUE)).fetchone()[0]
+with quiet():
+    notif_dal.mark_as_read(notif_id)
+exists_after = notif_service._check_existing_notification(fu.id, 1, Notification.TYPE_OVERDUE)
+notif_src = read("services/notification_service.py")
+check_body = notif_src.split("def _check_existing_notification")[1].split("def _enrich_notification")[0]
+check("G", "جست‌وجو دقیقاً بر اساس (کاربر، نوع اعلان، نوع/شناسهٔ موجودیت) است؛ کاربر/نوع دیگر → نه؛ اعلان خوانده‌شده → فعال نیست؛ بدون get_by_user(limit=10)",
+      exists_before is True and other_user is False and other_type is False
+      and exists_after is False and "exists_for_entity" in check_body
+      and "get_by_user" not in check_body,
+      f"before={exists_before} other_user={other_user} other_type={other_type} after={exists_after}")
+
+# ============================================================================
+print("=" * 76)
+print("بخش H: یک مسیر واحد برای DAL تفسیر حرفه‌ای (مورد ۱۰)")
+print("=" * 76)
+
+import importlib.util  # noqa: E402
+
+from dal.professional_interpretation_dal import ProfessionalInterpretationDAL  # noqa: E402
+from models.professional_interpretation import ProfessionalInterpretation  # noqa: E402
+
+shim_gone = importlib.util.find_spec("dal.interpretation_dal") is None \
+    and not os.path.exists(os.path.join("dal", "interpretation_dal.py"))
+shim_refs = []
+for root in ("dal", "services", "views", "utils", "models", "database", "tests"):
+    for dirpath, _dirs, files in os.walk(root):
+        for name in files:
+            if name.endswith(".py") and "interpretation_dal import" in read(os.path.join(dirpath, name)) \
+                    and "professional_interpretation_dal import" not in read(os.path.join(dirpath, name)):
+                shim_refs.append(os.path.join(dirpath, name))
+main_src = read("main.py")
+check("H", "فایل تکراری dal/interpretation_dal.py حذف شده و هیچ ماژولی (dal/services/views/utils/models/database/tests/main) آن را import نمی‌کند",
+      shim_gone and not shim_refs and "interpretation_dal import InterpretationDAL" not in main_src,
+      f"gone={shim_gone} refs={shim_refs}")
+
+with quiet():
+    interp = ProfessionalInterpretation()
+    interp.student_profile_id = e_profile.id
+    interp.staff_id = 1
+    interp.level = "normal"
+    interp.title = "تفسیر آزمایشی ۱۴"
+    interp.detailed_text = "متن تفسیری آزمایشی برای بررسی دور چهاردهم"
+    interp.status = "draft"
+    interp = ProfessionalInterpretationDAL().create(interp)
+fetched_interp = ProfessionalInterpretationDAL().get_by_id(interp.id)
+interp_users = [path for path in ("services/report_generator.py",)
+                if "ProfessionalInterpretationDAL()" in read(path)]
+check("H", "مسیر واحد ProfessionalInterpretationDAL کار می‌کند (create/get) و گزارش‌ساز از همین مسیر استفاده می‌کند",
+      fetched_interp is not None and fetched_interp.title == "تفسیر آزمایشی ۱۴" and interp_users,
+      f"fetched={fetched_interp and fetched_interp.title}")
+
+# ============================================================================
+print("=" * 76)
+print("بخش I: اجرای تست‌ها در محیط تمیز فقط با requirements.txt (مورد ۱۲)")
+print("=" * 76)
+
+REQ_IMPORT_NAMES = {
+    "pyside6": {"PySide6", "shiboken6"}, "matplotlib": {"matplotlib"},
+    "openpyxl": {"openpyxl"}, "jdatetime": {"jdatetime"}, "pillow": {"PIL"},
+    "reportlab": {"reportlab"}, "arabic-reshaper": {"arabic_reshaper"},
+    "python-bidi": {"bidi"}, "numpy": {"numpy"}, "pytest": {"pytest"},
+}
+req_lines = [line.split("#")[0].strip() for line in read("requirements.txt").splitlines()]
+req_names = {re.split(r"[<>=!~\[]", line)[0].strip().lower() for line in req_lines if line}
+allowed_imports = set()
+for name in req_names:
+    allowed_imports |= REQ_IMPORT_NAMES.get(name, {name})
+stdlib_names = set(getattr(sys, "stdlib_module_names", set()))
+local_names = {n for n in os.listdir(".") if os.path.isdir(n)} | {
+    n[:-3] for n in os.listdir(".") if n.endswith(".py")}
+OPTIONAL_GUARDED = {"magic"}
+
+
+def _third_party_imports(paths):
+    found = {}
+    for path in paths:
+        tree = ast.parse(read(path))
+        for node in ast.walk(tree):
+            names = []
+            if isinstance(node, ast.Import):
+                names = [a.name.split(".")[0] for a in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+                names = [node.module.split(".")[0]]
+            for n in names:
+                if n in stdlib_names or n in local_names or n in allowed_imports:
+                    continue
+                found.setdefault(n, set()).add(path)
+    return found
+
+
+all_py = []
+for root in ("dal", "services", "views", "utils", "models", "database", "tests", "config"):
+    for dirpath, _dirs, files in os.walk(root):
+        all_py += [os.path.join(dirpath, f) for f in files if f.endswith(".py")]
+all_py += [n for n in os.listdir(".") if n.endswith(".py")]
+unknown = _third_party_imports(all_py)
+validator_src = read("utils/file_validator.py")
+magic_guarded = "try:" in validator_src.rsplit("import magic", 1)[0][-200:]
+check("I", "همهٔ importهای غیر-استاندارد پروژه (کد، تست‌ها و اسکریپت‌های verify) در requirements.txt هستند؛ تنها استثنا python-magic اختیاری با try/except",
+      set(unknown) <= OPTIONAL_GUARDED and magic_guarded and "pytest" in req_names
+      and "jdatetime" in req_names and "numpy" in req_names,
+      f"unknown={ {k: sorted(v)[:3] for k, v in unknown.items()} } req={sorted(req_names)}")
+
+test_files = [os.path.join("tests", f) for f in os.listdir("tests") if f.endswith(".py")]
+tests_unknown = _third_party_imports(test_files)
+tests_import_ok = all(
+    "pytest" in read(path) or "unittest" in read(path) for path in test_files)
+check("I", "پوشهٔ tests/ فقط به کتابخانه‌های requirements و ماژول‌های پروژه وابسته است (بدون وابستگی پنهان)؛ pytest در requirements است",
+      not tests_unknown and tests_import_ok and len(test_files) >= 3,
+      f"unknown={tests_unknown} files={len(test_files)}")
+
+# ============================================================================
+print("=" * 76)
+print("بخش J: پاکسازی اعلان‌ها واقعاً هر ۲۴ ساعت (مورد ۱۴)")
+print("=" * 76)
+
+from datetime import timedelta  # noqa: E402
+
+from utils.notification_scheduler import NotificationScheduler  # noqa: E402
+from utils.time_utils import utc_now  # noqa: E402
+
+scheduler = NotificationScheduler()
+scheduler._last_cleanup_time = None
+first_none = scheduler._should_cleanup()
+scheduler._last_cleanup_time = utc_now()
+just_now = scheduler._should_cleanup()
+scheduler._last_cleanup_time = utc_now() - timedelta(hours=23, minutes=50)
+almost = scheduler._should_cleanup()
+scheduler._last_cleanup_time = utc_now() - timedelta(hours=25)
+stale = scheduler._should_cleanup()
+check("J", "_should_cleanup: بدون سابقه → بله؛ همین الان → خیر؛ ۲۳ ساعت و ۵۰ دقیقه → خیر؛ ۲۵ ساعت → بله",
+      first_none is True and just_now is False and almost is False and stale is True
+      and NotificationScheduler._CLEANUP_INTERVAL_HOURS == 24,
+      f"none={first_none} now={just_now} 23h50={almost} 25h={stale}")
+
+
+class _FakeNotificationService:
+    def __init__(self):
+        self.cleanups = 0
+        self.checks = 0
+
+    def check_and_create_reminders(self):
+        self.checks += 1
+        return {"created_count": 0, "overdue_count": 0, "total": 0}
+
+    def cleanup_old_notifications(self):
+        self.cleanups += 1
+        return 0
+
+
+fake = _FakeNotificationService()
+real_service = scheduler.notification_service
+scheduler.notification_service = fake
+scheduler._last_cleanup_time = None
+try:
+    with quiet():
+        scheduler._run_scheduled_tasks()
+        scheduler._run_scheduled_tasks()
+        scheduler._run_scheduled_tasks()
+        stamp_after_runs = scheduler._last_cleanup_time
+        scheduler._last_cleanup_time = utc_now() - timedelta(hours=24, minutes=1)
+        scheduler._run_scheduled_tasks()
+finally:
+    scheduler.notification_service = real_service
+check("J", "سه اجرای پیاپیِ وظایف ساعتی فقط یک پاکسازی انجام می‌دهند؛ بعد از گذشت ۲۴ ساعت پاکسازی دوم انجام می‌شود (یادآوری‌ها هر بار بررسی می‌شوند)",
+      fake.checks == 4 and fake.cleanups == 2 and stamp_after_runs is not None,
+      f"checks={fake.checks} cleanups={fake.cleanups}")
+
+# ============================================================================
+print("=" * 76)
+print(f"نتیجهٔ دور چهاردهم (مرحله‌های ۱ و ۲):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
 print("=" * 76)
 if FAILURES:
     print("موارد ناموفق:")
     for item in FAILURES:
         print(f"  - {item}")
     sys.exit(1)
-print("🎉 همهٔ بررسی‌های مرحلهٔ ۱ دور چهاردهم سبز است (نخ‌ایمنی، هویت Audit، پشتیبان/بازیابی امن، Migration).")
+print("🎉 همهٔ بررسی‌های دور چهاردهم سبز است (نخ‌ایمنی، هویت Audit، پشتیبان/بازیابی امن، Migration، "
+      "N+1، پوشش Audit، اعلان بدون تکرار، DAL واحد، محیط تمیز، پاکسازی ۲۴ساعته).")

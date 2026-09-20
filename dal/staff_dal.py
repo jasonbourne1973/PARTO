@@ -6,6 +6,7 @@ import sqlite3
 
 from database.connection import DatabaseConnection
 from models.staff import Staff
+from utils.batch_query import id_chunks, placeholders
 from utils.time_utils import utc_now_iso
 
 
@@ -75,15 +76,14 @@ class StaffDAL:
         Returns:
             dict: {staff_id: full_name}
         """
-        unique_ids = sorted({i for i in (staff_ids or []) if i is not None})
-        if not unique_ids:
-            return {}
-        placeholders = ", ".join("?" * len(unique_ids))
-        query = (f"SELECT id, full_name FROM staff WHERE id IN ({placeholders})")
-        if not include_deleted:
-            query += " AND is_deleted = 0"
-        cursor = self.db.execute_query(query, tuple(unique_ids))
-        return {row['id']: row['full_name'] for row in cursor.fetchall()}
+        result = {}
+        for chunk in id_chunks(staff_ids):
+            query = f"SELECT id, full_name FROM staff WHERE id IN ({placeholders(len(chunk))})"
+            if not include_deleted:
+                query += " AND is_deleted = 0"
+            cursor = self.db.execute_query(query, tuple(chunk))
+            result.update({row['id']: row['full_name'] for row in cursor.fetchall()})
+        return result
 
     def get_all(self, include_inactive=False, include_deleted=False):
         """

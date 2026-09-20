@@ -340,7 +340,9 @@ class ObservationsPage(QWidget):
             if self.selected_teacher_id:
                 assignments = self.assignment_dal.get_by_teacher(self.selected_teacher_id)
                 student_ids = [a.student_id for a in assignments if a.is_active == 1]
-                self.all_students = [self.student_dal.get_by_id(sid) for sid in student_ids if sid]
+                # خوانش دسته‌ای (رفع N+1)؛ همان خروجی قبلی: شناسهٔ ناموجود → None
+                student_map = self.student_dal.get_by_ids(student_ids)
+                self.all_students = [student_map.get(sid) for sid in student_ids if sid]
             else:
                 self.all_students = self.student_dal.get_all()
             
