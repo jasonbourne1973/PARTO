@@ -21,12 +21,23 @@ from PySide6.QtWidgets import (
 )
 
 from config.settings import ATTACHMENTS_DIR, DB_PATH
+from dal.staff_dal import StaffDAL
+from database.connection import DatabaseConnection
 from utils.backup import BackupManager
 from utils.persian_date import format_timestamp
 
 
 class BackupWorker(QThread):
-    """کارگر برای عملیات طولانی Backup"""
+    """
+    کارگر برای عملیات طولانی Backup
+
+    ===== اصلاح (بازرسی چهاردهم) — هویت کاربر در نخ کارگر =====
+    عملیات پشتیبان/بازیابی/حذف با کلیک کاربر انجام می‌شود، ولی چون
+    در نخ جداگانه اجرا می‌شد و هیچ هویتی به آن داده نمی‌شد، فرادادهٔ
+    پشتیبان و لاگ عملیات همیشه «سیستم» ثبت می‌کرد. حالا هویت کاربر
+    واقعی در نخ UI (سازنده) گرفته و در نخ کارگر با worker_context
+    اعمال می‌شود؛ زمان‌بند خودکار همچنان «سیستم» است.
+    """
     
     progress = Signal(int)
     finished = Signal(bool, str)
@@ -36,17 +47,38 @@ class BackupWorker(QThread):
         self.backup_manager = backup_manager
         self.action = action
         self.backup_file = backup_file
+        self.user_id, self.user_name = self._capture_user_context()
+
+    @staticmethod
+    def _capture_user_context():
+        """هویت کاربر واردشده (در نخ UI خوانده می‌شود)."""
+        user_id = DatabaseConnection().get_current_user()
+        if not user_id:
+            return None, None
+        user_name = None
+        try:
+            staff = StaffDAL().get_by_id(user_id)
+            user_name = getattr(staff, 'full_name', None) if staff else None
+        except Exception:
+            user_name = None
+        return user_id, user_name
     
     def run(self):
-        if self.action == "create":
-            result = self.backup_manager.create_backup()
-            self.finished.emit(result['success'], result['message'])
-        elif self.action == "restore":
-            result = self.backup_manager.restore_backup(self.backup_file)
-            self.finished.emit(result['success'], result['message'])
-        elif self.action == "delete":
-            success, message = self.backup_manager.delete_backup(self.backup_file)
-            self.finished.emit(success, message)
+        with DatabaseConnection().worker_context(self.user_id):
+            if self.action == "create":
+                result = self.backup_manager.create_backup(
+                    user_id=self.user_id, user_name=self.user_name)
+                self.finished.emit(result['success'], result['message'])
+            elif self.action == "restore":
+                result = self.backup_manager.restore_backup(
+                    self.backup_file, user_id=self.user_id,
+                    user_name=self.user_name)
+                self.finished.emit(result['success'], result['message'])
+            elif self.action == "delete":
+                success, message = self.backup_manager.delete_backup(
+                    self.backup_file, user_id=self.user_id,
+                    user_name=self.user_name)
+                self.finished.emit(success, message)
 
 
 class BackupPage(QWidget):

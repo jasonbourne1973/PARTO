@@ -9,6 +9,7 @@ import shutil
 import sqlite3
 import zipfile
 from datetime import datetime
+from pathlib import Path
 
 from config.settings import APP_VERSION
 from utils.logger import get_logger
@@ -90,36 +91,48 @@ class BackupManager:
             # تحویل داده می‌شد. حالا شکستِ online backup = شکستِ
             # عملیات با پیام روشن؛ هرگز فایل فعال SQLite مستقیم کپی
             # نمی‌شود چون سلامت آن قابل تضمین نیست.
+            #
+            # ===== اصلاح (بازرسی چهاردهم) =====
+            # ۱) اگر فایل دیتابیس اصلاً وجود نداشت، نسخهٔ قبلی یک ZIP
+            #    «بدون دیتابیس» می‌ساخت و success=True برمی‌گرداند؛ یعنی
+            #    پشتیبان ظاهراً موفق ولی بی‌فایده. حالا شکست روشن.
+            # ۲) اسنپ‌شات قبل از بسته‌بندی با integrity_check راستی‌آزمایی
+            #    می‌شود تا هر پشتیبانی که «موفق» تحویل می‌شود، از یک
+            #    اسنپ‌شات معتبر SQLite ساخته شده باشد.
+            if not os.path.exists(self.db_path):
+                raise RuntimeError(
+                    f"فایل دیتابیس برای پشتیبان‌گیری یافت نشد: {self.db_path}")
+
             tmp_db_snapshot = os.path.join(self.backup_dir, f"{name}.db.tmp")
             try:
-                if os.path.exists(self.db_path):
-                    src = sqlite3.connect(self.db_path)
-                    try:
-                        dst = sqlite3.connect(tmp_db_snapshot)
-                        try:
-                            src.backup(dst)      # کپی سازگار و اتمیک
-                        finally:
-                            dst.close()
-                    finally:
-                        src.close()
-            except sqlite3.Error as e:
+                if os.path.exists(tmp_db_snapshot):
+                    os.remove(tmp_db_snapshot)
+                src = sqlite3.connect(self.db_path)
                 try:
-                    if os.path.exists(tmp_db_snapshot):
-                        os.remove(tmp_db_snapshot)
-                except OSError as cleanup_error:
-                    # فایل موقتِ نیمه‌کاره در اجرای بعدی بازنویسی می‌شود؛
-                    # پاک‌نشدنش فقط در لاگ دیباگ ثبت می‌شود.
-                    self.logger.debug(f"حذف فایل موقت پشتیبان ممکن نشد: {cleanup_error}")
+                    dst = sqlite3.connect(tmp_db_snapshot)
+                    try:
+                        src.backup(dst)      # کپی سازگار و اتمیک
+                    finally:
+                        dst.close()
+                finally:
+                    src.close()
+            except (sqlite3.Error, OSError) as e:
+                self._remove_quietly(tmp_db_snapshot)
                 raise RuntimeError(
                     "پشتیبان‌گیری آنلاین از دیتابیس ناموفق بود و کپی مستقیم "
                     f"فایل فعال مجاز نیست (خطر پشتیبان ناسالم): {e}"
                 ) from e
 
+            snapshot_ok, snapshot_detail = self._verify_sqlite_file(tmp_db_snapshot)
+            if not snapshot_ok:
+                self._remove_quietly(tmp_db_snapshot)
+                raise RuntimeError(
+                    f"اسنپ‌شات دیتابیس معتبر نیست؛ پشتیبان ساخته نشد: {snapshot_detail}")
+
             # ایجاد فایل ZIP
             with zipfile.ZipFile(backup_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                # 1. دیتابیس (از نسخه سازگار گرفته‌شده)
-                if os.path.exists(tmp_db_snapshot):
-                    zipf.write(tmp_db_snapshot, "database/partow.db")
+                # 1. دیتابیس (از اسنپ‌شات سازگار و راستی‌آزمایی‌شده)
+                zipf.write(tmp_db_snapshot, "database/partow.db")
                 
                 # 2. فایل‌های پیوست
                 if os.path.exists(self.attachments_dir):
@@ -279,7 +292,8 @@ class BackupManager:
             parts = normalized.split('/')
             if (not normalized or normalized.startswith('..')
                     or os.path.isabs(name) or os.path.isabs(normalized)
-                    or '..' in parts or '\\' in name):
+                    or '..' in parts or '\\' in name
+                    or ':' in name or '\x00' in name):
                 raise ValueError(
                     f"عضو نامعتبر در فایل پشتیبان (احتمال Path Traversal): {name}")
             if not (normalized == 'metadata.json'
@@ -293,15 +307,27 @@ class BackupManager:
                     f"عضو پشتیبان خارج از پوشهٔ بازیابی است: {name}")
             zipf.extract(member, extract_dir)
 
-    def _verify_restored_database(self):
-        """
-        راستی‌آزمایی اینکه دیتابیس بازیابی‌شده واقعاً سالم و خواندنی است
-
-        بدون این بررسی، متد حتی وقتی کپی هیچ اثری نکرده بود هم
-        `success: True` برمی‌گرداند.
-        """
+    def _remove_quietly(self, path):
+        """حذف فایل موقت؛ شکستِ حذف فقط در لاگ دیباگ ثبت می‌شود."""
         try:
-            conn = sqlite3.connect(self.db_path)
+            if os.path.exists(path):
+                os.remove(path)
+        except OSError as e:
+            self.logger.debug(f"حذف فایل موقت ممکن نشد ({path}): {e}")
+
+    @staticmethod
+    def _verify_sqlite_file(path, label="دیتابیس"):
+        """
+        راستی‌آزمایی یک فایل SQLite (اسنپ‌شات پشتیبان یا دیتابیس بازیابی‌شده)
+
+        فایل فقط‌خواندنی باز می‌شود (بدون ساختن فایل تازه اگر وجود
+        نداشته باشد)، integrity_check اجرا و تعداد جدول‌ها بررسی می‌شود.
+        """
+        if not os.path.exists(path):
+            return False, f"{label} وجود ندارد: {path}"
+        try:
+            uri = Path(os.path.abspath(path)).as_uri() + "?mode=ro"
+            conn = sqlite3.connect(uri, uri=True)
             try:
                 result = conn.execute("PRAGMA integrity_check").fetchone()
                 tables = conn.execute(
@@ -310,13 +336,22 @@ class BackupManager:
             finally:
                 conn.close()
         except sqlite3.Error as e:
-            return False, f"دیتابیس بازیابی‌شده باز نمی‌شود: {e}"
+            return False, f"{label} باز نمی‌شود: {e}"
 
         if not result or result[0] != 'ok':
-            return False, f"دیتابیس بازیابی‌شده سالم نیست: {result}"
+            return False, f"{label} سالم نیست: {result}"
         if tables < 10:
-            return False, f"دیتابیس بازیابی‌شده فقط {tables} جدول دارد"
+            return False, f"{label} فقط {tables} جدول دارد"
         return True, f"{tables} جدول، integrity_check = ok"
+
+    def _verify_restored_database(self):
+        """
+        راستی‌آزمایی اینکه دیتابیس بازیابی‌شده واقعاً سالم و خواندنی است
+
+        بدون این بررسی، متد حتی وقتی کپی هیچ اثری نکرده بود هم
+        `success: True` برمی‌گرداند.
+        """
+        return self._verify_sqlite_file(self.db_path, "دیتابیس بازیابی‌شده")
 
     def restore_backup(self, backup_file, user_id=None, user_name=None):
         """
@@ -428,12 +463,45 @@ class BackupManager:
             # راستی‌آزمایی» زیر قفل سراسری دیتابیس انجام می‌شود تا نخ
             # دیگری (مثلاً زمان‌بند اعلان‌ها) وسط بازیابی اتصال تازه
             # باز نکند و روی فایل نیمه‌جایگزین‌شده ننویسد.
+            #
+            # ===== اصلاح (بازرسی چهاردهم) — اول اعتبارسنجی، بعد جایگزینی =====
+            # نسخهٔ قبلی فایل استخراج‌شده را روی دیتابیس فعال کپی می‌کرد و
+            # «بعد» سلامتش را می‌سنجید؛ اگر عضو database/partow.db خراب
+            # یا اصلاً SQLite نبود، دیتابیس فعال با آن بازنویسی و برنامه
+            # عملاً از کار می‌افتاد (تست عملی: بعد از restore ناموفق،
+            # «file is not a database»). حالا:
+            #   ۱) فایل استخراج‌شده قبل از هر تغییری راستی‌آزمایی می‌شود؛
+            #   ۲) دیتابیس فعلی (پس از quiesce) کنار گذاشته می‌شود و اگر
+            #      راستی‌آزمایی پس از جایگزینی شکست خورد، دقیقاً همان
+            #      فایل برمی‌گردد — بدون اتکا به pre_restore.
+            extracted_ok, extracted_detail = self._verify_sqlite_file(
+                db_backup, "دیتابیس داخل فایل پشتیبان")
+            if not extracted_ok:
+                shutil.rmtree(extract_dir, ignore_errors=True)
+                return {
+                    'success': False,
+                    'message': (f"❌ فایل پشتیبان دیتابیس معتبری ندارد: "
+                                f"{extracted_detail}\n\n"
+                                "بازیابی انجام نشد و دیتابیس فعلی دست‌نخورده ماند.")
+                }
+
             from database.connection import DB_THREAD_LOCK
+            safety_copy = self.db_path + '.restore_safety'
             with DB_THREAD_LOCK:
                 journal_removed = self._quiesce_database()
 
-                # ۲) جایگزینی فایل دیتابیس
-                shutil.copy2(db_backup, self.db_path)
+                # ۲) کنارگذاشتن دیتابیس فعلی و جایگزینی فایل
+                self._remove_quietly(safety_copy)
+                had_previous = os.path.exists(self.db_path)
+                if had_previous:
+                    os.replace(self.db_path, safety_copy)
+                try:
+                    shutil.copy2(db_backup, self.db_path)
+                except Exception as copy_error:
+                    if had_previous:
+                        os.replace(safety_copy, self.db_path)
+                    raise RuntimeError(
+                        f"جایگزینی فایل دیتابیس ممکن نشد: {copy_error}") from copy_error
 
                 # ۳) ژورنال‌های احتمالیِ باقی‌مانده دوباره پاک شوند
                 journal_removed += self._remove_journal_files()
@@ -441,12 +509,19 @@ class BackupManager:
                 # ۴) راستی‌آزمایی اینکه بازیابی واقعاً اثر کرده
                 healthy, detail = self._verify_restored_database()
                 if not healthy:
+                    if had_previous:
+                        self._remove_quietly(self.db_path)
+                        os.replace(safety_copy, self.db_path)
+                        self._remove_journal_files()
+                    shutil.rmtree(extract_dir, ignore_errors=True)
                     return {
                         'success': False,
                         'message': f"❌ بازیابی کامل نشد: {detail}\n\n"
-                                   f"پشتیبانِ وضعیت قبلی در این فایل نگه داشته شد: "
+                                   "دیتابیس قبلی سر جای خود برگردانده شد. "
+                                   f"پشتیبانِ وضعیت قبلی هم در این فایل هست: "
                                    f"{pre_restore.get('file')}"
                     }
+                self._remove_quietly(safety_copy)
             
             # بازیابی فایل‌های پیوست
             attachments_backup = os.path.join(extract_dir, "attachments")

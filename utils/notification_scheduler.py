@@ -5,6 +5,7 @@
 import threading
 import time
 
+from database.connection import DatabaseConnection
 from services.notification_service import NotificationService
 from utils.logger import get_logger
 from utils.time_utils import utc_now
@@ -71,18 +72,28 @@ class NotificationScheduler:
         self.logger.info("زمان‌بندی اعلان‌ها متوقف شد")
     
     def _worker(self, interval_minutes):
-        """کارگر زمان‌بندی"""
-        while self._running:
-            try:
-                self._run_scheduled_tasks()
-            except Exception as e:
-                self.logger.error(f"خطا در اجرای وظایف زمان‌بندی: {e}")
-            
-            # منتظر ماندن تا زمان بعدی
-            for _ in range(interval_minutes * 60):
-                if not self._running:
-                    break
-                time.sleep(1)
+        """
+        کارگر زمان‌بندی
+
+        ===== (بازرسی چهاردهم) هویت صریح «سیستم» =====
+        این نخ کاربر واقعی ندارد؛ با worker_context(None) صریحاً به
+        عنوان «عملیات خودکار سیستم» اجرا می‌شود (Audit با user_id=NULL
+        که در تاریخچه «سیستم» نمایش داده می‌شود) و هرگز هویت کاربر
+        واردشدهٔ نخ اصلی را به ارث نمی‌برد. اتصال دیتابیس این نخ هم
+        هنگام توقف زمان‌بند آزاد می‌شود.
+        """
+        with DatabaseConnection().worker_context(None):
+            while self._running:
+                try:
+                    self._run_scheduled_tasks()
+                except Exception as e:
+                    self.logger.error(f"خطا در اجرای وظایف زمان‌بندی: {e}")
+
+                # منتظر ماندن تا زمان بعدی
+                for _ in range(interval_minutes * 60):
+                    if not self._running:
+                        break
+                    time.sleep(1)
     
     def _run_scheduled_tasks(self):
         """اجرای وظایف زمان‌بندی شده"""

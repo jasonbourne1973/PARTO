@@ -28,12 +28,23 @@ from PySide6.QtWidgets import (
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from database.connection import DatabaseConnection
 from services.attachment_service import AttachmentService
 from utils.logger import get_logger
 
 
 class AttachmentUploadWorker(QThread):
-    """کارگر برای آپلود فایل در پس‌زمینه"""
+    """
+    کارگر برای آپلود فایل در پس‌زمینه
+
+    ===== اصلاح (بازرسی چهاردهم) — هویت کاربر در نخ کارگر =====
+    کاربر جاری دیتابیس «نخ‌محلی» است (تا نخ زمان‌بند به نام کاربر
+    واردشده ثبت نشود). این کارگر در نخ جداگانه می‌نویسد؛ اگر هویت را
+    صریح تحویل نگیرد، ردیف Audit آپلود با user_id=NULL یعنی «سیستم»
+    ثبت می‌شد، در حالی که کاربر واقعی آن را انجام داده است. حالا
+    هویت در نخ UI (سازنده) گرفته و در نخ کارگر با worker_context
+    اعمال می‌شود؛ اتصال نخ کارگر هم در پایان آزاد می‌شود.
+    """
     
     progress = Signal(int)
     finished = Signal(bool, str, object)  # success, message, attachment
@@ -47,7 +58,11 @@ class AttachmentUploadWorker(QThread):
         self.file_path = file_path
         self.title = title
         self.description = description
-        self.created_by = created_by
+        # سازنده در نخ UI اجرا می‌شود؛ همین‌جا هویت کاربر واقعی گرفته
+        # می‌شود تا در نخ کارگر (که کاربر نخ‌محلی ندارد) استفاده شود.
+        self.user_context = DatabaseConnection().get_current_user()
+        self.created_by = (created_by if created_by is not None
+                           else self.user_context)
     
     def run(self):
         try:
@@ -59,17 +74,18 @@ class AttachmentUploadWorker(QThread):
             
             self.progress.emit(60)
             
-            # آپلود
+            # آپلود (به نام همان کاربری که در نخ UI وارد شده است)
             file_name = os.path.basename(self.file_path)
-            attachment = self.service.upload_attachment(
-                entity_type=self.entity_type,
-                entity_id=self.entity_id,
-                file_data=file_data,
-                file_name=file_name,
-                title=self.title,
-                description=self.description,
-                created_by=self.created_by
-            )
+            with DatabaseConnection().worker_context(self.user_context):
+                attachment = self.service.upload_attachment(
+                    entity_type=self.entity_type,
+                    entity_id=self.entity_id,
+                    file_data=file_data,
+                    file_name=file_name,
+                    title=self.title,
+                    description=self.description,
+                    created_by=self.created_by
+                )
             
             self.progress.emit(100)
             self.finished.emit(True, "فایل با موفقیت آپلود شد", attachment)
@@ -538,12 +554,14 @@ class AttachmentDialog(QDialog):
         self.progress_bar.setValue(0)
         self.set_buttons_enabled(False)
         
+        # created_by = کاربر واقعیِ واردشده (staff.id)؛ قبلاً None فرستاده
+        # می‌شد و «آپلودکننده» همیشه نامشخص می‌ماند.
         self.upload_worker = AttachmentUploadWorker(
             service=self.attachment_service,
             entity_type=self.entity_type,
             entity_id=self.entity_id,
             file_path=file_path,
-            created_by=None
+            created_by=DatabaseConnection().get_current_user()
         )
         self.upload_worker.progress.connect(self.update_progress)
         self.upload_worker.finished.connect(self.upload_finished)

@@ -6,6 +6,7 @@ import contextlib
 import os
 import sqlite3
 import threading
+import weakref
 from typing import ClassVar
 
 import jdatetime
@@ -78,14 +79,23 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
     # مربوط می‌شود.
     _thread_state = threading.local()
 
-    # رجیستری اتصال‌های باز هر نخ (ident -> connection) برای close_all.
-    # فقط زیر DB_THREAD_LOCK دستکاری می‌شود.
+    # رجیستری اتصال‌های باز هر نخ (ident -> (weakref نخ, connection))
+    # برای close_all. فقط زیر DB_THREAD_LOCK دستکاری می‌شود.
+    # (بازرسی چهاردهم) ارجاع ضعیف به خودِ نخ نگه داشته می‌شود تا
+    # اتصالِ نخ‌هایی که تمام شده‌اند (کارگرهای کوتاه‌عمر آپلود/پشتیبان)
+    # در اولین فرصت بسته و از رجیستری حذف شوند، نه این‌که تا پایان
+    # برنامه به‌صورت اتصال «یتیم» باز بمانند.
     _open_connections: ClassVar[dict] = {}
 
     # نسل اتصال‌ها: هر close_all یک واحد جلو می‌رود تا نخ‌هایی که
     # اتصال‌شان زیر پایشان بسته شده، به‌جای کار با اتصال بسته،
     # اتصال تازه باز کنند.
     _connection_epoch = 0
+
+    # (بازرسی چهاردهم) کلید «اسکیما آماده است» = (نسل اتصال، مسیر فایل).
+    # Migration/ترمیم/تریگرها فقط یک‌بار برای هر نسل و هر فایل اجرا
+    # می‌شوند، نه برای هر نخ. فقط زیر DB_THREAD_LOCK نوشته می‌شود.
+    _schema_ready_key = None
 
     # ===== تراکنش واقعی =====
     # نسخه قبلی `begin_transaction()` در BaseService فقط یک بولین
@@ -139,8 +149,18 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
         return getattr(cls._thread_state, attr, cls._THREAD_DEFAULTS[name])
 
     @classmethod
-    def _set_thread_value(cls, name, value):
-        """نوشتن وضعیت نخ جاری."""
+    def _set_thread_value(cls, name, value, reset_schema=True):
+        """
+        نوشتن وضعیت نخ جاری
+
+        قرارداد قدیمی تست‌ها/ابزارها: «`DatabaseConnection._initialized =
+        False` یعنی اتصال بعدی دوباره Migration/ترمیم اسکیما را اجرا
+        کند». چون آماده‌سازی اسکیما از بازرسی چهاردهم یک‌بار برای هر
+        نسل انجام می‌شود، این ریستِ صریح، کلید «اسکیما آماده است» را هم
+        پاک می‌کند تا همان قرارداد برقرار بماند. مسیرهای داخلی
+        (close/close_all) با reset_schema=False می‌آیند تا بستن اتصال
+        یک نخ کارگر باعث تکرار DDL برای بقیهٔ نخ‌ها نشود.
+        """
         attr = {
             '_connection': 'connection',
             '_current_user_id': 'user_id',
@@ -148,6 +168,8 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
             '_initialized': 'initialized',
         }[name]
         setattr(cls._thread_state, attr, value)
+        if reset_schema and name == '_initialized' and not value:
+            cls._schema_ready_key = None
 
     def __getattr__(self, name):
         # فقط وقتی صدا زده می‌شود که جست‌وجوی عادی ناموفق باشد؛
@@ -183,7 +205,8 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
             # برای اطمینان
             conn.execute("PRAGMA foreign_keys = ON")
             self._validate_current_user()
-            self._ensure_feature_tables()
+            # (بازرسی چهاردهم) بررسی جدول‌های قابلیت‌ها دیگر در هر فراخوانی
+            # تکرار نمی‌شود؛ یک‌بار برای هر نسل اتصال (پایین) انجام می‌شود.
             return conn
 
         with DB_THREAD_LOCK:
@@ -227,18 +250,29 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
             pending_user_id = self._current_user_id
             state = self._validate_current_user()
 
-            # اجرای Migration به جای ایجاد مستقیم جداول
-            self._initialize_database()
+            # ===== (بازرسی چهاردهم) آماده‌سازی اسکیما: یک‌بار برای هر نسل =====
+            # Migration/ترمیم/جدول‌های قابلیت/تریگرهای حسابرسی ویژگیِ «فایل
+            # دیتابیس» هستند، نه ویژگیِ اتصال هر نخ. نسخهٔ قبلی این کارها را
+            # برای «هر نخ تازه» تکرار می‌کرد (DROP/CREATE ۷۲ تریگر + ترمیم
+            # اسکیما در هر کارگر آپلود/پشتیبان)؛ این DDLها زیر بار نوشتنِ
+            # هم‌زمان نخ دیگر با «database is locked» شکست می‌خوردند. حالا
+            # فقط اولین اتصالِ هر نسل (بعد از هر close_all/بازیابی) این
+            # کار را زیر قفل انجام می‌دهد و بقیهٔ نخ‌ها فقط اتصال می‌گیرند.
+            schema_key = (DatabaseConnection._connection_epoch, DB_PATH)
+            if DatabaseConnection._schema_ready_key != schema_key:
+                # اجرای Migration به جای ایجاد مستقیم جداول
+                self._initialize_database()
 
-            # دیتابیس‌های ساخته‌شده در نسخه‌های قبلی ممکن است نسخه‌شان به‌روز
-            # باشد اما سه جدول قابلیت‌های جدید را نداشته باشند. این بررسی
-            # غیرمخرب فقط جدول‌های مفقود را ایجاد می‌کند.
-            self._ensure_feature_tables()
+                # دیتابیس‌های ساخته‌شده در نسخه‌های قبلی ممکن است نسخه‌شان
+                # به‌روز باشد اما سه جدول قابلیت‌های جدید را نداشته باشند.
+                # این بررسی غیرمخرب فقط جدول‌های مفقود را ایجاد می‌کند.
+                self._ensure_feature_tables()
 
-            # تریگرهای حسابرسیِ همهٔ جدول‌های حساس (بازرسی دوازدهم).
-            # روی دیتابیس‌های قدیمی، تریگرهای قبلی (که فقط id ثبت
-            # می‌کردند) با نسخهٔ کامل جایگزین می‌شوند.
-            self._ensure_audit_triggers()
+                # تریگرهای حسابرسیِ همهٔ جدول‌های حساس (بازرسی دوازدهم).
+                # روی دیتابیس‌های قدیمی، تریگرهای قبلی (که فقط id ثبت
+                # می‌کردند) با نسخهٔ کامل جایگزین می‌شوند.
+                self._ensure_audit_triggers()
+                DatabaseConnection._schema_ready_key = schema_key
 
             # اگر کاربری قبلاً set شده بود، بعد از seed اعتبارسنجی‌اش کن
             if state == self._USER_CHECK_DEFERRED and pending_user_id:
@@ -296,8 +330,37 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
 
         self._connection = conn
         self._thread_state.epoch = self._connection_epoch
-        self._open_connections[threading.get_ident()] = conn
+        self._prune_dead_thread_connections()
+        self._open_connections[threading.get_ident()] = (
+            weakref.ref(threading.current_thread()), conn)
         return conn
+
+    @classmethod
+    def _prune_dead_thread_connections(cls):
+        """
+        بستن اتصال نخ‌هایی که دیگر زنده نیستند (زیر DB_THREAD_LOCK)
+
+        هر نخ کارگر (آپلود پیوست، پشتیبان‌گیری، ...) اتصال خودش را
+        می‌گیرد؛ اگر آن نخ بدون close() تمام شود، اتصالش نه در حال
+        استفاده است و نه بسته شده. این متد چنین اتصال‌هایی را می‌بندد
+        تا هم دستگیرهٔ فایل آزاد شود و هم close_all روی اتصال‌های
+        مرده وقت تلف نکند. اتصال نخ‌های زنده دست‌نخورده می‌ماند.
+        """
+        for ident, entry in list(cls._open_connections.items()):
+            thread_ref, old_conn = entry
+            thread = thread_ref() if thread_ref is not None else None
+            if thread is not None and thread.is_alive():
+                continue
+            with contextlib.suppress(Exception):
+                old_conn.close()
+            cls._open_connections.pop(ident, None)
+
+    @classmethod
+    def open_connection_count(cls):
+        """تعداد اتصال‌های ثبت‌شدهٔ نخ‌های زنده (برای تست/پایش)."""
+        with DB_THREAD_LOCK:
+            cls._prune_dead_thread_connections()
+            return len(cls._open_connections)
 
     # نتیجهٔ _validate_current_user
     _USER_CHECK_OK = "ok"            # شناسه معتبر است
@@ -1826,7 +1889,7 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
                 self._open_connections.pop(threading.get_ident(), None)
             self._connection = None
             DatabaseConnection._transaction_depth = 0
-            self._initialized = False
+            type(self)._set_thread_value('_initialized', False, reset_schema=False)
 
     def close_all(self):
         """
@@ -1840,7 +1903,7 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
         اتصال بسته انجام نشود.
         """
         with DB_THREAD_LOCK:
-            for ident, conn in list(self._open_connections.items()):
+            for ident, (_thread_ref, conn) in list(self._open_connections.items()):
                 try:
                     with contextlib.suppress(Exception):
                         conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
@@ -1853,8 +1916,44 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
             DatabaseConnection._connection_epoch += 1
             self._connection = None
             DatabaseConnection._transaction_depth = 0
-            self._initialized = False
-    
+            # نسل جدید یعنی اسکیما دوباره (یک‌بار) بررسی می‌شود؛ نیازی به
+            # پاک‌کردن جداگانهٔ کلید نیست.
+            type(self)._set_thread_value('_initialized', False, reset_schema=False)
+
+    # ============================================================
+    # هویت نخ‌های کارگر (بازرسی چهاردهم)
+    # ============================================================
+    @contextlib.contextmanager
+    def worker_context(self, user_id=None):
+        """
+        اجرای بدنهٔ یک نخ کارگر با هویت مشخص و آزادسازی اتصال در پایان
+
+        چرا لازم است؟ کاربر جاری «نخ‌محلی» است تا نخ زمان‌بند به نام
+        کاربر واردشده ثبت نشود. روی دیگر همین سکه: نخ‌های کارگری که
+        «به نمایندگی از کاربر» کار می‌کنند (آپلود پیوست، پشتیبان‌گیری
+        دستی) اگر هویت را صریح تحویل نگیرند، نوشتن‌هایشان با
+        user_id=NULL یعنی «سیستم» در Audit می‌نشیند — که همان‌قدر
+        نادرست است. پس هر نخ کارگر باید صریح بگوید به نام چه کسی کار
+        می‌کند:
+
+            uid = DatabaseConnection().get_current_user()   # در نخ UI
+            ...
+            def run(self):                                    # در نخ کارگر
+                with DatabaseConnection().worker_context(uid):
+                    ...
+
+        user_id=None یعنی «عملیات خودکار سیستم» (زمان‌بند اعلان‌ها).
+        در پایان، اتصال و وضعیت تراکنش همان نخ آزاد می‌شود تا اتصال
+        یتیم نماند.
+        """
+        self.set_current_user(user_id)
+        try:
+            yield self
+        finally:
+            with contextlib.suppress(Exception):
+                self.close()
+            self._current_user_id = None
+
     @staticmethod
     def _adapt_sqlite_value(value):
         """تبدیل مقدارهای رایج Python به نوع قابل ذخیره در SQLite."""
@@ -1957,8 +2056,17 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
             # اگر تراکنشِ ضمنیِ جاافتاده‌ای باز است، اول ببندش
             if getattr(conn, "in_transaction", False):
                 self._recover_dangling_transaction()
-            # یک دستور نوشتنی بفرست تا sqlite واقعاً تراکنش را باز کند
-            conn.execute("BEGIN")
+            # ===== (بازرسی چهاردهم) BEGIN IMMEDIATE به‌جای BEGIN =====
+            # تراکنش سرویس یک تراکنش «نوشتنی» است. با BEGIN (deferred)
+            # اولین SELECT داخل تراکنش یک اسنپ‌شات خواندنی می‌گرفت و اگر
+            # در همان فاصله نخ دیگری (زمان‌بند اعلان‌ها) commit می‌کرد،
+            # اولین INSERT/UPDATE این نخ در حالت WAL بلافاصله با
+            # «database is locked» (SQLITE_BUSY_SNAPSHOT) شکست می‌خورد —
+            # بدون این‌که busy_timeout اصلاً فرصت انتظار بدهد. تست عملی:
+            # چهار نخ هم‌زمان با تراکنش سرویس → ۶ رکورد از ۸۰ گم شد.
+            # BEGIN IMMEDIATE قفل نوشتن را همان ابتدا (با انتظار
+            # busy_timeout) می‌گیرد؛ خواننده‌ها در WAL همچنان آزادند.
+            conn.execute("BEGIN IMMEDIATE")
         DatabaseConnection._transaction_depth += 1
 
     def _recover_dangling_transaction(self):
