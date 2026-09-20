@@ -118,11 +118,13 @@ class TestAcademicYearDAL(unittest.TestCase):
 
 def run_tests():
     """اجرای همه تست‌ها"""
+    # (بازرسی شانزدهم) بارگذاری با TestLoader؛ API قدیمی ساخت suite در Python 3.13 حذف شده است.
+    loader = unittest.TestLoader()
     suite = unittest.TestSuite()
     
-    suite.addTest(unittest.makeSuite(TestStudentDAL))
-    suite.addTest(unittest.makeSuite(TestObservationDAL))
-    suite.addTest(unittest.makeSuite(TestAcademicYearDAL))
+    suite.addTest(loader.loadTestsFromTestCase(TestStudentDAL))
+    suite.addTest(loader.loadTestsFromTestCase(TestObservationDAL))
+    suite.addTest(loader.loadTestsFromTestCase(TestAcademicYearDAL))
     
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)

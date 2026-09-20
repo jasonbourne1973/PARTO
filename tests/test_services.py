@@ -301,15 +301,17 @@ class TestCaseTimelineService(unittest.TestCase):
 def run_tests():
     """اجرای همه تست‌ها"""
     # ایجاد suite تست
+    # (بازرسی شانزدهم) بارگذاری با TestLoader؛ API قدیمی ساخت suite در Python 3.13 حذف شده است.
+    loader = unittest.TestLoader()
     suite = unittest.TestSuite()
     
     # اضافه کردن تست‌ها
-    suite.addTest(unittest.makeSuite(TestObservationService))
-    suite.addTest(unittest.makeSuite(TestInterventionService))
-    suite.addTest(unittest.makeSuite(TestFollowUpService))
-    suite.addTest(unittest.makeSuite(TestStudentService))
-    suite.addTest(unittest.makeSuite(TestDashboardService))
-    suite.addTest(unittest.makeSuite(TestCaseTimelineService))
+    suite.addTest(loader.loadTestsFromTestCase(TestObservationService))
+    suite.addTest(loader.loadTestsFromTestCase(TestInterventionService))
+    suite.addTest(loader.loadTestsFromTestCase(TestFollowUpService))
+    suite.addTest(loader.loadTestsFromTestCase(TestStudentService))
+    suite.addTest(loader.loadTestsFromTestCase(TestDashboardService))
+    suite.addTest(loader.loadTestsFromTestCase(TestCaseTimelineService))
     
     # اجرا
     runner = unittest.TextTestRunner(verbosity=2)

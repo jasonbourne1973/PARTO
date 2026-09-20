@@ -786,6 +786,13 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
         except Exception as e:
             print(f"❌ ارتقاء دیتابیس از نسخه {from_version} به {to_version} "
                   f"کامل نشد و متوقف شد: {e}")
+            # (بازرسی شانزدهم) traceback در لاگ برنامه بماند؛ خطا بالا
+            # می‌رود و main.py آن را به کاربر نشان می‌دهد.
+            with contextlib.suppress(Exception):
+                from utils.logger import get_logger
+                get_logger(__name__).error(
+                    f"Migration از نسخه {from_version} به {to_version} شکست خورد: {e}",
+                    exc_info=True)
             with contextlib.suppress(Exception):
                 self._connection.rollback()
             raise

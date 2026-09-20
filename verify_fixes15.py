@@ -741,8 +741,8 @@ print("=" * 76)
 print("بخش G: خطای بارگذاری Migration در لاگ برنامه")
 print("=" * 76)
 
-import importlib  # noqa: E402
 import logging  # noqa: E402
+import shutil  # noqa: E402
 
 import database.migrations.manager as migration_manager  # noqa: E402
 
@@ -765,29 +765,30 @@ class _CaptureHandler(logging.Handler):
 
 capture = _CaptureHandler()
 migration_manager.logger.addHandler(capture)
-real_import = importlib.import_module
-
-
-def _broken_import(name, *args, **kwargs):
-    if name.endswith('migration_v51'):
-        raise RuntimeError('ماژول آزمایشی خراب است')
-    return real_import(name, *args, **kwargs)
-
-
-importlib.import_module = _broken_import
+# (دور ۱۶) کشف migration از روی فایل‌سیستم است؛ یک پوشهٔ موقت با یک فایل
+# سالم و یک فایل خراب ساخته می‌شود. قرارداد جدید: فایلِ موجودِ خراب →
+# MigrationLoadError با traceback در لاگ (نه نادیده‌گرفتن خاموش).
+_broken_dir = tempfile.mkdtemp(prefix="r15_broken_mig_")
+with open(os.path.join(_broken_dir, "migration_v1.py"), "w", encoding="utf-8") as fh:
+    fh.write("def upgrade(connection):\n    pass\n")
+with open(os.path.join(_broken_dir, "migration_v51.py"), "w", encoding="utf-8") as fh:
+    fh.write("import module_that_does_not_exist_for_parto_test\n\ndef upgrade(connection):\n    pass\n")
 stdout_buf = io.StringIO()
+load_error = None
 try:
     with contextlib.redirect_stdout(stdout_buf):
-        found = migration_manager._discover_migrations()
+        migration_manager._discover_migrations(directory=_broken_dir)
+except migration_manager.MigrationLoadError as e:
+    load_error = e
 finally:
-    importlib.import_module = real_import
     migration_manager.logger.removeHandler(capture)
+    shutil.rmtree(_broken_dir, ignore_errors=True)
 logged = [r for r in capture.records if 'migration_v51' in r.getMessage()]
-check("G", "ماژول migration خراب: در لاگ برنامه (ERROR) ثبت می‌شود، چیزی چاپ نمی‌شود و ماژول‌های سالم همچنان پیدا می‌شوند",
-      len(logged) == 1 and logged[0].levelno == logging.ERROR
+check("G", "ماژول migration خراب: در لاگ برنامه (ERROR با traceback) ثبت می‌شود، چیزی چاپ نمی‌شود و Migration با MigrationLoadError متوقف می‌شود",
+      len(logged) == 1 and logged[0].levelno == logging.ERROR and logged[0].exc_info is not None
       and 'migration_v51' not in stdout_buf.getvalue()
-      and 51 not in found and set(range(1, 10)) <= set(found),
-      f"logged={len(logged)} found={sorted(found)[:10]}")
+      and load_error is not None and load_error.filename == 'migration_v51.py',
+      f"logged={len(logged)} error={load_error}")
 
 # ============================================================
 print()
