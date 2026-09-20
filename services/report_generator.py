@@ -4,6 +4,7 @@
 
 import os
 import sys
+from typing import ClassVar
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -23,6 +24,7 @@ from dal.student_dal import StudentDAL
 from database.connection import DatabaseConnection
 from services.case_timeline_service import CaseTimelineService
 from utils.behavior_analysis import (
+    MEANINGFUL_SHARE_CHANGE,
     PATTERN_MIXED,
     PATTERN_NEEDS_ATTENTION,
     PATTERN_STRENGTH,
@@ -172,55 +174,22 @@ class ReportGenerator:
     def generate_parent_report(self, profile_id):
         """
         تولید گزارش مختصر و غیرمحرمانه برای والدین
-        
+
+        ===== منبع واحد (بازرسی پانزدهم) =====
+        پیش از این، این متد نسخهٔ مستقلی از گزارش والدین می‌ساخت و
+        ``services/parent_report_service.py`` نسخهٔ دیگری داشت که هیچ
+        صفحه‌ای از آن استفاده نمی‌کرد. اکنون منطق فقط در
+        ``ParentReportService.generate_parent_report_data`` است (که خودش
+        روی ``generate_student_report`` همین کلاس ساخته می‌شود) و این
+        متد صرفاً برای سازگاری با فراخوانی‌های قبلی به آن واگذار می‌کند.
+
         Returns:
-            dict: گزارش مناسب برای والدین
+            dict | None: گزارش مناسب برای والدین (همان دادهٔ واحد)
         """
-        full_report = self.generate_student_report(profile_id)
-        if not full_report:
-            return None
-        
-        student = full_report['student']
-        
-        # بازرسی یازدهم: گزارش والدین هم رشدمحور است و فقط «فهرست مشکل»
-        # نیست؛ توانمندی‌ها در کنار زمینه‌های نیازمند توجه می‌آید.
-        strengths = full_report['strengths'][:5]
-        needs = full_report['weaknesses'][:5]
-        effectiveness = full_report.get('intervention_effectiveness', {})
-        direction = self.calculate_trend_direction(full_report.get('trend_data'))
+        from services.parent_report_service import ParentReportService
+        return ParentReportService(report_generator=self).generate_parent_report_data(
+            profile_id)
 
-        balance = ('در این گزارش، توانمندی‌ها و زمینه‌های نیازمند توجه در '
-                   'کنار هم آمده‌اند؛ تمرکز گزارش فقط بر مشکل نیست.')
-
-        parent_report = {
-            'student_name': student.full_name,
-            'grade': full_report['profile'].grade_display,
-            'class': full_report['profile'].class_name or 'نامشخص',
-            'observations_count': full_report['observations_count'],
-            'interventions_count': full_report['interventions_count'],
-            'strengths': strengths,
-            'weaknesses': needs,
-            'intervention_effectiveness': effectiveness,
-            'trend_direction': direction,
-            'balance_note': balance,
-            'recommendations': {
-                'parents': full_report['recommendations'].get('parents', ['نظری ثبت نشده است.'])
-            },
-            'trend': full_report.get('trend_data', None),
-            'summary': (
-                f"در پروندهٔ {student.full_name} (پایهٔ "
-                f"{full_report['profile'].grade_display}) "
-                f"{full_report['observations_count']} مشاهدهٔ رفتاری و "
-                f"{full_report['interventions_count']} مداخله ثبت شده است. "
-                f"توانمندی‌های مشاهده‌شده: {len(strengths)} زمینه؛ "
-                f"زمینه‌های نیازمند توجه: {len(needs)} زمینه. "
-                f"جهت تغییر رفتار: {direction['label']}. "
-                "این گزارش، تشخیص روان‌شناختی نیست."
-            )
-        }
-        
-        return parent_report
-    
     # ============================================================
     # متدهای کمکی (بدون تغییر)
     # ============================================================
@@ -482,6 +451,7 @@ class ReportGenerator:
                 'month': month,
                 'label': month,
                 'count': count,                       # حجم ثبت و پایش
+                'total': count,                       # همان مقدار؛ کلید موردنیاز growth_direction
                 'positive': data['positive'],
                 'negative': data['negative'],
                 'neutral': data['neutral'],
@@ -495,8 +465,26 @@ class ReportGenerator:
         return trend_data
 
     def calculate_trend_direction(self, trend_data):
-        """جهت تغییر رفتار در طول زمان (فقط از ترکیب رفتارها)."""
-        return growth_direction(trend_data or [])
+        """
+        جهت تغییر رفتار در طول زمان (فقط از ترکیب رفتارها)
+
+        ===== اصلاح (بازرسی پانزدهم) =====
+        ``calculate_trend`` حجم هر ماه را با کلید ``count`` می‌داد ولی
+        ``growth_direction`` بازه‌ها را با کلید ``total`` می‌شناسد؛ در
+        نتیجه همهٔ بازه‌ها «بدون داده» شمرده می‌شدند و «جهت تغییر» در
+        گزارش سالانهٔ برنامه و PDF همیشه «دادهٔ کافی برای تحلیل روند»
+        گزارش می‌شد، حتی با چند ماه مشاهده. اکنون هر دو کلید پذیرفته
+        می‌شوند (و ``calculate_trend`` هم ``total`` را می‌دهد).
+        """
+        periods = [
+            {'label': p.get('label') or p.get('month'),
+             'positive': p.get('positive', 0) or 0,
+             'negative': p.get('negative', 0) or 0,
+             'neutral': p.get('neutral', 0) or 0,
+             'total': p.get('total', p.get('count', 0)) or 0}
+            for p in (trend_data or [])
+        ]
+        return growth_direction(periods)
     
     def calculate_semester_stats(self, observations):
         """محاسبه آمار نیمسال اول و دوم"""
@@ -831,7 +819,11 @@ class ReportGenerator:
           ۲) الگوهایی که در طول سال‌ها ادامه داشته‌اند (و آیا هنوز
              در آخرین سال هم دیده می‌شوند)
           ۳) زمینه‌هایی که تغییر کرده‌اند — با جهت تغییر (بهبود / افت /
-             تازه پدیدآمده / دیگر به‌صورت الگو ثبت نشده)
+             تازه پدیدآمده / دیگر به‌صورت الگو ثبت نشده) و (بازرسی پانزدهم)
+             مسیر سال‌به‌سال هر زمینه به همراه «تغییر پس از مداخله»: اگر در
+             سالی برای زمینه‌ای مداخله ثبت شده باشد، وضعیت همان زمینه در
+             سال بعد (کمتر شده / ادامه یافته / برطرف شده / بیشتر شده / بدون
+             دادهٔ کافی) صریحاً گفته می‌شود
           ۴) کدام نوع مداخله‌ها در پیگیری نتیجهٔ بهتری داشته‌اند (و در
              کدام زمینه‌ها)، کدام‌ها بدون بهبود ثبت‌شده و کدام‌ها بدون
              پیگیری بوده‌اند
@@ -913,6 +905,20 @@ class ReportGenerator:
                 'needs': [e['competency'] for e in patterns['needs_attention']],
                 'mixed': [e['competency'] for e in patterns['mixed']],
                 'observed': [e['competency'] for e in patterns['all']],
+                # شمارش هر زمینه در این سال (برای مسیر زمینه و تغییر پس از
+                # مداخله — بازرسی پانزدهم)
+                'areas': {
+                    e['competency']: {
+                        'pattern': e['pattern'],
+                        'positive': e['positive'],
+                        'negative': e['negative'],
+                        'neutral': e.get('neutral', 0),
+                        'count': e['count'],
+                        'positive_share': e.get('positive_share'),
+                        'negative_share': e.get('negative_share'),
+                    }
+                    for e in patterns['all']
+                },
             })
             timeline_periods.append({
                 'label': year_title,
@@ -933,8 +939,8 @@ class ReportGenerator:
             "این روایت بر پایهٔ رفتارهای ثبت‌شده است، فقط دانش‌آموز را با خودش در "
             "طول زمان مقایسه می‌کند و شامل تشخیص روان‌شناختی یا مقایسه با "
             "دانش‌آموزان دیگر نیست. جزئیات در پنج بخش زیر آمده است: مسیر "
-            "سال‌به‌سال، الگوهای ادامه‌دار، زمینه‌های تغییریافته، نتیجهٔ مداخلات و "
-            "جمع‌بندی."
+            "سال‌به‌سال، الگوهای ادامه‌دار، زمینه‌های تغییریافته (همراه با مسیر هر "
+            "زمینه و تغییر پس از مداخله)، نتیجهٔ مداخلات و جمع‌بندی."
         )
         return {'has_data': bool(years_with_data), 'years': years,
                 'direction': direction, 'narrative': narrative,
@@ -1138,6 +1144,179 @@ class ReportGenerator:
                                     b['with_followup'], b['total']), reverse=True)
         return summary, area_map
 
+    # وضعیت یک زمینه در یک سال (مسیر زمینه — بازرسی پانزدهم)
+    _AREA_STATUS_LABELS: ClassVar[dict] = {
+        'need': 'نیازمند توجه',
+        'strength': 'توانمندی',
+        'mixed': 'ترکیبی',
+        'insufficient': 'ثبت کم (زیر آستانهٔ الگو)',
+        'not_observed': 'مشاهده‌ای ثبت نشده',
+    }
+    # وضعیت زمینه در «سال بعد از مداخله»
+    _POST_INTERVENTION_LABELS: ClassVar[dict] = {
+        'resolved': 'برطرف شده (در سال بعد رفتار منفی ثبت نشده؛ نیازمند تأیید با مشاهدهٔ بیشتر)',
+        'reduced': 'کمتر شده',
+        'continued': 'ادامه یافته',
+        'increased': 'بیشتر شده',
+        'no_data': 'در سال بعد مشاهده‌ای برای این زمینه ثبت نشده؛ قابل جمع‌بندی نیست',
+        'pending': 'سال بعدی هنوز ثبت نشده؛ نتیجه در ادامهٔ مسیر مشخص می‌شود',
+    }
+
+    @staticmethod
+    def _post_intervention_status(step, next_step):
+        """
+        وضعیت زمینه در سال بعد از مداخله — فقط مقایسهٔ دانش‌آموز با خودش.
+
+          • سال بعدی وجود ندارد → pending
+          • در سال بعد مشاهده‌ای برای زمینه نیست → no_data (نه «برطرف شده»)
+          • در سال بعد رفتار منفی ثبت نشده → resolved (با احتیاط)
+          • هنوز الگوی منفی است: سهم منفی دست‌کم ۱۰ واحد کم شده → reduced
+            (ولی هنوز الگو)، وگرنه continued
+          • دیگر الگوی منفی نیست: اگر پیش از مداخله الگوی منفی بود یا سهم
+            منفی معنادار کم شده → reduced؛ اگر سهم منفی معنادار زیاد شده →
+            increased؛ وگرنه continued
+        """
+        if next_step is None:
+            return 'pending'
+        if next_step['status'] == 'not_observed' or not next_step.get('count'):
+            return 'no_data'
+        if not next_step.get('negative'):
+            return 'resolved'
+        before = step.get('negative_share')
+        after = next_step.get('negative_share')
+        before = float(before) if before is not None and step.get('count') else None
+        after = float(after) if after is not None else 0.0
+        dropped = before is not None and after <= before - MEANINGFUL_SHARE_CHANGE
+        raised = before is not None and after >= before + MEANINGFUL_SHARE_CHANGE
+        if next_step['status'] == 'need':
+            return 'reduced' if dropped else 'continued'
+        if dropped or step['status'] == 'need':
+            return 'reduced'
+        if raised:
+            return 'increased'
+        return 'continued'
+
+    def _build_area_paths(self, years, yearly_patterns):
+        """
+        مسیر هر زمینه در طول سال‌ها + تغییر پس از مداخله (بازرسی پانزدهم)
+
+        داوری مدیر پروژه: روایت چندساله نباید فقط فهرست سال‌ها باشد؛ اگر
+        در سال اول مشکلی ثبت شده و برای آن مداخله انجام شده، در سال بعد
+        باید مشخص شود که آن مشکل «کمتر شده»، «ادامه یافته» یا «برطرف شده»
+        است. این متد برای هر زمینه‌ای که در یکی از سال‌ها «نیازمند توجه»
+        بوده یا مداخله‌ای به آن پیوند خورده، مسیر سال‌به‌سال را می‌سازد و
+        برای هر سالِ دارای مداخله، وضعیت همان زمینه در سال بعد را با
+        ``_post_intervention_status`` تعیین می‌کند. مقایسه فقط دانش‌آموز
+        با خودش است؛ نبودِ مشاهده «برطرف شدن» تلقی نمی‌شود.
+
+        Returns:
+            list[dict]: {competency, path[], post_intervention[], text}
+        """
+        data_years = [yp for yp in (yearly_patterns or []) if yp.get('has_data')]
+        if not data_years:
+            return []
+        items_by_year = {y['year']: (y.get('intervention_items') or [])
+                         for y in (years or [])}
+
+        candidates = []
+        for yp in data_years:
+            for name in yp.get('needs', []):
+                if name not in candidates:
+                    candidates.append(name)
+        for year in years or []:
+            for item in year.get('intervention_items') or []:
+                name = item.get('competency')
+                if name and name not in candidates:
+                    candidates.append(name)
+
+        kind_map = {PATTERN_NEEDS_ATTENTION: 'need', PATTERN_STRENGTH: 'strength',
+                    PATTERN_MIXED: 'mixed'}
+        paths = []
+        for name in candidates:
+            path = []
+            for yp in data_years:
+                area = (yp.get('areas') or {}).get(name) or {}
+                if not area.get('count'):
+                    status = 'not_observed'
+                else:
+                    status = kind_map.get(area.get('pattern'), 'insufficient')
+                interventions = [
+                    {'type': item.get('type'),
+                     'date': item.get('date'),
+                     'result_type': item.get('result_type'),
+                     'result_label': (item.get('result_label')
+                                      if item.get('result_type') else 'بدون پیگیری')}
+                    for item in items_by_year.get(yp['year'], [])
+                    if item.get('competency') == name
+                ]
+                path.append({
+                    'year': yp['year'],
+                    'grade': yp.get('grade'),
+                    'status': status,
+                    'label': self._AREA_STATUS_LABELS[status],
+                    'positive': area.get('positive', 0) or 0,
+                    'negative': area.get('negative', 0) or 0,
+                    'count': area.get('count', 0) or 0,
+                    'negative_share': area.get('negative_share'),
+                    'interventions': interventions,
+                })
+
+            post = []
+            for index, step in enumerate(path):
+                if not step['interventions']:
+                    continue
+                next_step = path[index + 1] if index + 1 < len(path) else None
+                status = self._post_intervention_status(step, next_step)
+                post.append({
+                    'year': step['year'],
+                    'next_year': next_step['year'] if next_step else None,
+                    'types': [i['type'] for i in step['interventions']],
+                    'results': [i['result_label'] for i in step['interventions']],
+                    'status': status,
+                    'label': self._POST_INTERVENTION_LABELS[status],
+                    'negative_before': step['negative'],
+                    'negative_after': next_step['negative'] if next_step else None,
+                    'count_before': step['count'],
+                    'count_after': next_step['count'] if next_step else None,
+                })
+
+            paths.append({
+                'competency': name,
+                'path': path,
+                'post_intervention': post,
+                'text': self._area_path_text(name, path, post),
+            })
+        return paths
+
+    def _area_path_text(self, name, path, post):
+        """یک خط خوانا برای مسیر زمینه: سال‌به‌سال ← … + تغییر پس از مداخله."""
+        steps = []
+        for step in path:
+            if step['status'] == 'not_observed':
+                detail = step['label']
+            else:
+                detail = (f"{step['label']} ({step['negative']} منفی / "
+                          f"{step['positive']} مثبت از {step['count']} مشاهده)")
+            if step['interventions']:
+                detail += " + مداخله: " + "، ".join(
+                    f"{i['type']} ("
+                    + (f"پیگیری: {i['result_label']}" if i['result_type'] else 'بدون پیگیری')
+                    + ")"
+                    for i in step['interventions'])
+            steps.append(f"سال {step['year']}: {detail}")
+        text = f"مسیر «{name}»: " + " ← ".join(steps) + "."
+        if post:
+            text += " تغییر پس از مداخله: " + "؛ ".join(
+                (f"پس از مداخلهٔ سال {p['year']}"
+                 + (f" در سال {p['next_year']}" if p['next_year'] else '')
+                 + f": {p['label']}"
+                 + (f" ({p['negative_before']} منفی از {p['count_before']} ← "
+                    f"{p['negative_after']} منفی از {p['count_after']})"
+                    if p['status'] in ('reduced', 'continued', 'increased', 'resolved')
+                    else ''))
+                for p in post) + "."
+        return text
+
     def _build_growth_synthesis(self, years, yearly_patterns, direction):
         """
         جمع‌بندی منسجم مسیر رشد چندساله (بازرسی دوازدهم → تکمیل در سیزدهم)
@@ -1183,6 +1362,12 @@ class ReportGenerator:
 
         # ---------- ۲) زمینه‌های تغییریافته (با جهت تغییر) ----------
         changed_areas = self._classify_area_changes(yearly_patterns)
+        # مسیر هر زمینه + تغییر پس از مداخله (بازرسی پانزدهم)
+        area_paths = self._build_area_paths(years, yearly_patterns)
+        post_counts = Counter()
+        for area in area_paths:
+            for item in area['post_intervention']:
+                post_counts[item['status']] += 1
 
         # ---------- ۳) مداخلات به تفکیک نوع و زمینه ----------
         effective_interventions, area_interventions = \
@@ -1350,8 +1535,16 @@ class ReportGenerator:
                              "لازم است.")
             else:
                 lines.append("زمینه‌ای که الگوی آن بین سال‌ها عوض شده باشد، ثبت نشده است.")
+        # مسیر هر زمینه و تغییر پس از مداخله (بازرسی پانزدهم): برای هر
+        # زمینهٔ نیازمند توجه یا دارای مداخله، سال‌به‌سال گفته می‌شود که
+        # پس از مداخله «کمتر شده / ادامه یافته / برطرف شده» است.
+        for area in area_paths[:8]:
+            lines.append(area['text'])
+        if len(area_paths) > 8:
+            lines.append(f"و {len(area_paths) - 8} زمینهٔ دیگر (در جدول سال‌ها).")
         sections.append({'key': 'changes',
-                         'title': '۳) زمینه‌هایی که در طول سال‌ها تغییر کرده‌اند',
+                         'title': '۳) زمینه‌هایی که در طول سال‌ها تغییر کرده‌اند '
+                                  '(با مسیر هر زمینه و تغییر پس از مداخله)',
                          'lines': lines})
 
         # ۴) مداخلات
@@ -1400,6 +1593,9 @@ class ReportGenerator:
         # ۵) جمع‌بندی و اولویت‌ها
         lines = [self._overall_course_text(direction, per_year, persistent_strengths,
                                            persistent_needs, changed_areas)]
+        post_summary = self._post_intervention_summary_text(post_counts)
+        if post_summary:
+            lines.append(post_summary)
         for item in priorities:
             lines.append(item['text'])
         if latest_year and not priorities:
@@ -1460,6 +1656,9 @@ class ReportGenerator:
             'persistent_strengths': persistent_strengths,
             'persistent_needs': persistent_needs,
             'changed_areas': changed_areas,
+            'area_paths': area_paths,
+            'post_intervention_counts': dict(post_counts),
+            'post_intervention_summary': post_summary,
             'effective_interventions': effective_interventions,
             'area_interventions': area_interventions,
             'priorities': priorities,
@@ -1468,6 +1667,22 @@ class ReportGenerator:
             'totals': dict(totals),
             'latest_year': latest_year,
         }
+
+    @staticmethod
+    def _post_intervention_summary_text(post_counts):
+        """یک جملهٔ جمع‌بندی دربارهٔ تغییر پس از مداخله (بر پایهٔ سال بعد)."""
+        if not post_counts:
+            return ''
+        order = [('resolved', 'برطرف‌شده (با احتیاط)'), ('reduced', 'کمتر شده'),
+                 ('continued', 'ادامه‌یافته'), ('increased', 'بیشتر شده'),
+                 ('no_data', 'بدون مشاهده در سال بعد'),
+                 ('pending', 'سال بعدی هنوز ثبت نشده')]
+        parts = [f"{label}: {post_counts[key]} مورد"
+                 for key, label in order if post_counts.get(key)]
+        return ("تغییر پس از مداخله (وضعیت هر زمینه در سال بعد از مداخله): "
+                + "؛ ".join(parts)
+                + ". این جمع‌بندی از رفتارهای ثبت‌شدهٔ همان زمینه ساخته شده و "
+                  "نبودِ مشاهده، «برطرف شدن» تلقی نشده است.")
 
     def _overall_course_text(self, direction, per_year, persistent_strengths,
                              persistent_needs, changed_areas):

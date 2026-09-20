@@ -37,6 +37,7 @@ from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.student_dal import StudentDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
 from services.case_timeline_service import CaseTimelineService
+from services.parent_report_service import ParentReportService
 from services.report_generator import ReportGenerator
 from views.pages.class_report_page import ClassReportPage
 from views.pages.teacher_performance_page import TeacherPerformancePage
@@ -67,6 +68,9 @@ class ReportsPage(QWidget):
         self.staff_dal = StaffDAL()
         self.assignment_dal = TeacherAssignmentDAL()
         self.report_generator = ReportGenerator()
+        # گزارش والدین: منبع واحد (همان تحلیل گزارش کامل + نمای والدین)
+        self.parent_report_service = ParentReportService(
+            report_generator=self.report_generator)
         self.timeline_service = CaseTimelineService()
         
         self.current_student_id = None
@@ -1252,7 +1256,10 @@ class ReportsPage(QWidget):
             return
         
         try:
-            parent_report = self.report_generator.generate_parent_report(self.current_profile_id)
+            # منبع واحد گزارش والدین (بازرسی پانزدهم): همان سرویسی که
+            # خروجی PDF والدین را می‌سازد؛ نه نسخهٔ جداگانه.
+            parent_report = self.parent_report_service.generate_parent_report_data(
+                self.current_profile_id)
             if not parent_report:
                 QMessageBox.warning(self, "توجه", "امکان تولید گزارش والدین وجود ندارد.")
                 return
@@ -1303,14 +1310,21 @@ class ReportsPage(QWidget):
             for rec in parent_report['recommendations']['parents']:
                 text += f"• {rec}\n"
             
-            if parent_report['trend']:
-                text += f"""
+            trend = parent_report.get('trend') or {}
+            text += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **📈 روند کلی**
-• تعداد مشاهدات ثبت‌شده: {parent_report['observations_count']}
-• تعداد مداخلات: {parent_report['interventions_count']}
 """
+            if trend.get('has_data'):
+                text += f"• {trend['trend_icon']} {trend['trend_text']}\n"
+                text += f"• {trend['volume_note']}\n"
+            else:
+                text += f"• {trend.get('message', 'داده کافی برای تحلیل روند وجود ندارد.')}\n"
+            text += (f"• حجم ثبت و پایش: {parent_report['observations_count']} مشاهده، "
+                     f"{parent_report['interventions_count']} مداخله، "
+                     f"{parent_report.get('pending_count', 0)} پیگیری در انتظار\n")
+            text += f"\n{parent_report.get('privacy_note', '')}\n"
             
             QMessageBox.information(self, "گزارش والدین", text)
             

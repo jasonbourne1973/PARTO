@@ -478,24 +478,71 @@ class TrendAnalysisService(BaseService):
 
     def _analyze_multi_year_overall(self, observation_counts, year_data):
         """
-        تحلیل روند کلی چندساله
+        تحلیل روند کلی چندساله — با لحاظ همهٔ سال‌های میانی (بازرسی پانزدهم)
+
+        نسخهٔ قبلی فقط «اولین سال» را با «آخرین سال» مقایسه می‌کرد
+        (``year_data[0]`` در برابر ``year_data[-1]``) و آستانه‌های جداگانهٔ
+        خودش را داشت؛ یعنی اگر در سال‌های میانی بهبود یا افت معناداری رخ
+        داده و برگشته بود، نادیده گرفته می‌شد. اکنون همان منطق مشترک
+        ``growth_direction`` (utils/behavior_analysis) روی **همهٔ سال‌ها**
+        اجرا می‌شود: تغییر یک‌جهت → همان جهت؛ برگشت جهت در سال‌های میانی →
+        «تغییر ترکیبی / روند غیرقطعی». تعداد مشاهدات هر سال فقط «حجم ثبت
+        و پایش» است و در تصمیم نقشی ندارد.
+
+        شکل خروجی برای سازگاری حفظ شده است: status / message / icon /
+        color / years_with_data / total_years / first_year / last_year /
+        positive_change / volume_note؛ به‌علاوهٔ label، direction (جزئیات
+        کامل گام‌ها)، path_text (مسیر خوانا) و turning_points.
         """
-        if len(observation_counts) < 2:
+        year_data = list(year_data or [])
+        direction = growth_direction([
+            {'label': y.get('year'), 'positive': y.get('positive', 0),
+             'negative': y.get('negative', 0), 'neutral': y.get('neutral', 0),
+             'total': y.get('observations_count', 0)}
+            for y in year_data
+        ])
+        years_with_data = sum(1 for y in year_data if y.get('has_data'))
+        data_years = [y for y in year_data if y.get('has_data')]
+
+        if direction['status'] == 'insufficient':
             return {
                 'status': 'insufficient',
-                'message': 'داده کافی برای تحلیل روند چندساله وجود ندارد.',
-                'icon': '❓'
+                'label': direction['label'],
+                'message': ('داده کافی برای تحلیل روند چندساله وجود ندارد '
+                            '(دست‌کم دو سال با مشاهدهٔ ثبت‌شده لازم است).'),
+                'icon': '❓',
+                'color': '#95a5a6',
+                'years_with_data': years_with_data,
+                'total_years': len(year_data),
+                'first_year': year_data[0]['year'] if year_data else None,
+                'last_year': year_data[-1]['year'] if year_data else None,
+                'positive_change': 0.0,
+                'volume_note': direction.get('volume_note', ''),
+                'direction': direction,
+                'path_text': '',
+                'turning_points': [],
             }
-        
-        # ===== اصلاح (بازرسی یازدهم) =====
-        # روند از «سهم رفتارهای مثبت» ساخته می‌شود (نه از تعداد مشاهدات).
-        # کاهش یا افزایش تعداد مشاهدات فقط «حجم ثبت و پایش» است و در
-        # متن تحلیل هم صریحاً همین‌گونه گزارش می‌شود.
-        first_year, last_year = year_data[0], year_data[-1]
-        first_positive_ratio = (first_year.get('positive_share', 0) or 0) / 100
-        last_positive_ratio = (last_year.get('positive_share', 0) or 0) / 100
 
-        positive_change = last_positive_ratio - first_positive_ratio
+        presets = {
+            'improving': ('سهم رفتارهای مثبت در طول سال‌ها (با لحاظ سال‌های میانی) '
+                          'بیشتر شده و افت معناداری در میانهٔ مسیر ثبت نشده است؛ '
+                          'این تغییر بر پایهٔ نوع رفتارهای ثبت‌شده گزارش می‌شود، '
+                          'نه بر پایهٔ تعداد مشاهدات.', '📈', '#27ae60'),
+            'declining': ('سهم رفتارهای مثبت در طول سال‌ها کاهش یافته و بهبود '
+                          'معناداری در سال‌های میانی ثبت نشده است؛ بررسی و حمایت '
+                          'بیشتر پیشنهاد می‌شود. این تحلیل، تشخیص نیست.',
+                          '📉', '#e74c3c'),
+            'stable': ('ترکیب رفتارهای مثبت و منفی در طول سال‌ها تقریباً ثابت '
+                       'است؛ به حمایت‌های فعلی ادامه دهید.', '➡️', '#f39c12'),
+            'mixed': ('تغییر ترکیبی / روند غیرقطعی: تغییرات بین سال‌ها یک‌جهت '
+                      'نیست (در بعضی سال‌ها بهبود و در بعضی دیگر افت ثبت شده '
+                      'است)؛ نتیجه‌گیری قطعی نیازمند مشاهدهٔ بیشتر است.',
+                      '🔀', '#f39c12'),
+        }
+        message, icon, color = presets.get(direction['status'], presets['mixed'])
+        first_year, last_year = data_years[0], data_years[-1]
+        positive_change = ((last_year.get('positive_share', 0) or 0)
+                           - (first_year.get('positive_share', 0) or 0))
         volume_note = observations_volume_note({
             'positive': last_year.get('positive', 0),
             'negative': last_year.get('negative', 0),
@@ -503,52 +550,22 @@ class TrendAnalysisService(BaseService):
             'total': last_year.get('observations_count', 0),
         })
 
-        if positive_change > 0.15:
-            status = 'improving'
-            message = ('سهم رفتارهای مثبت در آخرین سال بیشتر از سال نخست است؛ '
-                       'این تغییر بر پایهٔ نوع رفتارهای ثبت‌شده گزارش می‌شود، '
-                       'نه بر پایهٔ تعداد مشاهدات.')
-            icon = '📈'
-            color = '#27ae60'
-        elif positive_change > 0.05:
-            status = 'slightly_improving'
-            message = ('سهم رفتارهای مثبت کمی افزایش یافته است؛ ادامهٔ حمایت '
-                       'توصیه می‌شود.')
-            icon = '📈'
-            color = '#2ecc71'
-        elif positive_change > -0.05:
-            status = 'stable'
-            message = ('ترکیب رفتارهای مثبت و منفی تقریباً ثابت است؛ به '
-                       'حمایت‌های فعلی ادامه دهید.')
-            icon = '➡️'
-            color = '#f39c12'
-        elif positive_change > -0.15:
-            status = 'slightly_declining'
-            message = ('سهم رفتارهای مثبت کمی کاهش یافته است؛ بررسی و توجه '
-                       'بیشتر پیشنهاد می‌شود.')
-            icon = '📉'
-            color = '#e67e22'
-        else:
-            status = 'declining'
-            message = ('سهم رفتارهای مثبت کاهش یافته است؛ بررسی و حمایت '
-                       'بیشتر پیشنهاد می‌شود. این تحلیل، تشخیص نیست.')
-            icon = '📉'
-            color = '#e74c3c'
-        
-        # بررسی تعداد سال‌های با داده کافی
-        years_with_data = sum(1 for y in year_data if y['has_data'])
-        
         return {
-            'status': status,
-            'message': message,
+            'status': direction['status'],
+            'label': direction['label'],
+            'message': f"{message} {direction['message']}",
             'icon': icon,
             'color': color,
             'years_with_data': years_with_data,
             'total_years': len(year_data),
             'first_year': year_data[0]['year'] if year_data else None,
             'last_year': year_data[-1]['year'] if year_data else None,
-            'positive_change': round(positive_change * 100, 1),
+            # برآیند ابتدا/انتها فقط اطلاع تکمیلی است؛ مبنای نتیجه نیست
+            'positive_change': round(positive_change, 1),
             'volume_note': volume_note,
+            'direction': direction,
+            'path_text': direction.get('path_text', ''),
+            'turning_points': direction.get('turning_points', []),
         }
 
     def _get_multi_year_top_competencies(self, competency_trend):
