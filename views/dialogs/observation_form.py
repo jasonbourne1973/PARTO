@@ -33,6 +33,7 @@ from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
 from utils.shamsi_date_input import ShamsiDateInput
 from utils.tooltip_manager import TooltipManager
+from utils.ui_guards import single_submit
 from views.widgets.competency_tree_widget import CompetencyTreeWidget
 from views.widgets.help_widget import HelpWidget
 
@@ -824,6 +825,7 @@ class ObservationForm(QDialog):
         text = self.behavior_input.toPlainText().strip()
         return text
     
+    @single_submit()
     def save_observation(self):
         """ذخیره مشاهده - با پشتیبانی از ساختار سه‌لایه"""
         

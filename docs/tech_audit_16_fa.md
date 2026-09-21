@@ -17,7 +17,7 @@ file picker و دیالوگ‌های modal اجرا نمی‌شوند. هر قا
 | ۱ | Migration، تست‌های قدیمی، نسخهٔ پایتون | ۴، ۵، ۶، ۱۵، ۲۲ (بخش migration) | **انجام شد** (این سند، بخش ۱) |
 | ۲ | Backup/Restore و file handling | ۱۱، ۱۲، ۲۵ | **انجام شد** (بخش ۲) |
 | ۳ | Inventory کامل صفحات (`views/pages` + `main_window`)، کنتراست، Signal/Slot؛ دیالوگ‌ها/ویجت‌ها | ۲، ۳، ۱۰، ۱۴، ۱۸، ۱۹، ۳۶ | **۳-الف و ۳-ب انجام شد** (بخش‌های ۳ و ۴) |
-| ۴ | دیالوگ‌ها/ویجت‌ها، Screening، Recommendation، Attachment، Thread/Race | ۷، ۸، ۹، ۲۰، ۲۱، ۳۲ | — |
+| ۴ | Attachment (زنجیرهٔ کامل)، Thread/Worker، Race، وضعیت Screening/Recommendation | ۷، ۸، ۹، ۲۰، ۲۱، ۳۲ | **انجام شد** (بخش ۵) |
 | ۵ | Exception/Return/Transaction/DAL/Constraints/Import-Export/Consistency | ۱۶، ۱۷، ۲۲، ۲۳، ۲۴، ۲۶، ۳۰، ۳۱ | — |
 | ۶ | Dead code، وابستگی‌ها، لایهٔ سرویس، ارزیابی تست‌ها، گزارش نهایی | ۱۳، ۱۴، ۲۷، ۲۸، ۲۹، ۳۳، ۳۴، ۳۷، ۳۸ | — |
 
@@ -940,3 +940,179 @@ STATUS: NOT_FIXED (گزارش)
 ۲، ۳، ۱۴ (ایجاد/ویرایش با پیش/پس‌شرط برای ۸ فرم)، ۱۸ و ۱۹ (دیالوگ‌ها/ویجت‌ها)،
 ۳۶ (جدول وضعیت)، بخشی از ۲۴ (خروجی AI: ۶ فایل واقعی و معتبر) و ۲۷ (کشف کد
 دست‌نیافتنی: پیوست‌ها، اعلان‌ها، فیلترهای ذخیره‌شده، پیشنهادها).
+
+---
+
+# بخش ۵ — مرحلهٔ ۴: پیوست‌ها، نخ‌ها/کارگرها، Race، وضعیت Screening/Recommendation
+
+پایه: کامیت `9256067`. تصمیم‌های باز (BUG-023/027/028) بدون پاسخ ماندند → طبق
+گزینهٔ «ج» فقط گزارش؛ **اما** زنجیرهٔ پیوست‌ها (بند ۲۱) مستقل از نقطهٔ ورودی
+UI، کامل آزمایش و اصلاح شد تا هر وقت تصمیم به اتصال گرفته شد، سالم باشد.
+
+## وضعیت زنجیرهٔ پیوست (بند ۲۱) — پس از اصلاحات
+
+```text
+Add file → (QFileDialog: NOT_TESTED - GUI EXECUTION REQUIRED)
+        → upload_files([...]) صف ترتیبی → AttachmentUploadWorker (QThread، worker_context کاربر)
+        → خواندن فایل → AttachmentService.upload_attachment
+        → اعتبارسنجی پسوند + محتوا → نوشتن اتمیک (.part → os.replace) با نام یکتا
+        → رکورد attachments (created_by = کاربر) → Audit
+        → progress (۲۰/۶۰/۱۰۰) → upload_finished → فایل بعدی صف
+        → پایان صف: load_attachments + attachment_added + یک پیام جمع‌بندی
+Search / Clear / Refresh / Preview / Download / Delete / Double-click: VERIFIED (E5, E6, E11)
+نقطهٔ ورودی در برنامه: هنوز وجود ندارد (BUG-027 — منتظر تصمیم)
+```
+
+## [BUG-030]
+### بخش
+```text
+views/dialogs/attachment_dialog.py — add_attachment / upload_file / upload_finished
+```
+### وضعیت
+`BROKEN` (P1 — Crash احتمالی + Race)
+### مشکل
+برای هر فایلِ انتخاب‌شده بلافاصله یک `AttachmentUploadWorker` جدید ساخته و در
+`self.upload_worker` جایگزین می‌شد؛ QThread قبلی در حال اجرا از دست می‌رفت
+(«QThread: Destroyed while thread is still running») و چند آپلود هم‌زمان روی
+یک موجودیت انجام می‌شد؛ بستن دیالوگ وسط آپلود همین اثر را داشت؛ سیگنال
+`finished` داخلی QThread هم با امضای متفاوت بازتعریف شده بود.
+### اصلاح
+صف ترتیبی (`upload_files` → `_start_next_upload` → `_finish_upload_batch`)؛
+درخواست آپلود وسط آپلود با پیام رد می‌شود؛ `closeEvent`/`reject` منتظر پایان
+کارگر می‌مانند؛ سیگنال `upload_finished`؛ پیام جمع‌بندی (موفق/ناموفق).
+### تست
+E1 (دو فایل → دو رکورد/دو فایل/یک پیام)، E7 (آپلود دوم وسط آپلود اول رد؛
+بستن امن)، E9 (بدون بازتعریف `finished`).
+```text
+STATUS: FIXED
+```
+
+## [BUG-031]
+### بخش
+```text
+services/attachment_service.py — _generate_safe_filename / upload_attachment
+```
+### وضعیت
+`BROKEN` (P1 — Data loss)
+### مشکل
+نام فایل ذخیره‌شده فقط با timestamp **ثانیه‌ای** یکتا می‌شد؛ دو آپلود هم‌نام
+در یک ثانیه (دقیقاً سناریوی انتخاب چند فایل) روی هم نوشته می‌شدند و دو رکورد
+به یک فایل اشاره می‌کردند.
+### اصلاح
+پسوند یکتا (timestamp + ۸ نویسهٔ تصادفی) + حلقهٔ بررسی وجود فایل.
+### تست
+E2 (دو فایل هم‌نام پشت سر هم → دو مسیر متفاوت با محتوای خودشان).
+```text
+STATUS: FIXED
+```
+
+## [BUG-032]
+### بخش
+```text
+services/attachment_service.py — upload_attachment (ترتیب فایل/دیتابیس)
+```
+### وضعیت
+`PARTIALLY_BROKEN` (P2 — فایل یتیم / نوشتن غیراتمیک)
+### مشکل
+فایل پیش از درج رکورد روی دیسک نوشته می‌شد؛ اگر درج شکست می‌خورد یا تراکنش
+برمی‌گشت، فایل یتیم می‌ماند؛ نوشتن هم اتمیک نبود.
+### اصلاح
+نوشتن در `.part` و `os.replace`؛ هر شکستی پس از نوشتن (اعتبارسنجی مدل، DB،
+Audit) فایل را پاک می‌کند؛ `get_attachment_path` برای شناسهٔ ناموجود پیام
+روشن می‌دهد.
+### تست
+E3 (نوع غیرمجاز → نه رکورد نه فایل)، E4 (شکست تزریق‌شدهٔ `AttachmentDAL.create` →
+بدون فایل یتیم).
+```text
+STATUS: FIXED
+```
+
+## [BUG-033]
+### بخش
+```text
+views/dialogs/attachment_dialog.py — open_file
+```
+### وضعیت
+`BROKEN` (P0 — Security: Command injection)
+### مشکل
+مسیر فایل داخل رشتهٔ فرمان shell قرار می‌گرفت؛ نام فایل آپلودشده با نویسهٔ
+`"` یا `;` می‌توانست فرمان دلخواه اجرا کند (نام فایل‌ها با
+`sanitize_filename` فقط چند نویسهٔ مسیر را حذف می‌کند، نه `;` و `$`).
+### اصلاح
+`QDesktopServices.openUrl(QUrl.fromLocalFile(path))` (بدون shell، چندسکویی).
+### تست
+E11 (منبع: بدون `os.system`؛ با Qt). اجرای واقعی برنامهٔ خارجی:
+`NOT_TESTED - GUI EXECUTION REQUIRED`.
+```text
+STATUS: FIXED
+```
+
+## [BUG-034]
+### بخش
+```text
+۸ فرم ثبت/ویرایش (views/dialogs/*_form.py, assign_teacher_dialog.py) — save_*
+utils/ui_guards.py (جدید)
+```
+### وضعیت
+`PARTIALLY_BROKEN` (P2 — Race: double insert)
+### مشکل
+handler ذخیره وسط کار `QMessageBox.information` را باز می‌کند که یک حلقهٔ
+رویداد تودرتو است؛ کلیک دومِ در صف همان‌جا پردازش می‌شود و `save_*` دوباره
+(تودرتو) اجرا می‌شود → دو رکورد برای یک فرم.
+### اصلاح
+دکوراتور `single_submit`: رد ورود دوباره + غیرفعال‌کردن دکمهٔ ذخیره تا پایان.
+### تست
+E8 (شبیه‌سازی کلیک دوم داخل پیام موفقیت → دقیقاً یک رکورد؛ پرچم آزاد؛ دکمه
+فعال؛ هر ۸ فرم نگهبان دارند).
+```text
+STATUS: FIXED
+```
+
+## بند ۲۰ — نخ‌ها و کارگرها (جمع‌بندی)
+
+| Worker | مالکیت/ساخت | Signal/Slot | اتصال DB | دسترسی UI از نخ | پاک‌سازی/خاتمه | وضعیت |
+|---|---|---|---|---|---|---|
+| `AttachmentUploadWorker` (QThread) | دیالوگ، در صف | `progress`, `upload_finished` (بدون بازتعریف `finished`) | `worker_context(user)` نخ‌محلی؛ رجیستری اتصال رشد نمی‌کند (E10) | فقط سیگنال (E9) | صف ترتیبی؛ بستن دیالوگ منتظر می‌ماند (E7) | VERIFIED |
+| `BackupWorker` (QThread) | صفحهٔ پشتیبان | `progress`, `operation_finished` | `worker_context(user)` | فقط سیگنال (E9) | قفل هم‌زمانی صفحه (مرحلهٔ ۲) | VERIFIED |
+| `AutoBackupHandle` (threading) | تنظیمات | — | online backup روی اتصال خودش | ندارد | `stop()` واقعی (مرحلهٔ ۲) | VERIFIED |
+| `NotificationScheduler` (threading) | **هیچ‌جا راه‌اندازی نمی‌شود** | — | `worker_context(None)` (دور ۱۴) | ندارد | `stop()` دارد | UNREACHABLE (BUG-028) |
+| `idle_timer`/`auto_logout` (QTimer در نخ UI) | پنجرهٔ اصلی | — | — | — | — | نکتهٔ P4 مرحلهٔ ۳-الف |
+
+## بند ۳۲ — Race condition (جمع‌بندی)
+
+| سناریو | وضعیت |
+|---|---|
+| Upload چندفایل / بستن وسط آپلود | FIXED (BUG-030) |
+| Save دوباره با کلیک دوم | FIXED (BUG-034) |
+| Delete/Refresh هم‌زمان در صفحهٔ پشتیبان | FIXED مرحلهٔ ۲ (BUG-017) |
+| Backup هم‌زمان با نوشتن UI | امن: SQLite online backup API روی اتصال جدا |
+| Restore هم‌زمان با نخ‌های دیگر | امن: `DB_THREAD_LOCK` + `close_all` (دور ۱۲/۱۴) |
+| نام فایل تکراری پیوست | FIXED (BUG-031) |
+| Generate گزارش هم‌زمان | همزمان در نخ UI (سری) — بدون Race |
+
+## وضعیت Screening و Recommendation (بندهای ۷، ۸، ۹ — فقط گزارش طبق تصمیم شما)
+
+```text
+Screening:      models/dal/database/service موجود؛ در views/ هیچ فرم/صفحه/دکمه‌ای وجود ندارد
+                (فقط نمایش «لایهٔ غربالگری» در گزارش). وضعیت: UNREACHABLE (backend بدون UI).
+Recommendation: RecommendationService در گزارش‌ها استفاده می‌شود (VERIFIED)؛
+                RecommendationWidget و دکمهٔ Generate آن هیچ مصرف‌کننده‌ای ندارند → DEAD_CODE.
+                کنتراست دکمهٔ Generate در مرحلهٔ ۳-الف اصلاح شد (BUG-022).
+```
+(E12 این وضعیت را قفل می‌کند تا تغییر آن آگاهانه باشد.)
+
+## نتیجهٔ اجرای آزمون‌ها پس از مرحلهٔ ۴
+
+| مجموعه | نتیجه |
+|---|---|
+| `pytest -q tests` | 26 passed |
+| verify_fixes 1 … 15 | همه سبز |
+| **verify_fixes16 (۱ تا ۴)** | **64 / 64** |
+| `ruff check .` | All checks passed |
+
+آزمون تغییریافته: هیچ. فایل جدید: `utils/ui_guards.py`.
+
+## بندهای مأموریت در این مرحله
+۲۰ (نخ‌ها/کارگرها)، ۲۱ (زنجیرهٔ پیوست به‌جز نقطهٔ ورودی UI که تصمیم شماست)،
+۳۲ (Race: آپلود، ثبت دوباره، پشتیبان)، ۷/۸/۹ (فقط گزارش وضعیت)، به‌علاوه ۳۰
+(تزریق فرمان در بازکردن فایل) و ۲۵ (نوشتن اتمیک پیوست).

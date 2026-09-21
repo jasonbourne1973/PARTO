@@ -24,6 +24,7 @@ from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
 from utils.shamsi_date_input import ShamsiDateInput
 from utils.tooltip_manager import TooltipManager
+from utils.ui_guards import single_submit
 from views.widgets.help_widget import HelpWidget
 
 
@@ -409,6 +410,7 @@ class InterventionForm(QDialog):
         except Exception as e:
             QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{e!s}")
     
+    @single_submit()
     def save_intervention(self):
         """ذخیره مداخله با استفاده از سرویس"""
         # ===== جمع‌آوری داده‌ها =====

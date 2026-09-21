@@ -21,7 +21,11 @@
   D) ۸ فرم ثبت/ویرایش با پیش/پس‌شرط DB، درخت شایستگی، ورود، تغییر رمز، جست‌وجوی پیشرفته،
      خروجی AI در ۶ قالب، زنگولهٔ اعلان، اعتبارسنجی مشاهده، کد بدون مصرف‌کننده ......... ۱۶ بررسی
 
-جمع فعلی: ۵۲ بررسی
+مرحلهٔ ۴ — پیوست‌ها، نخ‌ها/کارگرها، Race، وضعیت Screening/Recommendation (بندهای ۷، ۸، ۲۰، ۲۱، ۳۲):
+  E) زنجیرهٔ کامل پیوست (صف آپلود، یکتایی نام فایل، رد نوع غیرمجاز، پاکسازی در شکست DB،
+     جست‌وجو/پیش‌نمایش/دانلود/حذف، Race و بستن امن)، نگهبان ثبت دوباره در ۸ فرم، بهداشت نخ‌ها ... ۱۲ بررسی
+
+جمع فعلی: ۶۴ بررسی
 """
 
 import contextlib
@@ -1526,7 +1530,259 @@ check("D", "وضعیت ثبت‌شده (بدون تغییر کد): AttachmentDia
 # ============================================================
 print()
 print("=" * 76)
-print(f"نتیجهٔ دور شانزدهم (مرحله‌های ۱ تا ۳-ب):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
+print("بخش E: پیوست‌ها (زنجیرهٔ کامل)، نخ‌ها/کارگرها، ثبت دوباره (Race)، وضعیت Screening/Recommendation")
+print("=" * 76)
+
+import ast  # noqa: E402
+
+import services.attachment_service as attachment_service_mod  # noqa: E402
+from dal.attachment_dal import AttachmentDAL  # noqa: E402
+from views.dialogs.attachment_dialog import AttachmentDialog, AttachmentUploadWorker  # noqa: E402
+
+ATT_UPLOAD_DIR = os.path.join(TMP, "att_uploads")
+attachment_service_mod.ATTACHMENTS_DIR = ATT_UPLOAD_DIR
+QMessageBox.question = staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes)
+
+
+def _wait_dialog_upload(dialog, timeout=60):
+    end = time.time() + timeout
+    while time.time() < end:
+        app.processEvents()
+        if not dialog.is_uploading() and not dialog._upload_queue:
+            app.processEvents()
+            return True
+        time.sleep(0.02)
+    return False
+
+
+def _write_sample(name, data):
+    path = os.path.join(TMP, name)
+    with open(path, "wb") as fh:
+        fh.write(data)
+    return path
+
+
+sample_txt = _write_sample("note.txt", "متن نمونهٔ پیوست\n".encode("utf-8") * 20)
+png_bytes = (b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\rIHDR" + b"\x00" * 64)
+sample_png = _write_sample("photo.png", png_bytes)
+entity_id = smoke_student.id
+
+with contextlib.redirect_stdout(io.StringIO()):
+    att_dialog = AttachmentDialog("student", entity_id)
+    att_added = []
+    att_dialog.attachment_added.connect(lambda: att_added.append(1))
+    n_msgs = len(ui_msgs)
+    att_dialog.upload_files([sample_txt, sample_png])
+    finished = _wait_dialog_upload(att_dialog)
+rows = conn.execute("SELECT id, file_name, file_path, created_by FROM attachments WHERE entity_type = 'student' "
+                    "AND entity_id = ? AND is_deleted = 0 ORDER BY id", (entity_id,)).fetchall()
+audit_rows = conn.execute("SELECT COUNT(*) FROM audit_logs WHERE entity_type = 'attachments' AND action = 'create'").fetchone()[0]
+batch_msgs = [m for m in ui_msgs[n_msgs:]]
+check("E", "AttachmentDialog: آپلود دو فایل (txt + png) در صف ترتیبی → ۲ رکورد با created_by کاربر واردشده، ۲ فایل واقعی داخل پوشهٔ موجودیت، Audit، فهرست تازه‌سازی‌شده، یک پیام جمع‌بندی، دکمه‌ها دوباره فعال",
+      finished and len(rows) == 2 and all(r[3] == 1 for r in rows)
+      and all(os.path.isfile(r[2]) and r[2].startswith(os.path.join(ATT_UPLOAD_DIR, "student", str(entity_id))) for r in rows)
+      and att_dialog.file_list.count() == 2 and att_added == [1]
+      and audit_rows >= 2 and len(batch_msgs) == 1 and batch_msgs[0][0] == "info" and "2" in batch_msgs[0][1]
+      and att_dialog.add_btn.isEnabled() and not att_dialog.is_uploading(),
+      f"finished={finished} rows={[(r[1], r[3]) for r in rows]} list={att_dialog.file_list.count()} msgs={batch_msgs}")
+
+# --- E2: دو فایل هم‌نام در یک ثانیه → دو فایل جدا (قبلاً نام فقط با timestamp ثانیه‌ای یکتا می‌شد)
+dup_a = _write_sample("same_name.txt", b"first content ..........")
+dup_dir = os.path.join(TMP, "dup2")
+os.makedirs(dup_dir, exist_ok=True)
+dup_b = os.path.join(dup_dir, "same_name.txt")
+with open(dup_b, "wb") as fh:
+    fh.write(b"second content .........")
+with contextlib.redirect_stdout(io.StringIO()):
+    att_dialog.upload_files([dup_a, dup_b])
+    _wait_dialog_upload(att_dialog)
+dup_rows = conn.execute("SELECT file_path FROM attachments WHERE entity_type = 'student' AND entity_id = ? "
+                        "AND file_name = 'same_name.txt' AND is_deleted = 0", (entity_id,)).fetchall()
+dup_contents = sorted(open(r[0], "rb").read() for r in dup_rows) if dup_rows else []
+check("E", "دو آپلود هم‌نام پشت سر هم: دو مسیر فایل متفاوت با محتوای خودشان (قبلاً روی هم نوشته می‌شدند و دو رکورد به یک فایل اشاره می‌کردند)",
+      len(dup_rows) == 2 and dup_rows[0][0] != dup_rows[1][0]
+      and dup_contents == [b"first content ..........", b"second content ........."],
+      f"paths={[os.path.basename(r[0]) for r in dup_rows]}")
+
+# --- E3: نوع غیرمجاز → نه رکورد، نه فایل (نه حتی .part)
+entity_folder = os.path.join(ATT_UPLOAD_DIR, "student", str(entity_id))
+files_before = sorted(os.listdir(entity_folder))
+count_before = conn.execute("SELECT COUNT(*) FROM attachments WHERE is_deleted = 0").fetchone()[0]
+bad_file = _write_sample("payload.exe", b"MZ" + b"\x00" * 100)
+with contextlib.redirect_stdout(io.StringIO()):
+    n_msgs = len(ui_msgs)
+    att_dialog.upload_files([bad_file])
+    _wait_dialog_upload(att_dialog)
+count_after = conn.execute("SELECT COUNT(*) FROM attachments WHERE is_deleted = 0").fetchone()[0]
+files_after = sorted(os.listdir(entity_folder))
+bad_msgs = ui_msgs[n_msgs:]
+check("E", "فایل با پسوند/محتوای غیرمجاز (exe): آپلود با پیام خطا رد می‌شود؛ هیچ رکورد و هیچ فایلی (حتی .part) باقی نمی‌ماند",
+      count_after == count_before and files_after == files_before
+      and bad_msgs and bad_msgs[-1][0] == "crit",
+      f"count {count_before}->{count_after} files_diff={sorted(set(files_after) ^ set(files_before))} msgs={bad_msgs[-1:]}")
+
+# --- E4: شکست درج در دیتابیس → فایل یتیم روی دیسک نمی‌ماند
+real_create = AttachmentDAL.create
+
+
+def _create_fails(self, attachment):
+    raise RuntimeError("db insert failed")
+
+
+AttachmentDAL.create = _create_fails
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        n_msgs = len(ui_msgs)
+        att_dialog.upload_files([sample_txt])
+        _wait_dialog_upload(att_dialog)
+finally:
+    AttachmentDAL.create = real_create
+files_after_dbfail = sorted(os.listdir(entity_folder))
+check("E", "اگر درج رکورد در دیتابیس شکست بخورد: پیام خطا، رکوردی ثبت نمی‌شود و فایل نوشته‌شده روی دیسک پاک می‌شود (قبلاً فایل یتیم می‌ماند)",
+      files_after_dbfail == files_before
+      and conn.execute("SELECT COUNT(*) FROM attachments WHERE is_deleted = 0").fetchone()[0] == count_before
+      and ui_msgs[n_msgs:] and ui_msgs[-1][0] == "crit" and "db insert failed" in ui_msgs[-1][1],
+      f"files_diff={sorted(set(files_after_dbfail) ^ set(files_before))} msg={ui_msgs[-1:]}")
+
+# --- E5: جست‌وجو / پاک‌کردن جست‌وجو / انتخاب و پیش‌نمایش / دانلود
+with contextlib.redirect_stdout(io.StringIO()):
+    att_dialog.search_input.setText("photo")
+    att_dialog.search_attachments()
+    search_count = att_dialog.file_list.count()
+    att_dialog.clear_search()
+    cleared_count = att_dialog.file_list.count()
+    txt_item = next(att_dialog.file_list.item(i) for i in range(att_dialog.file_list.count())
+                    if "note.txt" in att_dialog.file_list.item(i).text())
+    att_dialog.on_file_selected(txt_item)
+    preview_text = att_dialog.preview_label.text()
+    info_text = att_dialog.info_text.toPlainText()
+    download_target = os.path.join(TMP, "downloaded_note.txt")
+    QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (download_target, ""))
+    att_dialog.download_file()
+    QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: ("", ""))
+check("E", "جست‌وجو (photo → ۱ مورد)، پاک‌کردن جست‌وجو (همه)، انتخاب فایل متنی → اطلاعات + پیش‌نمایش محتوا، دانلود → فایل با همان محتوا",
+      search_count == 1 and cleared_count == 4
+      and "note.txt" in info_text and "متن نمونهٔ پیوست" in preview_text
+      and os.path.exists(download_target) and open(download_target, "rb").read() == open(sample_txt, "rb").read(),
+      f"search={search_count} cleared={cleared_count} preview={preview_text[:30]!r}")
+
+# --- E6: حذف → حذف منطقی در DB، فهرست −۱، سیگنال؛ فایل فیزیکی (به‌عمد) می‌ماند
+with contextlib.redirect_stdout(io.StringIO()):
+    att_deleted = []
+    att_dialog.attachment_deleted.connect(lambda: att_deleted.append(1))
+    deleted_id = att_dialog.current_attachment_id
+    deleted_path = conn.execute("SELECT file_path FROM attachments WHERE id = ?", (deleted_id,)).fetchone()[0]
+    att_dialog.delete_selected()
+is_deleted_flag = conn.execute("SELECT is_deleted FROM attachments WHERE id = ?", (deleted_id,)).fetchone()[0]
+check("E", "حذف پیوست انتخاب‌شده: is_deleted=1 در DB، فهرست −۱، سیگنال attachment_deleted؛ فایل فیزیکی برای امکان بازیابی می‌ماند (طراحی مستند)",
+      is_deleted_flag == 1 and att_dialog.file_list.count() == 3 and att_deleted == [1] and os.path.exists(deleted_path),
+      f"flag={is_deleted_flag} list={att_dialog.file_list.count()}")
+
+# --- E7: Race در دیالوگ: شروع آپلود دوم وسط آپلود اول رد می‌شود؛ بستن وسط آپلود منتظر می‌ماند
+big_file = _write_sample("big.txt", b"x" * (3 * 1024 * 1024))
+with contextlib.redirect_stdout(io.StringIO()):
+    n_msgs = len(ui_msgs)
+    att_dialog.upload_files([big_file])
+    first_worker = att_dialog.upload_worker
+    was_running = att_dialog.is_uploading()
+    att_dialog.upload_files([sample_txt])  # باید رد شود
+    same_worker = att_dialog.upload_worker is first_worker
+    att_dialog.close()                      # closeEvent منتظر پایان کارگر می‌ماند
+    _wait_dialog_upload(att_dialog)
+race_msgs = [m for m in ui_msgs[n_msgs:] if "آپلود قبلی" in m[1]]
+check("E", "Race: درخواست آپلود دوم وسط آپلود اول با پیام رد می‌شود و کارگر جایگزین نمی‌شود؛ بستن دیالوگ وسط آپلود بدون کشتن نخ انجام می‌شود",
+      was_running and same_worker and len(race_msgs) == 1 and not first_worker.isRunning(),
+      f"running={was_running} same={same_worker} race_msgs={len(race_msgs)}")
+
+# --- E8: نگهبان ثبت دوباره در فرم‌ها (کلیک دوم که وسط QMessageBox پردازش می‌شود)
+reentry = {'count': 0}
+real_info = QMessageBox.information
+
+
+def _reentrant_info(*a, **k):
+    ui_msgs.append(("info", str(a[2])[:100]))
+    if reentry['count'] == 0:
+        reentry['count'] += 1
+        dbl_form.save_observation()      # شبیه‌سازی کلیک دوم در حلقهٔ رویداد تودرتو
+    return QMessageBox.StandardButton.Ok
+
+
+with contextlib.redirect_stdout(io.StringIO()):
+    dbl_form = ObservationForm(student_id=form_student.id)
+    _combo_pick(dbl_form.student_combo, form_student.id)
+    _combo_pick(dbl_form.observer_combo)
+    dbl_form.behavior_input.setPlainText("ثبت دوباره نباید بشود")
+    dbl_form.selected_competency_id = comps[2].id
+    obs_before = _count("observations")
+    QMessageBox.information = staticmethod(_reentrant_info)
+    try:
+        dbl_form.save_observation()
+    finally:
+        QMessageBox.information = real_info
+obs_after = _count("observations")
+guard_src = read("utils/ui_guards.py")
+guarded_forms = sum(1 for f in ("observation_form", "intervention_form", "followup_form", "student_form", "goal_form",
+                                 "activity_form", "counseling_session_form", "assign_teacher_dialog")
+                    if "@single_submit()" in read(f"views/dialogs/{f}.py"))
+check("E", "نگهبان single_submit: ورود دوبارهٔ save_observation وسط پیام موفقیت فقط یک رکورد می‌سازد؛ پس از پایان، پرچم آزاد و دکمه فعال؛ هر ۸ فرم نگهبان دارند",
+      obs_after == obs_before + 1 and reentry['count'] == 1 and not dbl_form._submit_in_progress
+      and dbl_form.save_btn.isEnabled() and guarded_forms == 8 and "def single_submit" in guard_src,
+      f"{obs_before}->{obs_after} guarded_forms={guarded_forms}")
+
+# --- E9: نخ‌ها: بدنهٔ run کارگرها هیچ ویجتی را مستقیم لمس نمی‌کند؛ هیچ QThreadی سیگنال finished را بازتعریف نمی‌کند
+WIDGET_HINTS = ('progress_bar', 'setText', 'setValue', 'QMessageBox', 'file_list', 'table', 'setEnabled', 'label')
+thread_issues = []
+for rel in ("views/dialogs/attachment_dialog.py", "views/pages/backup_page.py"):
+    tree_ast = ast.parse(read(rel))
+    for node in ast.walk(tree_ast):
+        if isinstance(node, ast.ClassDef) and any(getattr(b, 'id', '') == 'QThread' for b in node.bases):
+            for item in node.body:
+                if isinstance(item, ast.Assign) and any(getattr(t, 'id', '') == 'finished' for t in item.targets):
+                    thread_issues.append((rel, node.name, "finished redefined"))
+                if isinstance(item, ast.FunctionDef) and item.name == 'run':
+                    body_src = ast.unparse(item)
+                    for hint in WIDGET_HINTS:
+                        if hint in body_src:
+                            thread_issues.append((rel, node.name, hint))
+check("E", "نخ‌ها (بند ۲۰): AttachmentUploadWorker و BackupWorker در run فقط سیگنال می‌فرستند (بدون دسترسی مستقیم به ویجت)، و سیگنال داخلی finished را بازتعریف نمی‌کنند؛ اتصال DB داخل worker_context نخ‌محلی است",
+      not thread_issues and "worker_context(self.user_context)" in read("views/dialogs/attachment_dialog.py"),
+      str(thread_issues))
+
+# --- E10: اتصال نخ کارگر پس از پایان آزاد می‌شود (رجیستری اتصال‌ها رشد نمی‌کند)
+with contextlib.redirect_stdout(io.StringIO()):
+    db.get_connection(user_id=1)
+    registry_before = len(dbc.DatabaseConnection._open_connections)
+    for _ in range(3):
+        w = AttachmentUploadWorker(service=attachment_service_mod.AttachmentService(), entity_type="student",
+                                   entity_id=entity_id, file_path=sample_txt, created_by=1)
+        w.start()
+        w.wait(30000)
+    app.processEvents()
+    db.get_connection(user_id=1)
+    registry_after = len(dbc.DatabaseConnection._open_connections)
+check("E", "سه آپلود پیاپی در نخ‌های کارگر: اتصال‌های نخ‌های تمام‌شده آزاد می‌شوند و رجیستری اتصال‌ها رشد نمی‌کند",
+      registry_after <= registry_before + 1,
+      f"registry {registry_before}->{registry_after}")
+
+# --- E11: بازکردن فایل بدون shell
+att_src = read("views/dialogs/attachment_dialog.py")
+check("E", "«باز کردن فایل» با QDesktopServices.openUrl انجام می‌شود؛ هیچ os.system/shell با مسیر فایل در دیالوگ پیوست نیست (قبلاً تزریق فرمان از طریق نام فایل ممکن بود)",
+      "os.system(" not in att_src and "QDesktopServices.openUrl(QUrl.fromLocalFile(" in att_src,
+      "")
+
+# --- E12: وضعیت Screening و Recommendation (فقط گزارش — طبق تصمیم کاربر)
+screening_ui = [f for f in (os.path.join("views", d, n) for d in ("pages", "dialogs", "widgets") for n in os.listdir(os.path.join("views", d)) if n.endswith(".py"))
+                if re.search(r"\b(ScreeningService|ScreeningDAL|ScreeningResultDAL|screening_form|ScreeningForm)\b", read(f))]
+rec_widget_users = [f for f in (os.path.join("views", d, n) for d in ("pages", "dialogs", "widgets") for n in os.listdir(os.path.join("views", d)) if n.endswith(".py"))
+                    if "RecommendationWidget" in read(f) and not f.endswith("recommendation_widget.py")]
+check("E", "وضعیت ثبت‌شده: Screening هیچ UI ثبت/ویرایش ندارد (فقط نمایش لایه در گزارش) → UNREACHABLE؛ RecommendationWidget بدون مصرف‌کننده → DEAD_CODE (بدون تغییر کد، طبق تصمیم کاربر)",
+      not screening_ui and not rec_widget_users,
+      f"screening_ui={screening_ui} rec_users={rec_widget_users}")
+
+# ============================================================
+print()
+print("=" * 76)
+print(f"نتیجهٔ دور شانزدهم (مرحله‌های ۱ تا ۴):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
 if FAILURES:
     print("موارد ناموفق:")
     for f in FAILURES:

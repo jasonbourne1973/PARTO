@@ -6,6 +6,7 @@ import hashlib
 import mimetypes
 import os
 import sys
+import uuid
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -85,75 +86,97 @@ class AttachmentService(BaseService):
                     f"تعداد پیوست‌های این موجودیت به حداکثر ({self.MAX_ATTACHMENTS_PER_ENTITY}) رسیده است."
                 )
             
-            # 3. ایجاد نام فایل ایمن
-            safe_filename = self._generate_safe_filename(file_name)
-            
-            # 4. ایجاد پوشه موجودیت
+            # 3. ایجاد نام فایل ایمن و یکتا
+            #    (بازرسی شانزدهم) نسخهٔ قبلی فقط timestamp با دقت ثانیه به نام
+            #    می‌چسباند؛ دو آپلود هم‌نام در یک ثانیه (چند فایل انتخاب‌شده در
+            #    دیالوگ) روی هم می‌نوشتند و دو رکورد به یک فایل اشاره می‌کردند.
             entity_folder = self._get_entity_folder(entity_type, entity_id)
-            if not os.path.exists(entity_folder):
-                os.makedirs(entity_folder)
-            
-            # 5. ذخیره فایل
+            os.makedirs(entity_folder, exist_ok=True)
+            safe_filename = self._generate_safe_filename(file_name)
             file_path = os.path.join(entity_folder, safe_filename)
-            with open(file_path, 'wb') as f:
+            while os.path.exists(file_path):
+                safe_filename = self._generate_safe_filename(file_name)
+                file_path = os.path.join(entity_folder, safe_filename)
+
+            # 4 و 5. ذخیرهٔ اتمیک فایل (اول .part، بعد جایگزینی)؛ هر شکستی از
+            #    این‌جا به بعد (اعتبارسنجی مدل، درج در DB، rollback تراکنش) فایل
+            #    نیمه‌کاره/یتیم را پاک می‌کند.
+            tmp_path = file_path + '.part'
+            with open(tmp_path, 'wb') as f:
                 f.write(file_data)
-            
-            # 6. محاسبه checksum
-            checksum = hashlib.md5(file_data).hexdigest()
-            
-            # 7. دریافت اطلاعات فایل
-            file_size = len(file_data)
-            file_type = self._get_file_category(file_name)
-            mime_type = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
-            extension = self._get_file_extension(file_name)
-            
-            # 8. ایجاد مدل Attachment
-            attachment = Attachment()
-            attachment.entity_type = entity_type
-            attachment.entity_id = entity_id
-            attachment.file_name = file_name
-            attachment.file_path = file_path
-            attachment.file_size = file_size
-            attachment.file_type = file_type
-            attachment.mime_type = mime_type
-            attachment.file_extension = extension
-            attachment.title = title
-            attachment.description = description
-            attachment.tags = tags
-            attachment.created_by = created_by
-            
-            # 9. اعتبارسنجی مدل
-            errors = attachment.validate()
-            if errors:
-                # حذف فایل ذخیره شده
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-                raise ValidationError("\n".join(errors))
-            
-            # 10. ذخیره در دیتابیس
-            created_attachment = self.attachment_dal.create(attachment)
-            
-            # 11. ثبت Audit Log
-            self.log_audit(
-                user_id=user_id,
-                action='create',
-                entity_type='attachment',
-                entity_id=created_attachment.id,
-                new_value={
-                    'attachment_id': created_attachment.id,
-                    'entity_type': entity_type,
-                    'entity_id': entity_id,
-                    'file_name': file_name,
-                    'file_size': file_size,
-                    'checksum': checksum
-                },
-                ip_address=ip_address
-            )
-            
-            self.logger.info(f"پیوست با ID {created_attachment.id} برای {entity_type}/{entity_id} آپلود شد")
-            return created_attachment
-        
+            os.replace(tmp_path, file_path)
+
+            try:
+                return self._register_uploaded_file(
+                    entity_type, entity_id, file_data, file_name, file_path,
+                    title, description, tags, created_by, user_id, ip_address)
+            except Exception:
+                self._remove_file_quietly(file_path)
+                raise
+
         return self.execute_in_transaction(_upload)
+
+    def _remove_file_quietly(self, path):
+        try:
+            if path and os.path.exists(path):
+                os.remove(path)
+        except OSError as e:
+            self.logger.warning(f"حذف فایل پیوست ناتمام ممکن نشد ({path}): {e}")
+
+    def _register_uploaded_file(self, entity_type, entity_id, file_data, file_name, file_path,
+                                title, description, tags, created_by, user_id, ip_address):
+        """ساخت مدل، اعتبارسنجی، درج در دیتابیس و ثبت Audit برای فایلی که روی دیسک نوشته شده"""
+        # 6. محاسبه checksum
+        checksum = hashlib.md5(file_data).hexdigest()
+        
+        # 7. دریافت اطلاعات فایل
+        file_size = len(file_data)
+        file_type = self._get_file_category(file_name)
+        mime_type = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
+        extension = self._get_file_extension(file_name)
+        
+        # 8. ایجاد مدل Attachment
+        attachment = Attachment()
+        attachment.entity_type = entity_type
+        attachment.entity_id = entity_id
+        attachment.file_name = file_name
+        attachment.file_path = file_path
+        attachment.file_size = file_size
+        attachment.file_type = file_type
+        attachment.mime_type = mime_type
+        attachment.file_extension = extension
+        attachment.title = title
+        attachment.description = description
+        attachment.tags = tags
+        attachment.created_by = created_by
+        
+        # 9. اعتبارسنجی مدل (فایل در صورت خطا توسط فراخوان پاک می‌شود)
+        errors = attachment.validate()
+        if errors:
+            raise ValidationError("\n".join(errors))
+        
+        # 10. ذخیره در دیتابیس
+        created_attachment = self.attachment_dal.create(attachment)
+        
+        # 11. ثبت Audit Log
+        self.log_audit(
+            user_id=user_id,
+            action='create',
+            entity_type='attachment',
+            entity_id=created_attachment.id,
+            new_value={
+                'attachment_id': created_attachment.id,
+                'entity_type': entity_type,
+                'entity_id': entity_id,
+                'file_name': file_name,
+                'file_size': file_size,
+                'checksum': checksum
+            },
+            ip_address=ip_address
+        )
+        
+        self.logger.info(f"پیوست با ID {created_attachment.id} برای {entity_type}/{entity_id} آپلود شد")
+        return created_attachment
     
     def get_attachment(self, attachment_id):
         """دریافت پیوست با شناسه"""
@@ -223,7 +246,9 @@ class AttachmentService(BaseService):
     def get_attachment_path(self, attachment_id):
         """دریافت مسیر فیزیکی فایل پیوست"""
         attachment = self.get_attachment(attachment_id)
-        if not os.path.exists(attachment.file_path):
+        if attachment is None:
+            raise ServiceError(f"پیوست با شناسه {attachment_id} یافت نشد.")
+        if not attachment.file_path or not os.path.exists(attachment.file_path):
             raise ServiceError("فایل پیوست در سیستم وجود ندارد.")
         return attachment.file_path
     
@@ -324,18 +349,19 @@ class AttachmentService(BaseService):
             raise ValidationError("\n".join(errors))
     
     def _generate_safe_filename(self, original_name):
-        """تولید نام فایل ایمن"""
+        """تولید نام فایل ایمن و یکتا (timestamp + شناسهٔ تصادفی کوتاه)"""
         safe_name = Security.sanitize_filename(original_name)
         
         if not safe_name:
             safe_name = f"file_{int(utc_now().timestamp())}"
         
+        suffix = f"{int(utc_now().timestamp())}_{uuid.uuid4().hex[:8]}"
         name_parts = safe_name.rsplit('.', 1)
         if len(name_parts) == 2:
             base, ext = name_parts
-            return f"{base}_{int(utc_now().timestamp())}.{ext}"
+            return f"{base}_{suffix}.{ext}"
         else:
-            return f"{safe_name}_{int(utc_now().timestamp())}"
+            return f"{safe_name}_{suffix}"
     
     def _get_entity_folder(self, entity_type, entity_id):
         """دریافت پوشه ذخیره فایل‌های یک موجودیت"""

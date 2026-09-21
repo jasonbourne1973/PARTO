@@ -29,6 +29,7 @@ from models.student import Student
 from utils.logger import get_logger
 from utils.time_utils import utc_now
 from utils.tooltip_manager import TooltipManager
+from utils.ui_guards import single_submit
 
 logger = get_logger(__name__)
 
@@ -262,6 +263,7 @@ class StudentForm(QDialog):
         
         self.address_input.setText(self.student.address or "")
     
+    @single_submit()
     def save_student(self):
         """ذخیره دانش‌آموز در دیتابیس"""
         self.student.first_name = self.first_name_input.text().strip()

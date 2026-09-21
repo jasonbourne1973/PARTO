@@ -26,6 +26,7 @@ from models.teacher_assignment import TeacherAssignment
 from utils.logger import get_logger
 from utils.shamsi_date_input import ShamsiDateInput
 from utils.tooltip_manager import TooltipManager
+from utils.ui_guards import single_submit
 
 logger = get_logger(__name__)
 
@@ -278,6 +279,7 @@ class AssignTeacherDialog(QDialog):
         except Exception as e:
             QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{e!s}")
     
+    @single_submit()
     def save_assignment(self):
         """ذخیره انتساب معلم"""
         # اعتبارسنجی
