@@ -723,15 +723,105 @@ class MainWindow(QMainWindow):
         except Exception as e:
             logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
 
+    def _select_year_in_combo(self, year_id):
+        """انتخاب یک سال در کامبو بدون راه‌انداختن on_year_changed"""
+        self.year_combo.blockSignals(True)
+        try:
+            for i in range(self.year_combo.count()):
+                if self.year_combo.itemData(i) == year_id:
+                    self.year_combo.setCurrentIndex(i)
+                    break
+        finally:
+            self.year_combo.blockSignals(False)
+
     def on_year_changed(self, index):
-        if index >= 0:
-            year_id = self.year_combo.itemData(index)
-            if year_id:
-                for year in self.all_academic_years:
-                    if year.id == year_id:
-                        self.year_label.setText(f"📅 {year.title}")
-                        break
-                self.academic_year_changed.emit(year_id)
+        """
+        تغییر سال تحصیلی از کامبوی هدر (بازرسی شانزدهم — BUG-023)
+
+        نسخهٔ قبلی فقط برچسب را عوض می‌کرد و سیگنالی بدون گیرنده می‌فرستاد؛
+        همهٔ صفحه‌ها «سال فعال» دیتابیس را می‌خوانند، پس انتخاب کاربر هیچ اثری
+        نداشت. حالا انتخاب سال = فعال‌سازی همان سال (با تأیید) و بارگذاری
+        دوبارهٔ صفحه‌ها. سال بایگانی‌شده فعال نمی‌شود.
+        """
+        if index < 0 or getattr(self, '_year_switching', False):
+            return
+        year_id = self.year_combo.itemData(index)
+        if not year_id:
+            return
+        year = next((y for y in self.all_academic_years if y.id == year_id), None)
+        try:
+            active = self.academic_year_dal.get_active()
+        except Exception as e:
+            logger.error(f"خواندن سال فعال ممکن نشد: {e}")
+            active = None
+        active_id = active.id if active else None
+        if year_id == active_id:
+            self.year_label.setText(f"📅 {year.title if year else ''}")
+            return
+        if year is not None and getattr(year, 'is_archived', 0) == 1:
+            QMessageBox.warning(
+                self, "سال بایگانی‌شده",
+                f"سال «{year.title}» بایگانی شده است و نمی‌تواند سال فعال شود.\n"
+                "برای استفاده، ابتدا آن را در «ساختار آموزشی» از بایگانی خارج کنید.")
+            self._select_year_in_combo(active_id)
+            return
+        reply = QMessageBox.question(
+            self, "تغییر سال تحصیلی فعال",
+            f"سال تحصیلی فعال به «{year.title if year else year_id}» تغییر کند؟\n\n"
+            "همهٔ صفحه‌ها بر اساس سال جدید بارگذاری می‌شوند.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply != QMessageBox.StandardButton.Yes:
+            self._select_year_in_combo(active_id)
+            return
+        self._year_switching = True
+        try:
+            self.academic_year_dal.set_active(year_id)
+            self.year_label.setText(f"📅 {year.title if year else ''}")
+            self.academic_year_changed.emit(year_id)
+            self._reload_pages_for_year()
+        except Exception as e:
+            logger.error(f"تغییر سال فعال ممکن نشد: {e}")
+            QMessageBox.critical(self, "خطا", f"تغییر سال تحصیلی انجام نشد:\n{e!s}")
+            self._select_year_in_combo(active_id)
+        finally:
+            self._year_switching = False
+
+    def _reload_pages_for_year(self):
+        """
+        بارگذاری دوبارهٔ همهٔ صفحه‌ها پس از تغییر سال فعال
+
+        هر متد بدون آرگومانِ «load_*» صفحه‌ها (و زیرصفحه‌های شناخته‌شده) صدا زده
+        می‌شود؛ شکست یک صفحه بقیه را متوقف نمی‌کند و در لاگ ثبت می‌شود.
+        """
+        import inspect
+
+        pages = [self.stacked_widget.widget(i) for i in range(self.stacked_widget.count())]
+        for extra in (getattr(getattr(self, 'students_page', None), 'profile_page', None),
+                      getattr(getattr(self, 'dashboard_page', None), 'analytics_dashboard_page', None)):
+            if extra is not None:
+                pages.append(extra)
+        reloaded = 0
+        for page in pages:
+            for name in sorted(dir(page)):
+                if not name.startswith('load_'):
+                    continue
+                method = getattr(page, name, None)
+                if not callable(method):
+                    continue
+                try:
+                    params = [p for p in inspect.signature(method).parameters.values()
+                              if p.default is inspect._empty and p.kind == p.POSITIONAL_OR_KEYWORD]
+                except (TypeError, ValueError):
+                    continue
+                if params:
+                    continue
+                try:
+                    method()
+                    reloaded += 1
+                except Exception as e:
+                    logger.warning(f"بارگذاری دوبارهٔ {type(page).__name__}.{name} پس از تغییر سال شکست خورد: {e}")
+        self.update_academic_year_display()
+        return reloaded
 
     def update_academic_year_display(self):
         try:

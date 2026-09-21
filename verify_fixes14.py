@@ -88,7 +88,6 @@ from utils.backup import BackupManager
 
 conn_src = read("database/connection.py")
 backup_src = read("utils/backup.py")
-scheduler_src = read("utils/notification_scheduler.py")
 attachment_dialog_src = read("views/dialogs/attachment_dialog.py")
 backup_page_src = read("views/pages/backup_page.py")
 manager_src = read("database/migrations/manager.py")
@@ -446,9 +445,9 @@ check("B", "هویت نامعتبر در نخ کارگر → NULL (بدون خط
       f"{inv_result}")
 
 # --- B6: منبع: زمان‌بند صریحاً «سیستم» است و کارگرهای UI هویت را صریح تحویل می‌گیرند
-check("B", "منبع: زمان‌بند با worker_context(None) و کارگرهای آپلود/پشتیبان با هویت کاربر واقعی اجرا می‌شوند",
-      "worker_context(None)" in scheduler_src
-      and "worker_context(self.user_context)" in attachment_dialog_src
+# (دور ۱۶) زمان‌بند اعلان‌ها حذف شد؛ بررسی منبع فقط روی کارگرهای UI انجام می‌شود.
+check("B", "منبع: کارگرهای آپلود/پشتیبان با هویت کاربر واقعی اجرا می‌شوند",
+      "worker_context(self.user_context)" in attachment_dialog_src
       and "created_by=DatabaseConnection().get_current_user()" in attachment_dialog_src
       and "worker_context(self.user_id)" in backup_page_src
       and "user_id=self.user_id, user_name=self.user_name" in backup_page_src)
@@ -1146,85 +1145,8 @@ check("F", "حذف فیزیکی (permanent_delete): تریگر AFTER DELETE یک
 print("=" * 76)
 print("بخش G: جلوگیری از یادآوری تکراری با جست‌وجوی موجودیت (مورد ۹)")
 print("=" * 76)
-
-import jdatetime  # noqa: E402
-
-from dal.followup_dal import FollowUpDAL  # noqa: E402
-from dal.notification_dal import NotificationDAL  # noqa: E402
-from models.followup import FollowUp  # noqa: E402
-from models.intervention import Intervention  # noqa: E402
-from models.notification import Notification  # noqa: E402
-from services.notification_service import NotificationService  # noqa: E402
-
-yesterday = jdatetime.date.today() - jdatetime.timedelta(days=1)
-with quiet():
-    inter = Intervention()
-    inter.student_profile_id = e_profile.id
-    inter.staff_id = 1
-    inter.type = "counseling"
-    inter.date = "1405/07/01"
-    inter.description = "مداخلهٔ آزمایشی چهاردهم"
-    inter = intervention_dal.create(inter)
-    fu = FollowUp()
-    fu.intervention_id = inter.id
-    fu.staff_id = 1
-    fu.date = "1405/07/02"
-    fu.method = "phone"
-    fu.description = "پیگیری آزمایشی"
-    fu.status = "pending"
-    fu.next_action_date = f"{yesterday.year}/{yesterday.month:02d}/{yesterday.day:02d}"
-    fu = FollowUpDAL().create(fu)
-
-notif_service = NotificationService()
-notif_dal = NotificationDAL()
-
-
-def _overdue_count():
-    return conn.execute(
-        "SELECT COUNT(*) FROM notifications WHERE entity_type = 'followup' AND entity_id = ? "
-        "AND type = ? AND is_deleted = 0", (fu.id, Notification.TYPE_OVERDUE)).fetchone()[0]
-
-
-with quiet():
-    first_run = notif_service.check_and_create_reminders()
-after_first = _overdue_count()
-# ۱۲ اعلان جدیدتر برای همان کاربر → اعلان پیگیری دیگر جزو «۱۰ اعلان آخر» نیست
-# (اعلان پیگیری به سه روز قبل برده می‌شود تا ترتیب created_at قطعی باشد)
-with quiet():
-    conn.execute(
-        "UPDATE notifications SET created_at = datetime('now', '-3 days') "
-        "WHERE entity_type = 'followup' AND entity_id = ?", (fu.id,))
-    conn.commit()
-    for k in range(12):
-        notif_service.create_notification(
-            user_id=1, notification_type=Notification.TYPE_SYSTEM
-            if hasattr(Notification, "TYPE_SYSTEM") else "system",
-            title=f"اعلان پرکننده {k}", message="برای جابه‌جا کردن اعلان پیگیری از ۱۰ مورد آخر")
-    second_run = notif_service.check_and_create_reminders()
-after_second = _overdue_count()
-recent_ids = [n.entity_id for n in notif_dal.get_by_user(1, limit=10)]
-check("G", "پیگیری معوق: اجرای اول یک اعلان می‌سازد؛ بعد از ۱۲ اعلان جدیدتر (خارج از ۱۰ مورد آخر) اجرای دوم اعلان تکراری نمی‌سازد",
-      after_first == 1 and after_second == 1 and fu.id not in recent_ids
-      and second_run["total"] == 0,
-      f"first={after_first} second={after_second} in_recent={fu.id in recent_ids} run2={second_run}")
-
-# --- G2: معنای «فعال» حفظ شده: اعلان خوانده‌شده مانع اعلان جدید نیست؛ پرس‌وجو بر اساس موجودیت است
-exists_before = notif_service._check_existing_notification(fu.id, 1, Notification.TYPE_OVERDUE)
-other_user = notif_service._check_existing_notification(fu.id, 2, Notification.TYPE_OVERDUE)
-other_type = notif_service._check_existing_notification(fu.id, 1, Notification.TYPE_REMINDER)
-notif_id = conn.execute(
-    "SELECT id FROM notifications WHERE entity_type = 'followup' AND entity_id = ? AND type = ?",
-    (fu.id, Notification.TYPE_OVERDUE)).fetchone()[0]
-with quiet():
-    notif_dal.mark_as_read(notif_id)
-exists_after = notif_service._check_existing_notification(fu.id, 1, Notification.TYPE_OVERDUE)
-notif_src = read("services/notification_service.py")
-check_body = notif_src.split("def _check_existing_notification")[1].split("def _enrich_notification")[0]
-check("G", "جست‌وجو دقیقاً بر اساس (کاربر، نوع اعلان، نوع/شناسهٔ موجودیت) است؛ کاربر/نوع دیگر → نه؛ اعلان خوانده‌شده → فعال نیست؛ بدون get_by_user(limit=10)",
-      exists_before is True and other_user is False and other_type is False
-      and exists_after is False and "exists_for_entity" in check_body
-      and "get_by_user" not in check_body,
-      f"before={exists_before} other_user={other_user} other_type={other_type} after={exists_after}")
+print("  ℹ️ [G] زیرسیستم اعلان‌ها (NotificationService/DAL) در دور ۱۶ با تصمیم کاربر حذف شد؛ "
+      "دو بررسی این بخش موضوعیت ندارند.")
 
 # ============================================================================
 print("=" * 76)
@@ -1330,58 +1252,7 @@ check("I", "پوشهٔ tests/ فقط به کتابخانه‌های requirements
 print("=" * 76)
 print("بخش J: پاکسازی اعلان‌ها واقعاً هر ۲۴ ساعت (مورد ۱۴)")
 print("=" * 76)
-
-from datetime import timedelta  # noqa: E402
-
-from utils.notification_scheduler import NotificationScheduler  # noqa: E402
-from utils.time_utils import utc_now  # noqa: E402
-
-scheduler = NotificationScheduler()
-scheduler._last_cleanup_time = None
-first_none = scheduler._should_cleanup()
-scheduler._last_cleanup_time = utc_now()
-just_now = scheduler._should_cleanup()
-scheduler._last_cleanup_time = utc_now() - timedelta(hours=23, minutes=50)
-almost = scheduler._should_cleanup()
-scheduler._last_cleanup_time = utc_now() - timedelta(hours=25)
-stale = scheduler._should_cleanup()
-check("J", "_should_cleanup: بدون سابقه → بله؛ همین الان → خیر؛ ۲۳ ساعت و ۵۰ دقیقه → خیر؛ ۲۵ ساعت → بله",
-      first_none is True and just_now is False and almost is False and stale is True
-      and NotificationScheduler._CLEANUP_INTERVAL_HOURS == 24,
-      f"none={first_none} now={just_now} 23h50={almost} 25h={stale}")
-
-
-class _FakeNotificationService:
-    def __init__(self):
-        self.cleanups = 0
-        self.checks = 0
-
-    def check_and_create_reminders(self):
-        self.checks += 1
-        return {"created_count": 0, "overdue_count": 0, "total": 0}
-
-    def cleanup_old_notifications(self):
-        self.cleanups += 1
-        return 0
-
-
-fake = _FakeNotificationService()
-real_service = scheduler.notification_service
-scheduler.notification_service = fake
-scheduler._last_cleanup_time = None
-try:
-    with quiet():
-        scheduler._run_scheduled_tasks()
-        scheduler._run_scheduled_tasks()
-        scheduler._run_scheduled_tasks()
-        stamp_after_runs = scheduler._last_cleanup_time
-        scheduler._last_cleanup_time = utc_now() - timedelta(hours=24, minutes=1)
-        scheduler._run_scheduled_tasks()
-finally:
-    scheduler.notification_service = real_service
-check("J", "سه اجرای پیاپیِ وظایف ساعتی فقط یک پاکسازی انجام می‌دهند؛ بعد از گذشت ۲۴ ساعت پاکسازی دوم انجام می‌شود (یادآوری‌ها هر بار بررسی می‌شوند)",
-      fake.checks == 4 and fake.cleanups == 2 and stamp_after_runs is not None,
-      f"checks={fake.checks} cleanups={fake.cleanups}")
+print("  ℹ️ [J] زمان‌بند اعلان‌ها در دور ۱۶ با تصمیم کاربر حذف شد؛ دو بررسی این بخش موضوعیت ندارند.")
 
 # ============================================================================
 print("=" * 76)

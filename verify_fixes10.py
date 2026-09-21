@@ -191,7 +191,6 @@ check("B", "dataclassها فیلدهای خود را از دست نداده‌ا
       dc_fields and all(n > 0 for _, n in dc_fields), str(dc_fields))
 
 from models.counseling_session import CounselingSession  # noqa: E402
-from models.notification import Notification  # noqa: E402
 from models.observation import Observation  # noqa: E402
 from utils.file_validator import FileValidator  # noqa: E402
 from utils.theme_manager import ThemeManager  # noqa: E402
@@ -201,17 +200,21 @@ check("B", "CounselingSession.STATUS_CHOICES سالم است (۵ گزینه)",
 check("B", "FileValidator.ALLOWED_EXTENSIONS سالم است (۶ مورد)",
       len(FileValidator.ALLOWED_EXTENSIONS) == 6)
 check("B", "ThemeManager.THEMES سالم است (۴ تم)", len(ThemeManager.THEMES) == 4)
+# (دور ۱۶) مدل Notification همراه زیرسیستم اعلان‌ها حذف شد؛ همان بررسی روی مدل‌های زنده
 check("B", "ثابت‌های کلاس در زمان اجرا خوانده می‌شوند",
-      Notification.TYPE_INFO == 'info' and Notification.PRIORITY_HIGH == 'high'
-      and Observation.BEHAVIOR_POSITIVE == 'مثبت')
+      CounselingSession.STATUS_CHOICES and Observation.BEHAVIOR_POSITIVE == 'مثبت'
+      and FileValidator.ALLOWED_EXTENSIONS)
 
 # نگهبان NameError: متدهایی که دور دهم به utc_now/utc_now_iso مهاجرت
 # کردند باید واقعاً اجرا شوند (خطای import جاافتاده فوراً لو می‌رود).
 runtime_errors = []
 from models.base import BaseModel  # noqa: E402
+from models.individual_goal import IndividualGoal  # noqa: E402
+from models.recommendation import Recommendation  # noqa: E402
+# (دور ۱۶) مدل Notification حذف شد؛ همان نگهبان روی مدل‌های زندهٔ زمان‌دار
 for obj, meth in ((BaseModel(), 'get_current_time'),
-                  (Notification(), 'mark_as_read'),
-                  (Notification(), 'mark_as_dismissed')):
+                  (Recommendation(), 'implement'),
+                  (IndividualGoal(), 'achieve')):
     try:
         getattr(obj, meth)()
     except Exception as exc:

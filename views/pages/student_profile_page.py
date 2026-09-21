@@ -284,6 +284,23 @@ class StudentProfilePage(QWidget):
         """)
         self.btn_report.clicked.connect(self.generate_report)
         action_layout.addWidget(self.btn_report)
+
+        # (بازرسی شانزدهم — BUG-027) دیالوگ پیوست‌ها کامل بود ولی هیچ نقطهٔ
+        # ورودی در برنامه نداشت؛ این دکمه همان دیالوگ را برای دانش‌آموز باز می‌کند.
+        self.btn_attachments = QPushButton("📎 پیوست‌ها")
+        self.btn_attachments.setStyleSheet("""
+            QPushButton {
+                background-color: #0B2E4F;
+                color: #F4C542;
+                padding: 8px 20px;
+                border: 1px solid #D9C36A;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #08223A; }
+        """)
+        self.btn_attachments.clicked.connect(self.open_attachments)
+        action_layout.addWidget(self.btn_attachments)
         
         main_layout.addLayout(action_layout)
         
@@ -1387,6 +1404,15 @@ class StudentProfilePage(QWidget):
 """
         QMessageBox.information(self, "جزئیات پیگیری", details)
     
+    def open_attachments(self):
+        """مدیریت پیوست‌های دانش‌آموز (BUG-027 — نقطهٔ ورودی AttachmentDialog)"""
+        if not self.student_id:
+            QMessageBox.warning(self, "توجه", "ابتدا یک دانش‌آموز را انتخاب کنید.")
+            return
+        from views.dialogs.attachment_dialog import AttachmentDialog
+        dialog = AttachmentDialog("student", int(self.student_id), self)
+        dialog.exec()
+
     def generate_report(self):
         """باز کردن گزارش کامل همین دانش‌آموز در صفحهٔ گزارش‌ها (بازرسی شانزدهم)"""
         if not self.profile_id:

@@ -68,19 +68,16 @@ with contextlib.redirect_stdout(io.StringIO()):
     conn = db.get_connection(user_id=1)
 
 from dal.competency_dal import CompetencyDAL  # noqa: E402
-from dal.notification_dal import NotificationDAL  # noqa: E402
 from dal.observation_dal import ObservationDAL  # noqa: E402
 from dal.staff_dal import StaffDAL  # noqa: E402
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL  # noqa: E402
 from dal.student_dal import StudentDAL  # noqa: E402
 from dal.user_dal import UserDAL  # noqa: E402
-from models.notification import Notification  # noqa: E402
 from models.observation import Observation  # noqa: E402
 from models.staff import Staff  # noqa: E402
 from models.student import Student  # noqa: E402
 from models.student_academic_profile import StudentAcademicProfile  # noqa: E402
 from models.user import User  # noqa: E402
-from services.notification_service import NotificationService  # noqa: E402
 from services.report_generator import ReportGenerator  # noqa: E402
 from utils.behavior_analysis import (  # noqa: E402
     DOMINANCE_RATIO,
@@ -90,7 +87,6 @@ from utils.behavior_analysis import (  # noqa: E402
 )
 
 report_gen = ReportGenerator()
-notif_service = NotificationService()
 
 
 def _period(label, positive, negative, neutral=0):
@@ -533,42 +529,8 @@ print()
 print("=" * 76)
 print("بخش F: جلوگیری از اعلان تکراری")
 print("=" * 76)
-
-from dal.notification_dal import NotificationDAL as _NDAL  # noqa: E402
-
-ndal = _NDAL()
-
-old_notif = Notification()
-old_notif.user_id = 1
-old_notif.type = Notification.TYPE_REMINDER
-old_notif.title = "یادآوری قدیمی"
-old_notif.message = "قدیمی"
-old_notif.entity_type = "followup"
-old_notif.entity_id = 777001
-old_notif.scheduled_at = "2020-01-01T00:00:00+00:00"
-old_id = ndal.create(old_notif).id
-conn.execute("UPDATE notifications SET created_at = '2020-01-01 00:00:00' "
-             "WHERE id = ?", (old_id,))
-for i in range(15):
-    n = Notification()
-    n.user_id = 1
-    n.type = Notification.TYPE_REMINDER
-    n.title = f"یادآوری {i}"
-    n.message = "جدید"
-    n.entity_type = "followup"
-    n.entity_id = 888000 + i
-    ndal.create(n)
-conn.commit()
-
-check("F", "اعلان قدیمیِ buried زیر ۱۰ اعلان آخر هم پیدا می‌شود",
-      notif_service._check_existing_notification(
-          777001, 1, Notification.TYPE_REMINDER) is True)
-
-check("F", "ترکیب متفاوت (نوع/موجودیت) تکراری شمرده نمی‌شود",
-      notif_service._check_existing_notification(
-          777001, 1, Notification.TYPE_OVERDUE) is False
-      and notif_service._check_existing_notification(
-          999999, 1, Notification.TYPE_REMINDER) is False)
+print("  ℹ️ [F] زیرسیستم اعلان‌ها (NotificationService/DAL/زمان‌بند) در دور ۱۶ با تصمیم کاربر حذف شد؛ "
+      "دو بررسی این بخش موضوعیت ندارند (زنگولهٔ برنامه از ReminderService زنده می‌خواند).")
 
 # ============================================================
 print()
@@ -666,20 +628,7 @@ print("=" * 76)
 print("بخش I: زمان‌بند پاکسازی و وابستگی‌های تست")
 print("=" * 76)
 
-from utils.notification_scheduler import NotificationScheduler  # noqa: E402
-from utils.time_utils import utc_now  # noqa: E402
-from datetime import timedelta as _td
-
-sched = NotificationScheduler()
-sched._last_cleanup_time = None
-first = sched._should_cleanup()
-sched._last_cleanup_time = utc_now()
-second = sched._should_cleanup()
-sched._last_cleanup_time = utc_now() - _td(hours=25)
-third = sched._should_cleanup()
-check("I", "پاکسازی فقط هر ۲۴ ساعت مجاز است (نه هر اجرا)",
-      first is True and second is False and third is True,
-      f"{first}/{second}/{third}")
+# (دور ۱۶) زمان‌بند اعلان‌ها حذف شد؛ بررسی «پاکسازی هر ۲۴ ساعت» موضوعیت ندارد.
 
 req = read("requirements.txt")
 check("I", "pytest در requirements ثبت شده (اجرای تست در محیط تمیز)",

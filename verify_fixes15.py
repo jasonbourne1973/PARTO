@@ -565,11 +565,11 @@ print("=" * 76)
 import json  # noqa: E402
 import threading  # noqa: E402
 
-from dal.notification_dal import NotificationDAL  # noqa: E402
-from models.notification import Notification  # noqa: E402
 from utils.security import normalize_entity_type  # noqa: E402
 
-notif_dal = NotificationDAL()
+# (دور ۱۶) زیرسیستم اعلان‌ها (DAL/سرویس/زمان‌بند) با تصمیم کاربر حذف شد؛ جدول
+# notifications و تریگرهای Audit آن در اسکیما مانده‌اند (دیتابیس‌های موجود داده
+# دارند). این بخش همان رفتار تریگرها را با SQL مستقیم روی اتصال برنامه می‌آزماید.
 
 
 def _notification_triggers(connection):
@@ -579,14 +579,25 @@ def _notification_triggers(connection):
 
 
 def _make_notification(title, recipient=1):
-    n = Notification()
-    n.user_id = recipient
-    n.type = 'reminder'
-    n.title = title
-    n.message = 'پیام آزمایشی اعلان'
-    n.entity_type = 'followup'
-    n.entity_id = 1
-    return notif_dal.create(n).id
+    c = db.get_connection()
+    cur = c.execute(
+        "INSERT INTO notifications (user_id, type, priority, title, message, entity_type, entity_id) "
+        "VALUES (?, 'reminder', 'medium', ?, 'پیام آزمایشی اعلان', 'followup', 1)", (recipient, title))
+    c.commit()
+    return cur.lastrowid
+
+
+def _mark_notification_read(notification_id):
+    c = db.get_connection()
+    c.execute("UPDATE notifications SET is_read = 1, read_at = CURRENT_TIMESTAMP WHERE id = ?", (notification_id,))
+    c.commit()
+
+
+def _soft_delete_old_notifications(days=30):
+    c = db.get_connection()
+    c.execute("UPDATE notifications SET is_deleted = 1, deleted_at = CURRENT_TIMESTAMP "
+              "WHERE created_at < datetime('now', ?) AND is_deleted = 0", (f'-{days} days',))
+    c.commit()
 
 
 fresh_triggers = _notification_triggers(conn)
@@ -657,7 +668,7 @@ check("E", "ایجاد اعلان: دقیقاً یک ردیف Audit با انج�
       and create_json.get('user_id') == 1 and 'message' in create_json,
       str(create_rows[:1]))
 
-notif_dal.mark_as_read(managed_id)
+_mark_notification_read(managed_id)
 edit_rows = conn.execute(
     "SELECT old_value, new_value FROM audit_logs WHERE entity_type = 'notifications' "
     "AND action = 'edit' AND entity_id = ?", (managed_id,)).fetchall()
@@ -688,7 +699,7 @@ check("E", "اعلانِ ساختهٔ نخ زمان‌بند (worker_context ب�
 conn.execute("UPDATE notifications SET created_at = '2000-01-01 00:00:00' WHERE id = ?",
              (managed_id,))
 conn.commit()
-notif_dal.delete_old(days=30)
+_soft_delete_old_notifications(days=30)
 soft_rows = conn.execute(
     "SELECT old_value FROM audit_logs WHERE entity_type = 'notifications' "
     "AND action = 'delete_soft' AND entity_id = ?", (managed_id,)).fetchall()

@@ -131,11 +131,12 @@ try:
           is_older_than(utc_shift_iso(days=-10), days=7) is True and
           is_older_than(utc_shift_iso(days=-1), days=7) is False)
 
-    # ۳) بررسی کاربردی: پاک‌سازی اعلان‌های قدیمی (باگ فرمت مخلوط)
-    from dal.notification_dal import NotificationDAL
+    # ۳) بررسی کاربردی: مقایسهٔ برش زمانی با CURRENT_TIMESTAMP خودِ SQLite (باگ فرمت مخلوط)
+    #    (دور ۱۶: زیرسیستم اعلان‌ها حذف شد؛ همان رگرسیون روی utc_shift_sql که
+    #    پاک‌سازی‌های زمان‌محور از آن استفاده می‌کنند، مستقیم آزموده می‌شود.)
     from dal.staff_dal import StaffDAL
-    from models.notification import Notification
     from models.staff import Staff
+    from utils.time_utils import utc_shift_sql
 
     st = Staff()
     st.full_name = "کاربر آزمون هشتم"
@@ -144,29 +145,15 @@ try:
     with contextlib.redirect_stdout(buf):
         st = StaffDAL().create(st)
 
-    old = Notification()
-    old.user_id, old.type, old.priority = st.id, 'info', 'low'
-    old.title, old.message = "اعلان قدیمی", "متن"
-    fresh = Notification()
-    fresh.user_id, fresh.type, fresh.priority = st.id, 'info', 'low'
-    fresh.title, fresh.message = "اعلان تازه", "متن"
-    with contextlib.redirect_stdout(buf):
-        nd = NotificationDAL()
-        old = nd.create(old)
-        fresh = nd.create(fresh)
-
-    # created_at را خودکار SQLite پر می‌کند؛ برای آزمون، یکی را قدیمی می‌کنیم
-    conn.execute("UPDATE notifications SET created_at = datetime('now', '-40 days') WHERE id = ?",
-                 (old.id,))
+    cutoff = utc_shift_sql(days=-30)
+    conn.execute("CREATE TEMP TABLE IF NOT EXISTS _cutoff_probe (id INTEGER PRIMARY KEY, created_at TEXT DEFAULT CURRENT_TIMESTAMP)")
+    conn.execute("DELETE FROM _cutoff_probe")
+    conn.execute("INSERT INTO _cutoff_probe (id) VALUES (1)")
+    conn.execute("INSERT INTO _cutoff_probe (id, created_at) VALUES (2, datetime('now', '-40 days'))")
     conn.commit()
-
-    with contextlib.redirect_stdout(buf):
-        nd.delete_old(days=30)
-
-    ids = [r['id'] for r in conn.execute(
-        "SELECT id FROM notifications WHERE user_id = ? AND is_deleted = 0", (st.id,)).fetchall()]
-    check("A", "delete_old فقط اعلان قدیمی را حذف می‌کند",
-          fresh.id in ids and old.id not in ids, f"ids={ids} old={old.id} fresh={fresh.id}")
+    old_ids = [r[0] for r in conn.execute("SELECT id FROM _cutoff_probe WHERE created_at < ?", (cutoff,)).fetchall()]
+    check("A", "برش زمانی utc_shift_sql با قالب CURRENT_TIMESTAMP خودِ SQLite (UTC، جداکنندهٔ فاصله) مقایسه‌پذیر است: فقط ردیف ۴۰روزه قدیمی شمرده می‌شود",
+          old_ids == [2] and 'T' not in cutoff and len(cutoff) == 19, f"cutoff={cutoff} old_ids={old_ids}")
 
     # ========================================================
     print()
@@ -500,20 +487,16 @@ try:
     from models.analytics_models import AnalyticsDashboardData as AnalyticsSummary
     from models.base import BaseModel
     from models.individual_goal import IndividualGoal
-    from models.notification import Notification
     from models.recommendation import Recommendation
 
     try:
-        n = Notification()
-        n.mark_as_read()
-        n.mark_as_dismissed()
         rec = Recommendation()
         rec.implement()
         rec.complete(feedback='خوب')
         g = IndividualGoal()
         g.achieve(result='انجام شد')
         dash = AnalyticsSummary(observation_distribution=None, grade_distribution=[], competency_usage=[], intervention_stats=None, followup_stats=None, overdue_count=0, students_without_observation=0, observation_trend=[], intervention_trend=[], followup_trend=[])
-        vals = [BaseModel.get_current_time(), n.read_at, n.dismissed_at,
+        vals = [BaseModel.get_current_time(),
                 rec.implemented_at, rec.completed_at, g.achievement_date,
                 dash.generated_at]
         aware = all(v and _dt.fromisoformat(v).tzinfo is not None for v in vals)

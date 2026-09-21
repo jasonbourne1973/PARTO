@@ -1439,13 +1439,13 @@ models → utils
 | 020 | P2 | analytics_dashboard | دابل‌کلیک placeholder | FIXED |
 | 021 | P3 | student_profile, reports | «گزارش پرونده» فقط پیام | FIXED |
 | 022 | P2 | ۴۰ فایل views | ۱۰۴ بلوک استایل با کنتراست < ۳:۱ | FIXED |
-| 023 | P2 | main_window | کامبوی سال تحصیلی تزئینی | **NOT_FIXED — تصمیم** |
+| 023 | P2 | main_window | کامبوی سال تحصیلی تزئینی | FIXED (بخش ۹) |
 | 024 | P1 | observation model/service | ثبت مشاهده بدون توضیحات اختیاری شکست می‌خورد | FIXED |
 | 025 | P1 | followup_form | ویرایش پیگیری غیرممکن | FIXED |
 | 026 | P1 | advanced_search_dialog | جست‌وجوی پیشرفته همیشه خالی | FIXED |
-| 027 | P2 | attachment_dialog | بدون نقطهٔ ورودی در UI | **NOT_FIXED — تصمیم** |
-| 028 | P3 | notifications subsystem | هرگز راه‌اندازی/خوانده نمی‌شود | **NOT_FIXED — تصمیم** |
-| 029 | P4 | filter_widget/saved_filters | کد مرده | **NOT_FIXED — تصمیم** |
+| 027 | P2 | attachment_dialog | بدون نقطهٔ ورودی در UI | FIXED (بخش ۹) |
+| 028 | P3 | notifications subsystem | هرگز راه‌اندازی/خوانده نمی‌شود | FIXED — حذف با تصمیم کاربر (بخش ۹) |
+| 029 | P4 | filter_widget/saved_filters | کد مرده | FIXED (ویجت حذف؛ سرویس/DAL فیلترهای ذخیره‌شده به‌خاطر پوشش verify1/2 مانده — بخش ۹) |
 | 030 | P1 | attachment_dialog | آپلود چندفایل QThread را می‌کشت | FIXED |
 | 031 | P1 | attachment_service | نام فایل با timestamp ثانیه‌ای (بازنویسی) | FIXED |
 | 032 | P2 | attachment_service | فایل یتیم / نوشتن غیراتمیک | FIXED |
@@ -1459,7 +1459,7 @@ models → utils
 | 040 | P2 | activities_page | ویرایش رکورد اشتباه با فیلتر؛ سیگنال بدون فرستنده | FIXED |
 | 041 | P4 | backup_page | نوار پیشرفت آرایشی | FIXED |
 
-جمع: **۴۱ ایراد** — ۳۷ FIXED، ۴ NOT_FIXED (همه منتظر تصمیم شما). هیچ امتیاز کلی
+جمع: **۴۱ ایراد** — **۴۱ FIXED** (چهار تصمیم باز در بخش ۹ اجرا شد). هیچ امتیاز کلی
 به برنامه داده نمی‌شود (بند ۳۴).
 
 ## وضعیت قابلیت‌ها در ۸ حالت (بند ۳۶)
@@ -1468,8 +1468,8 @@ models → utils
 |---|---|
 | ۱. واقعاً کار می‌کند (اثبات با پیش/پس‌شرط) | ثبت/ویرایش/حذف مشاهده، مداخله، پیگیری، دانش‌آموز، هدف، فعالیت، جلسهٔ مشاوره؛ اختصاص معلم؛ ورود/تغییر رمز؛ جست‌وجوی پیشرفته؛ گزارش دانش‌آموز + PDF/Excel؛ گزارش والدین؛ خروجی AI (۶ قالب)؛ پشتیبان‌گیری/بازیابی/حذف پشتیبان؛ پشتیبان خودکار (شروع/توقف)؛ ایمپورت/خروجی اکسل دانش‌آموزان؛ ویرایش/افزودن/حذف کلاس؛ اطلاعات مدرسه؛ زنگولهٔ یادآور؛ Migration؛ ناوبری همهٔ ۱۳ صفحه؛ ۱۶۷ handler صفحه‌ها بدون خطا |
 | ۲. کار می‌کند ولی ناقص | گزارش کلاس/معلم/عملکرد معلم: زنجیره اجرا می‌شود ولی فایل خروجی در این محیط تولید نشد (`NOT_TESTED`)؛ ویرایش اختصاص معلم (فقط ساخت دیالوگ آزموده شد) |
-| ۳. دکمه/کد دارد ولی backend ندارد | کامبوی سال تحصیلی هدر (BUG-023) |
-| ۴. backend دارد ولی UI ندارد | پیوست‌ها (BUG-027)، اعلان‌ها (BUG-028)، Screening |
+| ۳. دکمه/کد دارد ولی backend ندارد | — (کامبوی سال تحصیلی هدر اکنون سال فعال را عوض می‌کند — BUG-023) |
+| ۴. backend دارد ولی UI ندارد | Screening (طبق تصمیم شما فقط گزارش)؛ سرویس/DAL «فیلترهای ذخیره‌شده» و AdvancedSearchService (فقط در verify1/2 استفاده می‌شوند) |
 | ۵. UI و backend هست ولی اتصال ناقص | — (موارد یافت‌شده اصلاح شدند: BUG-018/019/020/021/040) |
 | ۶. فقط کد مرده | فیلترهای ذخیره‌شده، RecommendationWidget، BackupDAL، SchoolReportService، report_template، analytics_models (جدول بخش ۷) |
 | ۷. قابل اجرا نیست | — |
@@ -1507,3 +1507,61 @@ models → utils
 آزمون تغییریافته در مرحلهٔ ۶: فقط فهرست‌های داخلی `verify_fixes16` (حذف سه
 سیگنال مرده از فهرست «بدون گیرنده»، آستانهٔ تعداد صفحه‌ها پس از حذف دو صفحهٔ
 مرده). هیچ آزمونی حذف یا غیرفعال نشد.
+
+---
+
+# بخش ۹ — اجرای چهار تصمیم باز (پس از تأیید کاربر)
+
+پایه: کامیت `3223c67`. کاربر: «موارد باقی‌مانده را اصلاح کن»؛ برای BUG-028 با
+پرسش صریح گزینهٔ «حذف زیرسیستم» انتخاب شد.
+
+## BUG-023 — کامبوی سال تحصیلی هدر → FIXED
+`MainWindow.on_year_changed`: انتخاب سال = **فعال‌سازی همان سال** با تأیید
+(`QMessageBox.question`) → `AcademicYearDAL.set_active` → برچسب هدر → سیگنال
+`academic_year_changed` → `_reload_pages_for_year()` (همهٔ متدهای `load_*`
+بدون آرگومانِ صفحه‌ها و زیرصفحه‌ها؛ شکست یک صفحه بقیه را متوقف نمی‌کند).
+انصراف → کامبو به سال فعال برمی‌گردد؛ سال بایگانی‌شده → هشدار و برگشت.
+**تست:** verify16 H1 (انصراف/تأیید/بایگانی با پیش/پس‌شرط روی `academic_years`).
+
+## BUG-027 — نقطهٔ ورودی پیوست‌ها → FIXED
+دکمهٔ «📎 پیوست‌ها» در نوار اقدام پروندهٔ دانش‌آموز → `AttachmentDialog('student',
+student_id)` (زنجیرهٔ داخلی دیالوگ در مرحلهٔ ۴ کامل آزموده شده بود). بدون
+دانش‌آموز → هشدار. **تست:** verify16 H2.
+
+## BUG-028 — زیرسیستم اعلان‌ها → FIXED (حذف)
+حذف `utils/notification_scheduler.py`، `services/notification_service.py`،
+`dal/notification_dal.py`، `models/notification.py` (هیچ مصرف‌کننده‌ای در برنامه
+نداشتند؛ زنگولهٔ هدر از `ReminderService` زنده می‌خواند). جدول `notifications`
+و تریگرهای Audit آن در اسکیما ماندند (دیتابیس‌های موجود داده دارند؛ هیچ
+migration مخربی اجرا نمی‌شود). **آزمون‌های تطبیق‌داده‌شده (به‌خاطر حذف
+موضوع‌شان، نه برای سبزشدن):** verify8 §A (بررسی «delete_old» → همان رگرسیون
+قالب زمانی روی `utc_shift_sql`؛ بررسی متدهای زمان‌دار → مدل‌های زنده)، verify10
+(ثابت‌های کلاس/متدهای زمان‌دار → مدل‌های زنده)، verify12 §F (۲ بررسی حذف) و §I
+(۱ بررسی حذف)، verify14 §B6 (بدون زمان‌بند)، §G (۲ بررسی حذف)، §J (۲ بررسی
+حذف)، verify15 §E (همان تریگرهای Audit با SQL مستقیم به‌جای DAL — پوشش حفظ
+شد). خالص: ۷ بررسی حذف، ۴ بررسی تطبیق.
+
+## BUG-029 — فیلترهای ذخیره‌شده → FIXED (ویجت)
+`views/widgets/filter_widget.py` (بدون مصرف‌کننده) حذف شد.
+`dal/saved_filter_dal.py`، `models/saved_filter.py` و
+`services/advanced_search_service.py` ماندند چون `verify_fixes.py` و
+`verify_fixes2.py` مستقیماً `save_filter`/`search_students` را می‌آزمایند (در
+برنامه استفاده نمی‌شوند — در فهرست «منتظر تصمیم» ثبت است).
+
+## آزمون نهایی پس از بخش ۹
+
+| مجموعه | نتیجه |
+|---|---|
+| `pytest -q tests` | 26 passed |
+| verify_fixes 1 … 15 | همه سبز (verify12: ۴۰، verify14: ۴۶ پس از حذف زیرسیستم اعلان‌ها) |
+| **verify_fixes16** | **79 / 79** |
+| `ruff check .` | All checks passed |
+| جمع | **۶۳۲ بررسی** |
+
+## فهرست نهایی کد بدون مصرف‌کنندهٔ باقی‌مانده (اطلاع)
+`dal/saved_filter_dal.py` + `services/advanced_search_service.py` (پوشش
+verify1/2)، `views/widgets/recommendation_widget.py` (تصمیم شما: گزارش)،
+`dal/backup_dal.py`، `services/school_report_service.py` (verify2/7/8)،
+`dal/screening_tool_dal.py` (Screening)، `utils/report_template.py` (verify2/3)،
+`models/analytics_models.py` (verify8/10)، توابع `get_*_display` در
+`config/constants.py`، کلاس‌های خطای بی‌استفاده در `utils/error_handler.py`.

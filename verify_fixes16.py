@@ -33,7 +33,10 @@
   G) حذف کد مردهٔ تأییدشده بدون ارجاع باقی‌مانده، جهت وابستگی لایه‌ها، سیگنال‌های هرگز-emit-نشده،
      سرویس‌های wrapper ...................................................................... ۴ بررسی
 
-جمع: ۷۷ بررسی
+تکمیلی — تصمیم‌های باز (BUG-023 و BUG-027):
+  H) کامبوی سال تحصیلی هدر (فعال‌سازی با تأیید، برگشت، بایگانی) و نقطهٔ ورودی پیوست‌ها ... ۲ بررسی
+
+جمع: ۷۹ بررسی
 """
 
 import contextlib
@@ -1104,7 +1107,6 @@ KNOWN_RECEIVERLESS = {
     ('views/widgets/competency_tree_widget.py', 'behavior_selected'),
     ('views/widgets/competency_tree_widget.py', 'competency_selected'),
     ('views/widgets/competency_tree_widget.py', 'indicator_selected'),
-    ('views/widgets/filter_widget.py', 'filter_applied'),
     ('views/widgets/help_widget.py', 'help_requested'),
     ('views/widgets/recommendation_widget.py', 'intervention_requested'),
     ('views/widgets/recommendation_widget.py', 'recommendation_updated'),
@@ -1508,12 +1510,7 @@ check("D", "سرویس مشاهده: بدون توضیحات → ثبت می‌�
 
 # --- D16: کد بدون مصرف‌کننده در رابط (فقط ثبت وضعیت — تصمیم با کاربر)
 UNREACHABLE_UI = {
-    'AttachmentDialog': {'views/dialogs/attachment_dialog.py'},
-    'FilterWidget': {'views/widgets/filter_widget.py'},
     'RecommendationWidget': {'views/widgets/recommendation_widget.py'},
-    'NotificationScheduler': {'utils/notification_scheduler.py'},
-    # سرویس اعلان فقط از زمان‌بندِ راه‌اندازی‌نشده استفاده می‌شود (همان زیرسیستم)
-    'NotificationService': {'services/notification_service.py', 'utils/notification_scheduler.py'},
 }
 consumers = {}
 for cls_name, own_files in UNREACHABLE_UI.items():
@@ -1528,7 +1525,7 @@ for cls_name, own_files in UNREACHABLE_UI.items():
     if re.search(rf'\b{cls_name}\b', read('main.py')):
         hits.append('main.py')
     consumers[cls_name] = hits
-check("D", "وضعیت ثبت‌شده (بدون تغییر کد): AttachmentDialog، FilterWidget، RecommendationWidget، NotificationScheduler و NotificationService هیچ مصرف‌کننده‌ای در رابط/راه‌اندازی ندارند (UNREACHABLE/DEAD_CODE — تصمیم با کاربر)",
+check("D", "وضعیت ثبت‌شده: RecommendationWidget هیچ مصرف‌کننده‌ای در رابط ندارد (DEAD_CODE — گزارش)؛ AttachmentDialog اکنون از پروندهٔ دانش‌آموز باز می‌شود (بخش H)؛ زیرسیستم اعلان‌ها حذف شد",
       all(not hits for hits in consumers.values()),
       str({k: v for k, v in consumers.items() if v}))
 
@@ -2055,10 +2052,11 @@ print("=" * 76)
 
 # --- G1: ماژول‌های مردهٔ حذف‌شده دیگر نیستند و هیچ ارجاعی به آن‌ها نمانده؛ ماژول‌های «منتظر تصمیم» هنوز هستند
 REMOVED_DEAD = ["views/pages/assign_teacher_page.py", "views/pages/teacher_students_page.py",
-                "utils/cache.py", "utils/competency_helper.py", "models/student_file.py"]
-PENDING_DECISION = ["views/dialogs/attachment_dialog.py", "views/widgets/filter_widget.py", "dal/saved_filter_dal.py",
-                    "views/widgets/recommendation_widget.py", "utils/notification_scheduler.py",
-                    "services/notification_service.py", "dal/backup_dal.py", "services/school_report_service.py",
+                "utils/cache.py", "utils/competency_helper.py", "models/student_file.py",
+                "views/widgets/filter_widget.py", "utils/notification_scheduler.py",
+                "services/notification_service.py", "dal/notification_dal.py", "models/notification.py"]
+PENDING_DECISION = ["dal/saved_filter_dal.py", "services/advanced_search_service.py",
+                    "views/widgets/recommendation_widget.py", "dal/backup_dal.py", "services/school_report_service.py",
                     "dal/screening_tool_dal.py", "utils/report_template.py", "models/analytics_models.py"]
 app_dirs = ["main.py", "views", "views/pages", "views/dialogs", "views/widgets", "services", "dal", "utils", "database", "models", "config"]
 app_sources = {}
@@ -2071,9 +2069,11 @@ for d in app_dirs:
             app_sources[os.path.join(d, fname)] = read(os.path.join(d, fname))
 stale_refs = []
 for removed in REMOVED_DEAD:
+    dotted = removed[:-3].replace("/", ".")            # مثلاً models.notification
     stem = os.path.basename(removed)[:-3]
+    pattern = rf"\b{re.escape(dotted)}\b|\bimport\s+{re.escape(stem)}\b|from\s+\.\s*import\s+{re.escape(stem)}\b"
     for path, src in app_sources.items():
-        if re.search(rf"\b{re.escape(stem)}\b", src):
+        if re.search(pattern, src):
             stale_refs.append((removed, path))
 check("G", "کد مردهٔ تأییدشده (دو صفحهٔ هرگز-سوارنشده، کش/کمک‌شایستگی/مدل پروندهٔ بی‌استفاده) حذف شده و هیچ ارجاعی به آن‌ها در کد نمانده؛ ماژول‌های منتظر تصمیم دست‌نخورده‌اند",
       not any(os.path.exists(p) for p in REMOVED_DEAD) and not stale_refs
@@ -2083,7 +2083,7 @@ check("G", "کد مردهٔ تأییدشده (دو صفحهٔ هرگز-سوار�
 # --- G2: جهت وابستگی لایه‌ها (بند ۲۸)
 FORBIDDEN = {"services": {"views"}, "dal": {"services", "views"}, "models": {"dal", "services", "views"},
              "database": {"services", "views", "dal"}, "config": {"views", "services", "dal", "utils", "database"}}
-UTILS_DAL_EXCEPTIONS = {"utils/excel_importer.py", "utils/notification_scheduler.py", "utils/backup.py", "utils/security.py"}
+UTILS_DAL_EXCEPTIONS = {"utils/excel_importer.py", "utils/backup.py", "utils/security.py"}
 layer_violations = []
 for path, src in app_sources.items():
     layer = path.split("/")[0]
@@ -2104,7 +2104,7 @@ for path, src in app_sources.items():
 raw_db_in_views = [(p, m.group(0)) for p, src in app_sources.items() if p.startswith("views")
                    for m in re.finditer(r"\.execute\(|execute_query\(|get_connection\(\)", src)]
 qt_in_services = [p for p, src in app_sources.items() if p.startswith("services") and re.search(r"^\s*(from|import)\s+PySide6", src, re.M)]
-check("G", "جهت وابستگی (بند ۲۸): services→views، dal→services/views، models→dal/services، database→services/dal ممنوع و رعایت شده؛ هیچ SQL/اتصال خام در views؛ هیچ import از Qt در services (استثناهای utils→dal مستند: excel_importer، notification_scheduler، backup، security)",
+check("G", "جهت وابستگی (بند ۲۸): services→views، dal→services/views، models→dal/services، database→services/dal ممنوع و رعایت شده؛ هیچ SQL/اتصال خام در views؛ هیچ import از Qt در services (استثناهای utils→dal مستند: excel_importer، backup، security)",
       not layer_violations and not raw_db_in_views and not qt_in_services,
       f"violations={layer_violations[:5]} raw={raw_db_in_views[:3]} qt={qt_in_services}")
 
@@ -2131,8 +2131,99 @@ for fname in sorted(os.listdir("services")):
                 wrappers += 1
         if methods and wrappers / len(methods) > 0.5:
             wrapper_services.append(cls.name)
-check("G", "لایهٔ سرویس (بند ۲۹): هیچ سرویس زنده‌ای صرفاً wrapper ظاهری DAL نیست (تنها NotificationService در زیرسیستم دست‌نیافتنی اعلان‌ها)",
-      set(wrapper_services) <= {"NotificationService"}, str(wrapper_services))
+check("G", "لایهٔ سرویس (بند ۲۹): هیچ سرویسی صرفاً wrapper ظاهری DAL نیست",
+      not wrapper_services, str(wrapper_services))
+
+# ============================================================
+print()
+print("=" * 76)
+print("بخش H: تصمیم‌های باز — کامبوی سال تحصیلی هدر، نقطهٔ ورودی پیوست‌ها، حذف FilterWidget")
+print("=" * 76)
+
+from models.academic_year import AcademicYear  # noqa: E402
+
+# --- H1: کامبوی سال تحصیلی هدر واقعاً سال فعال را عوض می‌کند (با تأیید)، رد → برگشت، بایگانی → هشدار
+with contextlib.redirect_stdout(io.StringIO()):
+    year_dal = AcademicYearDAL()
+    active_before = year_dal.get_active()
+    new_year = AcademicYear()
+    new_year.title, new_year.start_date, new_year.end_date, new_year.is_active = "1406-1407", "1406/07/01", "1407/03/31", 0
+    new_year_id = year_dal.create(new_year).id
+    archived = AcademicYear()
+    archived.title, archived.start_date, archived.end_date, archived.is_active = "1400-1401", "1400/07/01", "1401/03/31", 0
+    archived_id = year_dal.create(archived).id
+    year_dal.archive(archived_id)
+    win.load_academic_years()
+
+    def _combo_index_of(year_id):
+        return next(i for i in range(win.year_combo.count()) if win.year_combo.itemData(i) == year_id)
+
+    # ۱) انصراف → هیچ تغییری
+    QMessageBox.question = staticmethod(lambda *a, **k: QMessageBox.StandardButton.No)
+    win.year_combo.setCurrentIndex(_combo_index_of(new_year_id))
+    app.processEvents()
+    after_no = year_dal.get_active().id
+    combo_after_no = win.year_combo.currentData()
+    # ۲) تأیید → سال فعال عوض می‌شود و صفحه‌ها بارگذاری می‌شوند
+    QMessageBox.question = staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes)
+    n_msgs = len(ui_msgs)
+    win.year_combo.setCurrentIndex(_combo_index_of(new_year_id))
+    app.processEvents()
+    after_yes = year_dal.get_active().id
+    label_after_yes = win.year_label.text()
+    switch_msgs = ui_msgs[n_msgs:]
+    # ۳) سال بایگانی‌شده → هشدار و برگشت به سال فعال
+    n_msgs = len(ui_msgs)
+    win.year_combo.setCurrentIndex(_combo_index_of(archived_id))
+    app.processEvents()
+    after_archived = year_dal.get_active().id
+    archived_msgs = ui_msgs[n_msgs:]
+    combo_after_archived = win.year_combo.currentData()
+    # بازگرداندن سال فعال قبلی برای بقیهٔ بررسی‌ها
+    win.year_combo.setCurrentIndex(_combo_index_of(active_before.id))
+    app.processEvents()
+    restored = year_dal.get_active().id
+check("H", "BUG-023 کامبوی سال هدر: انصراف → بدون تغییر و برگشت کامبو؛ تأیید → سال فعال در DB عوض می‌شود، برچسب و صفحه‌ها به‌روز؛ سال بایگانی‌شده → هشدار و برگشت (قبلاً فقط برچسب عوض می‌شد)",
+      after_no == active_before.id and combo_after_no == active_before.id
+      and after_yes == new_year_id and "1406-1407" in label_after_yes and not [m for m in switch_msgs if m[0] == "crit"]
+      and after_archived == new_year_id and archived_msgs and archived_msgs[-1][0] == "warn" and combo_after_archived == new_year_id
+      and restored == active_before.id,
+      f"no={after_no} yes={after_yes} label={label_after_yes!r} archived={after_archived} msgs={archived_msgs[-1:]} restored={restored}")
+
+# --- H2: دکمهٔ «📎 پیوست‌ها» در پروندهٔ دانش‌آموز، دیالوگ پیوست را برای همان دانش‌آموز باز می‌کند
+import views.dialogs.attachment_dialog as attachment_dialog_mod  # noqa: E402
+
+opened = []
+
+
+class _RecorderDialog:
+    def __init__(self, entity_type, entity_id, parent=None):
+        opened.append((entity_type, entity_id, type(parent).__name__))
+
+    def exec(self):
+        opened.append("exec")
+        return 0
+
+
+real_attachment_dialog = attachment_dialog_mod.AttachmentDialog
+attachment_dialog_mod.AttachmentDialog = _RecorderDialog
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        profile_page = win.students_page.profile_page
+        profile_page.set_student_id(form_student.id)
+        profile_page.open_attachments()
+        profile_page.student_id = None
+        n_msgs = len(ui_msgs)
+        profile_page.open_attachments()
+        no_student_msgs = ui_msgs[n_msgs:]
+        profile_page.set_student_id(form_student.id)
+finally:
+    attachment_dialog_mod.AttachmentDialog = real_attachment_dialog
+check("H", "BUG-027 دکمهٔ «📎 پیوست‌ها» در پروندهٔ دانش‌آموز: AttachmentDialog('student', شناسهٔ همان دانش‌آموز) باز می‌شود؛ بدون دانش‌آموز → هشدار (قبلاً هیچ نقطهٔ ورودی نبود)",
+      opened == [("student", form_student.id, "StudentProfilePage"), "exec"]
+      and profile_page.btn_attachments.text().startswith("📎")
+      and no_student_msgs and no_student_msgs[-1][0] == "warn",
+      f"opened={opened}")
 
 # ============================================================
 print()
