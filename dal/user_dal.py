@@ -137,14 +137,14 @@ class UserDAL:
                 'must_change_password': user.must_change_password,
             })
 
-            conn.commit()
+            self.db.commit()
             return user
 
         except sqlite3.IntegrityError as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"نام کاربری تکراری است یا داده نامعتبر: {e}")
         except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
-            conn.rollback()
+            self.db.rollback()
             raise
 
     # ============================================================
@@ -396,14 +396,14 @@ class UserDAL:
                 user.id
             ))
 
-            conn.commit()
+            self.db.commit()
             return user
 
         except sqlite3.IntegrityError as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"نام کاربری تکراری است یا داده نامعتبر: {e}")
         except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
-            conn.rollback()
+            self.db.rollback()
             raise
 
     def update_password(self, user_id, new_raw_password,
@@ -439,13 +439,13 @@ class UserDAL:
         ))
 
         if cursor.rowcount == 0:
-            conn.rollback()
+            self.db.rollback()
             return False
 
-        conn.commit()
+        self.db.commit()
         self._audit(cursor, user_id_actor, 'edit', 'user', user_id,
                     {'password_changed': True})
-        conn.commit()
+        self.db.commit()
         return True
 
     def reset_password(self, user_id, user_id_actor=None, length=12):
@@ -476,13 +476,13 @@ class UserDAL:
         """, (Security.hash_password(new_password), user_id))
 
         if cursor.rowcount == 0:
-            conn.rollback()
+            self.db.rollback()
             return None
 
-        conn.commit()
+        self.db.commit()
         self._audit(cursor, user_id_actor, 'edit', 'user', user_id,
                     {'password_reset': True})
-        conn.commit()
+        self.db.commit()
         return new_password
 
     def update_last_login(self, user_id):
@@ -492,7 +492,7 @@ class UserDAL:
             UPDATE users SET last_login = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND is_deleted = 0
         """, (utc_now_iso(), user_id))
-        conn.commit()
+        self.db.commit()
 
     def set_active(self, user_id, is_active, user_id_actor=None):
         """فعال یا غیرفعال کردن کاربر"""
@@ -507,13 +507,13 @@ class UserDAL:
         """, (1 if is_active else 0, user_id))
 
         if cursor.rowcount == 0:
-            conn.rollback()
+            self.db.rollback()
             return False
 
-        conn.commit()
+        self.db.commit()
         self._audit(cursor, user_id_actor, 'status_change', 'user', user_id,
                     {'is_active': 1 if is_active else 0})
-        conn.commit()
+        self.db.commit()
         return True
 
     def set_role(self, user_id, new_role, user_id_actor=None):
@@ -539,10 +539,10 @@ class UserDAL:
             WHERE id = ? AND is_deleted = 0
         """, (new_role, user_id))
 
-        conn.commit()
+        self.db.commit()
         self._audit(cursor, user_id_actor, 'role_change', 'user', user_id,
                     {'old_role': old_role, 'new_role': new_role})
-        conn.commit()
+        self.db.commit()
         return True
 
     # ============================================================
@@ -570,7 +570,7 @@ class UserDAL:
             WHERE id = ? AND is_deleted = 0
         """, (now, user_id_actor, user_id))
 
-        conn.commit()
+        self.db.commit()
         return True
 
     def restore(self, user_id, user_id_actor=None):
@@ -600,10 +600,10 @@ class UserDAL:
             WHERE id = ? AND is_deleted = 1
         """, (user_id,))
 
-        conn.commit()
+        self.db.commit()
         self._audit(cursor, user_id_actor, 'restore', 'user', user_id,
                     {'restored': True})
-        conn.commit()
+        self.db.commit()
         return True
 
     def permanent_delete(self, user_id):
@@ -611,7 +611,7 @@ class UserDAL:
         conn = self.db.get_connection()
         cursor = conn.cursor()
         cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
-        conn.commit()
+        self.db.commit()
         return cursor.rowcount > 0
 
     # ============================================================
@@ -684,7 +684,8 @@ class UserDAL:
                 (trigger,),
             ).fetchone()
             return row is not None
-        except sqlite3.Error:
+        except sqlite3.Error as _exc:
+            logger.debug(f"خطای مدیریت‌شده در _audit_covered_by_trigger (مسیر جایگزین): {_exc}")
             return False
 
     def _audit(self, cursor, user_id_actor, action, entity_type,

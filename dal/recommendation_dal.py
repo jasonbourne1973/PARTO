@@ -56,7 +56,7 @@ class RecommendationDAL:
             recommendation.feedback_notes
         ))
         
-        conn.commit()
+        self.db.commit()
         recommendation.id = cursor.lastrowid
         return recommendation
     
@@ -202,7 +202,7 @@ class RecommendationDAL:
             recommendation.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return recommendation
     
     def update_status(self, recommendation_id, new_status, feedback=None, notes=None):
@@ -237,7 +237,7 @@ class RecommendationDAL:
         params.append(recommendation_id)
         
         cursor.execute(query, params)
-        conn.commit()
+        self.db.commit()
         return True
     
     def delete(self, recommendation_id, user_id=None):
@@ -261,7 +261,7 @@ class RecommendationDAL:
             WHERE id = ?
         """, (now, user_id, recommendation_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def restore(self, recommendation_id):
@@ -277,7 +277,7 @@ class RecommendationDAL:
             WHERE id = ? AND is_deleted = 1
         """, (recommendation_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def get_count_by_student(self, profile_id, status=None):
@@ -358,7 +358,8 @@ class RecommendationDAL:
         if row['related_observation_ids']:
             try:
                 recommendation.related_observation_ids = json.loads(row['related_observation_ids'])
-            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_recommendation (مسیر جایگزین): {_exc}")
                 recommendation.related_observation_ids = None
         else:
             recommendation.related_observation_ids = None
@@ -368,7 +369,8 @@ class RecommendationDAL:
         if row['metadata']:
             try:
                 recommendation.metadata = json.loads(row['metadata'])
-            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_recommendation (مسیر جایگزین): {_exc}")
                 recommendation.metadata = None
         else:
             recommendation.metadata = None

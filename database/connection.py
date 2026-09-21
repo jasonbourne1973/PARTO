@@ -23,6 +23,13 @@ from utils.time_utils import utc_now
 # می‌شود؛ خودِ SQLite نویسنده‌ها را سریال می‌کند (WAL + timeout).
 DB_THREAD_LOCK = threading.RLock()
 
+# سیاست «contextlib.suppress(Exception)» در این ماژول (بازرسی شانزدهم — بند ۱۶):
+# فقط در مسیرهای پایانی/جبرانی استفاده می‌شود — بستن اتصال، rollback پس از
+# یک خطای دیگر، checkpoint پیش از بستن — جایی که خودِ خطای اصلی قبلاً بالا
+# رفته یا در حال بالا رفتن است و شکستِ «تمیزکاری» نباید آن را پنهان کند یا
+# بستن برنامه/بازیابی را متوقف کند. هیچ مسیر خواندن/نوشتن داده با suppress
+# پوشانده نمی‌شود.
+
 
 class _DatabaseConnectionMeta(type):
     """

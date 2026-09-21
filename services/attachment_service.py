@@ -464,5 +464,6 @@ class AttachmentService(BaseService):
                 staff = staff_dal.get_by_id(attachment.created_by)
                 if staff:
                     attachment.created_by_name = staff.full_name
-            except Exception:
+            except Exception as _exc:
+                self.logger.debug(f"خطای مدیریت‌شده در _enrich_attachment (مسیر جایگزین): {_exc}")
                 attachment.created_by_name = "نامشخص"

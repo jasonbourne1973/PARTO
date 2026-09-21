@@ -294,8 +294,13 @@ class ActivitiesPage(QWidget):
         )
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                self.extracurricular_service.delete_activity(activity.id)
+                # (بازرسی شانزدهم) نتیجهٔ حذف بررسی می‌شود؛ قبلاً حتی وقتی سرویس
+                # False برمی‌گرداند (رکورد قبلاً حذف شده) پیام موفقیت داده می‌شد.
+                deleted = self.extracurricular_service.delete_activity(activity.id)
                 self.load_activities()
-                QMessageBox.information(self, "موفقیت", "فعالیت با موفقیت حذف شد")
+                if deleted:
+                    QMessageBox.information(self, "موفقیت", "فعالیت با موفقیت حذف شد")
+                else:
+                    QMessageBox.warning(self, "توجه", "این فعالیت پیدا نشد (احتمالاً قبلاً حذف شده است)؛ فهرست تازه‌سازی شد.")
             except Exception as e:
                 QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")

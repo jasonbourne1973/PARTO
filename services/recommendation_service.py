@@ -95,6 +95,7 @@ class RecommendationService(BaseService):
                 try:
                     recommendation = self._save_recommendation(profile_id, staff_id, result)
                 except ServiceError as exc:
+                    self.logger.debug(f"خطای مدیریت‌شده در generate_recommendations (مسیر جایگزین): {exc}")
                     save_errors.append(str(exc))
                     continue
                 if recommendation:
@@ -327,7 +328,8 @@ class RecommendationService(BaseService):
                 if coerced is not None:
                     ids.append(coerced)
             return ids or None
-        except TypeError:
+        except TypeError as _exc:
+            get_logger(__name__).debug(f"خطای مدیریت‌شده در _safe_observation_ids (مسیر جایگزین): {_exc}")
             return None
     
     def get_recommendations_for_student(self, profile_id, limit=None):
@@ -492,7 +494,8 @@ class RecommendationService(BaseService):
                 student = self.student_dal.get_by_id(profile.student_id)
                 if student:
                     recommendation.student_name = student.full_name
-        except Exception:
+        except Exception as _exc:
+            self.logger.debug(f"خطای مدیریت‌شده در _enrich_recommendation (مسیر جایگزین): {_exc}")
             recommendation.student_name = "نامشخص"
         
         # افزودن نام مسئول
@@ -501,7 +504,8 @@ class RecommendationService(BaseService):
                 staff = self.staff_dal.get_by_id(recommendation.staff_id)
                 if staff:
                     recommendation.staff_name = staff.full_name
-            except Exception:
+            except Exception as _exc:
+                self.logger.debug(f"خطای مدیریت‌شده در _enrich_recommendation (مسیر جایگزین): {_exc}")
                 recommendation.staff_name = "نامشخص"
         
         # افزودن نام شایستگی
@@ -510,7 +514,8 @@ class RecommendationService(BaseService):
                 comp = self.competency_dal.get_by_id(recommendation.related_competency_id)
                 if comp:
                     recommendation.competency_name = comp.title
-            except Exception:
+            except Exception as _exc:
+                self.logger.debug(f"خطای مدیریت‌شده در _enrich_recommendation (مسیر جایگزین): {_exc}")
                 recommendation.competency_name = "نامشخص"
     
     def get_recommendation_summary(self, profile_id):

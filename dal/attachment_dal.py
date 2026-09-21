@@ -41,7 +41,7 @@ class AttachmentDAL:
             attachment.created_by
         ))
         
-        conn.commit()
+        self.db.commit()
         attachment.id = cursor.lastrowid
         self.logger.info(f"پیوست با ID {attachment.id} ایجاد شد: {attachment.file_name}")
         return attachment
@@ -108,7 +108,7 @@ class AttachmentDAL:
             attachment.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return attachment
     
     def delete(self, attachment_id, user_id=None):
@@ -143,7 +143,7 @@ class AttachmentDAL:
             WHERE id = ?
         """, (user_id, attachment_id))
         
-        conn.commit()
+        self.db.commit()
         self.logger.info(f"پیوست با ID {attachment_id} حذف شد")
         return True
     
@@ -162,7 +162,7 @@ class AttachmentDAL:
         # اول ردیف دیتابیس حذف می‌شود تا اگر حذف فایل شکست خورد،
         # وضعیت نصفه‌نیمه نماند
         cursor.execute("DELETE FROM attachments WHERE id = ?", (attachment_id,))
-        conn.commit()
+        self.db.commit()
 
         if attachment and attachment.file_path:
             # فقط اگر هیچ پیوست دیگری به همین مسیر اشاره نمی‌کند

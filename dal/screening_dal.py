@@ -7,7 +7,10 @@ import sqlite3
 
 from database.connection import DatabaseConnection
 from models.screening import Screening
+from utils.logger import get_logger
 from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class ScreeningDAL:
@@ -47,7 +50,7 @@ class ScreeningDAL:
             screening.status
         ))
         
-        conn.commit()
+        self.db.commit()
         screening.id = cursor.lastrowid
         return screening
     
@@ -144,7 +147,7 @@ class ScreeningDAL:
             screening.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return screening
     
     def update_status(self, screening_id, new_status):
@@ -157,7 +160,7 @@ class ScreeningDAL:
             WHERE id = ? AND is_deleted = 0
         """, (new_status, screening_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def delete(self, screening_id, user_id=None):
@@ -181,7 +184,7 @@ class ScreeningDAL:
             WHERE id = ?
         """, (now, user_id, screening_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def restore(self, screening_id, user_id=None):
@@ -197,7 +200,7 @@ class ScreeningDAL:
             WHERE id = ? AND is_deleted = 1
         """, (screening_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def _row_to_screening(self, row):
@@ -215,7 +218,8 @@ class ScreeningDAL:
         if row['domain_scores']:
             try:
                 screening.domain_scores = json.loads(row['domain_scores'])
-            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_screening (مسیر جایگزین): {_exc}")
                 screening.domain_scores = None
         else:
             screening.domain_scores = None

@@ -42,7 +42,7 @@ class InterventionDAL:
             intervention.result
         ))
         
-        conn.commit()
+        self.db.commit()
         intervention.id = cursor.lastrowid
         return intervention
     
@@ -198,7 +198,7 @@ class InterventionDAL:
             intervention.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return intervention
     
     def update_status(self, intervention_id, new_status):
@@ -211,7 +211,7 @@ class InterventionDAL:
             WHERE id = ? AND is_deleted = 0
         """, (new_status, intervention_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def delete(self, intervention_id, user_id=None):
@@ -236,7 +236,7 @@ class InterventionDAL:
             WHERE id = ? AND is_deleted = 0
         """, (now, user_id, intervention_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def restore(self, intervention_id, user_id=None):
@@ -260,7 +260,7 @@ class InterventionDAL:
             WHERE id = ? AND is_deleted = 1
         """, (intervention_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def get_deleted(self, limit=None):
@@ -285,7 +285,7 @@ class InterventionDAL:
             "DELETE FROM interventions WHERE id = ?",
             (intervention_id,)
         )
-        conn.commit()
+        self.db.commit()
         return True
     
     def _row_to_intervention(self, row):
@@ -508,7 +508,8 @@ class InterventionDAL:
                             week = (day - 1) // 7 + 1
                             key = f"{parts[0]}/{parts[1]}/W{week}"
                             label = f"هفته {week} {parts[1]}"
-                        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+                        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                            logger.debug(f"خطای مدیریت‌شده در get_interventions_trend (مسیر جایگزین): {_exc}")
                             key = date_str[:7]
                             label = date_str[:7]
                     else:

@@ -7,7 +7,10 @@ import sqlite3
 
 from database.connection import DatabaseConnection
 from models.counseling_session import CounselingSession
+from utils.logger import get_logger
 from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class CounselingSessionDAL:
@@ -61,7 +64,7 @@ class CounselingSessionDAL:
             session.status
         ))
         
-        conn.commit()
+        self.db.commit()
         session.id = cursor.lastrowid
         return session
     
@@ -244,7 +247,7 @@ class CounselingSessionDAL:
             session.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return session
     
     def update_status(self, session_id, new_status):
@@ -259,7 +262,7 @@ class CounselingSessionDAL:
             WHERE id = ? AND is_deleted = 0
         """, (new_status, session_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def delete(self, session_id, user_id=None):
@@ -283,7 +286,7 @@ class CounselingSessionDAL:
             WHERE id = ?
         """, (now, user_id, session_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def restore(self, session_id):
@@ -299,7 +302,7 @@ class CounselingSessionDAL:
             WHERE id = ? AND is_deleted = 1
         """, (session_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def get_session_stats(self, profile_id):
@@ -338,7 +341,8 @@ class CounselingSessionDAL:
         if row['goals']:
             try:
                 session.goals = json.loads(row['goals'])
-            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_session (مسیر جایگزین): {_exc}")
                 session.goals = None
         else:
             session.goals = None
@@ -349,7 +353,8 @@ class CounselingSessionDAL:
         if row['interventions_discussed']:
             try:
                 session.interventions_discussed = json.loads(row['interventions_discussed'])
-            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_session (مسیر جایگزین): {_exc}")
                 session.interventions_discussed = None
         else:
             session.interventions_discussed = None
@@ -357,7 +362,8 @@ class CounselingSessionDAL:
         if row['recommendations']:
             try:
                 session.recommendations = json.loads(row['recommendations'])
-            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_session (مسیر جایگزین): {_exc}")
                 session.recommendations = None
         else:
             session.recommendations = None
@@ -365,7 +371,8 @@ class CounselingSessionDAL:
         if row['homework']:
             try:
                 session.homework = json.loads(row['homework'])
-            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_session (مسیر جایگزین): {_exc}")
                 session.homework = None
         else:
             session.homework = None

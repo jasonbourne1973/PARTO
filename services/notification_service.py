@@ -381,7 +381,8 @@ class NotificationService(BaseService):
         try:
             return self.notification_dal.exists_for_entity(
                 user_id, notification_type, 'followup', entity_id)
-        except Exception:
+        except Exception as _exc:
+            self.logger.debug(f"خطای مدیریت‌شده در _check_existing_notification (مسیر جایگزین): {_exc}")
             return False
     
     def _enrich_notification(self, notification):
@@ -392,7 +393,8 @@ class NotificationService(BaseService):
                 staff = self.staff_dal.get_by_id(notification.user_id)
                 if staff:
                     notification.user_name = staff.full_name
-            except Exception:
+            except Exception as _exc:
+                self.logger.debug(f"خطای مدیریت‌شده در _enrich_notification (مسیر جایگزین): {_exc}")
                 notification.user_name = "نامشخص"
         
         # افزودن داده‌های مرتبط

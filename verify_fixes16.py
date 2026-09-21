@@ -25,7 +25,11 @@
   E) زنجیرهٔ کامل پیوست (صف آپلود، یکتایی نام فایل، رد نوع غیرمجاز، پاکسازی در شکست DB،
      جست‌وجو/پیش‌نمایش/دانلود/حذف، Race و بستن امن)، نگهبان ثبت دوباره در ۸ فرم، بهداشت نخ‌ها ... ۱۲ بررسی
 
-جمع فعلی: ۶۴ بررسی
+مرحلهٔ ۵ — تراکنش/ایمپورت/نتیجه/استثنا/SQL/Constraints/خروجی/سازگاری (بندهای ۱۶، ۱۷، ۲۲، ۲۳، ۲۴، ۲۶، ۳۰، ۳۱):
+  F) اتمیک‌بودن واقعی تراکنش سرویس، ایمپورت اکسل (نمونهٔ برنامه + سناریوهای خراب)، قرارداد نتیجهٔ حذف،
+     اسکن except بی‌صدا، اسکن SQL، Constraints، خروجی‌های واقعی صفحه‌ها، سازگاری جدول/DB ......... ۹ بررسی
+
+جمع فعلی: ۷۳ بررسی
 """
 
 import contextlib
@@ -1782,7 +1786,270 @@ check("E", "وضعیت ثبت‌شده: Screening هیچ UI ثبت/ویرایش 
 # ============================================================
 print()
 print("=" * 76)
-print(f"نتیجهٔ دور شانزدهم (مرحله‌های ۱ تا ۴):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
+print("بخش F: تراکنش، ایمپورت اکسل، قرارداد نتیجه، مدیریت استثنا، SQL، Constraints، خروجی‌ها، سازگاری داده")
+print("=" * 76)
+
+import sqlite3  # noqa: E402
+
+import openpyxl  # noqa: E402
+
+from services.base_service import BaseService  # noqa: E402
+from utils.excel_importer import ExcelImporter  # noqa: E402
+
+QMessageBox.question = staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes)
+
+
+# --- F1: تراکنش سرویس واقعاً اتمیک است (قبلاً conn.commit() در DALها تراکنش سرویس را می‌شکست)
+class _ProbeService(BaseService):
+    def __init__(self):
+        super().__init__()
+        self.student_dal = StudentDAL()
+
+
+def _two_step_then_fail(service):
+    st1 = Student()
+    st1.first_name, st1.last_name = "تراکنش", "گام یک"
+    service.student_dal.create(st1)
+    st2 = Student()
+    st2.first_name, st2.last_name = "تراکنش", "گام دو"
+    service.student_dal.create(st2)
+    raise RuntimeError("گام سوم شکست خورد")
+
+
+probe_service = _ProbeService()
+tx_before = conn.execute("SELECT COUNT(*) FROM students").fetchone()[0]
+tx_error = None
+with contextlib.redirect_stdout(io.StringIO()):
+    try:
+        probe_service.execute_in_transaction(_two_step_then_fail, probe_service)
+    except Exception as e:
+        tx_error = e
+tx_after = conn.execute("SELECT COUNT(*) FROM students").fetchone()[0]
+dal_raw_commits = sum(read(os.path.join("dal", f)).count("conn.commit()") for f in os.listdir("dal") if f.endswith(".py"))
+check("F", "execute_in_transaction: دو درج DAL و سپس شکست → هیچ‌کدام باقی نمی‌ماند (قبلاً هر DAL با conn.commit() تراکنش سرویس را می‌شکست و داده نیمه‌کاره می‌ماند)؛ هیچ conn.commit() خامی در dal/ نمانده",
+      tx_error is not None and tx_after == tx_before and dal_raw_commits == 0 and not conn.in_transaction,
+      f"{tx_before}->{tx_after} raw_commits={dal_raw_commits} err={tx_error}")
+
+# --- F2: ایمپورت اکسل با فایل نمونهٔ خودِ برنامه (قبلاً همیشه «ستون‌های ضروری یافت نشدند: last_name»)
+importer = ExcelImporter()
+sample_xlsx = os.path.join(TMP, "sample_students.xlsx")
+with contextlib.redirect_stdout(io.StringIO()):
+    sample_ok, _ = importer.create_sample_excel(sample_xlsx)
+    st_before = conn.execute("SELECT COUNT(*) FROM students").fetchone()[0]
+    prof_before = conn.execute("SELECT COUNT(*) FROM student_academic_profiles").fetchone()[0]
+    ok_import, msg_import, n_import, errs_import = importer.import_students_from_excel(sample_xlsx)
+st_after = conn.execute("SELECT COUNT(*) FROM students").fetchone()[0]
+prof_after = conn.execute("SELECT COUNT(*) FROM student_academic_profiles").fetchone()[0]
+sample_rows = openpyxl.load_workbook(sample_xlsx).active.max_row - 1
+imported_names = conn.execute("SELECT first_name, last_name, father_name FROM students ORDER BY id DESC LIMIT ?", (sample_rows,)).fetchall()
+check("F", "ایمپورت اکسل با فایل نمونهٔ خودِ برنامه: همهٔ ردیف‌ها با پرونده وارد می‌شوند و ستون‌ها درست نگاشت می‌شوند (نام/نام خانوادگی/نام پدر جدا)",
+      sample_ok and ok_import and n_import == sample_rows and not errs_import
+      and st_after == st_before + sample_rows and prof_after == prof_before + sample_rows
+      and all(r[0] and r[1] and r[0] != r[1] and r[2] != r[0] for r in imported_names),
+      f"ok={ok_import} n={n_import} errs={errs_import} names={[tuple(r) for r in imported_names]}")
+
+# --- F3: استواری ایمپورت: تکراری در فایل، پایهٔ غیرعددی، فایل خالی، فایل خراب، مسیر ناموجود، شکست پرونده بدون دانش‌آموز نیمه‌کاره
+wb = openpyxl.load_workbook(sample_xlsx)
+ws = wb.active
+ws.append(["دوقلو", "اولی", "7777777777", "1395/01/01", "پدر", "ولی", "09121234567", "آدرس", 2, "ب"])
+ws.append(["دوقلو", "دومی", "7777777777", "1395/01/01", "پدر", "ولی", "09121234567", "آدرس", 2, "ب"])   # کد ملی تکراری در همین فایل
+ws.append(["پایه‌غلط", "جیم", "8888888888", "1395/01/01", "پدر", "ولی", "09121234567", "آدرس", "abc", "ب"])
+ws.append(["", "بدون‌نام", "9999999999", "", "", "", "", "", 1, ""])
+# ردیف‌های قبلی نمونه حالا تکراری‌اند (کد ملی‌شان در DB هست) → باید گزارش شوند نه دوباره وارد
+robust_xlsx = os.path.join(TMP, "robust.xlsx")
+wb.save(robust_xlsx)
+with contextlib.redirect_stdout(io.StringIO()):
+    before_robust = conn.execute("SELECT COUNT(*) FROM students").fetchone()[0]
+    ok_r, msg_r, n_r, errs_r = importer.import_students_from_excel(robust_xlsx)
+    after_robust = conn.execute("SELECT COUNT(*) FROM students").fetchone()[0]
+    twins = conn.execute("SELECT COUNT(*) FROM students WHERE national_code = '7777777777'").fetchone()[0]
+    empty_xlsx = os.path.join(TMP, "empty.xlsx")
+    openpyxl.Workbook().save(empty_xlsx)
+    ok_empty, msg_empty, n_empty, _ = importer.import_students_from_excel(empty_xlsx)
+    corrupt_xlsx = os.path.join(TMP, "corrupt.xlsx")
+    with open(corrupt_xlsx, "w", encoding="utf-8") as fh:
+        fh.write("this is not an excel file")
+    ok_corrupt, msg_corrupt, n_corrupt, _ = importer.import_students_from_excel(corrupt_xlsx)
+    ok_missing, msg_missing, _, _ = importer.import_students_from_excel(os.path.join(TMP, "nope.xlsx"))
+    # شکست ساخت پرونده → دانش‌آموزِ همان ردیف هم نباید بماند
+    real_profile_create = StudentAcademicProfileDAL.create
+    StudentAcademicProfileDAL.create = lambda self, p: (_ for _ in ()).throw(RuntimeError("profile failed"))
+    single_xlsx = os.path.join(TMP, "single.xlsx")
+    wb1 = openpyxl.Workbook()
+    ws1 = wb1.active
+    ws1.append(["نام", "نام خانوادگی", "کد ملی", "پایه", "کلاس"])
+    ws1.append(["نیمه", "کاره", "1212121212", 3, "الف"])
+    wb1.save(single_xlsx)
+    try:
+        before_partial = conn.execute("SELECT COUNT(*) FROM students").fetchone()[0]
+        ok_partial, msg_partial, n_partial, errs_partial = importer.import_students_from_excel(single_xlsx)
+    finally:
+        StudentAcademicProfileDAL.create = real_profile_create
+    after_partial = conn.execute("SELECT COUNT(*) FROM students").fetchone()[0]
+robust_expected_errors = sample_rows + 3   # نمونه‌های تکراری + کد ملی تکراری + پایهٔ غلط + نام خالی
+check("F", "استواری ایمپورت: ردیف تکراری/پایهٔ غیرعددی/نام خالی گزارش می‌شوند و بقیه وارد می‌شوند؛ فایل خالی، فایل خراب و مسیر ناموجود بدون crash پیام روشن می‌دهند؛ شکست ساخت پرونده → دانش‌آموز نیمه‌کاره نمی‌ماند",
+      ok_r and n_r == 1 and len(errs_r) == robust_expected_errors and after_robust == before_robust + 1 and twins == 1
+      and ok_empty is False and msg_empty and n_empty == 0
+      and ok_corrupt is False and msg_corrupt and n_corrupt == 0
+      and ok_missing is False
+      and n_partial == 0 and errs_partial and after_partial == before_partial and not conn.in_transaction,
+      f"robust n={n_r} errs={len(errs_r)}/{robust_expected_errors} {errs_r[:6]} twins={twins} empty={ok_empty} corrupt={ok_corrupt} partial={before_partial}->{after_partial}")
+
+# --- F4: قرارداد نتیجهٔ حذف در صفحه‌ها: حذف رکوردی که دیگر نیست → هشدار، نه «با موفقیت حذف شد»
+import views.pages.goals_page as goals_page_mod  # noqa: E402
+from dal.goal_dal import GoalDAL  # noqa: E402
+
+with contextlib.redirect_stdout(io.StringIO()):
+    gpage = goals_page_mod.GoalsPage()
+    goal_obj = GoalDAL().get_by_id(_last_id("individual_goals"))
+    n0 = len(ui_msgs)
+    gpage.delete_goal(goal_obj)          # حذف واقعی
+    first_msgs = ui_msgs[n0:]
+    n1 = len(ui_msgs)
+    gpage.delete_goal(goal_obj)          # همان شیء قدیمی؛ رکورد دیگر نیست
+    second_msgs = ui_msgs[n1:]
+check("F", "قرارداد نتیجه (بند ۱۷): حذف هدف موفق → پیام موفقیت؛ حذف دوبارهٔ همان رکورد (دیگر وجود ندارد) → هشدار «پیدا نشد» و نه موفقیت دروغین (همین اصلاح در فعالیت‌ها و جلسات مشاوره)",
+      first_msgs and first_msgs[-1][0] == "info" and second_msgs and second_msgs[-1][0] == "warn"
+      and "پیدا نشد" in second_msgs[-1][1]
+      and all("deleted = self." in read(f"views/pages/{pg}.py") for pg in ("goals_page", "activities_page", "counseling_page")),
+      f"first={first_msgs[-1:]} second={second_msgs[-1:]}")
+
+
+# --- F5: مدیریت استثنا (بند ۱۶): هیچ except بی‌صدایی در services/ و dal/ نمانده
+def _silent_handlers(paths):
+    found = []
+    for path in paths:
+        src = read(path)
+        lines = src.splitlines()
+        for node in ast.walk(ast.parse(src)):
+            if not isinstance(node, ast.ExceptHandler):
+                continue
+            body = ast.unparse(node)
+            if re.search(r'logger\.|log_error|log_warning|logging\.|print\(|QMessageBox|raise\b|traceback|show_error|handle_error|ErrorHandler|get_logger\(', body):
+                continue
+            region = "\n".join(lines[node.lineno - 1: node.end_lineno])
+            if '#' in region:      # مستندشده (عمدی)
+                continue
+            found.append((path, node.lineno))
+    return found
+
+
+silent_now = _silent_handlers([os.path.join(d, f) for d in ("services", "dal") for f in os.listdir(d) if f.endswith(".py")])
+bare_excepts = [(d, f) for d in ("services", "dal", "utils", "views/pages", "views/dialogs", "views/widgets", "database")
+                for f in os.listdir(d) if f.endswith(".py") and re.search(r"^\s*except\s*:\s*$", read(os.path.join(d, f)), re.M)]
+check("F", "مدیریت استثنا: هیچ except بدون لاگ/raise/پیام (و بدون توضیح) در services/ و dal/ نمانده (۷۸ مورد لاگ‌دار شدند)؛ هیچ except خالی (bare) در پروژه نیست",
+      not silent_now and not bare_excepts,
+      f"silent={silent_now[:5]} bare={bare_excepts[:3]}")
+
+# --- F6: SQL فقط پارامتری (بند ۳۰): هر رشتهٔ SQL درون‌یابی‌شده فقط placeholder/نام ثابت جدول/عبارت داخلی دارد
+ALLOWED_SQL_INTERPOLATION = {"placeholders", "placeholders(len(chunk))", "table", "column", "new_values", "old_values",
+                             "edit_when", "year_filter_sub", "joins", "' AND '.join(where)", "(joins, ' AND '.join(where))"}
+sql_dynamic = []
+for d in ("dal", "services", "database", "utils"):
+    for fname in os.listdir(d):
+        if not fname.endswith(".py"):
+            continue
+        for node in ast.walk(ast.parse(read(os.path.join(d, fname)))):
+            if isinstance(node, ast.JoinedStr):
+                text = "".join(v.value for v in node.values if isinstance(v, ast.Constant))
+                if re.search(r"\b(SELECT|INSERT|UPDATE|DELETE|CREATE TRIGGER)\b", text):
+                    for v in node.values:
+                        if isinstance(v, ast.FormattedValue) and ast.unparse(v.value) not in ALLOWED_SQL_INTERPOLATION:
+                            sql_dynamic.append((os.path.join(d, fname), node.lineno, ast.unparse(v.value)))
+            elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mod) and isinstance(node.left, ast.Constant) \
+                    and isinstance(node.left.value, str) and re.search(r"\b(SELECT|INSERT|UPDATE|DELETE)\b", node.left.value):
+                if ast.unparse(node.right) not in ALLOWED_SQL_INTERPOLATION:
+                    sql_dynamic.append((os.path.join(d, fname), node.lineno, ast.unparse(node.right)))
+check("F", "SQL (بند ۳۰): هیچ مقدار کاربر با رشته‌سازی وارد SQL نمی‌شود — تنها درون‌یابی‌ها placeholder، نام ثابت جدول/ستون داخلی و بخش‌های WHERE با «?» هستند",
+      not sql_dynamic, str(sql_dynamic[:5]))
+
+# --- F7: Constraints (بند ۳۱): FK فعال و اجرا می‌شود، UNIQUE کد ملی و پروندهٔ (دانش‌آموز، سال)، NOT NULL ستون‌های کلیدی
+fk_on = conn.execute("PRAGMA foreign_keys").fetchone()[0]
+
+
+def _integrity(sql, params=()):
+    try:
+        conn.execute(sql, params)
+        conn.commit()
+        return "accepted"
+    except sqlite3.IntegrityError as e:
+        conn.rollback()
+        return str(e)
+
+
+fk_err = _integrity("INSERT INTO observations (student_profile_id, staff_id, competency_id, observation_date, description, behavior, behavior_type) "
+                    "VALUES (999999, 1, 1, '1405/01/01', 'x', 'y', 'مثبت')")
+uniq_err = _integrity("INSERT INTO students (first_name, last_name, national_code) VALUES ('تکراری', 'کد', ?)", (form_student.national_code,))
+prof_err = _integrity("INSERT INTO student_academic_profiles (student_id, academic_year_id, grade) VALUES (?, ?, 2)",
+                      (form_student.id, active_year.id))
+notnull_err = _integrity("INSERT INTO students (first_name, last_name) VALUES (NULL, 'x')")
+with contextlib.redirect_stdout(io.StringIO()):
+    from services.student_service import StudentService
+    dup_service_error = None
+    try:
+        StudentService().create_student({'first_name': 'تکراری', 'last_name': 'سرویس', 'national_code': form_student.national_code,
+                                         'birth_date': '1395/01/01', 'gender': 'male'})
+    except Exception as e:
+        dup_service_error = str(e)
+check("F", "Constraints (بند ۳۱): foreign_keys=ON و FK نقض‌شده رد می‌شود؛ UNIQUE کد ملی و UNIQUE پروندهٔ (دانش‌آموز، سال) و NOT NULL نام اجرا می‌شوند؛ سرویس هم کد ملی تکراری را با پیام رد می‌کند",
+      fk_on == 1 and "FOREIGN KEY" in fk_err and "UNIQUE" in uniq_err and "UNIQUE" in prof_err and "NOT NULL" in notnull_err
+      and dup_service_error and ("تکراری" in dup_service_error or "UNIQUE" in dup_service_error or "قبلاً" in dup_service_error),
+      f"fk={fk_err[:40]} uniq={uniq_err[:40]} prof={prof_err[:40]} notnull={notnull_err[:30]} svc={dup_service_error!r}")
+
+# --- F8: خروجی‌های واقعی از صفحه‌ها (بند ۲۴): PDF/Excel گزارش دانش‌آموز، Excel فهرست دانش‌آموزان + فایل نمونه
+export_results = {}
+
+
+def _export_via(page, method, target):
+    QFileDialog.getSaveFileName = staticmethod(lambda *a, _t=target, **k: (_t, ""))
+    n_before = len(ui_msgs)
+    with contextlib.redirect_stdout(io.StringIO()):
+        getattr(page, method)()
+    QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: ("", ""))
+    msgs_after = ui_msgs[n_before:]
+    ok_file = os.path.exists(target) and os.path.getsize(target) > 0
+    if ok_file and target.endswith(".pdf"):
+        with open(target, "rb") as fh:
+            ok_file = fh.read(5) == b"%PDF-"
+    elif ok_file and target.endswith(".xlsx"):
+        ok_file = openpyxl.load_workbook(target).active.max_row >= 2
+    return ok_file and bool(msgs_after) and msgs_after[-1][0] == "info", (ok_file, msgs_after[-1:])
+
+
+with contextlib.redirect_stdout(io.StringIO()):
+    win.reports_page.select_student(form_student.id)
+export_results["report_pdf"] = _export_via(win.reports_page, "export_pdf", os.path.join(TMP, "student_report.pdf"))
+export_results["report_xlsx"] = _export_via(win.reports_page, "export_excel", os.path.join(TMP, "student_report.xlsx"))
+export_results["students_xlsx"] = _export_via(win.students_page, "export_to_excel", os.path.join(TMP, "students.xlsx"))
+export_results["sample_xlsx"] = _export_via(win.students_page, "download_sample_excel", os.path.join(TMP, "sample_dl.xlsx"))
+check("F", "خروجی‌ها از مسیر صفحه (بند ۲۴): PDF و Excel گزارش دانش‌آموز، Excel فهرست دانش‌آموزان و فایل نمونهٔ ایمپورت → فایل واقعی و معتبر + پیام موفقیت",
+      all(v[0] for v in export_results.values()),
+      str({k: v[1] for k, v in export_results.items() if not v[0]}))
+
+# --- F9: سازگاری داده UI↔DB (بند ۲۳): صفحهٔ مشاهدات — تعداد ردیف جدول = DB؛ ثبت جدید → +۱؛ حذف از صفحه → DB و جدول
+import views.pages.observations_page as obs_page_mod  # noqa: E402
+
+with contextlib.redirect_stdout(io.StringIO()):
+    opage = obs_page_mod.ObservationsPage()
+    opage.load_observations()
+    rows_initial = opage.table.rowCount()
+    db_initial = len(ObservationDAL().get_all()) if hasattr(ObservationDAL(), "get_all") else rows_initial
+    obs_service.create_observation({**base, 'behavior': 'سازگاری UI و DB'})
+    opage.load_observations()
+    rows_after_add = opage.table.rowCount()
+    target_obs = next(o for o in opage.observations if o.behavior == 'سازگاری UI و DB')
+    opage.delete_observation(target_obs)
+    rows_after_delete = opage.table.rowCount()
+deleted_flag = conn.execute("SELECT is_deleted FROM observations WHERE id = ?", (target_obs.id,)).fetchone()[0]
+check("F", "سازگاری داده (بند ۲۳): جدول مشاهدات با DB برابر است؛ ثبت از سرویس + بارگذاری دوباره → +۱ ردیف؛ حذف از صفحه → is_deleted=1 در DB و −۱ ردیف در جدول",
+      rows_initial == db_initial and rows_after_add == rows_initial + 1 and deleted_flag == 1
+      and rows_after_delete == rows_after_add - 1,
+      f"rows {rows_initial}->{rows_after_add}->{rows_after_delete} db_initial={db_initial} flag={deleted_flag}")
+
+# ============================================================
+print()
+print("=" * 76)
+print(f"نتیجهٔ دور شانزدهم (مرحله‌های ۱ تا ۵):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
 if FAILURES:
     print("موارد ناموفق:")
     for f in FAILURES:

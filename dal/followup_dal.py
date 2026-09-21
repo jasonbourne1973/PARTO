@@ -42,7 +42,7 @@ class FollowUpDAL:
             followup.result_description
         ))
         
-        conn.commit()
+        self.db.commit()
         followup.id = cursor.lastrowid
         return followup
     
@@ -149,7 +149,7 @@ class FollowUpDAL:
             followup.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return followup
     
     def update_status(self, followup_id, new_status):
@@ -162,7 +162,7 @@ class FollowUpDAL:
             WHERE id = ? AND is_deleted = 0
         """, (new_status, followup_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def delete(self, followup_id, user_id=None):
@@ -188,7 +188,7 @@ class FollowUpDAL:
             WHERE id = ? AND is_deleted = 0
         """, (now, user_id, followup_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def restore(self, followup_id, user_id=None):
@@ -213,7 +213,7 @@ class FollowUpDAL:
             WHERE id = ? AND is_deleted = 1
         """, (followup_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def get_deleted(self, limit=None):
@@ -238,7 +238,7 @@ class FollowUpDAL:
             "DELETE FROM followups WHERE id = ?",
             (followup_id,)
         )
-        conn.commit()
+        self.db.commit()
         return True
     
     def _row_to_followup(self, row):
@@ -567,7 +567,8 @@ class FollowUpDAL:
                             week = (day - 1) // 7 + 1
                             key = f"{parts[0]}/{parts[1]}/W{week}"
                             label = f"هفته {week} {parts[1]}"
-                        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+                        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                            logger.debug(f"خطای مدیریت‌شده در get_followup_trend (مسیر جایگزین): {_exc}")
                             key = date_str[:7]
                             label = date_str[:7]
                     else:

@@ -197,7 +197,8 @@ class InterventionSuggester(BaseService):
             else:
                 return 'low'
                 
-        except Exception:
+        except Exception as _exc:
+            self.logger.debug(f"خطای مدیریت‌شده در _determine_priority (مسیر جایگزین): {_exc}")
             return 'medium'
     
     def _get_suggestion_details(self, suggested_types, profile_id):

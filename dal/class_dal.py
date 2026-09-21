@@ -39,7 +39,7 @@ class ClassDAL:
             class_obj.description
         ))
         
-        conn.commit()
+        self.db.commit()
         class_obj.id = cursor.lastrowid
         return class_obj
     
@@ -136,7 +136,7 @@ class ClassDAL:
             class_obj.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return class_obj
     
     def delete(self, class_id):
@@ -153,7 +153,7 @@ class ClassDAL:
             WHERE id = ?
         """, (class_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def get_student_count(self, class_id):

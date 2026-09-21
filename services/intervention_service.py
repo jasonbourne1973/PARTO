@@ -699,8 +699,10 @@ class InterventionService(BaseService):
             self._validate_intervention_data(data)
             return True, []
         except ValidationError as e:
+            self.logger.debug(f"خطای مدیریت‌شده در validate_intervention (مسیر جایگزین): {e}")
             return False, str(e).split('\n')
         except Exception as e:
+            self.logger.debug(f"خطای مدیریت‌شده در validate_intervention (مسیر جایگزین): {e}")
             return False, [str(e)]
 
     def search_interventions(self, search_term, limit=100):

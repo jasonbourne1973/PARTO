@@ -29,7 +29,7 @@ class IndicatorDAL:
             indicator.sort_order
         ))
         
-        conn.commit()
+        self.db.commit()
         indicator.id = cursor.lastrowid
         return indicator
     
@@ -103,7 +103,7 @@ class IndicatorDAL:
             indicator.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return indicator
     
     def delete(self, indicator_id, user_id=None):
@@ -128,7 +128,7 @@ class IndicatorDAL:
             WHERE id = ?
         """, (now, user_id, indicator_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def restore(self, indicator_id, user_id=None):
@@ -144,7 +144,7 @@ class IndicatorDAL:
             WHERE id = ? AND is_deleted = 1
         """, (indicator_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def _row_to_indicator(self, row):

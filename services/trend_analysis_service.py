@@ -632,7 +632,8 @@ class TrendAnalysisService(BaseService):
                         'month': month,
                         'day': day
                     })
-            except Exception:
+            except Exception as _exc:
+                self.logger.debug(f"خطای مدیریت‌شده در _group_observations_by_time (مسیر جایگزین): {_exc}")
                 continue
         
         sorted_keys = sorted(grouped.keys())

@@ -29,7 +29,7 @@ class ObservableBehaviorDAL:
             behavior.sort_order
         ))
         
-        conn.commit()
+        self.db.commit()
         behavior.id = cursor.lastrowid
         return behavior
     
@@ -111,7 +111,7 @@ class ObservableBehaviorDAL:
             behavior.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return behavior
     
     def delete(self, behavior_id, user_id=None):
@@ -135,7 +135,7 @@ class ObservableBehaviorDAL:
             WHERE id = ?
         """, (now, user_id, behavior_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def restore(self, behavior_id, user_id=None):
@@ -151,7 +151,7 @@ class ObservableBehaviorDAL:
             WHERE id = ? AND is_deleted = 1
         """, (behavior_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def _row_to_behavior(self, row):

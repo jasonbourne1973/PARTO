@@ -15,6 +15,7 @@ from models.student_academic_profile import StudentAcademicProfile
 from services.base_service import BaseService
 from services.trend_analysis_service import TrendAnalysisService
 from utils.error_handler import ServiceError
+from utils.logger import get_logger
 
 
 class StudentService(BaseService):
@@ -127,7 +128,8 @@ class StudentService(BaseService):
         try:
             from utils.persian_date import PersianDate
             return PersianDate.get_today().year + 1
-        except Exception:
+        except Exception as _exc:
+            get_logger(__name__).debug(f"خطای مدیریت‌شده در _max_birth_year (مسیر جایگزین): {_exc}")
             return StudentService.MAX_BIRTH_YEAR_FALLBACK
 
     def _clean_optional_date(self, value, default=None):

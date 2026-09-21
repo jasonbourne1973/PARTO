@@ -177,7 +177,8 @@ class CounselingService(BaseService):
 
         try:
             sessions = getter(include_deleted=include_deleted)
-        except TypeError:
+        except TypeError as _exc:
+            self.logger.debug(f"خطای مدیریت‌شده در get_all_sessions (مسیر جایگزین): {_exc}")
             sessions = getter()
 
         sessions = list(sessions or [])
@@ -295,7 +296,8 @@ class CounselingService(BaseService):
                 student = self.student_dal.get_by_id(profile.student_id)
                 if student:
                     session.student_name = student.full_name
-        except Exception:
+        except Exception as _exc:
+            self.logger.debug(f"خطای مدیریت‌شده در _enrich_session (مسیر جایگزین): {_exc}")
             session.student_name = "نامشخص"
         
         # نام مشاور
@@ -303,7 +305,8 @@ class CounselingService(BaseService):
             counselor = self.staff_dal.get_by_id(session.counselor_id)
             if counselor:
                 session.counselor_name = counselor.full_name
-        except Exception:
+        except Exception as _exc:
+            self.logger.debug(f"خطای مدیریت‌شده در _enrich_session (مسیر جایگزین): {_exc}")
             session.counselor_name = "نامشخص"
         
         # نام معرف
@@ -312,5 +315,6 @@ class CounselingService(BaseService):
                 referred = self.staff_dal.get_by_id(session.referred_by)
                 if referred:
                     session.referred_by_name = referred.full_name
-            except Exception:
+            except Exception as _exc:
+                self.logger.debug(f"خطای مدیریت‌شده در _enrich_session (مسیر جایگزین): {_exc}")
                 session.referred_by_name = "نامشخص"

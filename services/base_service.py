@@ -362,7 +362,8 @@ class BaseService:
         try:
             from utils.persian_date import to_db_date
             normalized = to_db_date(value)
-        except Exception:
+        except Exception as _exc:
+            get_logger(__name__).debug(f"خطای مدیریت‌شده در clean_date (مسیر جایگزین): {_exc}")
             normalized = None
         if not normalized:
             return default
@@ -423,7 +424,8 @@ class BaseService:
         try:
             from utils.persian_date import PersianDate
             return PersianDate.is_valid_persian_date(text)
-        except Exception:
+        except Exception as _exc:
+            get_logger(__name__).debug(f"خطای مدیریت‌شده در is_valid_jalali_date (مسیر جایگزین): {_exc}")
             return False
 
     def handle_error(self, error, user_message=None, log_level='error'):

@@ -7,7 +7,10 @@ import sqlite3
 
 from database.connection import DatabaseConnection
 from models.parent_interview import ParentInterview  # این خط باید کار کند
+from utils.logger import get_logger
 from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class ParentInterviewDAL:
@@ -57,7 +60,7 @@ class ParentInterviewDAL:
             interview.status
         ))
         
-        conn.commit()
+        self.db.commit()
         interview.id = cursor.lastrowid
         return interview
     
@@ -170,7 +173,7 @@ class ParentInterviewDAL:
             interview.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return interview
     
     def update_status(self, interview_id, new_status):
@@ -183,7 +186,7 @@ class ParentInterviewDAL:
             WHERE id = ? AND is_deleted = 0
         """, (new_status, interview_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def delete(self, interview_id, user_id=None):
@@ -207,7 +210,7 @@ class ParentInterviewDAL:
             WHERE id = ?
         """, (now, user_id, interview_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def restore(self, interview_id, user_id=None):
@@ -223,7 +226,7 @@ class ParentInterviewDAL:
             WHERE id = ? AND is_deleted = 1
         """, (interview_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def _row_to_interview(self, row):
@@ -247,7 +250,8 @@ class ParentInterviewDAL:
         if row['key_points']:
             try:
                 interview.key_points = json.loads(row['key_points'])
-            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_interview (مسیر جایگزین): {_exc}")
                 interview.key_points = None
         else:
             interview.key_points = None

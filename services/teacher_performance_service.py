@@ -262,7 +262,8 @@ class TeacherPerformanceService(BaseService):
         """دریافت آمار ماهانه"""
         try:
             return self.assignment_dal.get_teacher_trend(teacher_id, 'monthly', start_date, end_date)
-        except Exception:
+        except Exception as _exc:
+            self.logger.debug(f"خطای مدیریت‌شده در _get_monthly_stats (مسیر جایگزین): {_exc}")
             return []
     
     def export_teacher_report_pdf(self, teacher_id, file_path, start_date=None, end_date=None):
@@ -323,7 +324,8 @@ class TeacherPerformanceService(BaseService):
             try:
                 today = jdatetime.date.today()
                 date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
-            except Exception:
+            except Exception as _exc:
+                self.logger.debug(f"خطای مدیریت‌شده در export_teacher_report_pdf (مسیر جایگزین): {_exc}")
                 date_str = utc_now().strftime("%Y/%m/%d")
             
             pdf.add_text(f"تاریخ تهیه گزارش: {date_str}")

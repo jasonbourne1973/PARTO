@@ -61,7 +61,7 @@ class ObservationDAL:
             observation.tags
         ))
         
-        conn.commit()
+        self.db.commit()
         observation.id = cursor.lastrowid
         return observation
     
@@ -226,7 +226,7 @@ class ObservationDAL:
             observation.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return observation
     
     def delete(self, observation_id, user_id=None):
@@ -251,7 +251,7 @@ class ObservationDAL:
             WHERE id = ? AND is_deleted = 0
         """, (now, user_id, observation_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def restore(self, observation_id, user_id=None):
@@ -275,7 +275,7 @@ class ObservationDAL:
             WHERE id = ? AND is_deleted = 1
         """, (observation_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def get_deleted(self, limit=None):
@@ -300,7 +300,7 @@ class ObservationDAL:
             "DELETE FROM observations WHERE id = ?",
             (observation_id,)
         )
-        conn.commit()
+        self.db.commit()
         return True
     
     # ============================================================
@@ -1210,7 +1210,8 @@ class ObservationDAL:
             comp_dal = CompetencyDAL()
             comp = comp_dal.get_by_id(competency_id)
             return comp.title if comp else f"شایستگی {competency_id}"
-        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+            logger.debug(f"خطای مدیریت‌شده در _get_competency_name (مسیر جایگزین): {_exc}")
             return f"شایستگی {competency_id}"
 
     def _row_to_observation(self, row):
@@ -1240,7 +1241,8 @@ class ObservationDAL:
         # نکند.
         try:
             available = set(row.keys())
-        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+            logger.debug(f"خطای مدیریت‌شده در _row_to_observation (مسیر جایگزین): {_exc}")
             available = set()
         observation.indicator_id = (
             row['indicator_id'] if 'indicator_id' in available else None

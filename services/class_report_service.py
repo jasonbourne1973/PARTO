@@ -594,7 +594,8 @@ class ClassReportService(BaseService):
             try:
                 today = jdatetime.date.today()
                 date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
-            except Exception:
+            except Exception as _exc:
+                self.logger.debug(f"خطای مدیریت‌شده در export_class_report_pdf (مسیر جایگزین): {_exc}")
                 date_str = utc_now().strftime("%Y/%m/%d")
             
             pdf.add_text(f"تاریخ تهیه گزارش: {date_str}")
@@ -630,7 +631,8 @@ class ClassReportService(BaseService):
                 from openpyxl import Workbook
                 from openpyxl.styles import Alignment, Font, PatternFill
                 from openpyxl.utils import get_column_letter
-            except ImportError:
+            except ImportError as _exc:
+                self.logger.debug(f"خطای مدیریت‌شده در export_class_report_excel (مسیر جایگزین): {_exc}")
                 return False, "کتابخانه openpyxl نصب نیست. pip install openpyxl"
             
             wb = Workbook()

@@ -41,7 +41,7 @@ class CompetencyDAL:
             competency.sort_order
         ))
 
-        conn.commit()
+        self.db.commit()
         competency.id = cursor.lastrowid
         return competency
 
@@ -210,7 +210,7 @@ class CompetencyDAL:
             competency.id
         ))
 
-        conn.commit()
+        self.db.commit()
         return competency
 
     def delete(self, competency_id, user_id=None):
@@ -251,7 +251,7 @@ class CompetencyDAL:
             WHERE competency_id = ? AND is_deleted = 0
         """, (now, user_id, competency_id))
 
-        conn.commit()
+        self.db.commit()
         return True
 
     def restore(self, competency_id, user_id=None):
@@ -283,7 +283,7 @@ class CompetencyDAL:
             WHERE competency_id = ? AND is_deleted = 1
         """, (competency_id,))
 
-        conn.commit()
+        self.db.commit()
         return True
 
     def get_categories_with_counts(self):

@@ -67,18 +67,18 @@ class StudentAcademicProfileDAL:
                 profile.status_history or "[]"
             ))
 
-            conn.commit()
+            self.db.commit()
             profile.id = cursor.lastrowid
 
             logger.debug(f"✅ پرونده سالانه با ID {profile.id} ایجاد شد.")
             return profile
 
         except sqlite3.IntegrityError as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"خطای دیتابیس هنگام ایجاد پرونده سالانه: {e}")
 
         except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
-            conn.rollback()
+            self.db.rollback()
             raise
 
     def get_by_id(self, profile_id):
@@ -263,11 +263,11 @@ class StudentAcademicProfileDAL:
                 profile.id
             ))
 
-            conn.commit()
+            self.db.commit()
             return profile
 
         except sqlite3.Error as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"خطا در به‌روزرسانی پرونده سالانه: {e}")
 
     def update_status(self, profile_id, new_status, history_note=None):
@@ -307,7 +307,8 @@ class StudentAcademicProfileDAL:
 
             try:
                 history = json.loads(old_history)
-            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در update_status (مسیر جایگزین): {_exc}")
                 history = []
 
             history.append({
@@ -324,11 +325,11 @@ class StudentAcademicProfileDAL:
                 WHERE id = ?
             """, (new_status, new_history, profile_id))
 
-            conn.commit()
+            self.db.commit()
             return True
 
         except sqlite3.Error as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"خطا در تغییر وضعیت پرونده: {e}")
 
     def delete(self, profile_id, user_id=None):
@@ -372,7 +373,8 @@ class StudentAcademicProfileDAL:
             old_status = row['status']
             try:
                 history = json.loads(row['status_history'] or "[]")
-            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در delete (مسیر جایگزین): {_exc}")
                 history = []
             history.append({
                 'from': old_status,
@@ -400,11 +402,11 @@ class StudentAcademicProfileDAL:
             ))
 
             affected = cursor.rowcount
-            conn.commit()
+            self.db.commit()
             return affected > 0
 
         except sqlite3.Error as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"خطا در حذف پرونده تحصیلی: {e}")
 
     def restore(self, profile_id, user_id=None):
@@ -431,7 +433,8 @@ class StudentAcademicProfileDAL:
 
             try:
                 history = json.loads(row['status_history'] or "[]")
-            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در restore (مسیر جایگزین): {_exc}")
                 history = []
             history.append({
                 'from': row['status'],
@@ -456,11 +459,11 @@ class StudentAcademicProfileDAL:
             ))
 
             affected = cursor.rowcount
-            conn.commit()
+            self.db.commit()
             return affected > 0
 
         except sqlite3.Error as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"خطا در بازگردانی پرونده تحصیلی: {e}")
 
     def archive(self, profile_id):

@@ -406,9 +406,13 @@ class CounselingPage(QWidget):
         )
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                self.counseling_service.delete_session(session.id)
+                # (بازرسی شانزدهم) نتیجهٔ حذف بررسی می‌شود
+                deleted = self.counseling_service.delete_session(session.id)
                 self.load_sessions()
-                QMessageBox.information(self, "موفقیت", "جلسه با موفقیت حذف شد")
+                if deleted:
+                    QMessageBox.information(self, "موفقیت", "جلسه با موفقیت حذف شد")
+                else:
+                    QMessageBox.warning(self, "توجه", "این جلسه پیدا نشد (احتمالاً قبلاً حذف شده است)؛ فهرست تازه‌سازی شد.")
             except Exception as e:
                 QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     

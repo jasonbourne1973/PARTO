@@ -48,7 +48,8 @@ class ReminderService:
             try:
                 today = jdatetime.date.today()
                 today_str = f"{today.year}/{today.month:02d}/{today.day:02d}"
-            except Exception:
+            except Exception as _exc:
+                logger.debug(f"خطای مدیریت‌شده در get_overdue_followups (مسیر جایگزین): {_exc}")
                 today_str = utc_now().strftime("%Y/%m/%d")
             
             for followup in all_pending:
@@ -71,7 +72,8 @@ class ReminderService:
             try:
                 today = jdatetime.date.today()
                 today_str = f"{today.year}/{today.month:02d}/{today.day:02d}"
-            except Exception:
+            except Exception as _exc:
+                logger.debug(f"خطای مدیریت‌شده در get_followups_due_soon (مسیر جایگزین): {_exc}")
                 today_str = utc_now().strftime("%Y/%m/%d")
             
             for followup in all_pending:

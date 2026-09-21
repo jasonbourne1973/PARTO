@@ -7,7 +7,10 @@ import sqlite3
 from database.connection import DatabaseConnection
 from models.staff import Staff
 from utils.batch_query import id_chunks, placeholders
+from utils.logger import get_logger
 from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class StaffDAL:
@@ -34,7 +37,7 @@ class StaffDAL:
             staff.description
         ))
         
-        conn.commit()
+        self.db.commit()
         staff.id = cursor.lastrowid
         return staff
     
@@ -144,7 +147,7 @@ class StaffDAL:
             staff.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return staff
     
     def delete(self, staff_id, user_id=None):
@@ -230,7 +233,7 @@ class StaffDAL:
         """, (now, user_id, staff_id))
 
         affected = cursor.rowcount
-        conn.commit()
+        self.db.commit()
         return affected > 0
 
     def restore(self, staff_id, user_id=None):
@@ -256,7 +259,7 @@ class StaffDAL:
         """, (staff_id,))
 
         affected = cursor.rowcount
-        conn.commit()
+        self.db.commit()
         return affected > 0
 
     def permanent_delete(self, staff_id):
@@ -313,7 +316,8 @@ class StaffDAL:
                     f"SELECT COUNT(*) FROM {table} WHERE {column} = ?",
                     (staff_id,)
                 ).fetchone()[0]
-            except sqlite3.Error:
+            except sqlite3.Error as _exc:
+                logger.debug(f"خطای مدیریت‌شده در permanent_delete (مسیر جایگزین): {_exc}")
                 continue
             if n:
                 blocking.append(f"{n} {label}")
@@ -329,7 +333,7 @@ class StaffDAL:
 
         cursor.execute("DELETE FROM staff WHERE id = ?", (staff_id,))
         affected = cursor.rowcount
-        conn.commit()
+        self.db.commit()
         return affected > 0
 
     def _row_to_staff(self, row):

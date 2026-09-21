@@ -2054,7 +2054,8 @@ class ReportGenerator:
             try:
                 today = jdatetime.date.today()
                 date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
-            except Exception:
+            except Exception as _exc:
+                self.logger.debug(f"خطای مدیریت‌شده در export_to_pdf (مسیر جایگزین): {_exc}")
                 date_str = utc_now().strftime("%Y/%m/%d")
             
             pdf.add_text(f"تاریخ تهیه گزارش: {date_str}")
@@ -2067,6 +2068,7 @@ class ReportGenerator:
             return True, f"فایل PDF با موفقیت در {file_path} ذخیره شد."
             
         except Exception as e:
+            self.logger.debug(f"خطای مدیریت‌شده در export_to_pdf (مسیر جایگزین): {e}")
             return False, f"خطا در ساخت فایل PDF: {e!s}"
     
     # ============================================================
@@ -2313,4 +2315,5 @@ class ReportGenerator:
             return True, f"فایل با موفقیت در {file_path} ذخیره شد."
             
         except Exception as e:
+            self.logger.debug(f"خطای مدیریت‌شده در export_to_excel (مسیر جایگزین): {e}")
             return False, f"خطا در ساخت فایل Excel: {e!s}"

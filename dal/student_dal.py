@@ -48,17 +48,17 @@ class StudentDAL:
                 student.is_active
             ))
 
-            conn.commit()
+            self.db.commit()
             student.id = cursor.lastrowid
             student.national_code = national_code
             return student
 
         except sqlite3.IntegrityError as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"خطا در ثبت دانش‌آموز: {e}")
 
         except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
-            conn.rollback()
+            self.db.rollback()
             raise
 
     def get_by_id(self, student_id, include_deleted=False):
@@ -166,16 +166,16 @@ class StudentDAL:
                 student.id
             ))
 
-            conn.commit()
+            self.db.commit()
             student.national_code = national_code
             return student
 
         except sqlite3.IntegrityError as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"خطا در ویرایش دانش‌آموز: {e}")
 
         except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
-            conn.rollback()
+            self.db.rollback()
             raise
 
     def delete(self, student_id, user_id=None):
@@ -201,7 +201,7 @@ class StudentDAL:
             WHERE id = ? AND is_deleted = 0
         """, (now, user_id, student_id))
 
-        conn.commit()
+        self.db.commit()
         return True
 
     def restore(self, student_id, user_id=None):
@@ -226,7 +226,7 @@ class StudentDAL:
             WHERE id = ? AND is_deleted = 1
         """, (student_id,))
 
-        conn.commit()
+        self.db.commit()
         return True
 
     def get_deleted(self, limit=None):
@@ -314,7 +314,7 @@ class StudentDAL:
             "DELETE FROM students WHERE id = ?",
             (student_id,)
         )
-        conn.commit()
+        self.db.commit()
         return True
 
     # ============================================================

@@ -7,7 +7,10 @@ import sqlite3
 
 from database.connection import DatabaseConnection
 from models.saved_filter import SavedFilter
+from utils.logger import get_logger
 from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class SavedFilterDAL:
@@ -38,7 +41,7 @@ class SavedFilterDAL:
             saved_filter.use_count or 0
         ))
         
-        conn.commit()
+        self.db.commit()
         saved_filter.id = cursor.lastrowid
         return saved_filter
     
@@ -162,7 +165,7 @@ class SavedFilterDAL:
             saved_filter.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return saved_filter
     
     def increment_use(self, filter_id):
@@ -177,7 +180,7 @@ class SavedFilterDAL:
             WHERE id = ? AND is_deleted = 0
         """, (filter_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def delete(self, filter_id, user_id=None):
@@ -201,7 +204,7 @@ class SavedFilterDAL:
             WHERE id = ?
         """, (now, user_id, filter_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def restore(self, filter_id):
@@ -217,7 +220,7 @@ class SavedFilterDAL:
             WHERE id = ? AND is_deleted = 1
         """, (filter_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def get_popular_filters(self, filter_type=None, limit=10):
@@ -252,7 +255,8 @@ class SavedFilterDAL:
         if row['filter_params']:
             try:
                 saved_filter.filter_params = json.loads(row['filter_params'])
-            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_filter (مسیر جایگزین): {_exc}")
                 saved_filter.filter_params = {}
         else:
             saved_filter.filter_params = {}

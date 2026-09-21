@@ -183,6 +183,7 @@ class ExcelImporter:
             column_map = {}
             header_map = {
                 'نام': 'first_name',
+                'نام کوچک': 'first_name',
                 'نام خانوادگی': 'last_name',
                 'کد ملی': 'national_code',
                 'تاریخ تولد': 'birth_date',
@@ -194,13 +195,25 @@ class ExcelImporter:
                 'کلاس': 'class_name',
             }
             
+            # (بازرسی شانزدهم) نگاشت ستون‌ها: نسخهٔ قبلی با «زیررشته» تطبیق
+            # می‌داد و چون «نام» زیررشتهٔ «نام خانوادگی»، «نام پدر» و «نام ولی»
+            # است، همهٔ این ستون‌ها روی first_name می‌افتادند و last_name هرگز
+            # پیدا نمی‌شد؛ حتی فایل نمونهٔ خودِ برنامه با «ستون‌های ضروری یافت
+            # نشدند: last_name» رد می‌شد. حالا: اول تطبیق دقیق، بعد طولانی‌ترین
+            # کلید؛ هر فیلد فقط به اولین ستون هم‌خوان نگاشت می‌شود.
+            keys_longest_first = sorted(header_map, key=len, reverse=True)
             for col, header in enumerate(headers, 1):
-                if header:
-                    header_str = str(header).strip()
-                    for key, field in header_map.items():
+                if not header:
+                    continue
+                header_str = self._normalize_header(header)
+                field = header_map.get(header_str)
+                if field is None:
+                    for key in keys_longest_first:
                         if key in header_str:
-                            column_map[field] = col
+                            field = header_map[key]
                             break
+                if field and field not in column_map:
+                    column_map[field] = col
             
             # بررسی وجود ستون‌های ضروری
             required_fields = ['first_name', 'last_name']
@@ -255,31 +268,41 @@ class ExcelImporter:
                         errors.append(f"ردیف {row}: {', '.join(errors_list)}")
                         continue
                     
-                    # ذخیره
-                    created = self.student_dal.create(student)
+                    # پایه (پیش از هر نوشتن، تا خطای آن ردیف را رد کند نه اینکه بی‌صدا ۱ شود)
+                    grade = 1
+                    if 'grade' in column_map and student_data.get('grade'):
+                        grade_text = student_data['grade'].strip()
+                        try:
+                            grade = int(float(grade_text))
+                        except (TypeError, ValueError):
+                            errors.append(f"ردیف {row}: مقدار پایه «{grade_text}» عدد نیست.")
+                            continue
+
+                    # ذخیرهٔ دانش‌آموز + پروندهٔ سالانه در «یک» تراکنش (بازرسی شانزدهم):
+                    # قبلاً دانش‌آموز commit می‌شد و اگر ساخت پرونده شکست می‌خورد،
+                    # دانش‌آموزِ بدون پرونده می‌ماند و در شمارش «موفق» هم حساب می‌شد.
+                    db = self.student_dal.db
+                    db.begin_transaction()
+                    try:
+                        created = self.student_dal.create(student)
+
+                        profile = StudentAcademicProfile()
+                        profile.student_id = created.id
+                        profile.academic_year_id = academic_year.id
+                        profile.grade = grade
+                        profile.class_name = student_data.get('class_name', '')
+                        profile.status = StudentAcademicProfile.STATUS_ACTIVE
+                        self.profile_dal.create(profile)
+                        db.commit_transaction()
+                    except Exception:
+                        db.rollback_transaction()
+                        raise
+
                     students.append(created)
                     imported += 1
-                    
-                    # ایجاد پرونده سالانه
-                    profile = StudentAcademicProfile()
-                    profile.student_id = created.id
-                    profile.academic_year_id = academic_year.id
-                    
-                    # خواندن پایه و کلاس از فایل
-                    if 'grade' in column_map and student_data.get('grade'):
-                        try:
-                            profile.grade = int(student_data['grade'])
-                        except Exception:
-                            profile.grade = 1
-                    else:
-                        profile.grade = 1
-                    
-                    profile.class_name = student_data.get('class_name', '')
-                    profile.status = StudentAcademicProfile.STATUS_ACTIVE
-                    
-                    self.profile_dal.create(profile)
-                    
+
                 except Exception as e:
+                    self.logger.warning(f"ردیف {row} ایمپورت نشد: {e}")
                     errors.append(f"ردیف {row}: {e!s}")
                     continue
             
@@ -294,6 +317,12 @@ class ExcelImporter:
             self.logger.error(f"خطا در ایمپورت Excel: {e}")
             return False, f"خطا در ایمپورت: {e!s}", 0, []
     
+    @staticmethod
+    def _normalize_header(header):
+        """یکدست‌سازی عنوان ستون: حذف فاصله‌های اضافی/نیم‌فاصله و یکسان‌سازی ی/ک عربی"""
+        text = str(header).replace('\u200c', ' ').replace('ي', 'ی').replace('ك', 'ک')
+        return ' '.join(text.split())
+
     def create_sample_excel(self, file_path):
         """
         ایجاد فایل Excel نمونه برای ایمپورت

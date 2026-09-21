@@ -34,12 +34,12 @@ class AcademicYearDAL:
                 year.is_archived
             ))
 
-            conn.commit()
+            self.db.commit()
             year.id = cursor.lastrowid
             return year
 
         except sqlite3.Error as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"خطا در ایجاد سال تحصیلی: {e}")
 
     def get_by_id(self, year_id):
@@ -144,11 +144,11 @@ class AcademicYearDAL:
                 year.id
             ))
 
-            conn.commit()
+            self.db.commit()
             return year
 
         except sqlite3.Error as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"خطا در به‌روزرسانی سال تحصیلی: {e}")
 
     def delete(self, year_id):
@@ -166,11 +166,11 @@ class AcademicYearDAL:
                 WHERE id = ?
             """, (year_id,))
 
-            conn.commit()
+            self.db.commit()
             return True
 
         except sqlite3.Error as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"خطا در حذف سال تحصیلی: {e}")
 
     def set_active(self, year_id):
@@ -186,11 +186,11 @@ class AcademicYearDAL:
                 WHERE id = ? AND is_deleted = 0
             """, (year_id,))
 
-            conn.commit()
+            self.db.commit()
             return True
 
         except sqlite3.Error as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"خطا در فعال‌سازی سال تحصیلی: {e}")
 
     def archive(self, year_id):
@@ -205,11 +205,11 @@ class AcademicYearDAL:
                 WHERE id = ? AND is_deleted = 0
             """, (year_id,))
 
-            conn.commit()
+            self.db.commit()
             return True
 
         except sqlite3.Error as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"خطا در بایگانی سال تحصیلی: {e}")
 
     def _row_to_year(self, row):

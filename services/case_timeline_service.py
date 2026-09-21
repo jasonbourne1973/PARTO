@@ -320,7 +320,8 @@ class CaseTimelineService:
         try:
             staff = self.staff_dal.get_by_id(staff_id)
             return staff.full_name if staff else "نامشخص"
-        except Exception:
+        except Exception as _exc:
+            logger.debug(f"خطای مدیریت‌شده در _get_staff_name (مسیر جایگزین): {_exc}")
             return "نامشخص"
 
     def _get_competency_name(self, competency_id, titles=None):
@@ -337,7 +338,8 @@ class CaseTimelineService:
         try:
             comp = self.competency_dal.get_by_id(competency_id)
             return comp.title if comp else "نامشخص"
-        except Exception:
+        except Exception as _exc:
+            logger.debug(f"خطای مدیریت‌شده در _get_competency_name (مسیر جایگزین): {_exc}")
             return "نامشخص"
     
     def _get_student_name_by_profile(self, profile_id):

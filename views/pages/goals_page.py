@@ -413,9 +413,13 @@ class GoalsPage(QWidget):
         )
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                self.goal_service.delete_goal(goal.id)
+                # (بازرسی شانزدهم) نتیجهٔ حذف بررسی می‌شود
+                deleted = self.goal_service.delete_goal(goal.id)
                 self.load_goals()
-                QMessageBox.information(self, "موفقیت", "هدف با موفقیت حذف شد")
+                if deleted:
+                    QMessageBox.information(self, "موفقیت", "هدف با موفقیت حذف شد")
+                else:
+                    QMessageBox.warning(self, "توجه", "این هدف پیدا نشد (احتمالاً قبلاً حذف شده است)؛ فهرست تازه‌سازی شد.")
             except Exception as e:
                 QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     

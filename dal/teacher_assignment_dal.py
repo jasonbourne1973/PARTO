@@ -38,7 +38,7 @@ class TeacherAssignmentDAL:
             assignment.assigned_date
         ))
         
-        conn.commit()
+        self.db.commit()
         assignment.id = cursor.lastrowid
         return assignment
     
@@ -179,7 +179,7 @@ class TeacherAssignmentDAL:
             assignment.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return assignment
     
     def delete(self, assignment_id, user_id=None):
@@ -198,7 +198,7 @@ class TeacherAssignmentDAL:
             WHERE id = ?
         """, (now, user_id, assignment_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def deactivate(self, assignment_id):
@@ -213,7 +213,7 @@ class TeacherAssignmentDAL:
             WHERE id = ? AND is_deleted = 0
         """, (assignment_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def activate(self, assignment_id):
@@ -228,7 +228,7 @@ class TeacherAssignmentDAL:
             WHERE id = ? AND is_deleted = 0
         """, (assignment_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     # ============================================================
@@ -556,7 +556,8 @@ class TeacherAssignmentDAL:
                             week = (day - 1) // 7 + 1
                             key = f"{parts[0]}/{parts[1]}/W{week}"
                             label = f"هفته {week} {parts[1]}"
-                        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+                        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                            logger.debug(f"خطای مدیریت‌شده در get_teacher_trend (مسیر جایگزین): {_exc}")
                             key = date_str[:7]
                             label = date_str[:7]
                     else:

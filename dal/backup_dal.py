@@ -146,12 +146,12 @@ class BackupDAL:
                 1 if record.is_verified else 0
             ))
 
-            conn.commit()
+            self.db.commit()
             record.id = cursor.lastrowid
             return record
 
         except sqlite3.Error as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"خطا در ثبت پشتیبان: {e}")
 
     # ============================================================
@@ -269,7 +269,7 @@ class BackupDAL:
             backup_id
         ))
 
-        conn.commit()
+        self.db.commit()
         return cursor.rowcount > 0
 
     def mark_restored(self, backup_id):
@@ -281,7 +281,7 @@ class BackupDAL:
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND is_deleted = 0
         """, (utc_now_iso(), backup_id))
-        conn.commit()
+        self.db.commit()
 
     # ============================================================
     # به‌روزرسانی و حذف
@@ -304,10 +304,10 @@ class BackupDAL:
                 record.kind,
                 record.id
             ))
-            conn.commit()
+            self.db.commit()
             return record
         except sqlite3.Error as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"خطا در به‌روزرسانی پشتیبان: {e}")
 
     def delete(self, backup_id, user_id=None, delete_file=False):
@@ -337,7 +337,7 @@ class BackupDAL:
             WHERE id = ? AND is_deleted = 0
         """, (now, user_id, backup_id))
 
-        conn.commit()
+        self.db.commit()
 
         if delete_file and record.file_path and os.path.exists(record.file_path):
             try:
@@ -363,7 +363,7 @@ class BackupDAL:
             WHERE id = ? AND is_deleted = 1
         """, (backup_id,))
 
-        conn.commit()
+        self.db.commit()
         return cursor.rowcount > 0
 
     def permanent_delete(self, backup_id, delete_file=True):
@@ -373,7 +373,7 @@ class BackupDAL:
         cursor = conn.cursor()
 
         cursor.execute("DELETE FROM backups WHERE id = ?", (backup_id,))
-        conn.commit()
+        self.db.commit()
 
         if (delete_file and record and record.file_path
                 and os.path.exists(record.file_path)):

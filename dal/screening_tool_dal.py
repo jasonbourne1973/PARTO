@@ -7,7 +7,10 @@ import sqlite3
 
 from database.connection import DatabaseConnection
 from models.screening_tool import ScreeningTool
+from utils.logger import get_logger
 from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class ScreeningToolDAL:
@@ -57,7 +60,7 @@ class ScreeningToolDAL:
             1 if tool.required_training else 0
         ))
         
-        conn.commit()
+        self.db.commit()
         tool.id = cursor.lastrowid
         return tool
     
@@ -165,7 +168,7 @@ class ScreeningToolDAL:
             tool.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return tool
     
     def update_status(self, tool_id, new_status):
@@ -178,7 +181,7 @@ class ScreeningToolDAL:
             WHERE id = ? AND is_deleted = 0
         """, (new_status, tool_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def delete(self, tool_id, user_id=None):
@@ -202,7 +205,7 @@ class ScreeningToolDAL:
             WHERE id = ?
         """, (now, user_id, tool_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def restore(self, tool_id, user_id=None):
@@ -218,7 +221,7 @@ class ScreeningToolDAL:
             WHERE id = ? AND is_deleted = 1
         """, (tool_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def _row_to_tool(self, row):
@@ -237,7 +240,8 @@ class ScreeningToolDAL:
         if row['domains']:
             try:
                 tool.domains = json.loads(row['domains'])
-            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_tool (مسیر جایگزین): {_exc}")
                 tool.domains = None
         else:
             tool.domains = None
@@ -245,7 +249,8 @@ class ScreeningToolDAL:
         if row['sub_domains']:
             try:
                 tool.sub_domains = json.loads(row['sub_domains'])
-            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_tool (مسیر جایگزین): {_exc}")
                 tool.sub_domains = None
         else:
             tool.sub_domains = None
@@ -253,7 +258,8 @@ class ScreeningToolDAL:
         if row['scoring_scale']:
             try:
                 tool.scoring_scale = json.loads(row['scoring_scale'])
-            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_tool (مسیر جایگزین): {_exc}")
                 tool.scoring_scale = None
         else:
             tool.scoring_scale = None
@@ -264,7 +270,8 @@ class ScreeningToolDAL:
         if row['cutoff_scores']:
             try:
                 tool.cutoff_scores = json.loads(row['cutoff_scores'])
-            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_tool (مسیر جایگزین): {_exc}")
                 tool.cutoff_scores = None
         else:
             tool.cutoff_scores = None

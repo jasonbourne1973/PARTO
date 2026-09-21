@@ -128,7 +128,8 @@ class AdvancedSearchService(BaseService):
         try:
             observations = self.observation_dal.get_by_student(student_id, academic_year_id)
             return len(observations) > 0
-        except Exception:
+        except Exception as _exc:
+            self.logger.debug(f"خطای مدیریت‌شده در _has_observation (مسیر جایگزین): {_exc}")
             return False
     
     def _has_intervention(self, student_id, academic_year_id=None):
@@ -136,7 +137,8 @@ class AdvancedSearchService(BaseService):
         try:
             interventions = self.intervention_dal.get_by_student(student_id, academic_year_id)
             return len(interventions) > 0
-        except Exception:
+        except Exception as _exc:
+            self.logger.debug(f"خطای مدیریت‌شده در _has_intervention (مسیر جایگزین): {_exc}")
             return False
     
     def _get_student_status(self, student_id, academic_year_id=None):
@@ -149,7 +151,8 @@ class AdvancedSearchService(BaseService):
             else:
                 profile = self.profile_dal.get_active_by_student(student_id)
             return profile.status if profile else 'inactive'
-        except Exception:
+        except Exception as _exc:
+            self.logger.debug(f"خطای مدیریت‌شده در _get_student_status (مسیر جایگزین): {_exc}")
             return 'inactive'
     
     # ============================================================

@@ -43,7 +43,7 @@ class NotificationDAL:
             notification.related_data
         ))
         
-        conn.commit()
+        self.db.commit()
         notification.id = cursor.lastrowid
         return notification
     
@@ -185,7 +185,7 @@ class NotificationDAL:
             WHERE id = ? AND is_deleted = 0
         """, (now, notification_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def mark_all_as_read(self, user_id):
@@ -202,7 +202,7 @@ class NotificationDAL:
             WHERE user_id = ? AND is_read = 0 AND is_dismissed = 0 AND is_deleted = 0
         """, (now, user_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def mark_as_dismissed(self, notification_id):
@@ -219,7 +219,7 @@ class NotificationDAL:
             WHERE id = ? AND is_deleted = 0
         """, (now, notification_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def delete(self, notification_id):
@@ -234,7 +234,7 @@ class NotificationDAL:
             WHERE id = ?
         """, (notification_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def delete_old(self, days=30):
@@ -258,7 +258,7 @@ class NotificationDAL:
             WHERE created_at < ? AND is_deleted = 0
         """, (cutoff_date,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def _row_to_notification(self, row):

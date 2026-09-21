@@ -158,7 +158,8 @@ class ExtracurricularService(BaseService):
 
         try:
             activities = getter()
-        except TypeError:
+        except TypeError as _exc:
+            self.logger.debug(f"خطای مدیریت‌شده در get_all_activities (مسیر جایگزین): {_exc}")
             activities = getter(include_deleted=False)
 
         activities = list(activities or [])
@@ -288,7 +289,8 @@ class ExtracurricularService(BaseService):
                 student = self.student_dal.get_by_id(profile.student_id)
                 if student:
                     activity.student_name = student.full_name
-        except Exception:
+        except Exception as _exc:
+            self.logger.debug(f"خطای مدیریت‌شده در _enrich_activity (مسیر جایگزین): {_exc}")
             activity.student_name = "نامشخص"
         
         # نام معلم
@@ -297,5 +299,6 @@ class ExtracurricularService(BaseService):
                 teacher = self.staff_dal.get_by_id(activity.teacher_id)
                 if teacher:
                     activity.teacher_name = teacher.full_name
-            except Exception:
+            except Exception as _exc:
+                self.logger.debug(f"خطای مدیریت‌شده در _enrich_activity (مسیر جایگزین): {_exc}")
                 activity.teacher_name = "نامشخص"

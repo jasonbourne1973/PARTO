@@ -7,7 +7,10 @@ import sqlite3
 
 from database.connection import DatabaseConnection
 from models.extracurricular_activity import ExtracurricularActivity
+from utils.logger import get_logger
 from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class ExtracurricularDAL:
@@ -51,7 +54,7 @@ class ExtracurricularDAL:
             activity.status
         ))
         
-        conn.commit()
+        self.db.commit()
         activity.id = cursor.lastrowid
         return activity
     
@@ -188,7 +191,7 @@ class ExtracurricularDAL:
             activity.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return activity
     
     def update_status(self, activity_id, new_status):
@@ -203,7 +206,7 @@ class ExtracurricularDAL:
             WHERE id = ? AND is_deleted = 0
         """, (new_status, activity_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def delete(self, activity_id, user_id=None):
@@ -227,7 +230,7 @@ class ExtracurricularDAL:
             WHERE id = ?
         """, (now, user_id, activity_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def restore(self, activity_id):
@@ -243,7 +246,7 @@ class ExtracurricularDAL:
             WHERE id = ? AND is_deleted = 1
         """, (activity_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def get_activity_stats(self, profile_id):
@@ -293,7 +296,8 @@ class ExtracurricularDAL:
         if row['achievements']:
             try:
                 activity.achievements = json.loads(row['achievements'])
-            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_activity (مسیر جایگزین): {_exc}")
                 activity.achievements = None
         else:
             activity.achievements = None
