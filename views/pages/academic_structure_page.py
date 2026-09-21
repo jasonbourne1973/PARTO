@@ -57,7 +57,6 @@ class AcademicStructurePage(QWidget):
     """
     
     student_selected = Signal(int)
-    assignment_changed = Signal()
     
     def __init__(self, parent=None):
         super().__init__(parent)    

@@ -29,7 +29,11 @@
   F) اتمیک‌بودن واقعی تراکنش سرویس، ایمپورت اکسل (نمونهٔ برنامه + سناریوهای خراب)، قرارداد نتیجهٔ حذف،
      اسکن except بی‌صدا، اسکن SQL، Constraints، خروجی‌های واقعی صفحه‌ها، سازگاری جدول/DB ......... ۹ بررسی
 
-جمع فعلی: ۷۳ بررسی
+مرحلهٔ ۶ — کد مرده، وابستگی‌ها، لایهٔ سرویس (بندهای ۲۷، ۲۸، ۲۹):
+  G) حذف کد مردهٔ تأییدشده بدون ارجاع باقی‌مانده، جهت وابستگی لایه‌ها، سیگنال‌های هرگز-emit-نشده،
+     سرویس‌های wrapper ...................................................................... ۴ بررسی
+
+جمع: ۷۷ بررسی
 """
 
 import contextlib
@@ -912,7 +916,7 @@ def smoke_pages():
 
 smoke = smoke_pages()
 check("C", "همهٔ کلاس‌های صفحه (views/pages) ساخته می‌شوند و همهٔ handlerهای متصل (بدون آرگومان، با ردیف انتخاب‌شده، یا با شیء ردیف/آیتم) بدون استثنا و بدون پیام «خطا» اجرا می‌شوند",
-      smoke['classes'] >= 22 and smoke['handlers'] >= 150 and not smoke['problems'],
+      smoke['classes'] >= 20 and smoke['handlers'] >= 140 and not smoke['problems'],
       f"classes={smoke['classes']} handlers={smoke['handlers']} problems={smoke['problems'][:5]}")
 
 # --- پنجرهٔ اصلی با ورود شبیه‌سازی‌شده
@@ -1097,9 +1101,6 @@ KNOWN_RECEIVERLESS = {
     ('views/dialogs/attachment_dialog.py', 'attachment_deleted'),
     ('views/dialogs/change_password_dialog.py', 'password_changed'),
     ('views/main_window.py', 'academic_year_changed'),
-    ('views/pages/academic_structure_page.py', 'assignment_changed'),
-    ('views/pages/assign_teacher_page.py', 'assignment_changed'),
-    ('views/pages/student_profile_page.py', 'student_changed'),
     ('views/widgets/competency_tree_widget.py', 'behavior_selected'),
     ('views/widgets/competency_tree_widget.py', 'competency_selected'),
     ('views/widgets/competency_tree_widget.py', 'indicator_selected'),
@@ -2049,7 +2050,94 @@ check("F", "سازگاری داده (بند ۲۳): جدول مشاهدات با 
 # ============================================================
 print()
 print("=" * 76)
-print(f"نتیجهٔ دور شانزدهم (مرحله‌های ۱ تا ۵):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
+print("بخش G: کد مرده، جهت وابستگی لایه‌ها، لایهٔ سرویس، سیگنال‌های بی‌استفاده")
+print("=" * 76)
+
+# --- G1: ماژول‌های مردهٔ حذف‌شده دیگر نیستند و هیچ ارجاعی به آن‌ها نمانده؛ ماژول‌های «منتظر تصمیم» هنوز هستند
+REMOVED_DEAD = ["views/pages/assign_teacher_page.py", "views/pages/teacher_students_page.py",
+                "utils/cache.py", "utils/competency_helper.py", "models/student_file.py"]
+PENDING_DECISION = ["views/dialogs/attachment_dialog.py", "views/widgets/filter_widget.py", "dal/saved_filter_dal.py",
+                    "views/widgets/recommendation_widget.py", "utils/notification_scheduler.py",
+                    "services/notification_service.py", "dal/backup_dal.py", "services/school_report_service.py",
+                    "dal/screening_tool_dal.py", "utils/report_template.py", "models/analytics_models.py"]
+app_dirs = ["main.py", "views", "views/pages", "views/dialogs", "views/widgets", "services", "dal", "utils", "database", "models", "config"]
+app_sources = {}
+for d in app_dirs:
+    if d.endswith(".py"):
+        app_sources[d] = read(d)
+        continue
+    for fname in os.listdir(d):
+        if fname.endswith(".py"):
+            app_sources[os.path.join(d, fname)] = read(os.path.join(d, fname))
+stale_refs = []
+for removed in REMOVED_DEAD:
+    stem = os.path.basename(removed)[:-3]
+    for path, src in app_sources.items():
+        if re.search(rf"\b{re.escape(stem)}\b", src):
+            stale_refs.append((removed, path))
+check("G", "کد مردهٔ تأییدشده (دو صفحهٔ هرگز-سوارنشده، کش/کمک‌شایستگی/مدل پروندهٔ بی‌استفاده) حذف شده و هیچ ارجاعی به آن‌ها در کد نمانده؛ ماژول‌های منتظر تصمیم دست‌نخورده‌اند",
+      not any(os.path.exists(p) for p in REMOVED_DEAD) and not stale_refs
+      and all(os.path.exists(p) for p in PENDING_DECISION),
+      f"stale={stale_refs} missing_pending={[p for p in PENDING_DECISION if not os.path.exists(p)]}")
+
+# --- G2: جهت وابستگی لایه‌ها (بند ۲۸)
+FORBIDDEN = {"services": {"views"}, "dal": {"services", "views"}, "models": {"dal", "services", "views"},
+             "database": {"services", "views", "dal"}, "config": {"views", "services", "dal", "utils", "database"}}
+UTILS_DAL_EXCEPTIONS = {"utils/excel_importer.py", "utils/notification_scheduler.py", "utils/backup.py", "utils/security.py"}
+layer_violations = []
+for path, src in app_sources.items():
+    layer = path.split("/")[0]
+    if layer == "main.py":
+        continue
+    for node in ast.walk(ast.parse(src)):
+        mods = []
+        if isinstance(node, ast.Import):
+            mods = [a.name for a in node.names]
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            mods = [node.module]
+        for m in mods:
+            target = m.split(".")[0]
+            if target in FORBIDDEN.get(layer, set()):
+                layer_violations.append((path, m))
+            if layer == "utils" and target in ("views", "services", "dal") and path not in UTILS_DAL_EXCEPTIONS:
+                layer_violations.append((path, m))
+raw_db_in_views = [(p, m.group(0)) for p, src in app_sources.items() if p.startswith("views")
+                   for m in re.finditer(r"\.execute\(|execute_query\(|get_connection\(\)", src)]
+qt_in_services = [p for p, src in app_sources.items() if p.startswith("services") and re.search(r"^\s*(from|import)\s+PySide6", src, re.M)]
+check("G", "جهت وابستگی (بند ۲۸): services→views، dal→services/views، models→dal/services، database→services/dal ممنوع و رعایت شده؛ هیچ SQL/اتصال خام در views؛ هیچ import از Qt در services (استثناهای utils→dal مستند: excel_importer، notification_scheduler، backup، security)",
+      not layer_violations and not raw_db_in_views and not qt_in_services,
+      f"violations={layer_violations[:5]} raw={raw_db_in_views[:3]} qt={qt_in_services}")
+
+# --- G3: سیگنال‌های سفارشی: هیچ سیگنالی نیست که تعریف شده ولی هرگز emit نشود (کد مرده)
+with contextlib.redirect_stdout(io.StringIO()):
+    inventory_g = inv.build_report(write=False)
+never_emitted = [(r, c, sig) for r, c, sig, ln, e, recv in inventory_g['signals'] if e == 0]
+check("G", "هیچ سیگنال سفارشی «تعریف‌شده ولی هرگز emit‌نشده» در views/ نمانده (student_changed و assignment_changed ×۲ حذف شدند؛ BackupWorker.progress اکنون emit می‌شود)",
+      not never_emitted, str(never_emitted))
+
+# --- G4: لایهٔ سرویس (بند ۲۹): سرویس‌های زنده منطق دارند؛ فقط NotificationService (زیرسیستم دست‌نیافتنی) اغلب wrapper است
+wrapper_services = []
+for fname in sorted(os.listdir("services")):
+    if not fname.endswith(".py") or fname == "__init__.py":
+        continue
+    tree_s = ast.parse(read(os.path.join("services", fname)))
+    for cls in [n for n in tree_s.body if isinstance(n, ast.ClassDef)]:
+        methods = [m for m in cls.body if isinstance(m, ast.FunctionDef) and not m.name.startswith("_")]
+        wrappers = 0
+        for m in methods:
+            body = [st for st in m.body if not (isinstance(st, ast.Expr) and isinstance(getattr(st, "value", None), ast.Constant))]
+            if len(body) == 1 and isinstance(body[0], ast.Return) and isinstance(body[0].value, ast.Call) \
+                    and "_dal." in ast.unparse(body[0].value.func):
+                wrappers += 1
+        if methods and wrappers / len(methods) > 0.5:
+            wrapper_services.append(cls.name)
+check("G", "لایهٔ سرویس (بند ۲۹): هیچ سرویس زنده‌ای صرفاً wrapper ظاهری DAL نیست (تنها NotificationService در زیرسیستم دست‌نیافتنی اعلان‌ها)",
+      set(wrapper_services) <= {"NotificationService"}, str(wrapper_services))
+
+# ============================================================
+print()
+print("=" * 76)
+print(f"نتیجهٔ دور شانزدهم (مرحله‌های ۱ تا ۶):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
 if FAILURES:
     print("موارد ناموفق:")
     for f in FAILURES:

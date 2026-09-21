@@ -52,7 +52,6 @@ logger = get_logger(__name__)
 class StudentProfilePage(QWidget):
     """صفحه مرکز پرونده دانش‌آموز با Timeline و جستجو و انتخاب سال"""
     
-    student_changed = Signal(int)
     # (بازرسی شانزدهم) درخواست گزارش کامل: پنجرهٔ اصلی صفحهٔ گزارش‌ها را با
     # همین دانش‌آموز باز می‌کند (قبلاً دکمه فقط پیام «به بخش گزارش‌ها بروید» می‌داد).
     report_requested = Signal(int)

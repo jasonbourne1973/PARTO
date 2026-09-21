@@ -69,6 +69,10 @@ class BackupWorker(QThread):
     
     def run(self):
         try:
+            # (بازرسی شانزدهم) سیگنال progress تعریف و متصل بود ولی هرگز emit
+            # نمی‌شد → نوار پیشرفت همیشه صفر می‌ماند. مقدار دقیق پیشرفت
+            # پشتیبان‌گیری قابل اندازه‌گیری نیست؛ حداقل شروع/پایان اعلام می‌شود.
+            self.progress.emit(10)
             with DatabaseConnection().worker_context(self.user_id):
                 if self.action == "create":
                     result = self.backup_manager.create_backup(
@@ -86,6 +90,7 @@ class BackupWorker(QThread):
                     self.operation_finished.emit(success, message)
                 else:
                     self.operation_finished.emit(False, f"عملیات ناشناخته: {self.action}")
+            self.progress.emit(100)
         except Exception as e:
             # (بازرسی شانزدهم) استثنای نخ کارگر نباید بی‌صدا بمیرد و صفحه
             # را در حالت «در حال اجرا» با دکمه‌های غیرفعال رها کند.

@@ -47,6 +47,7 @@ class ActivitiesPage(QWidget):
         self.logger = get_logger(self.__class__.__name__)
         
         self.activities = []
+        self.visible_activities = []
         self.all_students = []
         
         self.setup_ui()
@@ -101,6 +102,24 @@ class ActivitiesPage(QWidget):
         """)
         self.add_btn.clicked.connect(self.add_activity)
         toolbar.addWidget(self.add_btn)
+
+        # (بازرسی شانزدهم) سیگنال student_selected تعریف و در پنجرهٔ اصلی
+        # متصل بود ولی این صفحه هیچ‌جا آن را emit نمی‌کرد؛ همان دکمهٔ
+        # صفحه‌های اهداف و مشاوره این‌جا هم اضافه شد.
+        self.view_profile_btn = QPushButton("👤 مشاهده پرونده دانش‌آموز")
+        self.view_profile_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #0B2E4F;
+                color: #F4C542;
+                padding: 8px 15px;
+                border: none;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #08223A; }
+        """)
+        self.view_profile_btn.clicked.connect(self.view_student_profile)
+        toolbar.addWidget(self.view_profile_btn)
         
         layout.addLayout(toolbar)
         
@@ -180,7 +199,11 @@ class ActivitiesPage(QWidget):
     
     def display_activities(self, activities):
         """نمایش فعالیت‌ها در جدول"""
-        self.table.setRowCount(len(activities))
+        # (بازرسی شانزدهم) فهرستِ نمایش‌داده‌شده جدا نگه داشته می‌شود؛ قبلاً
+        # دابل‌کلیک با فیلتر فعال، ردیف را در فهرست «فیلترنشده» جست‌وجو می‌کرد
+        # و فعالیت اشتباهی برای ویرایش باز می‌شد.
+        self.visible_activities = list(activities or [])
+        self.table.setRowCount(len(self.visible_activities))
         
         for row, activity in enumerate(activities):
             self.table.setItem(row, 0, QTableWidgetItem(str(row + 1)))
@@ -231,11 +254,28 @@ class ActivitiesPage(QWidget):
             self.table.setCellWidget(row, 7, btn_widget)
             self.table.setRowHeight(row, 40)
     
+    def view_student_profile(self):
+        """مشاهده پرونده دانش‌آموزِ فعالیت انتخاب‌شده (از طریق پنجرهٔ اصلی)"""
+        row = self.table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "توجه", "لطفاً یک فعالیت را انتخاب کنید.")
+            return
+        visible = getattr(self, 'visible_activities', None) or self.activities
+        if row >= len(visible):
+            QMessageBox.warning(self, "توجه", "فعالیت انتخاب‌شده معتبر نیست.")
+            return
+        profile_id = getattr(visible[row], 'student_profile_id', None)
+        if profile_id:
+            self.student_selected.emit(profile_id)
+        else:
+            QMessageBox.warning(self, "توجه", "پرونده دانش‌آموز یافت نشد.")
+
     def on_item_double_clicked(self, item):
-        """ویرایش فعالیت با دابل کلیک"""
+        """ویرایش فعالیت با دابل کلیک (روی همان فهرست نمایش‌داده‌شده)"""
         row = item.row()
-        if row < len(self.activities):
-            self.edit_activity(self.activities[row])
+        visible = getattr(self, 'visible_activities', None) or self.activities
+        if 0 <= row < len(visible):
+            self.edit_activity(visible[row])
     
     def add_activity(self):
         """افزودن فعالیت جدید"""

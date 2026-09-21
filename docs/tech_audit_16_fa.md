@@ -19,7 +19,7 @@ file picker و دیالوگ‌های modal اجرا نمی‌شوند. هر قا
 | ۳ | Inventory کامل صفحات (`views/pages` + `main_window`)، کنتراست، Signal/Slot؛ دیالوگ‌ها/ویجت‌ها | ۲، ۳، ۱۰، ۱۴، ۱۸، ۱۹، ۳۶ | **۳-الف و ۳-ب انجام شد** (بخش‌های ۳ و ۴) |
 | ۴ | Attachment (زنجیرهٔ کامل)، Thread/Worker، Race، وضعیت Screening/Recommendation | ۷، ۸، ۹، ۲۰، ۲۱، ۳۲ | **انجام شد** (بخش ۵) |
 | ۵ | Exception/Return/Transaction/DAL/Constraints/Import-Export/Consistency | ۱۶، ۱۷، ۲۲، ۲۳، ۲۴، ۲۶، ۳۰، ۳۱ | **انجام شد** (بخش ۶) |
-| ۶ | Dead code، وابستگی‌ها، لایهٔ سرویس، ارزیابی تست‌ها، گزارش نهایی | ۱۳، ۱۴، ۲۷، ۲۸، ۲۹، ۳۳، ۳۴، ۳۷، ۳۸ | — |
+| ۶ | Dead code، وابستگی‌ها، لایهٔ سرویس، ارزیابی تست‌ها، گزارش نهایی | ۱۳، ۱۴، ۲۷، ۲۸، ۲۹، ۳۳، ۳۴، ۳۷، ۳۸ | **انجام شد** (بخش‌های ۷ و ۸) |
 
 تصمیم‌های کاربر پیش از شروع: Screening و RecommendationWidget فعلاً فقط
 گزارش وضعیت (UNREACHABLE / DEAD_CODE) — تصمیم ساخت/حذف بعداً.
@@ -1285,3 +1285,225 @@ F9: جدول مشاهدات = DB؛ ثبت از سرویس + بارگذاری د�
 (سازگاری)، ۲۴ (خروجی‌های واقعی)، ۲۶ (ایمپورت: معتبر/نامعتبر/خالی/خراب/
 تکراری/اسکیمای غلط؛ «encoding» برای xlsx موضوعیت ندارد — ورودی فقط xlsx است)،
 ۳۰ (DAL/SQL)، ۳۱ (Constraints).
+
+---
+
+# بخش ۷ — مرحلهٔ ۶: کد مرده، وابستگی لایه‌ها، لایهٔ سرویس، ارزیابی تست‌ها
+
+پایه: کامیت `c54be48`. روش کشف کد مرده: فهرست همهٔ ماژول‌ها و کلاس/تابع‌های
+سطح بالا در کد برنامه، جست‌وجوی ارجاع (نام و import) در **کل مخزن** (کد
+برنامه، `tests/`، همهٔ `verify_fixes*`، ابزارها) و بازبینی دستی هر مورد.
+
+## [BUG-039]
+### بخش
+```text
+views/pages/assign_teacher_page.py (۵۸۲ خط)، views/pages/teacher_students_page.py (۶۸۶ خط)
+```
+### وضعیت
+`DEAD_CODE` (حالت ۶ — دو صفحهٔ کامل که هیچ‌جا سوار نشده بودند)
+### مشکل
+هیچ import/ساختی از این دو صفحه در برنامه وجود نداشت (پنجرهٔ اصلی ۱۳ صفحه
+سوار می‌کند؛ این دو جزو آن‌ها نیستند). قابلیت‌شان (اختصاص معلم / دانش‌آموزان
+یک معلم) در `academic_structure_page` و فیلتر معلم صفحهٔ گزارش‌ها زنده است.
+### اصلاح
+حذف (در تاریخچهٔ git موجود است). به‌همراه: `utils/cache.py`،
+`utils/competency_helper.py`، `models/student_file.py` (صفر ارجاع در کل
+مخزن) و سه سیگنالِ تعریف‌شده ولی هرگز emit‌نشده
+(`StudentProfilePage.student_changed`،
+`AcademicStructurePage.assignment_changed`، و همان در صفحهٔ حذف‌شده).
+### تست
+G1 (فایل‌ها نیستند و هیچ ارجاعی نمانده؛ ماژول‌های منتظر تصمیم دست‌نخورده)،
+G3 (هیچ سیگنال هرگز-emit-نشده‌ای نمانده).
+```text
+STATUS: FIXED
+```
+
+## [BUG-040]
+### بخش
+```text
+views/pages/activities_page.py — on_item_double_clicked / display_activities / student_selected
+```
+### وضعیت
+`BROKEN` (P2 — ویرایش رکورد اشتباه با فیلتر فعال؛ سیگنال بدون فرستنده)
+### مشکل
+(۱) دابل‌کلیک، ردیف جدول را در فهرست **فیلترنشده** (`self.activities`)
+جست‌وجو می‌کرد؛ با فیلتر نوع/وضعیت فعال، فرم ویرایشِ فعالیت دیگری باز می‌شد.
+(۲) سیگنال `student_selected` تعریف و در پنجرهٔ اصلی متصل بود، ولی این صفحه
+هرگز آن را emit نمی‌کرد (صفحه‌های اهداف و مشاوره دکمهٔ «👤 مشاهده پرونده
+دانش‌آموز» دارند؛ این صفحه نه).
+### اصلاح
+`visible_activities` برای فهرست نمایش‌داده‌شده؛ دکمهٔ «👤 مشاهده پرونده
+دانش‌آموز» با `view_student_profile` مثل دو صفحهٔ خواهر. سایر صفحه‌های
+جدولی بررسی شدند: همیشه همان فهرستی را نمایش می‌دهند که به آن اندیس می‌زنند.
+### تست
+G3 (سیگنال emit می‌شود)؛ اجرای handlerها در §C.
+```text
+STATUS: FIXED
+```
+
+## [BUG-041]
+### بخش
+```text
+views/pages/backup_page.py — BackupWorker.progress
+```
+### وضعیت
+`PARTIALLY_BROKEN` (P4 — نوار پیشرفت آرایشی)
+### اصلاح
+`progress(10)` در شروع و `progress(100)` در پایان (مقدار میانی برای پشتیبان
+SQLite قابل اندازه‌گیری نیست).
+```text
+STATUS: FIXED
+```
+
+## فهرست کد مرده / دست‌نیافتنیِ باقی‌مانده — منتظر تصمیم شما (حذف یا اتصال)
+
+| ماژول | خط | مصرف‌کننده در برنامه | ارجاع در تست‌ها | پیشنهاد |
+|---|---|---|---|---|
+| `views/dialogs/attachment_dialog.py` (+ سرویس/DAL پیوست) | ۹۰۰+ | هیچ (BUG-027) | verify14/16 | اتصال: دکمهٔ «📎 پیوست‌ها» در پروندهٔ دانش‌آموز (زنجیره سالم و آزموده) |
+| `utils/notification_scheduler.py`, `services/notification_service.py`, `dal/notification_dal.py`, جدول `notifications` | ~۹۰۰ | هیچ (BUG-028) | verify14/15/16 | حذف یا راه‌اندازی در `main.py` + نمایش در زنگوله |
+| `views/widgets/filter_widget.py`, `dal/saved_filter_dal.py`, `models/saved_filter.py`, جدول `saved_filters` | ~۷۵۰ | هیچ (BUG-029) | verify16 (فقط فهرست) | حذف (جدول می‌ماند) |
+| `views/widgets/recommendation_widget.py` | ۴۰۰ | هیچ | verify16 (فهرست) | حذف یا سوارکردن در پروندهٔ دانش‌آموز (سرویس پیشنهادها زنده است) |
+| `dal/backup_dal.py` (BackupDAL/BackupRecord) + جدول `backups` | ۴۹۰ | هیچ | verify9 | حذف (پشتیبان‌ها فایل‌محورند) |
+| `services/school_report_service.py` | ۳۵۴ | هیچ | verify2/7/8 (وجود فایل) | حذف پس از به‌روزرسانی آن سه بررسی |
+| `dal/screening_tool_dal.py` (+ زیرسیستم Screening بدون UI) | ۲۸۷ | هیچ | — | تصمیم Screening (ساخت UI یا حذف) |
+| `utils/report_template.py` | ۴۵۶ | هیچ | verify2/3 | حذف پس از به‌روزرسانی بررسی‌ها |
+| `models/analytics_models.py` (dataclassهای بی‌استفاده) | ۱۱۰ | هیچ | verify8/10 | حذف پس از به‌روزرسانی بررسی‌ها |
+| `config/constants.py` — ۸ تابع `get_*_display` | — | هیچ | — | حذف یا استفاده در صفحه‌ها به‌جای نگاشت‌های محلی |
+| `utils/error_handler.py` — `AppError`, `DatabaseError`, `NotFoundError`, … | — | هیچ (فقط `ServiceError/ValidationError` استفاده می‌شود) | — | نگه‌داشتن به‌عنوان سلسله‌مراتب خطا یا حذف |
+
+(هیچ‌کدام حذف نشد؛ G1 وجودشان را قفل می‌کند تا حذف آگاهانه باشد.)
+
+## بند ۲۸ — گراف وابستگی (وضعیت واقعی)
+
+```text
+views  → services (24 فایل) ، dal (36) ، models ، utils ، database ، config
+services → dal (21) ، models ، utils ، database (2: اتصال/قفل) ، config
+dal → database ، models ، utils
+utils → config ، database (2) ، dal (excel_importer, notification_scheduler) ، services (notification_scheduler)
+models → utils
+```
+- **بدون** services→views، dal→services/views، models→dal/services، database→services/dal.
+- هیچ SQL/اتصال خام در `views/` (`execute(`/`get_connection()` صفر مورد).
+- هیچ import از Qt در `services/`.
+- نکته‌های معماری (P4، بدون تغییر): `utils/excel_importer.py` عملاً یک سرویس
+  است (به DAL وابسته)؛ `views` در ۳۶ فایل مستقیم به DAL می‌روند (طبق قاعدهٔ ۱
+  README مجاز است — فقط خواندن‌های ساده)؛ G2 جهت‌های ممنوع را قفل می‌کند.
+
+## بند ۲۹ — لایهٔ سرویس
+تحلیل AST همهٔ متدهای عمومی سرویس‌ها: تنها `NotificationService` (زیرسیستم
+دست‌نیافتنی) اغلب wrapper خالص DAL است؛ بقیهٔ سرویس‌ها اعتبارسنجی، تراکنش،
+غنی‌سازی و Audit دارند. هیچ سرویسی ویجت را دستکاری نمی‌کند (G4).
+
+## بندهای ۱۳ و ۱۴ — ارزیابی صادقانهٔ آزمون‌های موجود
+
+| مجموعه | نوع غالب | چه چیزی را ثابت می‌کند | چه چیزی را ثابت **نمی‌کند** |
+|---|---|---|---|
+| `tests/` (۲۶ unittest) | واحد/DAL/سرویس روی DB موقت | CRUD پایه، مدل‌ها، چند سرویس | هیچ UI، هیچ زنجیرهٔ کامل |
+| `verify_fixes1–8` | **Regression** (باگ X برنگشته) | رفتارهای اصلاح‌شدهٔ دورهای ۱–۸ (تاریخ، زمان، حذف منطقی، …) | کارکرد کاربر از UI تا DB |
+| `verify_fixes9–10` | Regression + بررسی ایستا (lint، ClassVar، ساخت صفحه‌ها offscreen) | صفحه‌ها بدون استثنا ساخته می‌شوند | کلیک/داده |
+| `verify_fixes11–13` | Regression محتوایی (تحلیل رفتار، روند، روایت) | منطق تحلیل روی دادهٔ seed | UI |
+| `verify_fixes14–15` | Regression فنی (نخ‌ها، Audit، پشتیبان، migration، N+1) | قراردادهای فنی | زنجیرهٔ UI |
+| **`verify_fixes16`** (۷۷) | **Functional با پیش/پس‌شرط** | ۸ فرم ایجاد/ویرایش، ۱۶۷ handler صفحه‌ها، پشتیبان/بازیابی، پیوست، ایمپورت، خروجی‌ها، تراکنش، migration — همه با مقایسهٔ DB/فایل قبل و بعد | کلیک واقعی موس، دیالوگ‌های modal، file picker (`NOT_TESTED - GUI EXECUTION REQUIRED`) |
+
+نتیجه: پیش از این دور، هیچ آزمون کارکردیِ «UI → DB با پس‌شرط» وجود نداشت؛
+`verify_fixes16` این شکاف را برای مسیرهای اصلی پر می‌کند ولی جایگزین تست GUI
+واقعی نیست.
+
+---
+
+# بخش ۸ — گزارش نهایی (بندهای ۳۳، ۳۴، ۳۷، ۳۸)
+
+## فهرست یک‌نگاهی همهٔ ایرادها
+
+| BUG | اولویت | بخش | خلاصه | STATUS |
+|---|---|---|---|---|
+| 001 | P1 | migrations/manager | نسخه پیش از downgrade کم می‌شد | FIXED |
+| 002 | P2 | migrations/manager | کشف با `range(1,100)` و بلعیدن ImportError | FIXED |
+| 003 | P2 | migrations/manager | گام‌ها بدون تراکنش صریح | FIXED (محدودیت commit داخلی مستند) |
+| 004 | P3 | migrations/manager, connection | print به‌جای logger/traceback | FIXED |
+| 005 | P2 | migrations/manager | downgrade بدون تابع → کاهش خاموش نسخه | FIXED |
+| 006 | P1 | main.py | QMessageBox پیش از QApplication → مرگ فرایند در خطای راه‌اندازی | FIXED |
+| 007 | P3 | tests/ | `unittest.makeSuite` (Python 3.13) | FIXED |
+| 008 | P4 | README/main | نسخهٔ Python صریح نبود | FIXED |
+| 009 | P0 | backup.delete_backup | حذف هر مسیر؛ sidecar می‌ماند | FIXED |
+| 010 | P2 | backup.create_backup | نوشتن غیراتمیک؛ نام با پیمایش مسیر | FIXED |
+| 011 | P3 | backup | نشت `.db.tmp-wal/-shm` کنار هر پشتیبان | FIXED |
+| 012 | P3 | backup | MD5 در فایل `.sha256` | FIXED |
+| 013 | P2 | backup_page | وضعیت «سالم» بدون بررسی | FIXED |
+| 014 | P2 | backup.restore | rmtree پیوست‌ها پیش از کپی؛ پاکسازی | FIXED |
+| 015 | P1 | settings_page | توقف پشتیبان خودکار تزئینی | FIXED |
+| 016 | P2 | settings, backup_page, git | پشتیبان‌ها داخل درخت کد و مخزن | FIXED |
+| 017 | P2 | backup_page | بازتعریف `finished`، race worker | FIXED |
+| 018 | P1 | settings_page | ذخیرهٔ اطلاعات مدرسه تزئینی | FIXED |
+| 019 | P2 | settings, academic_structure | ویرایش کلاس «در نسخهٔ بعدی» | FIXED |
+| 020 | P2 | analytics_dashboard | دابل‌کلیک placeholder | FIXED |
+| 021 | P3 | student_profile, reports | «گزارش پرونده» فقط پیام | FIXED |
+| 022 | P2 | ۴۰ فایل views | ۱۰۴ بلوک استایل با کنتراست < ۳:۱ | FIXED |
+| 023 | P2 | main_window | کامبوی سال تحصیلی تزئینی | **NOT_FIXED — تصمیم** |
+| 024 | P1 | observation model/service | ثبت مشاهده بدون توضیحات اختیاری شکست می‌خورد | FIXED |
+| 025 | P1 | followup_form | ویرایش پیگیری غیرممکن | FIXED |
+| 026 | P1 | advanced_search_dialog | جست‌وجوی پیشرفته همیشه خالی | FIXED |
+| 027 | P2 | attachment_dialog | بدون نقطهٔ ورودی در UI | **NOT_FIXED — تصمیم** |
+| 028 | P3 | notifications subsystem | هرگز راه‌اندازی/خوانده نمی‌شود | **NOT_FIXED — تصمیم** |
+| 029 | P4 | filter_widget/saved_filters | کد مرده | **NOT_FIXED — تصمیم** |
+| 030 | P1 | attachment_dialog | آپلود چندفایل QThread را می‌کشت | FIXED |
+| 031 | P1 | attachment_service | نام فایل با timestamp ثانیه‌ای (بازنویسی) | FIXED |
+| 032 | P2 | attachment_service | فایل یتیم / نوشتن غیراتمیک | FIXED |
+| 033 | P0 | attachment_dialog.open_file | تزریق فرمان shell | FIXED |
+| 034 | P2 | ۸ فرم | ثبت دوباره با کلیک دوم | FIXED |
+| 035 | P1 | همهٔ DALها | تراکنش سرویس بی‌اثر (`conn.commit()` خام) | FIXED |
+| 036 | P1 | excel_importer | ایمپورت اکسل هرگز کار نمی‌کرد | FIXED |
+| 037 | P3 | goals/activities/counseling pages | موفقیت دروغین حذف | FIXED |
+| 038 | P3 | services/dal | ۷۸ except بی‌صدا | FIXED |
+| 039 | — | دو صفحه + ۳ ماژول + ۳ سیگنال | کد مردهٔ تأییدشده | FIXED (حذف) |
+| 040 | P2 | activities_page | ویرایش رکورد اشتباه با فیلتر؛ سیگنال بدون فرستنده | FIXED |
+| 041 | P4 | backup_page | نوار پیشرفت آرایشی | FIXED |
+
+جمع: **۴۱ ایراد** — ۳۷ FIXED، ۴ NOT_FIXED (همه منتظر تصمیم شما). هیچ امتیاز کلی
+به برنامه داده نمی‌شود (بند ۳۴).
+
+## وضعیت قابلیت‌ها در ۸ حالت (بند ۳۶)
+
+| حالت | قابلیت‌ها |
+|---|---|
+| ۱. واقعاً کار می‌کند (اثبات با پیش/پس‌شرط) | ثبت/ویرایش/حذف مشاهده، مداخله، پیگیری، دانش‌آموز، هدف، فعالیت، جلسهٔ مشاوره؛ اختصاص معلم؛ ورود/تغییر رمز؛ جست‌وجوی پیشرفته؛ گزارش دانش‌آموز + PDF/Excel؛ گزارش والدین؛ خروجی AI (۶ قالب)؛ پشتیبان‌گیری/بازیابی/حذف پشتیبان؛ پشتیبان خودکار (شروع/توقف)؛ ایمپورت/خروجی اکسل دانش‌آموزان؛ ویرایش/افزودن/حذف کلاس؛ اطلاعات مدرسه؛ زنگولهٔ یادآور؛ Migration؛ ناوبری همهٔ ۱۳ صفحه؛ ۱۶۷ handler صفحه‌ها بدون خطا |
+| ۲. کار می‌کند ولی ناقص | گزارش کلاس/معلم/عملکرد معلم: زنجیره اجرا می‌شود ولی فایل خروجی در این محیط تولید نشد (`NOT_TESTED`)؛ ویرایش اختصاص معلم (فقط ساخت دیالوگ آزموده شد) |
+| ۳. دکمه/کد دارد ولی backend ندارد | کامبوی سال تحصیلی هدر (BUG-023) |
+| ۴. backend دارد ولی UI ندارد | پیوست‌ها (BUG-027)، اعلان‌ها (BUG-028)، Screening |
+| ۵. UI و backend هست ولی اتصال ناقص | — (موارد یافت‌شده اصلاح شدند: BUG-018/019/020/021/040) |
+| ۶. فقط کد مرده | فیلترهای ذخیره‌شده، RecommendationWidget، BackupDAL، SchoolReportService، report_template، analytics_models (جدول بخش ۷) |
+| ۷. قابل اجرا نیست | — |
+| ۸. نیازمند تست GUI واقعی | کلیک موس، دیالوگ‌های تأیید/modal، file picker، بازکردن فایل با برنامهٔ خارجی، دیالوگ خطای راه‌اندازی |
+
+## چک‌لیست پایان کار (بند ۳۷)
+
+| # | معیار | وضعیت |
+|---|---|---|
+| ۱ | کل `views/` بررسی شد | ✔ ۲۳ صفحه (+۲ صفحهٔ مردهٔ حذف‌شده)، ۱۴ دیالوگ، ۵ ویجت — Inventory ایستا + اجرای واقعی |
+| ۲ | همهٔ Buttonها/Actionهای مهم | ✔ ۱۷۷ دکمه؛ ۱۶۷ handler اجرا شد؛ ۵ دکمهٔ تزئینی رفع (۱ منتظر تصمیم) |
+| ۳ | Signal/Slotهای مهم | ✔ ۳۹ سیگنال؛ بازتعریف `finished` ×۲ رفع؛ ۳ سیگنال مرده حذف؛ ۱ سیگنال بدون فرستنده رفع |
+| ۴ | UI → Service → DAL → DB | ✔ ۸ فرم و ۴ صفحه با پیش/پس‌شرط |
+| ۵ | Migration | ✔ (BUG-001..005) |
+| ۶ | Backup/Restore | ✔ (BUG-009..017) |
+| ۷ | Attachment | ✔ زنجیره (BUG-030..033)؛ نقطهٔ ورودی: تصمیم |
+| ۸ | Import/Export | ✔ (BUG-036؛ خروجی‌ها F8/D13) |
+| ۹ | Reportها | ✔ گزارش دانش‌آموز/والدین/AI؛ کلاس/معلم: زنجیره اجرا، فایل NOT_TESTED |
+| ۱۰ | Error handling | ✔ (BUG-038، سیاست suppress) |
+| ۱۱ | Thread/Worker | ✔ (بند ۲۰، جدول بخش ۵) |
+| ۱۲ | Dead code | ✔ حذف تأییدشده‌ها + فهرست منتظر تصمیم |
+| ۱۳ | تست‌های موجود اجرا و ارزیابی شدند | ✔ ۶۳۷ بررسی + ۲۶ unittest سبز؛ جدول ارزیابی بخش ۷ |
+| ۱۴ | برچسب صریح موارد نیازمند GUI | ✔ در هر بخش |
+
+## آزمون نهایی
+
+| مجموعه | نتیجه |
+|---|---|
+| `pytest -q tests` | 26 passed |
+| verify_fixes 1 … 15 | همه سبز (۵۶۰) |
+| **verify_fixes16 (۱ تا ۶)** | **77 / 77** |
+| `ruff check .` | All checks passed |
+| `tools/ui_inventory.py --write` | `docs/ui_inventory_16.md` به‌روز |
+
+آزمون تغییریافته در مرحلهٔ ۶: فقط فهرست‌های داخلی `verify_fixes16` (حذف سه
+سیگنال مرده از فهرست «بدون گیرنده»، آستانهٔ تعداد صفحه‌ها پس از حذف دو صفحهٔ
+مرده). هیچ آزمونی حذف یا غیرفعال نشد.
