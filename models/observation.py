@@ -184,8 +184,14 @@ class Observation(BaseModel):
             errors.append("تاریخ مشاهده نمی‌تواند خالی باشد")
         if not self.behavior or len(self.behavior.strip()) < 3:
             errors.append("رفتار مشاهده‌شده باید حداقل ۳ کاراکتر باشد")
-        if not self.description or len(self.description.strip()) < 3:
-            errors.append("توضیحات باید حداقل ۳ کاراکتر باشد")
+        # (بازرسی شانزدهم) «توضیحات تکمیلی» در فرم اختیاری و زیر «فیلدهای
+        # بیشتر» پنهان است؛ اجباری‌بودنش این‌جا باعث می‌شد ثبت مشاهده با
+        # فیلدهای الزامیِ نمایان، با پیام «توضیحات باید حداقل ۳ کاراکتر
+        # باشد» شکست بخورد. سرویس در نبود توضیحات، متن رفتار را در ستون
+        # description (NOT NULL) می‌گذارد؛ اگر کاربر چیزی نوشت، کوتاه‌تر از
+        # ۳ نویسه نباشد.
+        if self.description and len(self.description.strip()) < 3:
+            errors.append("توضیحات (در صورت ثبت) باید حداقل ۳ کاراکتر باشد")
         
         # فیلدهای اختیاری با اعتبارسنجی
         if self.severity and self.severity not in range(1, 6):

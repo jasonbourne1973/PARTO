@@ -320,17 +320,39 @@ class FollowUpForm(QDialog):
                 return
             
             follow = self.existing_followup
-            
-            # دریافت دانش‌آموز از مداخله
+
+            # ===== اصلاح (بازرسی شانزدهم) — ویرایش پیگیری عملاً غیرممکن بود =====
+            # ۱) FollowUpDAL.get_by_id فقط ستون‌های followups را می‌دهد، پس
+            #    follow.student_id همیشه None بود و دانش‌آموز/مداخلات بارگذاری
+            #    نمی‌شدند؛ ۲) فهرست مداخلات فقط «مداخلات بدون پیگیری» است و
+            #    مداخلهٔ خودِ این پیگیری (که پیگیری دارد) در آن نبود. نتیجه:
+            #    «لطفاً یک مداخله انتخاب کنید» در هر ویرایش. حالا دانش‌آموز از
+            #    مداخله ← پرونده پیدا می‌شود و مداخلهٔ خودِ پیگیری به فهرست
+            #    اضافه و انتخاب می‌شود.
+            own_intervention = None
             student_id = getattr(follow, 'student_id', None)
+            if follow.intervention_id:
+                own_intervention = self.followup_service.intervention_dal.get_by_id(
+                    follow.intervention_id)
+                if own_intervention and not student_id:
+                    profile = self.followup_service.profile_dal.get_by_id(
+                        own_intervention.student_profile_id)
+                    student_id = getattr(profile, 'student_id', None) if profile else None
             if student_id:
+                self.student_combo.blockSignals(True)
                 for i in range(self.student_combo.count()):
                     if self.student_combo.itemData(i) == student_id:
                         self.student_combo.setCurrentIndex(i)
                         break
+                self.student_combo.blockSignals(False)
                 # بارگذاری مداخلات برای این دانش‌آموز
                 self.load_interventions_for_student(student_id)
-            
+
+            # مداخلهٔ خودِ این پیگیری باید در فهرست باشد (حتی اگر پیگیری دارد)
+            if own_intervention and self.intervention_combo.findData(own_intervention.id) < 0:
+                self.intervention_combo.addItem(
+                    f"{own_intervention.type_display} - {own_intervention.date}", own_intervention.id)
+
             # انتخاب مداخله (در حالت ویرایش، مداخله خودش را نشان بده)
             for i in range(self.intervention_combo.count()):
                 if self.intervention_combo.itemData(i) == follow.intervention_id:

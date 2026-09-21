@@ -104,7 +104,9 @@ class ObservationService(BaseService):
             observation.antecedent = self.clean_text(data.get('antecedent'))
             observation.behavior = self.clean_text(data.get('behavior'))
             observation.consequence = self.clean_text(data.get('consequence'))
-            observation.description = self.clean_text(data.get('description'))
+            # (بازرسی شانزدهم) توضیحات اختیاری است؛ ستون NOT NULL با متن رفتار پر می‌شود
+            observation.description = (self.clean_text(data.get('description'))
+                                       or observation.behavior or '')
             observation.behavior_type = data.get('behavior_type') or 'خنثی'
             observation.severity = data.get('severity', 3)
             observation.tags = self.clean_text(data.get('tags'))
@@ -198,9 +200,17 @@ class ObservationService(BaseService):
             )
             observation.location = self.clean_text(data.get('location'), observation.location)
             observation.antecedent = self.clean_text(data.get('antecedent'), observation.antecedent)
+            previous_behavior = observation.behavior
             observation.behavior = self.clean_text(data.get('behavior'), observation.behavior)
             observation.consequence = self.clean_text(data.get('consequence'), observation.consequence)
-            observation.description = self.clean_text(data.get('description'), observation.description)
+            # (بازرسی شانزدهم) توضیحات اختیاری است: اگر کاربر چیزی نوشت همان؛
+            # اگر خالی بود و توضیحات قبلی همان متن رفتار قبلی بود (پرشدهٔ
+            # خودکار)، با رفتار جدید هم‌گام می‌شود؛ وگرنه توضیحات قبلی می‌ماند.
+            new_description = self.clean_text(data.get('description'))
+            if new_description:
+                observation.description = new_description
+            elif not observation.description or observation.description == previous_behavior:
+                observation.description = observation.behavior or ''
             observation.behavior_type = data.get('behavior_type', observation.behavior_type)
             observation.severity = data.get('severity', observation.severity)
             observation.tags = self.clean_text(data.get('tags'), observation.tags)

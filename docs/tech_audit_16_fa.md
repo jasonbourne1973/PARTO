@@ -16,7 +16,7 @@ file picker و دیالوگ‌های modal اجرا نمی‌شوند. هر قا
 |---|---|---|---|
 | ۱ | Migration، تست‌های قدیمی، نسخهٔ پایتون | ۴، ۵، ۶، ۱۵، ۲۲ (بخش migration) | **انجام شد** (این سند، بخش ۱) |
 | ۲ | Backup/Restore و file handling | ۱۱، ۱۲، ۲۵ | **انجام شد** (بخش ۲) |
-| ۳ | Inventory کامل صفحات (`views/pages` + `main_window`)، کنتراست، Signal/Slot | ۲، ۳، ۱۰، ۱۸، ۱۹، ۳۶ | **۳-الف انجام شد** (بخش ۳)؛ ۳-ب: دیالوگ‌ها/ویجت‌ها |
+| ۳ | Inventory کامل صفحات (`views/pages` + `main_window`)، کنتراست، Signal/Slot؛ دیالوگ‌ها/ویجت‌ها | ۲، ۳، ۱۰، ۱۴، ۱۸، ۱۹، ۳۶ | **۳-الف و ۳-ب انجام شد** (بخش‌های ۳ و ۴) |
 | ۴ | دیالوگ‌ها/ویجت‌ها، Screening، Recommendation، Attachment، Thread/Race | ۷، ۸، ۹، ۲۰، ۲۱، ۳۲ | — |
 | ۵ | Exception/Return/Transaction/DAL/Constraints/Import-Export/Consistency | ۱۶، ۱۷، ۲۲، ۲۳، ۲۴، ۲۶، ۳۰، ۳۱ | — |
 | ۶ | Dead code، وابستگی‌ها، لایهٔ سرویس، ارزیابی تست‌ها، گزارش نهایی | ۱۳، ۱۴، ۲۷، ۲۸، ۲۹، ۳۳، ۳۴، ۳۷، ۳۸ | — |
@@ -765,3 +765,178 @@ STATUS: NOT_FIXED (منتظر تصمیم)
 (کنتراست کل `views/`)، ۱۸ (دکمه‌های تزئینی صفحه‌ها: ۴ مورد رفع، ۱ مورد منتظر
 تصمیم)، ۱۹ (ممیزی سیگنال‌ها: صفحه‌ها)، ۳۶ (جدول وضعیت). دیالوگ‌ها/ویجت‌ها در
 ۳-ب.
+
+---
+
+# بخش ۴ — مرحلهٔ ۳-ب: دیالوگ‌ها (`views/dialogs`) و ویجت‌ها (`views/widgets`)
+
+پایه: کامیت `a746876`. روش: همان Inventory ایستا + **اجرای واقعی فرم‌ها** روی
+دیتابیس موقت با پیش/پس‌شرط (بند ۱۴): برای هر فرم، «ایجاد» (شمارش جدول +۱،
+مقدار ستون، کلید خارجی درست، سیگنال `*_saved`، `Accepted`) و سپس «ویرایش»
+(بارگذاری مقدار قبلی در فرم → ذخیرهٔ مقدار جدید → همان مقدار در DB).
+
+## وضعیت دیالوگ‌ها و ویجت‌ها (بند ۳۶)
+
+| کلاس | مصرف‌کننده در برنامه | آزمون کارکردی (verify16 §D) | وضعیت |
+|---|---|---|---|
+| `ObservationForm` | observations_page، student_profile_page | D1 ایجاد/ویرایش، D9 انتخاب از درخت شایستگی → `competency_id` در DB | قبلاً **BROKEN** (BUG-024) → VERIFIED |
+| `InterventionForm` | interventions_page، student_profile_page | D2 | VERIFIED |
+| `FollowUpForm` | followups_page، student_profile_page | D3 (ویرایش) | قبلاً **BROKEN در ویرایش** (BUG-025) → VERIFIED |
+| `StudentForm` | students_page | D4 | VERIFIED |
+| `GoalForm` | goals_page | D5 | VERIFIED |
+| `ActivityForm` | activities_page | D6 | VERIFIED |
+| `CounselingSessionForm` | counseling_page | D7 | VERIFIED |
+| `AssignTeacherDialog` | academic_structure، assign_teacher، teacher_students | D8 (اختصاص) | VERIFIED برای اختصاص؛ حالت ویرایش اختصاص: `NOT_TESTED` (فقط ساخت) |
+| `LoginDialog` | main_window | D10 (رمز غلط/درست) | VERIFIED |
+| `ChangePasswordDialog` | main_window، login_dialog | D11 (رمز فعلی غلط → بدون تغییر؛ درست → رمز جدید) | VERIFIED |
+| `AdvancedSearchDialog` | students_page | D12 | قبلاً **BROKEN** (BUG-026) → VERIFIED |
+| `ExportAIDialog` | reports_page | D13 (۶ قالب فایل واقعی + کپی پرامپت) | VERIFIED |
+| `AttachmentDialog` (+ `AttachmentUploadWorker`) | **هیچ** | D16 | **UNREACHABLE** (BUG-027 — تصمیم لازم) |
+| `CompetencyTreeWidget` | observation_form | D9 | VERIFIED |
+| `NotificationWidget` (زنگولهٔ هدر) | main_window | D14 | VERIFIED — منبعش `ReminderService` (پیگیری‌های در انتظار/معوق) است، نه جدول `notifications` |
+| `HelpWidget` | ۶ فرم + help_system | ساخت/نمایش | VERIFIED (نمایش متن) |
+| `FilterWidget` (+ `SavedFilterDAL`، جدول `saved_filters`) | **هیچ** | D16 | **DEAD_CODE / UNREACHABLE** (BUG-029) |
+| `RecommendationWidget` | **هیچ** | D16 | **DEAD_CODE** (طبق تصمیم شما فقط گزارش) |
+
+## [BUG-024]
+### بخش
+```text
+models/observation.py — validate ؛ services/observation_service.py — create/update_observation
+```
+### وضعیت
+`BROKEN` (P1 — قابلیت اصلی: ثبت مشاهده)
+### مشکل
+فرم مشاهده «توضیحات تکمیلی» را **اختیاری** و زیر «نمایش فیلدهای بیشتر (اختیاری)»
+پنهان کرده است، ولی `Observation.validate()` آن را الزامی (≥۳ نویسه) می‌دانست.
+کاربری که فقط فیلدهای الزامیِ نمایان را پر می‌کرد، پس از کلیک «ذخیره» خطای
+«خطا در عملیات: توضیحات باید حداقل ۳ کاراکتر باشد» می‌گرفت.
+### علت فنی
+ناهم‌خوانی قرارداد مدل با فرم پس از حرکت به ساختار سه‌لایه (متن اصلی =
+`behavior`)، در حالی که ستون `description` در DB `NOT NULL` است.
+### اصلاح
+مدل: `description` فقط اگر نوشته شد ≥۳ نویسه؛ `behavior` همچنان الزامی.
+سرویس: در نبود توضیحات، متن رفتار در ستون `description` نوشته می‌شود؛ در
+ویرایش، اگر توضیحات قبلی همان رفتار قبلی بود، با رفتار جدید هم‌گام می‌شود.
+### تست
+D1 (فرم بدون توضیحات ثبت می‌شود)، D15 (سرویس: بدون توضیحات → description = رفتار؛
+توضیحات کوتاه → خطا؛ رفتار خالی → خطا).
+```text
+STATUS: FIXED
+```
+
+## [BUG-025]
+### بخش
+```text
+views/dialogs/followup_form.py — load_followup_data
+```
+### وضعیت
+`BROKEN` (P1 — ویرایش پیگیری غیرممکن بود)
+### مشکل
+در حالت ویرایش، (۱) `FollowUpDAL.get_by_id` فقط ستون‌های `followups` را
+برمی‌گرداند و `follow.student_id` همیشه `None` بود → دانش‌آموز انتخاب و
+مداخلات بارگذاری نمی‌شدند؛ (۲) فهرست مداخلات فقط «مداخلات بدون پیگیری» است و
+مداخلهٔ خودِ این پیگیری در آن نبود. نتیجه: هر ذخیره‌ای با «لطفاً یک مداخله
+انتخاب کنید» رد می‌شد.
+### اصلاح
+دانش‌آموز از مداخله ← پرونده به دست می‌آید؛ مداخلهٔ خودِ پیگیری به فهرست
+اضافه و انتخاب می‌شود.
+### تست
+D3: فرم ویرایش، مداخلهٔ خودش و دانش‌آموز را نشان می‌دهد؛ ذخیره → مقدار جدید در DB.
+```text
+STATUS: FIXED
+```
+
+## [BUG-026]
+### بخش
+```text
+views/dialogs/advanced_search_dialog.py — birth_date_input / perform_search
+```
+### وضعیت
+`BROKEN` (P1 — جست‌وجوی پیشرفته همیشه خالی)
+### مشکل
+`ShamsiDateInput` به‌طور پیش‌فرض «امروز» را پر می‌کند؛ جست‌وجو همیشه شرط
+`birth_date = امروز` را هم می‌فرستاد → با هر معیاری صفر نتیجه.
+### اصلاح
+فیلد تاریخ تولد خالی شروع می‌شود (برچسب «اختیاری»)، فقط در صورت ورود
+اعمال می‌شود و تاریخ نامعتبر پیام می‌دهد.
+### تست
+D12: مقدار پیش‌فرض خالی؛ جست‌وجوی نام → نتیجه؛ دابل‌کلیک → `student_selected` درست.
+```text
+STATUS: FIXED
+```
+
+## [BUG-027] — نیازمند تصمیم
+### بخش
+```text
+views/dialogs/attachment_dialog.py (AttachmentDialog, AttachmentUploadWorker)، services/attachment_service.py، جدول attachments
+```
+### وضعیت
+`UNREACHABLE` (P2 — حالت ۴: backend و دیالوگ هست، هیچ نقطهٔ ورودی در UI نیست)
+### مشکل
+هیچ صفحه/دکمه‌ای `AttachmentDialog` را باز نمی‌کند (تنها ارجاع‌ها در
+اسکریپت‌های verify هستند). کل زنجیرهٔ پیوست‌ها (آپلود در نخ کارگر، ذخیرهٔ
+فایل، رکورد DB، پشتیبان‌گیری از پوشهٔ پیوست‌ها) از دید کاربر وجود ندارد.
+### گزینه‌ها
+(الف) یک دکمهٔ «📎 پیوست‌ها» در پروندهٔ دانش‌آموز که همین دیالوگ را برای
+همان دانش‌آموز باز کند (اتصال کد موجود؛ آزمون کامل زنجیره در مرحلهٔ ۴ — بند
+۲۱)؛ (ب) حذف کد مرده (دیالوگ، کارگر، سرویس، DAL) — جدول می‌ماند؛ (ج) فقط گزارش.
+```text
+STATUS: NOT_FIXED (منتظر تصمیم)
+```
+
+## [BUG-028] — نیازمند تصمیم
+### بخش
+```text
+utils/notification_scheduler.py، services/notification_service.py، dal/notification_dal.py، جدول notifications
+```
+### وضعیت
+`UNREACHABLE / DEAD_CODE` (P3 — حالت ۴)
+### مشکل
+`NotificationScheduler` هیچ‌جا (main.py/پنجرهٔ اصلی) راه‌اندازی نمی‌شود و هیچ
+UI‌ای جدول `notifications` را نمی‌خواند؛ زنگولهٔ هدر مستقیماً از
+`ReminderService` (پیگیری‌های در انتظار/معوق) پر می‌شود. یعنی زیرسیستم
+اعلان‌ها (با تریگرهای Audit و جلوگیری از تکرار که در دورهای ۱۴/۱۵ اصلاح شد)
+فقط در آزمون‌ها اجرا می‌شود.
+### گزینه‌ها
+(الف) راه‌اندازی زمان‌بند در شروع برنامه و نمایش جدول `notifications` در
+زنگوله (کنار یادآورهای فعلی)؛ (ب) حذف زیرسیستم (زنگولهٔ فعلی کار خود را
+می‌کند)؛ (ج) فقط گزارش.
+```text
+STATUS: NOT_FIXED (منتظر تصمیم)
+```
+
+## [BUG-029]
+### بخش
+```text
+views/widgets/filter_widget.py، dal/saved_filter_dal.py، models/saved_filter.py، جدول saved_filters
+```
+### وضعیت
+`DEAD_CODE` (P4)
+### مشکل
+هیچ مصرف‌کننده‌ای ندارد؛ تصمیم حذف در مرحلهٔ ۶ (بند ۲۷) پس از جست‌وجوی کامل.
+```text
+STATUS: NOT_FIXED (گزارش)
+```
+
+## سیگنال‌های دیالوگ‌ها/ویجت‌ها بدون گیرنده (بند ۱۹)
+`attachment_added/attachment_deleted` (دیالوگ خودش دست‌نیافتنی است)،
+`password_changed` (دیالوگ خودبسنده؛ بی‌خطر)، `assignment_saved` (صفحه‌ها پس
+از `exec()` خودشان تازه‌سازی می‌کنند؛ بی‌خطر)، `filter_applied`،
+`help_requested`، `recommendation_*` (کد مرده). موردی که باعث اجرای دوبارهٔ
+عملیات دیتابیس شود پیدا نشد.
+
+## نتیجهٔ اجرای آزمون‌ها پس از مرحلهٔ ۳-ب
+
+| مجموعه | نتیجه |
+|---|---|
+| `pytest -q tests` | 26 passed |
+| verify_fixes 1 … 15 | همه سبز |
+| **verify_fixes16 (۱ تا ۳-ب)** | **52 / 52** |
+| `ruff check .` | All checks passed |
+
+آزمون تغییریافته: هیچ.
+
+## بندهای مأموریت در این مرحله
+۲، ۳، ۱۴ (ایجاد/ویرایش با پیش/پس‌شرط برای ۸ فرم)، ۱۸ و ۱۹ (دیالوگ‌ها/ویجت‌ها)،
+۳۶ (جدول وضعیت)، بخشی از ۲۴ (خروجی AI: ۶ فایل واقعی و معتبر) و ۲۷ (کشف کد
+دست‌نیافتنی: پیوست‌ها، اعلان‌ها، فیلترهای ذخیره‌شده، پیشنهادها).

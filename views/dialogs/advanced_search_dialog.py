@@ -97,7 +97,12 @@ class AdvancedSearchDialog(QDialog):
         
         # تاریخ تولد
         self.birth_date_input = ShamsiDateInput()
-        form_layout.addRow("📅 تاریخ تولد:", self.birth_date_input)
+        # (بازرسی شانزدهم) ShamsiDateInput به‌طور پیش‌فرض «امروز» را پر می‌کند؛
+        # در نتیجه هر جست‌وجو شرط «تاریخ تولد = امروز» را هم داشت و عملاً
+        # هیچ دانش‌آموزی پیدا نمی‌شد. این فیلتر باید خالی شروع شود و فقط
+        # وقتی کاربر تاریخ وارد کرد اعمال شود.
+        self.birth_date_input.clear()
+        form_layout.addRow("📅 تاریخ تولد (اختیاری):", self.birth_date_input)
         
         main_layout.addWidget(search_group)
         
@@ -219,6 +224,9 @@ class AdvancedSearchDialog(QDialog):
             grade = self.grade_combo.currentData()
             class_name = self.class_input.text().strip()
             birth_date = self.birth_date_input.get_date_string()
+            if birth_date and not self.birth_date_input.is_valid():
+                QMessageBox.warning(self, "توجه", "تاریخ تولد واردشده معتبر نیست.")
+                return
             
             # اگر هیچ معیاری وارد نشده
             if not any([name, national_code, grade, class_name, birth_date]):

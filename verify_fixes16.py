@@ -17,7 +17,11 @@
   C) اجرای واقعی handlerهای همهٔ صفحه‌ها و پنجرهٔ اصلی (offscreen)، چهار زنجیرهٔ تزئینی
      تکمیل‌شده با پیش/پس‌شرط، Inventory ایستا، کنتراست کل views/، ممیزی سیگنال‌ها ... ۹ بررسی
 
-جمع فعلی: ۳۶ بررسی
+مرحلهٔ ۳-ب — دیالوگ‌ها و ویجت‌ها (بندهای ۲، ۳، ۱۴، ۱۸، ۱۹، ۳۶ برای views/dialogs + views/widgets):
+  D) ۸ فرم ثبت/ویرایش با پیش/پس‌شرط DB، درخت شایستگی، ورود، تغییر رمز، جست‌وجوی پیشرفته،
+     خروجی AI در ۶ قالب، زنگولهٔ اعلان، اعتبارسنجی مشاهده، کد بدون مصرف‌کننده ......... ۱۶ بررسی
+
+جمع فعلی: ۵۲ بررسی
 """
 
 import contextlib
@@ -1107,7 +1111,422 @@ check("C", "ممیزی Signal/Slot: سیگنال‌های جدید (report_reque
 # ============================================================
 print()
 print("=" * 76)
-print(f"نتیجهٔ دور شانزدهم (مرحله‌های ۱ تا ۳-الف):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
+print("بخش D: دیالوگ‌ها و ویجت‌ها — ثبت/ویرایش واقعی با پیش/پس‌شرط دیتابیس، ورود، جست‌وجو، خروجی AI")
+print("=" * 76)
+
+import csv  # noqa: E402
+import json  # noqa: E402
+import zipfile  # noqa: E402
+
+from dal.staff_dal import StaffDAL  # noqa: E402
+from dal.user_dal import UserDAL  # noqa: E402
+from models.staff import Staff  # noqa: E402
+
+QMessageBox.question = staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes)
+with contextlib.redirect_stdout(io.StringIO()):
+    _t = Staff()
+    _t.full_name, _t.role = "معلم آزمون", "teacher"
+    teacher_id = StaffDAL().create(_t).id
+    _c = Staff()
+    _c.full_name, _c.role = "مشاور آزمون", "counselor"
+    counselor_id = StaffDAL().create(_c).id
+form_student = smoke_student
+form_pid = smoke_pid
+
+
+def _count(table):
+    return conn.execute(f"SELECT COUNT(*) FROM {table} WHERE is_deleted = 0").fetchone()[0]
+
+
+def _last_id(table):
+    return conn.execute(f"SELECT MAX(id) FROM {table}").fetchone()[0]
+
+
+def _combo_pick(combo, data=None):
+    if data is not None:
+        idx = combo.findData(data)
+        if idx >= 0:
+            combo.setCurrentIndex(idx)
+            return data
+    for i in range(combo.count()):
+        if combo.itemData(i) not in (None, 0, ''):
+            combo.setCurrentIndex(i)
+            return combo.itemData(i)
+    return None
+
+
+def _form_roundtrip(label, table, text_col, make_form, fill, save_name, edit_form, edit_widget, signal_name, expected_fk=None):
+    """ایجاد → شمارش +۱ و مقدار ستون؛ ویرایش → بارگذاری مقدار قبلی و ذخیرهٔ مقدار جدید در DB"""
+    detail = {}
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            form = make_form()
+            fill(form)
+            emitted = []
+            getattr(form, signal_name).connect(lambda *a: emitted.append(1))
+            before = _count(table)
+            n_msgs = len(ui_msgs)
+            getattr(form, save_name)()
+            after = _count(table)
+        new_id = _last_id(table)
+        row = conn.execute(f"SELECT {text_col}{', ' + expected_fk[0] if expected_fk else ''} FROM {table} WHERE id = ?", (new_id,)).fetchone()
+        detail.update(before=before, after=after, row=tuple(row) if row else None,
+                      msgs=[m for m in ui_msgs[n_msgs:] if m[0] != 'info'])
+        created_ok = (after == before + 1 and emitted and form.result() == QDialog.DialogCode.Accepted
+                      and row is not None and row[0] == f"{label} اولیه"
+                      and (expected_fk is None or row[1] == expected_fk[1]))
+        with contextlib.redirect_stdout(io.StringIO()):
+            form2 = edit_form(new_id)
+            widget = getattr(form2, edit_widget)
+            loaded = widget.text() if hasattr(widget, 'text') and not hasattr(widget, 'toPlainText') else widget.toPlainText()
+            if hasattr(widget, 'toPlainText'):
+                widget.setPlainText(f"{label} ویرایش‌شده")
+            else:
+                widget.setText(f"{label} ویرایش‌شده")
+            n_msgs2 = len(ui_msgs)
+            getattr(form2, save_name)()
+        now = conn.execute(f"SELECT {text_col} FROM {table} WHERE id = ?", (new_id,)).fetchone()[0]
+        detail.update(loaded=loaded, now=now, edit_msgs=[m for m in ui_msgs[n_msgs2:] if m[0] != 'info'])
+        edited_ok = loaded == f"{label} اولیه" and now == f"{label} ویرایش‌شده" and form2.result() == QDialog.DialogCode.Accepted
+        return bool(created_ok and edited_ok), detail
+    except Exception as e:
+        detail['exception'] = f"{type(e).__name__}: {e}"
+        return False, detail
+
+
+from views.dialogs.activity_form import ActivityForm  # noqa: E402
+from views.dialogs.counseling_session_form import CounselingSessionForm  # noqa: E402
+from views.dialogs.followup_form import FollowUpForm  # noqa: E402
+from views.dialogs.goal_form import GoalForm  # noqa: E402
+from views.dialogs.intervention_form import InterventionForm  # noqa: E402
+from views.dialogs.observation_form import ObservationForm  # noqa: E402
+from views.dialogs.student_form import StudentForm  # noqa: E402
+
+# --- D1: مشاهده (بدون «توضیحات تکمیلی» اختیاری — قبلاً با خطای «توضیحات باید حداقل ۳ کاراکتر» شکست می‌خورد)
+
+
+def _fill_obs(f):
+    _combo_pick(f.student_combo, form_student.id)
+    _combo_pick(f.observer_combo)
+    f.behavior_input.setPlainText("مشاهده اولیه")
+    f.selected_competency_id = comps[1].id
+
+
+ok, det = _form_roundtrip("مشاهده", "observations", "behavior", lambda: ObservationForm(student_id=form_student.id),
+                          _fill_obs, "save_observation", lambda i: ObservationForm(observation_id=i),
+                          "behavior_input", "observation_saved", ("student_profile_id", form_pid))
+obs_desc = conn.execute("SELECT description FROM observations WHERE id = ?", (_last_id("observations"),)).fetchone()[0]
+check("D", "ObservationForm: ثبت با فیلدهای الزامیِ نمایان (بدون «توضیحات تکمیلی») → ردیف جدید با پروندهٔ درست؛ ویرایش → مقدار جدید در DB؛ ستون description (NOT NULL) خالی نمی‌ماند",
+      ok and obs_desc in ("مشاهده اولیه", "مشاهده ویرایش‌شده"), f"{det} desc={obs_desc!r}")
+
+
+# --- D2: مداخله
+def _fill_int(f):
+    _combo_pick(f.student_combo, form_student.id)
+    _combo_pick(f.observer_combo)
+    f.description_input.setPlainText("مداخله اولیه")
+    f.goal_input.setPlainText("هدف")
+
+
+ok, det = _form_roundtrip("مداخله", "interventions", "description", lambda: InterventionForm(student_id=form_student.id),
+                          _fill_int, "save_intervention", lambda i: InterventionForm(intervention_id=i),
+                          "description_input", "intervention_saved", ("student_profile_id", form_pid))
+check("D", "InterventionForm: ثبت → ردیف جدید با پروندهٔ درست؛ ویرایش → مقدار جدید در DB", ok, str(det))
+
+# --- D3: پیگیری (ویرایش قبلاً غیرممکن بود: «لطفاً یک مداخله انتخاب کنید»)
+followup_iid = _last_id("interventions")
+
+
+def _fill_fu(f):
+    _combo_pick(f.student_combo, form_student.id)
+    _combo_pick(f.intervention_combo, followup_iid)
+    _combo_pick(f.staff_combo)
+    f.description_input.setPlainText("پیگیری اولیه")
+    f.result_description_input.setPlainText("نتیجه")
+
+
+ok, det = _form_roundtrip("پیگیری", "followups", "description", lambda: FollowUpForm(intervention_id=followup_iid),
+                          _fill_fu, "save_followup", lambda i: FollowUpForm(followup_id=i),
+                          "description_input", "followup_saved", ("intervention_id", followup_iid))
+with contextlib.redirect_stdout(io.StringIO()):
+    fu_edit_form = FollowUpForm(followup_id=_last_id("followups"))
+check("D", "FollowUpForm: ثبت → ردیف جدید روی همان مداخله؛ ویرایش → مقدار جدید در DB (قبلاً فرم ویرایش دانش‌آموز/مداخلهٔ خودش را نداشت و ذخیره همیشه رد می‌شد)",
+      ok and fu_edit_form.intervention_combo.currentData() == followup_iid
+      and fu_edit_form.student_combo.currentData() == form_student.id,
+      f"{det} edit_combo={fu_edit_form.intervention_combo.currentData()} student={fu_edit_form.student_combo.currentData()}")
+
+
+# --- D4: دانش‌آموز
+def _fill_student(f):
+    f.first_name_input.setText("دانش‌آموز اولیه")
+    f.last_name_input.setText("فرم")
+    f.national_code_input.setText("1818181818")
+    f.birth_date_input.setText("1396/02/03")
+    if hasattr(f, 'academic_year_input'):
+        f.academic_year_input.setText(active_year.title)
+
+
+ok, det = _form_roundtrip("دانش‌آموز", "students", "first_name", StudentForm, _fill_student, "save_student",
+                          lambda i: StudentForm(student=StudentDAL().get_by_id(i)), "first_name_input", "accepted")
+check("D", "StudentForm: ثبت → ردیف جدید؛ ویرایش → نام جدید در DB", ok, str(det))
+
+
+# --- D5: هدف فردی
+def _fill_goal(f):
+    _combo_pick(f.student_combo, form_student.id)
+    _combo_pick(f.assignee_combo)
+    f.title_input.setText("هدف اولیه")
+    f.description_input.setPlainText("شرح هدف")
+
+
+ok, det = _form_roundtrip("هدف", "individual_goals", "title", lambda: GoalForm(profile_id=form_pid), _fill_goal, "save_goal",
+                          lambda i: GoalForm(goal_id=i), "title_input", "goal_saved", ("student_profile_id", form_pid))
+check("D", "GoalForm: ثبت → ردیف جدید با پروندهٔ درست؛ ویرایش → عنوان جدید در DB", ok, str(det))
+
+
+# --- D6: فعالیت فوق‌برنامه
+def _fill_act(f):
+    _combo_pick(f.student_combo, form_student.id)
+    _combo_pick(f.teacher_combo)
+    f.title_input.setText("فعالیت اولیه")
+    f.description_input.setPlainText("شرح فعالیت")
+
+
+ok, det = _form_roundtrip("فعالیت", "extracurricular_activities", "title", lambda: ActivityForm(profile_id=form_pid), _fill_act,
+                          "save_activity", lambda i: ActivityForm(activity_id=i), "title_input", "activity_saved",
+                          ("student_profile_id", form_pid))
+check("D", "ActivityForm: ثبت → ردیف جدید با پروندهٔ درست؛ ویرایش → عنوان جدید در DB", ok, str(det))
+
+
+# --- D7: جلسهٔ مشاوره
+def _fill_cs(f):
+    _combo_pick(f.student_combo, form_student.id)
+    _combo_pick(f.counselor_combo, counselor_id)
+    f.topic_input.setText("جلسه اولیه")
+    f.summary_input.setPlainText("خلاصه")
+
+
+ok, det = _form_roundtrip("جلسه", "counseling_sessions", "topic", lambda: CounselingSessionForm(profile_id=form_pid), _fill_cs,
+                          "save_session", lambda i: CounselingSessionForm(session_id=i), "topic_input", "session_saved",
+                          ("student_profile_id", form_pid))
+check("D", "CounselingSessionForm: ثبت → ردیف جدید با پروندهٔ درست؛ ویرایش → موضوع جدید در DB", ok, str(det))
+
+# --- D8: اختصاص معلم
+from views.dialogs.assign_teacher_dialog import AssignTeacherDialog  # noqa: E402
+
+with contextlib.redirect_stdout(io.StringIO()):
+    at = AssignTeacherDialog(student_ids=[form_student.id])
+    _combo_pick(at.teacher_combo, teacher_id)
+    _combo_pick(at.year_combo, active_year.id)
+    at_emitted = []
+    at.assignment_saved.connect(lambda *a: at_emitted.append(1))
+    at_before = _count("teacher_assignments")
+    at.save_assignment()
+at_after = _count("teacher_assignments")
+at_row = conn.execute("SELECT staff_id, student_id FROM teacher_assignments WHERE id = ?", (_last_id("teacher_assignments"),)).fetchone()
+check("D", "AssignTeacherDialog: اختصاص → ردیف teacher_assignments با معلم و دانش‌آموز درست + سیگنال assignment_saved",
+      at_after == at_before + 1 and at_emitted and tuple(at_row) == (teacher_id, form_student.id),
+      f"{at_before}->{at_after} row={tuple(at_row) if at_row else None}")
+
+# --- D9: انتخاب شایستگی از درخت داخل فرم مشاهده (مسیر واقعی کاربر) → شناسه در DB
+with contextlib.redirect_stdout(io.StringIO()):
+    tree_form = ObservationForm(student_id=form_student.id)
+    _combo_pick(tree_form.student_combo, form_student.id)
+    _combo_pick(tree_form.observer_combo)
+    tree_form.behavior_input.setPlainText("مشاهده از درخت")
+    tree = tree_form.competency_tree.tree
+    clicked_id = None
+    # سطح اول درخت «دسته» است و شایستگی‌ها فرزند آن‌اند
+    candidates = [tree.topLevelItem(i) for i in range(tree.topLevelItemCount())]
+    candidates += [c.child(j) for c in list(candidates) for j in range(c.childCount())]
+    for item in candidates:
+        if item.data(0, Qt.ItemDataRole.UserRole) == "competency":
+            tree.setCurrentItem(item)
+            tree_form.competency_tree.on_item_clicked(item, 0)
+            clicked_id = item.data(1, Qt.ItemDataRole.UserRole)
+            break
+    tree_form.save_observation()
+tree_row = conn.execute("SELECT competency_id FROM observations WHERE id = ?", (_last_id("observations"),)).fetchone()
+check("D", "درخت شایستگی داخل فرم مشاهده: کلیک روی شایستگی → full_path_selected → شناسه در فرم → پس از ذخیره همان competency_id در DB",
+      clicked_id is not None and tree_form.selected_competency_id == clicked_id and tree_row and tree_row[0] == clicked_id,
+      f"clicked={clicked_id} form={tree_form.selected_competency_id} db={tree_row}")
+
+# --- D10: ورود
+from views.dialogs.login_dialog import LoginDialog  # noqa: E402
+
+with contextlib.redirect_stdout(io.StringIO()):
+    ld = LoginDialog()
+    login_ok, need_pw = [], []
+    ld.login_successful.connect(lambda *a: login_ok.append(a))
+    ld.need_change_password.connect(lambda *a: need_pw.append(a))
+    ld.username_input.setText("admin")
+    ld.password_input.setText("wrong-password")
+    ld.login()
+    wrong_rejected = not login_ok and not need_pw and ld.result() != QDialog.DialogCode.Accepted
+    ld.password_input.setText("Admin@123")
+    ld.login()
+check("D", "LoginDialog: رمز اشتباه → بدون سیگنال و بدون Accept؛ رمز درست ادمین پیش‌فرض → سیگنال (ورود یا الزام تغییر رمز) و Accept",
+      wrong_rejected and (login_ok or need_pw) and ld.result() == QDialog.DialogCode.Accepted,
+      f"ok={login_ok} need={need_pw}")
+
+# --- D11: تغییر رمز
+from views.dialogs.change_password_dialog import ChangePasswordDialog  # noqa: E402
+
+with contextlib.redirect_stdout(io.StringIO()):
+    cp = ChangePasswordDialog(username='admin', user_id=1)
+    cp.current_password_input.setText("nope")
+    cp.new_password_input.setText("Strong#Pass2026")
+    cp.confirm_password_input.setText("Strong#Pass2026")
+    cp.change_password()
+    still_old = UserDAL().authenticate("admin", "Admin@123") is not None and UserDAL().authenticate("admin", "Strong#Pass2026") is None
+    cp2 = ChangePasswordDialog(username='admin', user_id=1)
+    pw_emitted = []
+    cp2.password_changed.connect(lambda *a: pw_emitted.append(1))
+    cp2.current_password_input.setText("Admin@123")
+    cp2.new_password_input.setText("Strong#Pass2026")
+    cp2.confirm_password_input.setText("Strong#Pass2026")
+    cp2.change_password()
+    new_works = UserDAL().authenticate("admin", "Strong#Pass2026") is not None and UserDAL().authenticate("admin", "Admin@123") is None
+check("D", "ChangePasswordDialog: رمز فعلی اشتباه → هیچ تغییری در DB؛ رمز فعلی درست → رمز جدید کار می‌کند، قدیمی نه، سیگنال password_changed",
+      still_old and new_works and pw_emitted and cp2.result() == QDialog.DialogCode.Accepted,
+      f"still_old={still_old} new_works={new_works}")
+
+# --- D12: جست‌وجوی پیشرفته (قبلاً تاریخ تولد = امروز به‌طور پیش‌فرض → همیشه صفر نتیجه)
+from views.dialogs.advanced_search_dialog import AdvancedSearchDialog  # noqa: E402
+
+with contextlib.redirect_stdout(io.StringIO()):
+    asd = AdvancedSearchDialog()
+    default_birth = asd.birth_date_input.get_date_string()
+    picked = []
+    asd.student_selected.connect(lambda sid: picked.append(sid))
+    asd.name_input.setText("اسموک")
+    asd.perform_search()
+    rows = asd.result_table.rowCount()
+    if rows:
+        asd.on_result_double_clicked(asd.result_table.item(0, 0))
+check("D", "AdvancedSearchDialog: فیلتر تاریخ تولد خالی شروع می‌شود (قبلاً «امروز» و هیچ نتیجه‌ای)؛ جست‌وجوی نام → نتیجه؛ دابل‌کلیک → student_selected با شناسهٔ درست و Accept",
+      default_birth == "" and rows >= 1 and picked == [form_student.id] and asd.result() == QDialog.DialogCode.Accepted,
+      f"default_birth={default_birth!r} rows={rows} picked={picked}")
+
+# --- D13: خروجی هوش مصنوعی — هر ۶ قالب فایل واقعی و معتبر
+from views.dialogs.export_ai_dialog import ExportAIDialog  # noqa: E402
+
+ai_results = {}
+with contextlib.redirect_stdout(io.StringIO()):
+    ai = ExportAIDialog(student_id=form_student.id, profile_id=form_pid)
+    for idx, ext in enumerate(["pdf", "xlsx", "csv", "json", "txt", "zip"]):
+        out_path = os.path.join(TMP, f"ai_export.{ext}")
+        QFileDialog.getSaveFileName = staticmethod(lambda *a, _p=out_path, **k: (_p, ""))
+        btn = ai.format_group.button(idx)
+        if btn is None:
+            ai_results[ext] = "no-button"
+            continue
+        btn.setChecked(True)
+        n_before = len(ui_msgs)
+        ai.export_data()
+        problems = [m for m in ui_msgs[n_before:] if m[0] in ('crit', 'warn')]
+        try:
+            if not os.path.exists(out_path) or os.path.getsize(out_path) == 0:
+                valid = "missing"
+            elif ext == "json":
+                with open(out_path, encoding="utf-8") as fh:
+                    valid = isinstance(json.load(fh), dict)
+            elif ext == "zip":
+                valid = zipfile.ZipFile(out_path).testzip() is None
+            elif ext == "csv":
+                with open(out_path, encoding="utf-8-sig") as fh:
+                    valid = len(list(csv.reader(fh))) > 1
+            elif ext == "pdf":
+                with open(out_path, "rb") as fh:
+                    valid = fh.read(5) == b"%PDF-"
+            elif ext == "xlsx":
+                import openpyxl
+                valid = openpyxl.load_workbook(out_path).active.max_row > 1
+            else:
+                with open(out_path, encoding="utf-8") as fh:
+                    valid = len(fh.read()) > 20
+        except Exception as e:
+            valid = f"invalid: {e}"
+        ai_results[ext] = (valid, problems[:1])
+    ai.copy_prompt()
+    clip_len = len(QApplication.clipboard().text())
+QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: ("", ""))
+check("D", "ExportAIDialog: هر ۶ قالب (PDF/Excel/CSV/JSON/TXT/ZIP) فایل واقعی و معتبر می‌سازند؛ «کپی پرامپت» متن را در کلیپ‌بورد می‌گذارد",
+      all(v[0] is True and not v[1] for v in ai_results.values()) and clip_len > 50,
+      f"{ai_results} clip={clip_len}")
+
+# --- D14: زنگولهٔ اعلان‌ها (منبع: پیگیری‌های در انتظار/معوق) → کلیک → سیگنال به پنجرهٔ اصلی
+from views.widgets.notification_widget import NotificationItem, NotificationWidget  # noqa: E402
+
+with contextlib.redirect_stdout(io.StringIO()):
+    conn.execute("UPDATE followups SET status = 'pending', next_action_date = '1405/06/10' WHERE id = ?", (_last_id("followups"),))
+    conn.commit()
+    nw = NotificationWidget()
+    nw.load_notifications()
+    clicked_data = []
+    nw.notification_clicked.connect(lambda d: clicked_data.append(d))
+    n_items = [c for c in nw.findChildren(NotificationItem)]
+    if n_items:
+        n_items[0].clicked.emit(n_items[0].data)
+check("D", "NotificationWidget (زنگوله): پیگیری‌های در انتظار/معوق بارگذاری می‌شوند، کلیک روی یک مورد notification_clicked با دادهٔ پیگیری می‌فرستد",
+      len(n_items) >= 1 and clicked_data and clicked_data[0].get('student_name'),
+      f"items={len(n_items)} label={nw.count_label.text()!r}")
+
+# --- D15: اعتبارسنجی مشاهده: توضیحات اختیاری ولی اگر نوشته شد ≥۳ نویسه؛ رفتار همچنان الزامی
+from services.observation_service import ObservationService  # noqa: E402
+from utils.error_handler import ServiceError, ValidationError  # noqa: E402
+
+obs_service = ObservationService()
+base = {'student_id': form_student.id, 'staff_id': 1, 'competency_id': comps[0].id,
+        'observation_date': '1405/07/22', 'behavior_type': 'مثبت', 'severity': 2}
+with contextlib.redirect_stdout(io.StringIO()):
+    created = obs_service.create_observation({**base, 'behavior': 'رفتار بدون توضیحات'})
+    short_desc_error = None
+    try:
+        obs_service.create_observation({**base, 'behavior': 'رفتار', 'description': 'ab'})
+    except (ValidationError, ServiceError) as e:
+        short_desc_error = str(e)
+    no_behavior_error = None
+    try:
+        obs_service.create_observation({**base, 'behavior': '', 'description': 'توضیحات کامل'})
+    except (ValidationError, ServiceError) as e:
+        no_behavior_error = str(e)
+stored_desc = conn.execute("SELECT description FROM observations WHERE id = ?", (created.id,)).fetchone()[0]
+check("D", "سرویس مشاهده: بدون توضیحات → ثبت می‌شود و description = متن رفتار (ستون NOT NULL)؛ توضیحات کوتاه‌تر از ۳ نویسه → خطا؛ رفتار خالی همچنان خطا",
+      stored_desc == 'رفتار بدون توضیحات' and short_desc_error and 'توضیحات' in short_desc_error
+      and no_behavior_error and 'رفتار' in no_behavior_error,
+      f"desc={stored_desc!r} short={short_desc_error!r} nobeh={no_behavior_error!r}")
+
+# --- D16: کد بدون مصرف‌کننده در رابط (فقط ثبت وضعیت — تصمیم با کاربر)
+UNREACHABLE_UI = {
+    'AttachmentDialog': {'views/dialogs/attachment_dialog.py'},
+    'FilterWidget': {'views/widgets/filter_widget.py'},
+    'RecommendationWidget': {'views/widgets/recommendation_widget.py'},
+    'NotificationScheduler': {'utils/notification_scheduler.py'},
+    # سرویس اعلان فقط از زمان‌بندِ راه‌اندازی‌نشده استفاده می‌شود (همان زیرسیستم)
+    'NotificationService': {'services/notification_service.py', 'utils/notification_scheduler.py'},
+}
+consumers = {}
+for cls_name, own_files in UNREACHABLE_UI.items():
+    hits = []
+    for sub in ('views', 'views/pages', 'views/dialogs', 'views/widgets', 'services', 'utils'):
+        for fname in os.listdir(sub):
+            path = os.path.join(sub, fname)
+            if not fname.endswith('.py') or path in own_files:
+                continue
+            if re.search(rf'\b{cls_name}\b', read(path)):
+                hits.append(path)
+    if re.search(rf'\b{cls_name}\b', read('main.py')):
+        hits.append('main.py')
+    consumers[cls_name] = hits
+check("D", "وضعیت ثبت‌شده (بدون تغییر کد): AttachmentDialog، FilterWidget، RecommendationWidget، NotificationScheduler و NotificationService هیچ مصرف‌کننده‌ای در رابط/راه‌اندازی ندارند (UNREACHABLE/DEAD_CODE — تصمیم با کاربر)",
+      all(not hits for hits in consumers.values()),
+      str({k: v for k, v in consumers.items() if v}))
+
+# ============================================================
+print()
+print("=" * 76)
+print(f"نتیجهٔ دور شانزدهم (مرحله‌های ۱ تا ۳-ب):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
 if FAILURES:
     print("موارد ناموفق:")
     for f in FAILURES:
