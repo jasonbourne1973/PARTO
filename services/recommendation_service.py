@@ -432,13 +432,16 @@ class RecommendationService(BaseService):
             self.logger.error(f"خطا در رد پیشنهاد: {e}")
             raise ServiceError(f"خطا: {e!s}")
     
-    def implement_recommendation(self, recommendation_id, staff_id=None):
+    def implement_recommendation(self, recommendation_id, staff_id=None, intervention_id=None):
         """
         اجرای پیشنهاد
         
         Args:
             recommendation_id: شناسه پیشنهاد
             staff_id: شناسه کاربر
+            intervention_id: (بازرسی شانزدهم — BUG-NEW-04) شناسهٔ مداخله‌ای که بر اساس
+                این پیشنهاد ثبت شده؛ در `metadata['intervention_id']` نگه داشته می‌شود
+                تا پیوند پیشنهاد ↔ مداخله بدون تغییر اسکیما قابل ردیابی باشد
         
         Returns:
             bool: آیا عملیات موفق بود؟
@@ -449,6 +452,10 @@ class RecommendationService(BaseService):
                 raise ServiceError(f"پیشنهاد با شناسه {recommendation_id} یافت نشد.")
             
             recommendation.implement()
+            if intervention_id:
+                metadata = recommendation.metadata if isinstance(recommendation.metadata, dict) else {}
+                metadata['intervention_id'] = int(intervention_id)
+                recommendation.metadata = metadata
             self.recommendation_dal.update(recommendation)
             
             self.logger.info(f"پیشنهاد {recommendation_id} اجرا شد.")

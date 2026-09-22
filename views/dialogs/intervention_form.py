@@ -33,7 +33,15 @@ class InterventionForm(QDialog):
 
     intervention_saved = Signal()
 
-    def __init__(self, intervention_id=None, student_id=None, parent=None):
+    def __init__(self, intervention_id=None, student_id=None, parent=None,
+                 prefill=None, recommendation_id=None):
+        """
+        Args:
+            prefill: (بازرسی شانزدهم — BUG-NEW-04) پیش‌پرکردن فرم از روی یک پیشنهاد:
+                     کلیدهای اختیاری `type`، `description`، `goal`
+            recommendation_id: شناسهٔ پیشنهادی که این مداخله بر اساس آن ثبت می‌شود؛
+                     پس از ذخیرهٔ موفق، پیشنهاد «اجراشده» و به مداخله پیوند می‌خورد
+        """
         super().__init__(parent)
 
         self.intervention_service = InterventionService()
@@ -45,6 +53,10 @@ class InterventionForm(QDialog):
         self.existing_intervention = None
         self.selected_student_id = student_id
         self.is_edit_mode = intervention_id is not None
+        self.prefill = dict(prefill or {})
+        self.recommendation_id = recommendation_id
+        self.saved_intervention_id = None
+        self.recommendation_link_error = None
 
         self.setWindowTitle("ویرایش مداخله" if self.is_edit_mode else "ثبت مداخله جدید")
         self.setModal(True)
@@ -57,6 +69,20 @@ class InterventionForm(QDialog):
 
         if self.is_edit_mode:
             self.load_intervention_data()
+        elif self.prefill:
+            self.apply_prefill(self.prefill)
+
+    def apply_prefill(self, prefill):
+        """پرکردن فیلدها از روی پیشنهاد (نوع، شرح، هدف) — فیلدهای دیگر دست کاربر می‌ماند"""
+        type_key = prefill.get('type')
+        if type_key:
+            idx = self.type_combo.findData(type_key)
+            if idx >= 0:
+                self.type_combo.setCurrentIndex(idx)
+        if prefill.get('description'):
+            self.description_input.setPlainText(str(prefill['description']))
+        if prefill.get('goal'):
+            self.goal_input.setPlainText(str(prefill['goal']))
 
         if self.selected_student_id and not self.is_edit_mode:
             for i in range(self.student_combo.count()):
@@ -451,10 +477,28 @@ class InterventionForm(QDialog):
         try:
             if self.is_edit_mode:
                 self.intervention_service.update_intervention(self.intervention_id, data)
+                self.saved_intervention_id = self.intervention_id
                 msg = "✅ مداخله با موفقیت ویرایش شد"
             else:
-                self.intervention_service.create_intervention(data)
+                created = self.intervention_service.create_intervention(data)
+                self.saved_intervention_id = getattr(created, 'id', None)
                 msg = "✅ مداخله با موفقیت ثبت شد"
+                # (BUG-NEW-04) پیوند پیشنهاد ↔ مداخله: پیشنهاد «اجراشده» می‌شود و
+                # شناسهٔ مداخله در آن ثبت می‌شود. شکست این گام ثبت مداخله را
+                # باطل نمی‌کند ولی صریحاً به کاربر گفته می‌شود.
+                if self.recommendation_id and self.saved_intervention_id:
+                    try:
+                        from services.recommendation_service import RecommendationService
+                        RecommendationService().implement_recommendation(
+                            self.recommendation_id, intervention_id=self.saved_intervention_id)
+                        msg += "\nپیشنهاد مرتبط «اجراشده» و به این مداخله پیوند خورد."
+                    except Exception as link_error:
+                        self.recommendation_link_error = str(link_error)
+                        self.logger.warning(
+                            f"پیوند پیشنهاد {self.recommendation_id} به مداخله "
+                            f"{self.saved_intervention_id} ناموفق بود: {link_error}")
+                        msg += ("\n⚠️ مداخله ثبت شد ولی به‌روزرسانی وضعیت پیشنهاد مرتبط ناموفق بود: "
+                                f"{link_error}")
             
             QMessageBox.information(self, "موفقیت", msg)
             self.intervention_saved.emit()

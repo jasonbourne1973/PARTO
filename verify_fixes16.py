@@ -47,7 +47,10 @@
   K) Migrationهای واقعاً اتمیک: بدون commit داخلی، فایل واقعی با شکست وسط کار، زنجیرهٔ واقعی ۵→۹ و ۹→۸→۹،
      مسیر ترمیم با تراکنش صریح (BUG-NEW-02) ...................................................... ۴ بررسی
 
-جمع: ۹۱ بررسی
+داوری سوم — مرحلهٔ ۳:
+  L) ثبت مداخله از روی پیشنهاد: پیش‌پرکردن نوع/شرح/هدف، پیوند پیشنهاد ↔ مداخله، شکست پیوند صریح (BUG-NEW-04) ... ۲ بررسی
+
+جمع: ۹۳ بررسی
 """
 
 import contextlib
@@ -2424,6 +2427,133 @@ with contextlib.redirect_stdout(io.StringIO()):
 check("K", "مسیر ترمیم ساختار (_heal_schema): شکست وسط migration_v7 → همهٔ DDL همان گام برمی‌گردد (نه backups نه جدول کمکی)، برنامه بالا می‌آید و تراکنش باز نمی‌ماند؛ راه‌اندازی بعدی → backups دوباره ساخته و commit می‌شود",
       tables_after_fail == set() and not in_tx_after_fail and tables_after_ok == {"backups"} and not conn.in_transaction,
       f"after_fail={tables_after_fail} in_tx={in_tx_after_fail} after_ok={tables_after_ok}")
+
+# ============================================================
+print()
+print("=" * 76)
+print("بخش L: داوری سوم — مرحلهٔ ۳: ثبت مداخله از روی پیشنهاد با پیش‌پرکردن و پیوند (BUG-NEW-04)")
+print("=" * 76)
+
+import views.dialogs.intervention_form as intervention_form_mod  # noqa: E402
+import views.pages.student_profile_page as profile_mod  # noqa: E402
+
+from services.recommendation_service import RecommendationService  # noqa: E402
+
+rec_service = RecommendationService()
+with contextlib.redirect_stdout(io.StringIO()):
+    l_page = win.students_page.profile_page
+    l_page.set_student_id(form_student.id)
+    l_widget = l_page.recommendation_widget
+    l_widget.load_recommendations()
+    l_pending = [r for r in l_widget.recommendations if r.status in ('pending', 'accepted')]
+    if not l_pending:
+        rec_service.generate_recommendations(l_page.profile_id)
+        l_widget.load_recommendations()
+        l_pending = [r for r in l_widget.recommendations if r.status in ('pending', 'accepted')]
+
+captured_forms = []
+real_intervention_form = profile_mod.InterventionForm
+
+
+class _PrefilledFormProbe(real_intervention_form):
+    """همان فرم واقعی؛ فقط exec را با «پرکردن باقی فیلدها و ذخیره» شبیه‌سازی می‌کند"""
+
+    def exec(self):
+        captured_forms.append(self)
+        _combo_pick(self.student_combo, form_student.id)
+        _combo_pick(self.observer_combo)
+        self.save_intervention()
+        return self.result()
+
+
+profile_mod.InterventionForm = _PrefilledFormProbe
+try:
+    if l_pending:
+        l_rec = l_pending[0]
+        int_before = _count("interventions")
+        n_msgs = len(ui_msgs)
+        with contextlib.redirect_stdout(io.StringIO()):
+            l_widget.request_intervention(l_rec)
+            app.processEvents()
+        int_after = _count("interventions")
+        form_used = captured_forms[0] if captured_forms else None
+        new_iid = getattr(form_used, 'saved_intervention_id', None)
+        int_row = conn.execute("SELECT type, description, goal, student_profile_id FROM interventions WHERE id = ?",
+                               (new_iid,)).fetchone() if new_iid else None
+        rec_row = conn.execute("SELECT status, metadata FROM recommendations WHERE id = ?", (l_rec.id,)).fetchone()
+        rec_meta = json.loads(rec_row[1]) if rec_row and rec_row[1] else {}
+        with contextlib.redirect_stdout(io.StringIO()):
+            l_widget.load_recommendations()
+        reloaded = next((r for r in l_widget.recommendations if r.id == l_rec.id), None)
+        expected_type = l_rec.suggested_intervention_type
+        l_msgs = [m for m in ui_msgs[n_msgs:] if m[0] != 'info']
+        check("L", "BUG-NEW-04: «ثبت مداخله» از روی پیشنهاد → فرم مداخله با نوع/شرح/هدف پیشنهاد پیش‌پر می‌شود → پس از ذخیره، ردیف interventions با همان نوع ساخته می‌شود، پیشنهاد «اجراشده» و metadata.intervention_id به مداخله اشاره می‌کند، تب‌ها تازه می‌شوند",
+              form_used is not None and form_used.recommendation_id == l_rec.id
+              and form_used.prefill.get('type') == expected_type
+              and int_after == int_before + 1 and int_row is not None
+              and (expected_type is None or int_row[0] == expected_type)
+              and int_row[3] == l_page.profile_id
+              and (int_row[1] or '').strip() != '' and (int_row[2] or '').strip() != ''
+              and rec_row and rec_row[0] == 'implemented' and rec_meta.get('intervention_id') == new_iid
+              and reloaded is not None and reloaded.linked_intervention_id == new_iid
+              and not l_msgs and form_used.recommendation_link_error is None
+              and l_page.inter_table.rowCount() == conn.execute(
+                  "SELECT COUNT(*) FROM interventions WHERE student_profile_id = ? AND is_deleted = 0",
+                  (l_page.profile_id,)).fetchone()[0],
+              f"prefill={getattr(form_used, 'prefill', None)} rec_id={getattr(form_used, 'recommendation_id', None)} "
+              f"int {int_before}->{int_after} row={tuple(int_row) if int_row else None} rec={tuple(rec_row) if rec_row else None} "
+              f"meta={rec_meta} msgs={l_msgs}")
+    else:
+        check("L", "BUG-NEW-04: ثبت مداخله از روی پیشنهاد (پیشنهادی در انتظار/پذیرفته وجود نداشت)", False, "")
+finally:
+    profile_mod.InterventionForm = real_intervention_form
+
+# --- L2: شکست پیوند، ثبت مداخله را باطل نمی‌کند ولی صریح اعلام می‌شود
+with contextlib.redirect_stdout(io.StringIO()):
+    l_widget.load_recommendations()
+    l_pending2 = [r for r in l_widget.recommendations if r.status in ('pending', 'accepted')]
+    if not l_pending2:
+        rec_service.generate_recommendations(l_page.profile_id)
+        l_widget.load_recommendations()
+        l_pending2 = [r for r in l_widget.recommendations if r.status in ('pending', 'accepted')]
+    if not l_pending2:
+        # پیشنهاد دستی برای سناریوی شکست پیوند
+        from models.recommendation import Recommendation as _Rec
+        _r = _Rec()
+        _r.student_profile_id, _r.title, _r.description = l_page.profile_id, "پیشنهاد آزمون پیوند", "شرح"
+        _r.category, _r.priority, _r.status = "behavioral", "medium", "pending"
+        _r.suggested_intervention_type = "parent_call"
+        rec_service.recommendation_dal.create(_r)
+        l_widget.load_recommendations()
+        l_pending2 = [r for r in l_widget.recommendations if r.status in ('pending', 'accepted')]
+if l_pending2:
+    real_implement = RecommendationService.implement_recommendation
+
+    def _implement_fails(self, *a, **k):
+        raise RuntimeError("link failure injected")
+
+    RecommendationService.implement_recommendation = _implement_fails
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            l_form2 = intervention_form_mod.InterventionForm(
+                student_id=form_student.id, prefill={'type': 'parent_call', 'description': 'شرح از پیشنهاد', 'goal': 'هدف'},
+                recommendation_id=l_pending2[0].id)
+            _combo_pick(l_form2.student_combo, form_student.id)
+            _combo_pick(l_form2.observer_combo)
+            n_msgs = len(ui_msgs)
+            l_form2.save_intervention()
+    finally:
+        RecommendationService.implement_recommendation = real_implement
+    saved2 = conn.execute("SELECT type, description FROM interventions WHERE id = ?", (l_form2.saved_intervention_id,)).fetchone() if l_form2.saved_intervention_id else None
+    rec2 = conn.execute("SELECT status FROM recommendations WHERE id = ?", (l_pending2[0].id,)).fetchone()
+    info_msg = next((m[1] for m in ui_msgs[n_msgs:] if m[0] == 'info'), '')
+    check("L", "شکست پیوند پیشنهاد: مداخله ثبت می‌شود (نوع/شرح از پیشنهاد)، پیشنهاد دست‌نخورده می‌ماند و پیام صریحاً ⚠️ می‌گوید وضعیت پیشنهاد به‌روز نشد (نه موفقیت ظاهری)",
+          saved2 is not None and saved2[0] == 'parent_call' and saved2[1] == 'شرح از پیشنهاد'
+          and rec2 and rec2[0] in ('pending', 'accepted') and '⚠️' in info_msg
+          and l_form2.recommendation_link_error == 'link failure injected' and l_form2.result() == QDialog.DialogCode.Accepted,
+          f"saved={tuple(saved2) if saved2 else None} rec={tuple(rec2) if rec2 else None} msg={info_msg[:90]!r}")
+else:
+    check("L", "شکست پیوند پیشنهاد (پیشنهادی در انتظار وجود نداشت)", False, "")
 
 # ============================================================
 print()

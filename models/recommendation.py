@@ -94,6 +94,13 @@ class Recommendation(BaseModel):
         return priority_map.get(self.priority, self.priority)
     
     @property
+    def linked_intervention_id(self):
+        """شناسهٔ مداخله‌ای که بر اساس این پیشنهاد ثبت شده (یا None)"""
+        if isinstance(self.metadata, dict):
+            return self.metadata.get('intervention_id')
+        return None
+
+    @property
     def priority_color(self):
         """رنگ اولویت برای نمایش (بازرسی شانزدهم — ویجت پیشنهادها به آن نیاز داشت و مدل نداشت)"""
         color_map = {

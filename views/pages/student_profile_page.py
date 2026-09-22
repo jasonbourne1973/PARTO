@@ -1354,8 +1354,30 @@ class StudentProfilePage(QWidget):
             QMessageBox.information(self, "موفقیت", "مشاهده با موفقیت ثبت شد.")
     
     def on_intervention_requested(self, data=None):
-        """درخواست ثبت مداخله از روی یک پیشنهاد (تب پیشنهادها)"""
-        self.add_intervention()
+        """
+        ثبت مداخله از روی یک پیشنهاد (تب پیشنهادها) — BUG-NEW-04
+
+        فرم مداخله با نوع/شرح/هدفِ پیشنهاد پیش‌پر می‌شود و شناسهٔ پیشنهاد به
+        فرم داده می‌شود تا پس از ذخیره، پیشنهاد «اجراشده» و به مداخله پیوند
+        بخورد؛ سپس تب مداخلات و تب پیشنهادها تازه‌سازی می‌شوند.
+        """
+        if not self.student_id:
+            QMessageBox.warning(self, "توجه", "ابتدا یک دانش‌آموز را انتخاب کنید.")
+            return
+        data = data or {}
+        prefill = {
+            'type': data.get('suggested_type'),
+            'description': data.get('description') or data.get('title'),
+            'goal': data.get('goal') or data.get('title'),
+        }
+        form = InterventionForm(student_id=self.student_id, parent=self, prefill=prefill,
+                                recommendation_id=data.get('recommendation_id'))
+        result = form.exec()
+        if result == QDialog.DialogCode.Accepted or getattr(form, 'saved_intervention_id', None):
+            self.load_interventions()
+            self.load_timeline()
+            self.load_summary()
+            self.recommendation_widget.load_recommendations()
 
     def add_intervention(self):
         if not self.student_id:

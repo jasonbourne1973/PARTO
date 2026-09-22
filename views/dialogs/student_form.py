@@ -289,7 +289,7 @@ class StudentForm(QDialog):
             self._ensure_active_year()
             active_year = getattr(self, "_active_year", None)
 
-            logger.debug("DEBUG active_year:", active_year.id if active_year else None)
+            logger.debug(f"سال فعال هنگام ذخیرهٔ دانش‌آموز: {active_year.id if active_year else None}")
 
             if not active_year or not active_year.id:
                 QMessageBox.critical(self, "خطا", "سال تحصیلی فعالی وجود ندارد.")

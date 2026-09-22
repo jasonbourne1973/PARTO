@@ -1614,7 +1614,7 @@ verify9 (۱)، verify10 (۲). هیچ آزمونی برای «سبزشدن» حذ
 |---|---|---|---|
 | **۱** | BUG-NEW-01، BUG-NEW-03 | `QMessageBox.getText` → `QInputDialog.getText` در رد/تکمیل پیشنهاد؛ کنتراست «اقدام پیشنهادی» (+ اسکن کنتراست برای استایل‌های بدون selector) | **انجام شد** (این بخش) |
 | ۲ | BUG-NEW-02 (+ نکتهٔ ۳ downgrade) | حذف `connection.commit()`/`rollback()` از همهٔ ۹ migration؛ تراکنش فقط در `MigrationManager`؛ تطبیق مسیر `_heal_schema` که migrationهای idempotent را مستقیم اجرا می‌کند؛ آزمون شکست وسط migration واقعی → rollback کامل | **انجام شد** (بخش ۱۲) |
-| ۳ | BUG-NEW-04 | «ثبت مداخله از روی پیشنهاد»: پیش‌پرکردن فرم مداخله با نوع/عنوان پیشنهاد و پیوند پیشنهاد ↔ مداخله پس از ذخیره (اجراشدن پیشنهاد) | منتظر تأیید |
+| ۳ | BUG-NEW-04 | «ثبت مداخله از روی پیشنهاد»: پیش‌پرکردن فرم مداخله با نوع/عنوان پیشنهاد و پیوند پیشنهاد ↔ مداخله پس از ذخیره (اجراشدن پیشنهاد) | **انجام شد** (بخش ۱۳) |
 | ۴ | «تست واقعی» | اجرای کامل باتری، به‌روزرسانی گزارش/README/PR؛ آزمون GUI واقعی همچنان بر عهدهٔ داور | منتظر تأیید |
 
 ## [BUG-NEW-01]
@@ -1711,3 +1711,52 @@ STATUS: FIXED
 ## آزمون پس از مرحلهٔ ۲ داوری سوم
 `pytest` 26 passed؛ verify_fixes 1…15 همه سبز؛ **verify_fixes16: 91/91**؛
 `ruff` صفر. باقی‌مانده: مرحلهٔ ۳ (BUG-NEW-04) و مرحلهٔ ۴ (جمع‌بندی/PR؛ GUI با داور).
+
+---
+
+# بخش ۱۳ — داوری سوم، مرحلهٔ ۳: ثبت مداخله از روی پیشنهاد (BUG-NEW-04)
+
+## [BUG-NEW-04]
+### بخش
+```text
+views/widgets/recommendation_widget.py — request_intervention
+views/pages/student_profile_page.py — on_intervention_requested
+views/dialogs/intervention_form.py — __init__/apply_prefill/save_intervention
+services/recommendation_service.py — implement_recommendation ؛ models/recommendation.py — linked_intervention_id
+```
+### وضعیت
+`PARTIALLY_BROKEN` (P2 — حالت ۵: اتصال ناقص)
+### مشکل (تأیید داور درست بود)
+«ثبت مداخله» از روی پیشنهاد فقط فرم خالی مداخله را باز می‌کرد؛ نوع/عنوان/
+شناسهٔ پیشنهاد منتقل نمی‌شد و مداخلهٔ ذخیره‌شده هیچ پیوندی به پیشنهاد نداشت.
+### اصلاح (بدون تغییر اسکیما)
+1. ویجت در سیگنال `intervention_requested` علاوه بر شناسه/نوع/عنوان،
+   `description` (اقدام پیشنهادی) و `goal` می‌فرستد.
+2. `InterventionForm(prefill=…, recommendation_id=…)`: نوع مداخله در کامبو
+   انتخاب، شرح و هدف پر می‌شوند (کاربر می‌تواند تغییر دهد)؛ پس از ذخیرهٔ
+   موفق، `RecommendationService.implement_recommendation(rec_id,
+   intervention_id=…)` پیشنهاد را «اجراشده» می‌کند و شناسهٔ مداخله را در
+   `metadata['intervention_id']` نگه می‌دارد (ستون موجود JSON؛ بدون migration).
+   شکست این گام، ثبت مداخله را باطل نمی‌کند ولی در پیام با ⚠️ صریح گفته
+   می‌شود و در `recommendation_link_error` قابل خواندن است.
+3. صفحهٔ پرونده پس از بستن فرم، تب مداخلات، خط زمان، خلاصه و تب پیشنهادها
+   را تازه می‌کند؛ آیتم پیشنهاد، «🔗 مداخلهٔ ثبت‌شده بر اساس این پیشنهاد: #id»
+   را نشان می‌دهد (`Recommendation.linked_intervention_id`).
+### تست (verify_fixes16 §L)
+- L1: زنجیرهٔ واقعی «پیشنهاد → درخواست مداخله → فرم پیش‌پرشده (نوع = نوع
+  پیشنهاد، recommendation_id) → ذخیره → ردیف `interventions` با همان نوع/
+  پروندهٔ درست → پیشنهاد `implemented` و `metadata.intervention_id` =
+  مداخله → ویجت پس از بارگذاری پیوند را می‌شناسد → جدول مداخلات پرونده = DB».
+- L2: شکست تزریق‌شدهٔ پیوند → مداخله (نوع/شرح از پیشنهاد) ثبت می‌شود،
+  پیشنهاد دست‌نخورده می‌ماند، پیام ⚠️ صریح، `recommendation_link_error` پر.
+### باگ جانبی رفع‌شده
+`views/dialogs/student_form.py`: یک `logger.debug("…:", value)` با قالب
+اشتباه، در هر ذخیرهٔ دانش‌آموز خطای `TypeError` در سیستم logging تولید می‌کرد
+(بی‌صدا برای کاربر، پرسروصدا در لاگ) → f-string.
+```text
+STATUS: FIXED
+```
+
+## آزمون پس از مرحلهٔ ۳ داوری سوم
+`pytest` 26 passed؛ verify_fixes 1…15 همه سبز؛ **verify_fixes16: 93/93**؛
+`ruff` صفر. باقی‌مانده: مرحلهٔ ۴ (جمع‌بندی گزارش/README/PR؛ تست GUI واقعی با داور).

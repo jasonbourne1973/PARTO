@@ -320,6 +320,13 @@ class RecommendationWidget(QWidget):
             """)
             action_label.setWordWrap(True)
             layout.addWidget(action_label)
+
+        # (BUG-NEW-04) اگر بر اساس این پیشنهاد مداخله‌ای ثبت شده، پیوندش نشان داده می‌شود
+        linked_id = getattr(recommendation, 'linked_intervention_id', None)
+        if linked_id:
+            linked_label = QLabel(f"🔗 مداخلهٔ ثبت‌شده بر اساس این پیشنهاد: #{linked_id}")
+            linked_label.setStyleSheet("font-size: 11px; color: #D9C36A;")
+            layout.addWidget(linked_label)
         
         # ===== دکمه‌های عملیات =====
         btn_row = QHBoxLayout()
@@ -528,11 +535,14 @@ class RecommendationWidget(QWidget):
     
     def request_intervention(self, recommendation):
         """درخواست ثبت مداخله"""
+        # (BUG-NEW-04) همهٔ آنچه فرم مداخله برای پیش‌پرکردن و پیوند لازم دارد
         data = {
             'recommendation_id': recommendation.id,
             'suggested_type': recommendation.suggested_intervention_type,
             'competency_id': recommendation.related_competency_id,
-            'title': recommendation.title
+            'title': recommendation.title,
+            'description': recommendation.suggested_action or recommendation.description or recommendation.title,
+            'goal': recommendation.title,
         }
         self.intervention_requested.emit(data)
     
