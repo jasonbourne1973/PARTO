@@ -385,7 +385,7 @@ class DashboardPage(QWidget):
         legend_badge.setStyleSheet("""
             font-size: 11px;
             font-weight: 600;
-            color: #0B2E4F;
+            color: #F4C542;
             background-color: #0B2E4F;
             padding: 3px 10px;
             border-radius: 12px;
@@ -440,7 +440,7 @@ class DashboardPage(QWidget):
         self.reminder_summary_label.setStyleSheet("""
             font-size: 11px;
             font-weight: bold;
-            color: #66BB6A;
+            color: #111111;
             background-color: #66BB6A;
             padding: 3px 10px;
             border-radius: 12px;
@@ -502,7 +502,7 @@ class DashboardPage(QWidget):
         act_live.setStyleSheet("""
             font-size: 11px;
             font-weight: 600;
-            color: #66BB6A;
+            color: #111111;
             background-color: #66BB6A;
             padding: 3px 10px;
             border-radius: 12px;
@@ -695,7 +695,7 @@ class DashboardPage(QWidget):
                 self.reminder_summary_label.setStyleSheet("""
                     font-size: 11px;
                     font-weight: bold;
-                    color: #66BB6A;
+                    color: #111111;
                     background-color: #66BB6A;
                     padding: 3px 10px;
                     border-radius: 12px;

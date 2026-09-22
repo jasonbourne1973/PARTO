@@ -40,7 +40,10 @@
   I) تب پیشنهادها، خروجی گزارش کلاس/معلم/عملکرد، ویرایش اختصاص معلم، CHECK دیتابیس تازه،
      مخزن بدون دیتابیس واقعی، خروج خودکار بدون تأیید .................................. ۶ بررسی
 
-جمع: ۸۵ بررسی
+داوری سوم مدیر پروژه — مرحلهٔ ۱:
+  J) رد/تکمیل پیشنهاد با QInputDialog (BUG-NEW-01)، کنتراست «اقدام پیشنهادی» و نشان‌های داشبورد (BUG-NEW-03) ... ۲ بررسی
+
+جمع: ۸۷ بررسی
 """
 
 import contextlib
@@ -1090,6 +1093,11 @@ for sub in ('views', 'views/pages', 'views/dialogs', 'views/widgets'):
         src = read(os.path.join(sub, fname))
         blocks = [m.group(1) for m in re.finditer(r'\{([^{}]*)\}', src)]
         blocks += [m.group(2) for m in re.finditer(r'setStyleSheet\(\s*(["\'])([^"\'{}]*?)\1\s*\)', src)]
+        # (تکمیلی) استایل‌های چندخطی بدون selector — «color/background-color» مستقیم داخل رشته
+        for m in re.finditer(r'setStyleSheet\(\s*(f?)("""|\'\'\')(.*?)\2\s*\)', src, re.S):
+            body = re.sub(r'\{[^{}]*\}', '', m.group(3)) if m.group(1) else m.group(3)
+            if '{' not in body:
+                blocks.append(body)
         for body in blocks:
             fg = re.search(r'(?<![\w-])color\s*:\s*(#[0-9a-fA-F]{6})\b', body)
             bg = re.search(r'background(?:-color)?\s*:\s*(#[0-9a-fA-F]{6})\b', body)
@@ -1097,7 +1105,7 @@ for sub in ('views', 'views/pages', 'views/dialogs', 'views/widgets'):
                 low_contrast.append((os.path.join(sub, fname), fg.group(1), bg.group(1)))
 rec_src = read("views/widgets/recommendation_widget.py")
 rec_btn_block = rec_src.split("self.generate_btn.setStyleSheet(")[1].split(")")[0]
-check("C", "کنتراست: در کل views/ هیچ بلوک استایلی با نسبت کنتراست متن/زمینه کمتر از ۳:۱ نمانده (قبلاً ۱۰۴ مورد، از جمله متن هم‌رنگ زمینه در دکمهٔ Generate پیشنهادها، دکمه‌های به‌روزرسانی داشبورد و برچسب‌های «داده ناکافی»)",
+check("C", "کنتراست: در کل views/ هیچ بلوک استایلی (با selector یا بدون آن) با نسبت کنتراست متن/زمینه کمتر از ۳:۱ نمانده (قبلاً ۱۰۴ + ۵ مورد، از جمله متن هم‌رنگ زمینه در دکمهٔ Generate، «اقدام پیشنهادی»، نشان‌های داشبورد و برچسب‌های «داده ناکافی»)",
       not low_contrast and "color: #0B2E4F;" not in rec_btn_block.split("background-color: #0B2E4F;")[1].split("}")[0],
       f"remaining={low_contrast[:5]}")
 
@@ -2234,6 +2242,78 @@ check("H", "BUG-027 دکمهٔ «📎 پیوست‌ها» در پروندهٔ د
 # ============================================================
 print()
 print("=" * 76)
+print("بخش J: داوری سوم مدیر پروژه — مرحلهٔ ۱: رد/تکمیل پیشنهاد (BUG-NEW-01) و کنتراست «اقدام پیشنهادی» (BUG-NEW-03)")
+print("=" * 76)
+
+from PySide6.QtWidgets import QInputDialog as _QInputDialog  # noqa: E402
+
+from services.recommendation_service import RecommendationService  # noqa: E402
+from views.widgets.recommendation_widget import RecommendationWidget  # noqa: E402
+
+rec_service = RecommendationService()
+with contextlib.redirect_stdout(io.StringIO()):
+    j_widget = RecommendationWidget()
+    j_widget.set_profile_id(form_pid)
+    j_recs = rec_service.generate_recommendations(form_pid) or []
+    j_widget.load_recommendations()
+    pending = [r for r in j_widget.recommendations if r.status == 'pending']
+if len(pending) < 2:
+    with contextlib.redirect_stdout(io.StringIO()):
+        # پیشنهادهای بیشتر برای سناریوی رد/تکمیل
+        j_recs = rec_service.generate_recommendations(form_pid) or []
+        j_widget.load_recommendations()
+        pending = [r for r in j_widget.recommendations if r.status == 'pending']
+
+
+def _rec_status(rec_id):
+    row = conn.execute("SELECT status, feedback_notes, feedback FROM recommendations WHERE id = ?", (rec_id,)).fetchone()
+    return tuple(row) if row else None
+
+
+rec_src = read("views/widgets/recommendation_widget.py")
+if len(pending) >= 2:
+    to_reject, to_complete = pending[0], pending[1]
+    # ۱) انصراف از دیالوگ ورودی → بدون تغییر
+    _QInputDialog.getText = staticmethod(lambda *a, **k: ("", False))
+    with contextlib.redirect_stdout(io.StringIO()):
+        j_widget.reject_recommendation(to_reject)
+    unchanged = _rec_status(to_reject.id)
+    # ۲) رد با دلیل → status = rejected و یادداشت ذخیره می‌شود
+    _QInputDialog.getText = staticmethod(lambda *a, **k: ("دلیل آزمایشی رد", True))
+    n_msgs = len(ui_msgs)
+    with contextlib.redirect_stdout(io.StringIO()):
+        j_widget.reject_recommendation(to_reject)
+    rejected = _rec_status(to_reject.id)
+    reject_msgs = ui_msgs[n_msgs:]
+    # ۳) اجرا سپس تکمیل با بازخورد → status = completed
+    _QInputDialog.getText = staticmethod(lambda *a, **k: ("بازخورد آزمایشی", True))
+    n_msgs = len(ui_msgs)
+    with contextlib.redirect_stdout(io.StringIO()):
+        j_widget.accept_recommendation(to_complete)
+        j_widget.implement_recommendation(to_complete)
+        j_widget.complete_recommendation(to_complete)
+    completed = _rec_status(to_complete.id)
+    complete_msgs = ui_msgs[n_msgs:]
+    check("J", "BUG-NEW-01: «رد پیشنهاد» و «تکمیل پیشنهاد» با QInputDialog.getText کار می‌کنند — انصراف → بدون تغییر؛ رد با دلیل → status=rejected + یادداشت؛ پذیرش→اجرا→تکمیل با بازخورد → status=completed (قبلاً هر دو با AttributeError می‌شکستند)",
+          unchanged and unchanged[0] == 'pending'
+          and rejected and rejected[0] == 'rejected' and rejected[1] == "دلیل آزمایشی رد"
+          and completed and completed[0] == 'completed' and completed[2] == "بازخورد آزمایشی"
+          and not [m for m in reject_msgs + complete_msgs if m[0] == 'crit']
+          and "QMessageBox.getText" not in rec_src and "QInputDialog.getText" in rec_src,
+          f"unchanged={unchanged} rejected={rejected} completed={completed} msgs={[m for m in reject_msgs + complete_msgs if m[0] != 'info']}")
+else:
+    check("J", "BUG-NEW-01: رد/تکمیل پیشنهاد (به اندازهٔ کافی پیشنهاد در انتظار تولید نشد)", False, f"pending={len(pending)} recs={len(j_recs)}")
+
+action_block = rec_src.split('action_label.setStyleSheet("""')[1].split('""")')[0]
+check("J", "BUG-NEW-03: برچسب «اقدام پیشنهادی» دیگر هم‌رنگ زمینه نیست (متن طلایی روی سرمه‌ای)؛ اسکن کنتراست اکنون استایل‌های چندخطی بدون selector را هم می‌بیند (۴ نشان نامرئی داشبورد هم اصلاح شد)",
+      "color: #F4C542;" in action_block and "background-color: #0B2E4F;" in action_block
+      and not re.search(r'color: #66BB6A;\n\s+background-color: #66BB6A;', read("views/pages/dashboard_page.py"))
+      and not re.search(r'color: #0B2E4F;\n\s+background-color: #0B2E4F;', read("views/pages/dashboard_page.py")),
+      "")
+
+# ============================================================
+print()
+print("=" * 76)
 print("بخش I: تکمیل باقی‌مانده‌ها — تب پیشنهادها، خروجی گزارش کلاس/معلم، ویرایش اختصاص، CHECK، مخزن، خروج خودکار")
 print("=" * 76)
 
@@ -2255,6 +2335,9 @@ with contextlib.redirect_stdout(io.StringIO()):
     rec_widget.generate_recommendations()
     rec_after = conn.execute("SELECT COUNT(*) FROM recommendations WHERE student_profile_id = ? AND is_deleted = 0",
                              (prof_page.profile_id,)).fetchone()[0]
+    # ویجت پس از تولید، پیشنهادهای «فعال» (در انتظار/پذیرفته‌شده) را نشان می‌دهد
+    active_after = conn.execute("SELECT COUNT(*) FROM recommendations WHERE student_profile_id = ? AND is_deleted = 0 "
+                                "AND status IN ('pending', 'accepted')", (prof_page.profile_id,)).fetchone()[0]
     displayed = len(rec_widget.recommendations)
     gen_msgs = ui_msgs[n_msgs:]
     # درخواست مداخله از روی پیشنهاد → فرم مداخلهٔ همین صفحه
@@ -2279,9 +2362,9 @@ with contextlib.redirect_stdout(io.StringIO()):
         profile_mod.InterventionForm = real_form
 check("I", "تب «💡 پیشنهادها» در پروندهٔ دانش‌آموز: ویجت با پروندهٔ جاری هم‌گام است؛ Generate → رکوردهای recommendations در DB و همان تعداد در نمایش؛ «ثبت مداخله» از روی پیشنهاد فرم مداخله را باز می‌کند (قبلاً ویجت هیچ‌جا سوار نبود)",
       any("پیشنهادها" in t for t in tab_titles) and rec_widget.profile_id == prof_page.profile_id
-      and rec_after >= rec_before and displayed == rec_after and gen_msgs and gen_msgs[-1][0] == "info"
+      and rec_after > rec_before and displayed == active_after and gen_msgs and gen_msgs[-1][0] == "info"
       and not [m for m in gen_msgs if m[0] == "crit"] and len(opened_forms) == 1,
-      f"tabs={tab_titles[-2:]} rec {rec_before}->{rec_after} displayed={displayed} msgs={gen_msgs[-1:]} forms={opened_forms}")
+      f"tabs={tab_titles[-2:]} rec {rec_before}->{rec_after} active={active_after} displayed={displayed} msgs={gen_msgs[-1:]} forms={opened_forms}")
 
 # --- I2: خروجی PDF/Excel گزارش کلاس، گزارش معلم و عملکرد معلم از مسیر صفحه (فایل واقعی)
 report_exports = {}

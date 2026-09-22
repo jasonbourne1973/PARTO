@@ -9,6 +9,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QMessageBox,
     QPushButton,
@@ -309,9 +310,10 @@ class RecommendationWidget(QWidget):
         # ===== اقدام پیشنهادی =====
         if recommendation.suggested_action:
             action_label = QLabel(f"📌 اقدام پیشنهادی: {recommendation.suggested_action}")
+            # (BUG-NEW-03) متن هم‌رنگ زمینه بود و «اقدام پیشنهادی» دیده نمی‌شد
             action_label.setStyleSheet("""
                 font-size: 12px;
-                color: #0B2E4F;
+                color: #F4C542;
                 background-color: #0B2E4F;
                 padding: 4px 8px;
                 border-radius: 4px;
@@ -476,11 +478,12 @@ class RecommendationWidget(QWidget):
     
     def reject_recommendation(self, recommendation):
         """رد پیشنهاد"""
-        notes, ok = QMessageBox.getText(
+        # (بازرسی شانزدهم — BUG-NEW-01) getText متعلق به QInputDialog است؛ نسخهٔ
+        # قبلی آن را روی کلاس پیام‌ها صدا می‌زد و با AttributeError می‌شکست.
+        notes, ok = QInputDialog.getText(
             self,
             "رد پیشنهاد",
             "لطفاً دلیل رد پیشنهاد را وارد کنید (اختیاری):",
-            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel
         )
         
         if not ok:
@@ -506,11 +509,10 @@ class RecommendationWidget(QWidget):
     
     def complete_recommendation(self, recommendation):
         """تکمیل پیشنهاد"""
-        feedback, ok = QMessageBox.getText(
+        feedback, ok = QInputDialog.getText(
             self,
             "تکمیل پیشنهاد",
             "لطفاً بازخورد خود را وارد کنید (اختیاری):",
-            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel
         )
         
         if not ok:
