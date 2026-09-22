@@ -36,7 +36,11 @@
 تکمیلی — تصمیم‌های باز (BUG-023 و BUG-027):
   H) کامبوی سال تحصیلی هدر (فعال‌سازی با تأیید، برگشت، بایگانی) و نقطهٔ ورودی پیوست‌ها ... ۲ بررسی
 
-جمع: ۷۹ بررسی
+تکمیلی — باقی‌مانده‌ها:
+  I) تب پیشنهادها، خروجی گزارش کلاس/معلم/عملکرد، ویرایش اختصاص معلم، CHECK دیتابیس تازه،
+     مخزن بدون دیتابیس واقعی، خروج خودکار بدون تأیید .................................. ۶ بررسی
+
+جمع: ۸۵ بررسی
 """
 
 import contextlib
@@ -1525,9 +1529,9 @@ for cls_name, own_files in UNREACHABLE_UI.items():
     if re.search(rf'\b{cls_name}\b', read('main.py')):
         hits.append('main.py')
     consumers[cls_name] = hits
-check("D", "وضعیت ثبت‌شده: RecommendationWidget هیچ مصرف‌کننده‌ای در رابط ندارد (DEAD_CODE — گزارش)؛ AttachmentDialog اکنون از پروندهٔ دانش‌آموز باز می‌شود (بخش H)؛ زیرسیستم اعلان‌ها حذف شد",
-      all(not hits for hits in consumers.values()),
-      str({k: v for k, v in consumers.items() if v}))
+check("D", "وضعیت: RecommendationWidget اکنون تب پروندهٔ دانش‌آموز است، AttachmentDialog از پروندهٔ دانش‌آموز باز می‌شود، زیرسیستم اعلان‌ها حذف شد — هیچ دیالوگ/ویجت بدون مصرف‌کننده‌ای نمانده",
+      consumers.get('RecommendationWidget') == ['views/pages/student_profile_page.py'],
+      str(consumers))
 
 # ============================================================
 print()
@@ -1777,8 +1781,8 @@ screening_ui = [f for f in (os.path.join("views", d, n) for d in ("pages", "dial
                 if re.search(r"\b(ScreeningService|ScreeningDAL|ScreeningResultDAL|screening_form|ScreeningForm)\b", read(f))]
 rec_widget_users = [f for f in (os.path.join("views", d, n) for d in ("pages", "dialogs", "widgets") for n in os.listdir(os.path.join("views", d)) if n.endswith(".py"))
                     if "RecommendationWidget" in read(f) and not f.endswith("recommendation_widget.py")]
-check("E", "وضعیت ثبت‌شده: Screening هیچ UI ثبت/ویرایش ندارد (فقط نمایش لایه در گزارش) → UNREACHABLE؛ RecommendationWidget بدون مصرف‌کننده → DEAD_CODE (بدون تغییر کد، طبق تصمیم کاربر)",
-      not screening_ui and not rec_widget_users,
+check("E", "وضعیت ثبت‌شده: Screening هیچ UI ثبت/ویرایش ندارد (فقط نمایش لایه در گزارش — قابلیت جدید محسوب می‌شود و ساخته نشد)؛ RecommendationWidget اکنون در پروندهٔ دانش‌آموز مصرف می‌شود",
+      not screening_ui and rec_widget_users == ['views/pages/student_profile_page.py'],
       f"screening_ui={screening_ui} rec_users={rec_widget_users}")
 
 # ============================================================
@@ -2054,10 +2058,12 @@ print("=" * 76)
 REMOVED_DEAD = ["views/pages/assign_teacher_page.py", "views/pages/teacher_students_page.py",
                 "utils/cache.py", "utils/competency_helper.py", "models/student_file.py",
                 "views/widgets/filter_widget.py", "utils/notification_scheduler.py",
-                "services/notification_service.py", "dal/notification_dal.py", "models/notification.py"]
-PENDING_DECISION = ["dal/saved_filter_dal.py", "services/advanced_search_service.py",
-                    "views/widgets/recommendation_widget.py", "dal/backup_dal.py", "services/school_report_service.py",
-                    "dal/screening_tool_dal.py", "utils/report_template.py", "models/analytics_models.py"]
+                "services/notification_service.py", "dal/notification_dal.py", "models/notification.py",
+                "dal/saved_filter_dal.py", "models/saved_filter.py", "services/advanced_search_service.py",
+                "dal/backup_dal.py", "services/school_report_service.py", "dal/screening_tool_dal.py",
+                "utils/report_template.py", "models/analytics_models.py"]
+# آنچه عمداً مانده: ویجت پیشنهادها (اکنون زنده)، زیرسیستم Screening (لایهٔ گزارش از آن می‌خواند)
+PENDING_DECISION = ["views/widgets/recommendation_widget.py", "dal/screening_dal.py", "dal/screening_result_dal.py"]
 app_dirs = ["main.py", "views", "views/pages", "views/dialogs", "views/widgets", "services", "dal", "utils", "database", "models", "config"]
 app_sources = {}
 for d in app_dirs:
@@ -2075,7 +2081,7 @@ for removed in REMOVED_DEAD:
     for path, src in app_sources.items():
         if re.search(pattern, src):
             stale_refs.append((removed, path))
-check("G", "کد مردهٔ تأییدشده (دو صفحهٔ هرگز-سوارنشده، کش/کمک‌شایستگی/مدل پروندهٔ بی‌استفاده) حذف شده و هیچ ارجاعی به آن‌ها در کد نمانده؛ ماژول‌های منتظر تصمیم دست‌نخورده‌اند",
+check("G", "کد مردهٔ تأییدشده (۱۸ ماژول: دو صفحهٔ هرگز-سوارنشده، زیرسیستم اعلان‌ها، فیلترهای ذخیره‌شده، BackupDAL، SchoolReportService، report_template، analytics_models، …) حذف شده و هیچ ارجاعی به آن‌ها در کد نمانده؛ ماژول‌های نگه‌داشته‌شده سر جایشان هستند",
       not any(os.path.exists(p) for p in REMOVED_DEAD) and not stale_refs
       and all(os.path.exists(p) for p in PENDING_DECISION),
       f"stale={stale_refs} missing_pending={[p for p in PENDING_DECISION if not os.path.exists(p)]}")
@@ -2224,6 +2230,178 @@ check("H", "BUG-027 دکمهٔ «📎 پیوست‌ها» در پروندهٔ د
       and profile_page.btn_attachments.text().startswith("📎")
       and no_student_msgs and no_student_msgs[-1][0] == "warn",
       f"opened={opened}")
+
+# ============================================================
+print()
+print("=" * 76)
+print("بخش I: تکمیل باقی‌مانده‌ها — تب پیشنهادها، خروجی گزارش کلاس/معلم، ویرایش اختصاص، CHECK، مخزن، خروج خودکار")
+print("=" * 76)
+
+import subprocess as _subprocess  # noqa: E402
+
+QMessageBox.question = staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes)
+
+# --- I1: تب «💡 پیشنهادها» در پروندهٔ دانش‌آموز: هم‌گام با پرونده، Generate → رکوردهای recommendations → نمایش/خلاصه
+import views.pages.student_profile_page as profile_mod  # noqa: E402
+
+with contextlib.redirect_stdout(io.StringIO()):
+    prof_page = win.students_page.profile_page
+    prof_page.set_student_id(form_student.id)
+    rec_widget = prof_page.recommendation_widget
+    tab_titles = [prof_page.tabs.tabText(i) for i in range(prof_page.tabs.count())]
+    rec_before = conn.execute("SELECT COUNT(*) FROM recommendations WHERE student_profile_id = ? AND is_deleted = 0",
+                              (prof_page.profile_id,)).fetchone()[0]
+    n_msgs = len(ui_msgs)
+    rec_widget.generate_recommendations()
+    rec_after = conn.execute("SELECT COUNT(*) FROM recommendations WHERE student_profile_id = ? AND is_deleted = 0",
+                             (prof_page.profile_id,)).fetchone()[0]
+    displayed = len(rec_widget.recommendations)
+    gen_msgs = ui_msgs[n_msgs:]
+    # درخواست مداخله از روی پیشنهاد → فرم مداخلهٔ همین صفحه
+    opened_forms = []
+    real_form = profile_mod.InterventionForm
+
+    class _FormRecorder:
+        def __init__(self, *a, **k):
+            opened_forms.append(k.get('student_id', a[1] if len(a) > 1 else None))
+
+        def exec(self):
+            return 0
+
+        def __getattr__(self, name):
+            return lambda *a, **k: None
+
+    profile_mod.InterventionForm = _FormRecorder
+    try:
+        rec_widget.intervention_requested.emit({'title': 'x'})
+        app.processEvents()
+    finally:
+        profile_mod.InterventionForm = real_form
+check("I", "تب «💡 پیشنهادها» در پروندهٔ دانش‌آموز: ویجت با پروندهٔ جاری هم‌گام است؛ Generate → رکوردهای recommendations در DB و همان تعداد در نمایش؛ «ثبت مداخله» از روی پیشنهاد فرم مداخله را باز می‌کند (قبلاً ویجت هیچ‌جا سوار نبود)",
+      any("پیشنهادها" in t for t in tab_titles) and rec_widget.profile_id == prof_page.profile_id
+      and rec_after >= rec_before and displayed == rec_after and gen_msgs and gen_msgs[-1][0] == "info"
+      and not [m for m in gen_msgs if m[0] == "crit"] and len(opened_forms) == 1,
+      f"tabs={tab_titles[-2:]} rec {rec_before}->{rec_after} displayed={displayed} msgs={gen_msgs[-1:]} forms={opened_forms}")
+
+# --- I2: خروجی PDF/Excel گزارش کلاس، گزارش معلم و عملکرد معلم از مسیر صفحه (فایل واقعی)
+report_exports = {}
+with contextlib.redirect_stdout(io.StringIO()):
+    # کلاس: پروندهٔ دانش‌آموز آزمون در کلاس «الف» پایهٔ ۲ است؛ کلاس با همان نام/پایه در سال فعال
+    active_year = AcademicYearDAL().get_active()
+    cls_row = conn.execute("SELECT id FROM classes WHERE name = 'الف' AND grade = 2 AND academic_year_id = ? AND is_deleted = 0",
+                           (active_year.id,)).fetchone()
+    if cls_row is None:
+        c = ClassModel()
+        c.name, c.grade, c.academic_year_id, c.capacity, c.is_active = "الف", 2, active_year.id, 30, 1
+        class_id_for_report = ClassDAL().create(c).id
+    else:
+        class_id_for_report = cls_row[0]
+    crp = win.reports_page.class_report_page
+    crp.load_classes()
+    idx = crp.class_combo.findData(class_id_for_report)
+    crp.class_combo.setCurrentIndex(idx)
+    crp.on_class_changed(idx)
+    crp.start_date.set_date("1405/01/01")
+    crp.end_date.set_date("1405/12/29")
+    crp.generate_report()
+    class_report_ok = crp.current_report is not None
+    report_exports["class_pdf"] = _export_via(crp, "export_pdf", os.path.join(TMP, "class_report.pdf"))
+    report_exports["class_xlsx"] = _export_via(crp, "export_excel", os.path.join(TMP, "class_report.xlsx"))
+    # معلم (اختصاص‌داده‌شده در §D)
+    trp = win.reports_page.teacher_report_page
+    trp.load_teachers()
+    tidx = trp.teacher_combo.findData(teacher_id)
+    trp.teacher_combo.setCurrentIndex(tidx)
+    trp.start_date.set_date("1405/01/01")
+    trp.end_date.set_date("1405/12/29")
+    trp.generate_report()
+    teacher_report_ok = trp.current_report is not None
+    report_exports["teacher_pdf"] = _export_via(trp, "export_pdf", os.path.join(TMP, "teacher_report.pdf"))
+    report_exports["teacher_xlsx"] = _export_via(trp, "export_excel", os.path.join(TMP, "teacher_report.xlsx"))
+    # عملکرد معلم (نیاز به مشاهدهٔ ثبت‌شده توسط خودِ معلم در بازه دارد)
+    obs_service.create_observation({'student_id': form_student.id, 'staff_id': teacher_id, 'competency_id': comps[0].id,
+                                    'observation_date': '1405/07/15', 'behavior_type': 'مثبت', 'severity': 2,
+                                    'behavior': 'مشاهدهٔ معلم برای گزارش عملکرد'})
+    tpp = win.reports_page.teacher_performance_page
+    tpp.load_teachers()
+    pidx = tpp.teacher_combo.findData(teacher_id)
+    tpp.teacher_combo.setCurrentIndex(pidx)
+    tpp.on_teacher_changed(pidx)
+    tpp.start_date.set_date("1405/01/01")
+    tpp.end_date.set_date("1405/12/29")
+    tpp.generate_report()
+    perf_report_ok = tpp.current_report is not None
+    report_exports["performance_pdf"] = _export_via(tpp, "export_pdf", os.path.join(TMP, "teacher_performance.pdf"))
+check("I", "گزارش کلاس، گزارش معلم و عملکرد معلم از مسیر صفحه تولید می‌شوند و خروجی PDF/Excel آن‌ها فایل واقعی و معتبر است (قبلاً NOT_TESTED)",
+      class_report_ok and teacher_report_ok and perf_report_ok and all(v[0] for v in report_exports.values()),
+      f"class={class_report_ok} teacher={teacher_report_ok} perf={perf_report_ok} failed={ {k: v[1] for k, v in report_exports.items() if not v[0]} }")
+
+# --- I3: حالت ویرایش AssignTeacherDialog: تغییر معلم → ردیف teacher_assignments به‌روز می‌شود
+from dal.teacher_assignment_dal import TeacherAssignmentDAL  # noqa: E402
+
+with contextlib.redirect_stdout(io.StringIO()):
+    _t2 = Staff()
+    _t2.full_name, _t2.role = "معلم دوم", "teacher"
+    teacher2_id = StaffDAL().create(_t2).id
+    assignment_id = conn.execute("SELECT id FROM teacher_assignments WHERE student_id = ? AND is_deleted = 0 ORDER BY id DESC LIMIT 1",
+                                 (form_student.id,)).fetchone()[0]
+    edit_dlg = AssignTeacherDialog(assignment_id=assignment_id)
+    loaded_teacher = edit_dlg.teacher_combo.currentData()
+    _combo_pick(edit_dlg.teacher_combo, teacher2_id)
+    n_msgs = len(ui_msgs)
+    edit_dlg.save_assignment()
+saved_row = conn.execute("SELECT staff_id, student_id FROM teacher_assignments WHERE id = ?", (assignment_id,)).fetchone()
+check("I", "AssignTeacherDialog در حالت ویرایش: معلم فعلی بارگذاری می‌شود، تغییر معلم → همان ردیف teacher_assignments به‌روز می‌شود (قبلاً NOT_TESTED)",
+      loaded_teacher == teacher_id and tuple(saved_row) == (teacher2_id, form_student.id)
+      and edit_dlg.result() == QDialog.DialogCode.Accepted and not [m for m in ui_msgs[n_msgs:] if m[0] == "crit"],
+      f"loaded={loaded_teacher} row={tuple(saved_row) if saved_row else None} msgs={ui_msgs[n_msgs:][-1:]}")
+
+# --- I4: قیدهای CHECK در دیتابیس تازه: شدت خارج از ۱..۵ و نوع رفتار ناشناخته در سطح دیتابیس رد می‌شوند
+sev_err = _integrity("INSERT INTO observations (student_profile_id, staff_id, observation_date, description, behavior, behavior_type, severity) "
+                     "VALUES (?, 1, '1405/01/01', 'x', 'y', 'مثبت', 9)", (form_pid,))
+type_err = _integrity("INSERT INTO observations (student_profile_id, staff_id, observation_date, description, behavior, behavior_type, severity) "
+                      "VALUES (?, 1, '1405/01/01', 'x', 'y', 'positive', 3)", (form_pid,))
+ok_ins = _integrity("INSERT INTO observations (student_profile_id, staff_id, observation_date, description, behavior, behavior_type, severity) "
+                    "VALUES (?, 1, '1405/01/01', 'x', 'y', 'خنثی', 3)", (form_pid,))
+check("I", "CHECK در دیتابیس تازه (بند ۳۱): severity=9 و behavior_type ناشناخته در سطح دیتابیس رد می‌شوند؛ مقدار معتبر پذیرفته می‌شود (دیتابیس‌های موجود: اعتبارسنجی مدل/سرویس)",
+      "CHECK" in sev_err and "CHECK" in type_err and ok_ins == "accepted",
+      f"sev={sev_err[:40]} type={type_err[:40]} ok={ok_ins}")
+
+# --- I5: مخزن: دیتابیس واقعی و پشتیبان‌ها ردیابی نمی‌شوند
+tracked_db = _subprocess.run(["git", "ls-files", "database/partow.db"], capture_output=True, text=True).stdout.strip()
+ignored_db = _subprocess.run(["git", "check-ignore", "-q", "database/partow.db"], capture_output=True).returncode == 0
+check("I", "دیتابیس واقعی (database/partow.db) دیگر در مخزن git ردیابی نمی‌شود و در .gitignore است",
+      tracked_db == "" and ignored_db, f"tracked={tracked_db!r} ignored={ignored_db}")
+
+# --- I6: خروج خودکار پس از بی‌کاری واقعاً خودکار است (بدون دیالوگ تأیید) — آخرین بررسی، چون پنجره بسته می‌شود
+asked = []
+QMessageBox.question = staticmethod(lambda *a, **k: asked.append(a[1]) or QMessageBox.StandardButton.No)
+popen_calls = []
+real_popen = _subprocess.Popen
+_subprocess.Popen = lambda *a, **k: popen_calls.append(a[0][:1]) or None
+
+
+class _Exit(Exception):
+    pass
+
+
+real_exit = sys.exit
+sys.exit = lambda code=0: (_ for _ in ()).throw(_Exit(str(code)))
+logout_audit_before = conn.execute("SELECT COUNT(*) FROM audit_logs WHERE action = 'logout'").fetchone()[0]
+exited = None
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        win.auto_logout()
+except _Exit as e:
+    exited = str(e)
+finally:
+    sys.exit = real_exit
+    _subprocess.Popen = real_popen
+logout_audit_after = conn.execute("SELECT COUNT(*) FROM audit_logs WHERE action = 'logout'").fetchone()[0]
+check("I", "خروج خودکار (auto_logout): بدون دیالوگ تأیید انجام می‌شود، ثبت Audit خروج، اجرای دوبارهٔ برنامه و خروج فرایند (قبلاً منتظر کلیک «بله» می‌ماند)؛ خروج دستی همچنان تأیید می‌گیرد",
+      not asked and exited == "0" and len(popen_calls) == 1 and logout_audit_after == logout_audit_before + 1
+      and "lambda checked=False: self.logout(confirm=True)" in read("views/main_window.py"),
+      f"asked={asked} exited={exited} popen={len(popen_calls)} audit {logout_audit_before}->{logout_audit_after}")
 
 # ============================================================
 print()

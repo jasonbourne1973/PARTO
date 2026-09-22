@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *.pyo
 
+# ===== دیتابیس واقعی برنامه (دادهٔ کاربر — بازرسی شانزدهم) =====
+database/partow.db
+database/partow.db.restore_safety
+
 # ===== فایل‌های جانبی SQLite =====
 # (partow.db-wal / partow.db-shm داده نیستند؛ فقط وضعیت موقت اتصال‌اند)
 *.db-wal

@@ -45,6 +45,7 @@ from utils.logger import get_logger
 from views.dialogs.followup_form import FollowUpForm
 from views.dialogs.intervention_form import InterventionForm
 from views.dialogs.observation_form import ObservationForm
+from views.widgets.recommendation_widget import RecommendationWidget
 
 logger = get_logger(__name__)
 
@@ -411,6 +412,13 @@ class StudentProfilePage(QWidget):
         self.tabs.addTab(self.create_trend_tab(), "📈 روند")  # تب جدید
         self.tabs.addTab(self.create_growth_context_tab(), "🌱 زمینهٔ رشد")
         self.tabs.addTab(self.create_summary_tab(), "📊 خلاصه")
+        # (بازرسی شانزدهم — بندهای ۸ و ۹) ویجت پیشنهادها قبلاً هیچ‌جا سوار
+        # نشده بود؛ اکنون یک تب پروندهٔ دانش‌آموز است و با همان پرونده
+        # هم‌گام می‌شود. درخواست «ثبت مداخله» از یک پیشنهاد، فرم مداخلهٔ
+        # همین صفحه را باز می‌کند.
+        self.recommendation_widget = RecommendationWidget()
+        self.recommendation_widget.intervention_requested.connect(self.on_intervention_requested)
+        self.tabs.addTab(self.recommendation_widget, "💡 پیشنهادها")
         
         main_layout.addWidget(self.tabs)
     
@@ -998,6 +1006,7 @@ class StudentProfilePage(QWidget):
             self.load_interventions()
             self.load_followups()
             self.load_trend_chart()  # بارگذاری روند
+            self.recommendation_widget.set_profile_id(self.profile_id)
             self.load_growth_context()  # زمینهٔ رشد (خانواده و گفت‌وگوها)
             
         except Exception as e:
@@ -1318,6 +1327,8 @@ class StudentProfilePage(QWidget):
         self.pending_label.setText("پیگیری‌های باز: 0")
         self.strengths_label.setText("هیچ نقطه قوتی ثبت نشده است.")
         self.weaknesses_label.setText("هیچ زمینه‌ای ثبت نشده است.")
+        if hasattr(self, 'recommendation_widget'):
+            self.recommendation_widget.set_profile_id(None)
         self.obs_table.setRowCount(0)
         self.inter_table.setRowCount(0)
         self.follow_table.setRowCount(0)
@@ -1342,6 +1353,10 @@ class StudentProfilePage(QWidget):
             self.load_student_data()
             QMessageBox.information(self, "موفقیت", "مشاهده با موفقیت ثبت شد.")
     
+    def on_intervention_requested(self, data=None):
+        """درخواست ثبت مداخله از روی یک پیشنهاد (تب پیشنهادها)"""
+        self.add_intervention()
+
     def add_intervention(self):
         if not self.student_id:
             QMessageBox.warning(self, "توجه", "دانش‌آموزی انتخاب نشده است.")

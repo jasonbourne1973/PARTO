@@ -1356,7 +1356,6 @@ def empty_database_robustness():
             os.remove(db2 + ext)
     try:
         _fresh_connection(db2)
-        from services.advanced_search_service import AdvancedSearchService
         from services.class_report_service import ClassReportService
         from services.counseling_service import CounselingService
         from services.dashboard_service import DashboardService
@@ -1369,7 +1368,7 @@ def empty_database_robustness():
         failures = []
         objs = []
         for cls in (DashboardService, TrendAnalysisService, CounselingService,
-                    GoalService, ExtracurricularService, AdvancedSearchService,
+                    GoalService, ExtracurricularService,
                     ObservationService, ClassReportService,
                     TeacherReportService):
             try:
@@ -1894,7 +1893,7 @@ def no_arabic_chars_in_reports():
     bad = []
     for path in ("services/teacher_report_service.py",
                  "services/report_generator.py",
-                 "utils/report_template.py",
+                 "utils/persian_pdf.py",      # (دور ۱۶) به‌جای report_template حذف‌شده
                  "dal/staff_dal.py",
                  "dal/student_academic_profile_dal.py",
                  "database/connection.py"):

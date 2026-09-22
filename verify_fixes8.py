@@ -484,7 +484,6 @@ try:
     # متدهای زمانی مدل‌ها نباید NameError بدهند (رگرسیون بازرسی هشتم)
     from datetime import datetime as _dt
 
-    from models.analytics_models import AnalyticsDashboardData as AnalyticsSummary
     from models.base import BaseModel
     from models.individual_goal import IndividualGoal
     from models.recommendation import Recommendation
@@ -495,10 +494,8 @@ try:
         rec.complete(feedback='خوب')
         g = IndividualGoal()
         g.achieve(result='انجام شد')
-        dash = AnalyticsSummary(observation_distribution=None, grade_distribution=[], competency_usage=[], intervention_stats=None, followup_stats=None, overdue_count=0, students_without_observation=0, observation_trend=[], intervention_trend=[], followup_trend=[])
         vals = [BaseModel.get_current_time(),
-                rec.implemented_at, rec.completed_at, g.achievement_date,
-                dash.generated_at]
+                rec.implemented_at, rec.completed_at, g.achievement_date]
         aware = all(v and _dt.fromisoformat(v).tzinfo is not None for v in vals)
         check("E", "زمان مدل‌ها UTC-aware است (بدون NameError)", aware, str(vals[:3]))
     except Exception as e:

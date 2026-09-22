@@ -100,9 +100,6 @@ from models.counseling_session import CounselingSession
 from models.student_academic_profile import (
     StudentAcademicProfile,
 )
-from services.advanced_search_service import (
-    AdvancedSearchService,
-)
 from services.counseling_service import CounselingService
 from services.followup_service import FollowUpService
 from services.intervention_service import InterventionService
@@ -302,26 +299,27 @@ print("۲) AdvancedSearchService.profile_dal")
 print("=" * 74)
 
 
-def advanced_search_by_student():
-    svc = AdvancedSearchService()
-    assert hasattr(svc, "profile_dal"), "صفت profile_dal در __init__ ساخته نمی‌شود"
-    r = svc.search_observations({"student_id": CTX["student"].id})
-    assert r, "جست‌وجوی مشاهدات با فیلتر دانش‌آموز خالی بود"
+# (دور ۱۶) AdvancedSearchService (بدون مصرف‌کننده در برنامه) حذف شد؛ همان
+# رگرسیون «مشاهدات با فیلتر دانش‌آموز» روی مسیر زندهٔ برنامه
+# (ObservationDAL.get_by_student که سرویس‌ها و پرونده استفاده می‌کنند) می‌آید.
+def observation_search_by_student():
+    from dal.observation_dal import ObservationDAL
+    r = ObservationDAL().get_by_student(CTX["student"].id)
+    assert r, "فهرست مشاهدات با فیلتر دانش‌آموز خالی بود"
     assert {o.student_profile_id for o in r} == {CTX["profile"].id}
 
 
-check("search_observations با student_id دیگر AttributeError نمی‌دهد",
-      advanced_search_by_student)
+check("مشاهدات با فیلتر دانش‌آموز (مسیر زندهٔ سرویس‌ها/پرونده) درست است",
+      observation_search_by_student)
 
 
-def advanced_search_student_status():
-    svc = AdvancedSearchService()
-    st = svc._get_student_status(CTX["student"].id)
-    assert st == StudentAcademicProfile.STATUS_ACTIVE, f"وضعیت اشتباه: {st}"
+def profile_status_active():
+    from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+    prof = StudentAcademicProfileDAL().get_active_by_student(CTX["student"].id)
+    assert prof and prof.status == StudentAcademicProfile.STATUS_ACTIVE, f"وضعیت اشتباه: {prof}"
 
 
-check("_get_student_status از self.profile_dal استفاده می‌کند و درست کار می‌کند",
-      advanced_search_student_status)
+check("پروندهٔ فعال دانش‌آموز وضعیت ACTIVE دارد", profile_status_active)
 
 
 # ============================================================
@@ -570,7 +568,6 @@ assert abs(pp.cm - 28.346456692913385) < 1e-9
 import services.report_generator
 import services.teacher_report_service
 import services.parent_report_service
-import services.school_report_service
 import services.class_report_service
 try:
     pp.PersianPDF(os.path.join(TMP, "x.pdf"))
@@ -746,13 +743,13 @@ def full_user_journey():
     data = TeacherPerformanceService().get_teacher_performance(CTX["teacher2"].id)
     assert data.get("students") is not None, "گزارش معلم داده ندارد"
 
-    # ۴) در جست‌وجوی پیشرفته با فیلتر دانش‌آموز هم می‌آید
-    r = AdvancedSearchService().search_observations(
-        {"student_id": CTX["student2"].id})
-    assert any(o.id == obs.id for o in r), "در جست‌وجوی پیشرفته پیدا نشد"
+    # ۴) در فهرست مشاهدات همان دانش‌آموز هم می‌آید (مسیر زندهٔ پرونده)
+    from dal.observation_dal import ObservationDAL
+    r = ObservationDAL().get_by_student(CTX["student2"].id)
+    assert any(o.id == obs.id for o in r), "در فهرست مشاهدات دانش‌آموز پیدا نشد"
 
 
-check("چرخه کامل: ثبت مشاهده ← جست‌وجو ← گزارش معلم ← جست‌وجوی پیشرفته",
+check("چرخه کامل: ثبت مشاهده ← جست‌وجو ← گزارش معلم ← جست‌وجوی مشاهدات دانش‌آموز",
       full_user_journey)
 
 

@@ -294,9 +294,9 @@ try:
           not any(os.path.exists(p) for p in dead_dupes),
           str([p for p in dead_dupes if os.path.exists(p)]))
 
-    check("F", "نسخهٔ اصلیِ سرویس‌های گزارش سر جایشان هستند",
-          os.path.exists('services/parent_report_service.py')
-          and os.path.exists('services/school_report_service.py'))
+    # (دور ۱۶) school_report_service بدون مصرف‌کننده بود و حذف شد
+    check("F", "نسخهٔ اصلیِ سرویس گزارش والدین سر جایش است",
+          os.path.exists('services/parent_report_service.py'))
 
     entry_points = []
     for root, dirs, files in os.walk('.'):

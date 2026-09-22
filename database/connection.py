@@ -1018,8 +1018,11 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
                 antecedent TEXT,
                 behavior TEXT,
                 consequence TEXT,
-                behavior_type TEXT,
-                severity INTEGER DEFAULT 1,
+                -- (بازرسی شانزدهم) قیدهای CHECK برای دیتابیس‌های تازه: نوع رفتار و
+                -- شدت خارج از دامنهٔ مدل در سطح دیتابیس هم رد می‌شوند. دیتابیس‌های
+                -- موجود بازسازی نمی‌شوند (اعتبارسنجی مدل/سرویس برای آن‌ها برقرار است).
+                behavior_type TEXT CHECK (behavior_type IS NULL OR behavior_type IN ('مثبت', 'منفی', 'خنثی')),
+                severity INTEGER DEFAULT 1 CHECK (severity IS NULL OR severity BETWEEN 1 AND 5),
                 tags TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP,

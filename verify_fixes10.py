@@ -181,7 +181,7 @@ for path in app_py_files('models'):
 check("B", "هیچ فیلد dataclass به ClassVar تبدیل نشده", not problem, str(problem))
 
 dc_fields = []
-for mod in ('models.analytics_models', 'models.recommendation_rules'):
+for mod in ('models.recommendation_rules',):   # (دور ۱۶) analytics_models بدون مصرف‌کننده حذف شد
     m = importlib.import_module(mod)
     for name in dir(m):
         obj = getattr(m, name)
@@ -407,9 +407,10 @@ r = ruff('check', '--select', 'I001', *SCOPE)
 check("E", "ترتیب importها یکدست است", r.returncode == 0, str(findings(r.stdout)[:3]))
 
 if HAS_GIT:
-    check("E", "فایل‌های جانبی SQLite در مخزن ردیابی نمی‌شوند",
-          'database/partow.db' in tracked
-          and not [f for f in tracked if f.endswith('-wal')], "")
+    # (دور ۱۶) خودِ دیتابیس واقعی هم از مخزن خارج شد (دادهٔ کاربر)؛ نه db، نه wal/shm، نه لاگ
+    check("E", "دیتابیس واقعی و فایل‌های جانبی SQLite و لاگ‌ها در مخزن ردیابی نمی‌شوند",
+          'database/partow.db' not in tracked
+          and not [f for f in tracked if f.endswith(('-wal', '-shm', '.log'))], "")
 else:
     print("  ⏭️ [E] بررسی ردیابی SQLite رد شد (بدون مخزن git)")
 

@@ -94,6 +94,17 @@ class Recommendation(BaseModel):
         return priority_map.get(self.priority, self.priority)
     
     @property
+    def priority_color(self):
+        """رنگ اولویت برای نمایش (بازرسی شانزدهم — ویجت پیشنهادها به آن نیاز داشت و مدل نداشت)"""
+        color_map = {
+            "critical": "#C62828",
+            "high": "#F28C28",
+            "medium": "#F4D35E",
+            "low": "#66BB6A",
+        }
+        return color_map.get(self.priority, "#D9C36A")
+
+    @property
     def category_display(self):
         """نمایش فارسی دسته‌بندی"""
         category_map = {

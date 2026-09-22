@@ -1565,3 +1565,41 @@ verify1/2)، `views/widgets/recommendation_widget.py` (تصمیم شما: گزا
 `dal/screening_tool_dal.py` (Screening)، `utils/report_template.py` (verify2/3)،
 `models/analytics_models.py` (verify8/10)، توابع `get_*_display` در
 `config/constants.py`، کلاس‌های خطای بی‌استفاده در `utils/error_handler.py`.
+
+---
+
+# بخش ۱۰ — بستن همهٔ باقی‌مانده‌ها (درخواست «همهٔ کارهای باقیمانده را انجام بده»)
+
+پایه: کامیت `85e6799`.
+
+| مورد باقی‌مانده | اقدام | اثبات |
+|---|---|---|
+| RecommendationWidget (بندهای ۸ و ۹) | به‌عنوان تب «💡 پیشنهادها» در پروندهٔ دانش‌آموز سوار شد و با پروندهٔ جاری هم‌گام است؛ «ثبت مداخله» از روی پیشنهاد فرم مداخلهٔ همین صفحه را باز می‌کند. **باگ کشف‌شده هنگام سوارکردن:** نمایش پیشنهادها با `'Recommendation' object has no attribute 'priority_color'` می‌شکست (ویجت صفتی را می‌خواست که مدل نداشت) → `priority_color` به مدل افزوده شد | I1 (Generate → رکوردهای `recommendations` = تعداد نمایش؛ بدون خطا) |
+| Screening | ساخته **نشد**: هیچ UI ثبتی وجود ندارد و ساخت آن قابلیت جدید است (قاعدهٔ مدیر پروژه)؛ backend حفظ شد چون لایهٔ «غربالگری» گزارش‌ها از آن می‌خواند. فقط `dal/screening_tool_dal.py` (صفر ارجاع) حذف شد | E12 |
+| کد مردهٔ وابسته به آزمون‌های قدیمی | حذف شدند با تطبیق همان آزمون‌ها روی مسیر زندهٔ برنامه: `services/advanced_search_service.py` + `dal/saved_filter_dal.py` + `models/saved_filter.py` (verify1/2/3 → `ObservationDAL.get_by_student` و وجود جدول)، `dal/backup_dal.py` (verify9 → اصل «شکست حذف فایل بی‌صدا نمی‌ماند» روی `utils/backup.py`)، `services/school_report_service.py` (verify7)، `utils/report_template.py` (verify2/3 → `utils/persian_pdf.py`)، `models/analytics_models.py` (verify8/10)، ۸ تابع `get_*_display` بی‌استفاده در `config/constants.py`. کلاس‌های خطای بی‌استفاده در `utils/error_handler.py` ماندند (سلسله‌مراتب مستند؛ در docstring ارجاع دارند) | G1 (۱۸ ماژول حذف‌شده بدون ارجاع باقی‌مانده) |
+| گزارش کلاس/معلم/عملکرد معلم (`NOT_TESTED` قبلی) | از مسیر صفحه تولید و PDF/Excel واقعی گرفته شد | I2 |
+| ویرایش اختصاص معلم (`NOT_TESTED` قبلی) | حالت ویرایش `AssignTeacherDialog`: بارگذاری معلم فعلی، تغییر، به‌روزرسانی همان ردیف | I3 |
+| `auto_logout` با دیالوگ تأیید (P4) | `logout(confirm=False)` برای خروج خودکار؛ خروج دستی همچنان تأیید می‌گیرد. **باگ جانبی رفع‌شده:** هر خروج دو ردیف Audit «logout» می‌ساخت (`logout()` و سپس `closeEvent`) → یک ردیف | I6 |
+| CHECK در اسکیما (P4) | دیتابیس‌های **تازه**: `observations.behavior_type IN (مثبت/منفی/خنثی)` و `severity BETWEEN 1 AND 5`؛ دیتابیس‌های موجود عمداً بازسازی نشدند (خطر شکست راه‌اندازی روی دادهٔ نامنطبق) | I4 |
+| `database/partow.db` در مخزن (P4) | از ایندکس git خارج و در `.gitignore` (همراه `logs/*.log` که هنوز ردیابی می‌شدند) | I5، verify10 §E (تطبیق‌داده‌شده) |
+| نوار پیشرفت پشتیبان | فقط شروع/پایان ممکن است (SQLite backup API پیشرفت میانی نمی‌دهد) | — |
+| Python 3.9/3.13 اجرای واقعی | **همچنان انجام نشد:** دانلود مفسرهای دیگر در این محیط (TLS/پروکسی) ممکن نبود؛ ادعا بر پایهٔ `vermin` و حذف تنها API ناسازگار (`makeSuite`) است | — |
+| اطلاعات مدرسه در گزارش‌ها، جابه‌جایی `excel_importer` به services، حذف دسترسی مستقیم views→DAL | **عمداً انجام نشد** (قابلیت/بازسازی معماری جدید؛ خارج از قاعدهٔ «فقط رفع اشکال») | — |
+
+## آزمون نهایی
+
+| مجموعه | نتیجه |
+|---|---|
+| `pytest -q tests` | 26 passed |
+| verify_fixes 1 … 15 | همه سبز |
+| **verify_fixes16** | **85 / 85** |
+| `ruff check .` | All checks passed |
+| جمع | **۶۳۸ بررسی** |
+
+آزمون‌های تطبیق‌داده‌شده در این بخش (به‌خاطر حذف موضوع، با حفظ نیت رگرسیون روی
+کد زنده): verify1 (۱)، verify2 (۳)، verify3 (۲ اشاره)، verify7 (۱)، verify8 (۱)،
+verify9 (۱)، verify10 (۲). هیچ آزمونی برای «سبزشدن» حذف نشد.
+
+## آنچه هنوز فقط با GUI واقعی قابل اثبات است
+کلیک واقعی موس، دیالوگ‌های modal/تأیید، file picker، بازکردن فایل با برنامهٔ
+خارجی، پنجرهٔ خطای راه‌اندازی، اجرای دوبارهٔ برنامه پس از خروج.

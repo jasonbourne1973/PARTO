@@ -124,8 +124,10 @@ try:
           'logger.debug(f"ثبت Audit' in read('dal/user_dal.py'))
     check("A", "utils/file_validator شکست libmagic را لاگ می‌کند",
           'libmagic پاسخ نداد' in read('utils/file_validator.py'))
-    check("A", "dal/backup_dal حذف‌نشدن فایل را لاگ می‌کند",
-          'فایل پشتیبان حذف نشد' in read('dal/backup_dal.py'))
+    # (دور ۱۶) dal/backup_dal بدون مصرف‌کننده حذف شد؛ همان اصل («شکست حذف فایل
+    # بی‌صدا نمی‌ماند») روی مسیر زندهٔ پشتیبان‌ها بررسی می‌شود.
+    check("A", "utils/backup حذف‌نشدن فایل checksum/پشتیبان را در نتیجه و لاگ اعلام می‌کند",
+          'حذف نشد' in read('utils/backup.py') and 'logger.warning' in read('utils/backup.py'))
     check("A", "utils/logger دلیل نبود __file__ را توضیح می‌دهد",
           'بدون __file__' in read('utils/logger.py'))
     check("A", "migration_v5 خطای DROP COLUMN را گزارش می‌کند",

@@ -22,9 +22,9 @@
 | `views/pages/followups_page.py` | FollowUpsPage | `view_btn` | 👁️ | 300 | MSG_ONLY |
 | `views/pages/interventions_page.py` | InterventionsPage | `view_btn` | 👁️ | 346 | MSG_ONLY |
 | `views/pages/observations_page.py` | ObservationsPage | `view_btn` | 👁️ | 517 | MSG_ONLY |
-| `views/pages/student_profile_page.py` | StudentProfilePage | `view_btn` | 👁️ | 1153 | MSG_ONLY |
-| `views/pages/student_profile_page.py` | StudentProfilePage | `view_btn` | 👁️ | 1183 | MSG_ONLY |
-| `views/pages/student_profile_page.py` | StudentProfilePage | `view_btn` | 👁️ | 1213 | MSG_ONLY |
+| `views/pages/student_profile_page.py` | StudentProfilePage | `view_btn` | 👁️ | 1162 | MSG_ONLY |
+| `views/pages/student_profile_page.py` | StudentProfilePage | `view_btn` | 👁️ | 1192 | MSG_ONLY |
+| `views/pages/student_profile_page.py` | StudentProfilePage | `view_btn` | 👁️ | 1222 | MSG_ONLY |
 | `views/dialogs/export_ai_dialog.py` | ExportAIDialog | `self.copy_prompt_btn` | 📋 کپی پرامپت | 293 | MSG_ONLY |
 | `views/dialogs/observation_form.py` | ObservationForm | `self.guide_btn` | ❓ راهنما | 125 | MSG_ONLY |
 
@@ -55,7 +55,7 @@
 | `views/pages/backup_page.py` | BackupWorker | `progress` | 46 | 2 | `views/pages/backup_page.py`, `views/dialogs/attachment_dialog.py` |
 | `views/pages/counseling_page.py` | CounselingPage | `student_selected` | 39 | 1 | `views/main_window.py`, `views/pages/students_page.py` |
 | `views/pages/goals_page.py` | GoalsPage | `student_selected` | 41 | 1 | `views/main_window.py`, `views/pages/students_page.py` |
-| `views/pages/student_profile_page.py` | StudentProfilePage | `report_requested` | 57 | 1 | `views/main_window.py` |
+| `views/pages/student_profile_page.py` | StudentProfilePage | `report_requested` | 58 | 1 | `views/main_window.py` |
 | `views/pages/students_page.py` | StudentsPage | `student_double_clicked` | 43 | 2 | `views/main_window.py` |
 | `views/widgets/competency_tree_widget.py` | CompetencyTreeWidget | `behavior_selected` | 43 | 2 | **هیچ** |
 | `views/widgets/competency_tree_widget.py` | CompetencyTreeWidget | `competency_selected` | 41 | 2 | **هیچ** |
@@ -64,7 +64,7 @@
 | `views/widgets/help_widget.py` | HelpWidget | `help_requested` | 30 | 1 | **هیچ** |
 | `views/widgets/notification_widget.py` | NotificationItem | `clicked` | 31 | 1 | `views/main_window.py`, `views/pages/academic_structure_page.py`, `views/pages/activities_page.py`, `views/pages/analysis_page.py`, `views/pages/analytics_dashboard.py`, `views/pages/backup_page.py`, `views/pages/class_report_page.py`, `views/pages/counseling_page.py`, `views/pages/dashboard_page.py`, `views/pages/followups_page.py`, `views/pages/goals_page.py`, `views/pages/indicators_page.py`, `views/pages/interventions_page.py`, `views/pages/observations_page.py`, `views/pages/promotion_page.py`, `views/pages/reports_page.py`, `views/pages/settings_page.py`, `views/pages/student_profile_page.py`, `views/pages/students_page.py`, `views/pages/teacher_performance_page.py`, `views/pages/teacher_report_page.py`, `views/dialogs/activity_form.py`, `views/dialogs/advanced_search_dialog.py`, `views/dialogs/assign_teacher_dialog.py`, `views/dialogs/attachment_dialog.py`, `views/dialogs/change_password_dialog.py`, `views/dialogs/counseling_session_form.py`, `views/dialogs/export_ai_dialog.py`, `views/dialogs/followup_form.py`, `views/dialogs/goal_form.py`, `views/dialogs/intervention_form.py`, `views/dialogs/login_dialog.py`, `views/dialogs/observation_form.py`, `views/dialogs/student_form.py`, `views/widgets/competency_tree_widget.py`, `views/widgets/help_widget.py`, `views/widgets/notification_widget.py`, `views/widgets/recommendation_widget.py` |
 | `views/widgets/notification_widget.py` | NotificationWidget | `notification_clicked` | 128 | 1 | `views/main_window.py` |
-| `views/widgets/recommendation_widget.py` | RecommendationWidget | `intervention_requested` | 40 | 1 | **هیچ** |
+| `views/widgets/recommendation_widget.py` | RecommendationWidget | `intervention_requested` | 40 | 1 | `views/pages/student_profile_page.py` |
 | `views/widgets/recommendation_widget.py` | RecommendationWidget | `recommendation_updated` | 39 | 4 | **هیچ** |
 
 ## connect داخل متدهای بارگذاری/تازه‌سازی (خطر اتصال چندباره)
@@ -82,7 +82,7 @@
 
 | کلاس | دکمه/Action | متن | خط | handler | طبقه‌بندی ایستا |
 |---|---|---|---|---|---|
-| MainWindow | `self.btn_logout` | 🚪 خروج | 330 | `self.logout` | MSG_ONLY |
+| MainWindow | `self.btn_logout` | 🚪 خروج | 330 | `lambda:self.logout()` | MSG_ONLY |
 | MainWindow | `self.notification_btn` | 🔔 | 402 | `self.toggle_notifications` | UI_ONLY |
 | MainWindow | `btn` |  | 296 | `lambda:self.stacked_widget.setCurrentInd` | NAV |
 
@@ -259,16 +259,16 @@
 
 | کلاس | دکمه/Action | متن | خط | handler | طبقه‌بندی ایستا |
 |---|---|---|---|---|---|
-| StudentProfilePage | `self.search_btn` | 🔍 جستجو | 120 | `self.search_student` | BACKEND |
-| StudentProfilePage | `self.clear_search_btn` | ✖ | 135 | `self.clear_search` | NAV |
-| StudentProfilePage | `self.btn_observation` | 📝 ثبت مشاهده | 226 | `self.add_observation` | BACKEND |
-| StudentProfilePage | `self.btn_intervention` | 🛠️ ثبت مداخله | 241 | `self.add_intervention` | BACKEND |
-| StudentProfilePage | `self.btn_followup` | 🔔 ثبت پیگیری | 256 | `self.add_followup` | BACKEND |
-| StudentProfilePage | `self.btn_report` | 📄 گزارش پرونده | 273 | `self.generate_report` | BACKEND |
-| StudentProfilePage | `self.btn_attachments` | 📎 پیوست‌ها | 290 | `self.open_attachments` | DIALOG |
-| StudentProfilePage | `view_btn` | 👁️ | 1153 | `lambda:self.view_observation()` | MSG_ONLY |
-| StudentProfilePage | `view_btn` | 👁️ | 1183 | `lambda:self.view_intervention()` | MSG_ONLY |
-| StudentProfilePage | `view_btn` | 👁️ | 1213 | `lambda:self.view_followup()` | MSG_ONLY |
+| StudentProfilePage | `self.search_btn` | 🔍 جستجو | 121 | `self.search_student` | BACKEND |
+| StudentProfilePage | `self.clear_search_btn` | ✖ | 136 | `self.clear_search` | NAV |
+| StudentProfilePage | `self.btn_observation` | 📝 ثبت مشاهده | 227 | `self.add_observation` | BACKEND |
+| StudentProfilePage | `self.btn_intervention` | 🛠️ ثبت مداخله | 242 | `self.add_intervention` | BACKEND |
+| StudentProfilePage | `self.btn_followup` | 🔔 ثبت پیگیری | 257 | `self.add_followup` | BACKEND |
+| StudentProfilePage | `self.btn_report` | 📄 گزارش پرونده | 274 | `self.generate_report` | BACKEND |
+| StudentProfilePage | `self.btn_attachments` | 📎 پیوست‌ها | 291 | `self.open_attachments` | DIALOG |
+| StudentProfilePage | `view_btn` | 👁️ | 1162 | `lambda:self.view_observation()` | MSG_ONLY |
+| StudentProfilePage | `view_btn` | 👁️ | 1192 | `lambda:self.view_intervention()` | MSG_ONLY |
+| StudentProfilePage | `view_btn` | 👁️ | 1222 | `lambda:self.view_followup()` | MSG_ONLY |
 
 ### `views/pages/students_page.py`
 

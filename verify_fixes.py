@@ -84,7 +84,6 @@ print("=" * 72)
 with contextlib.redirect_stdout(io.StringIO()):
     from dal.staff_dal import StaffDAL
     from models.staff import Staff
-    from services.advanced_search_service import AdvancedSearchService
     from services.dashboard_service import DashboardService
     from services.followup_service import FollowUpService
     from services.intervention_service import InterventionService
@@ -158,11 +157,13 @@ def recommendation_saved():
     assert "no such table" not in out, f"خطای جدول مفقود: {out[:200]}"
 
 
-def saved_filter_works():
-    r = AdvancedSearchService().save_filter(
-        name="فیلتر راستی‌آزمایی", filter_type="student",
-        filter_params={"grade": 5}, user_id=UID)
-    assert r, "ذخیره فیلتر ناموفق بود"
+def saved_filters_table_exists():
+    """(دور ۱۶) سرویس/DAL فیلترهای ذخیره‌شده حذف شد (بدون مصرف‌کننده)؛ خودِ جدول
+    saved_filters باید همچنان ساخته شود تا دیتابیس‌های موجود و migration سالم بمانند."""
+    from database.connection import DatabaseConnection
+    c = DatabaseConnection().get_connection()
+    row = c.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'saved_filters'").fetchone()
+    assert row, "جدول saved_filters وجود ندارد"
 
 
 check("ثبت دانش‌آموز (StudentService.create_student)", mk_student)
@@ -171,7 +172,7 @@ check("ذخیره شاخص و رفتار قابل مشاهده روی مشاهد
 check("ثبت مداخله (InterventionService.create_intervention)", mk_intervention)
 check("ثبت پیگیری (FollowUpService.create_followup)", mk_followup)
 check("تولید پیشنهاد بدون خطای «no such table: recommendations»", recommendation_saved)
-check("ذخیره فیلتر جست‌وجو (جدول saved_filters)", saved_filter_works)
+check("جدول saved_filters ساخته می‌شود (سرویس فیلترها در دور ۱۶ حذف شد)", saved_filters_table_exists)
 check("داشبورد (DashboardService.get_dashboard_data)",
       lambda: DashboardService().get_dashboard_data())
 

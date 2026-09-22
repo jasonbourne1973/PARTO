@@ -44,7 +44,7 @@ except ImportError:
     #
     # و چون utils.persian_pdf را این ماژول‌ها import می‌کنند:
     #     services/report_generator، services/parent_report_service،
-    #     services/school_report_service، services/teacher_report_service
+    #     services/teacher_report_service
     # و آن‌ها هم توسط صفحه‌های گزارش import می‌شوند ⇒ کل برنامه با یک
     # NameError بی‌ربط بالا نمی‌آمد (نه پیام «reportlab نصب نیست»).
     #

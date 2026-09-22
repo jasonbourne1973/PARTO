@@ -347,7 +347,7 @@ class MainWindow(QMainWindow):
                 color: #F4D35E;
             }
         """)
-        self.btn_logout.clicked.connect(self.logout)
+        self.btn_logout.clicked.connect(lambda checked=False: self.logout(confirm=True))
         menu_layout.addWidget(self.btn_logout)
 
         menu_scroll.setWidget(menu_content)
@@ -857,19 +857,31 @@ class MainWindow(QMainWindow):
             return
         self.stacked_widget.setCurrentWidget(self.reports_page)
 
-    def logout(self):
-        reply = QMessageBox.question(
-            self,
-            "تأیید خروج",
-            "آیا از خروج از سیستم اطمینان دارید؟",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
+    def logout(self, confirm=True):
+        """
+        خروج از سیستم
+
+        Args:
+            confirm: با True (کلیک کاربر) دیالوگ تأیید نشان داده می‌شود؛ خروج
+                     خودکار پس از بی‌کاری با False می‌آید تا واقعاً خودکار باشد
+                     (بازرسی شانزدهم — قبلاً خروج خودکار منتظر کلیک «بله» می‌ماند).
+        """
+        if confirm:
+            reply = QMessageBox.question(
+                self,
+                "تأیید خروج",
+                "آیا از خروج از سیستم اطمینان دارید؟",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+        else:
+            reply = QMessageBox.StandardButton.Yes
 
         if reply == QMessageBox.StandardButton.Yes:
             try:
                 from utils.security import AuditLogger
                 audit = AuditLogger(self.db)
                 audit.log_logout(self.current_user_id)
+                self._logout_logged = True
                 self.logger.info(f"🚪 کاربر {self.current_username} خارج شد.")
             except Exception as _exc:
                 self.logger.debug(
@@ -885,7 +897,8 @@ class MainWindow(QMainWindow):
     def auto_logout(self):
         if self.is_logged_in:
             self.logger.info(f"⏰ خروج خودکار کاربر {self.current_username} به دلیل عدم فعالیت.")
-            self.logout()
+            self.idle_timer.stop()
+            self.logout(confirm=False)
 
     def eventFilter(self, obj, event):
         # ===== اصلاح (بازرسی ششم) =====
@@ -908,7 +921,9 @@ class MainWindow(QMainWindow):
         return super().eventFilter(obj, event)
 
     def closeEvent(self, event):
-        if self.is_logged_in:
+        # (بازرسی شانزدهم) وقتی بستن از مسیر logout() می‌آید، خروج همان‌جا در
+        # Audit ثبت شده؛ دوباره ثبت نمی‌شود (قبلاً هر خروج دو ردیف logout داشت).
+        if self.is_logged_in and not getattr(self, '_logout_logged', False):
             try:
                 from utils.security import AuditLogger
                 audit = AuditLogger(self.db)
