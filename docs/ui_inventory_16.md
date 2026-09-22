@@ -64,8 +64,8 @@
 | `views/widgets/help_widget.py` | HelpWidget | `help_requested` | 30 | 1 | **هیچ** |
 | `views/widgets/notification_widget.py` | NotificationItem | `clicked` | 31 | 1 | `views/main_window.py`, `views/pages/academic_structure_page.py`, `views/pages/activities_page.py`, `views/pages/analysis_page.py`, `views/pages/analytics_dashboard.py`, `views/pages/backup_page.py`, `views/pages/class_report_page.py`, `views/pages/counseling_page.py`, `views/pages/dashboard_page.py`, `views/pages/followups_page.py`, `views/pages/goals_page.py`, `views/pages/indicators_page.py`, `views/pages/interventions_page.py`, `views/pages/observations_page.py`, `views/pages/promotion_page.py`, `views/pages/reports_page.py`, `views/pages/settings_page.py`, `views/pages/student_profile_page.py`, `views/pages/students_page.py`, `views/pages/teacher_performance_page.py`, `views/pages/teacher_report_page.py`, `views/dialogs/activity_form.py`, `views/dialogs/advanced_search_dialog.py`, `views/dialogs/assign_teacher_dialog.py`, `views/dialogs/attachment_dialog.py`, `views/dialogs/change_password_dialog.py`, `views/dialogs/counseling_session_form.py`, `views/dialogs/export_ai_dialog.py`, `views/dialogs/followup_form.py`, `views/dialogs/goal_form.py`, `views/dialogs/intervention_form.py`, `views/dialogs/login_dialog.py`, `views/dialogs/observation_form.py`, `views/dialogs/student_form.py`, `views/widgets/competency_tree_widget.py`, `views/widgets/help_widget.py`, `views/widgets/notification_widget.py`, `views/widgets/recommendation_widget.py` |
 | `views/widgets/notification_widget.py` | NotificationWidget | `notification_clicked` | 128 | 1 | `views/main_window.py` |
-| `views/widgets/recommendation_widget.py` | RecommendationWidget | `intervention_requested` | 40 | 1 | `views/pages/student_profile_page.py` |
-| `views/widgets/recommendation_widget.py` | RecommendationWidget | `recommendation_updated` | 39 | 4 | **هیچ** |
+| `views/widgets/recommendation_widget.py` | RecommendationWidget | `intervention_requested` | 41 | 1 | `views/pages/student_profile_page.py` |
+| `views/widgets/recommendation_widget.py` | RecommendationWidget | `recommendation_updated` | 40 | 4 | **هیچ** |
 
 ## connect داخل متدهای بارگذاری/تازه‌سازی (خطر اتصال چندباره)
 
@@ -373,8 +373,8 @@
 
 | کلاس | دکمه/Action | متن | خط | handler | طبقه‌بندی ایستا |
 |---|---|---|---|---|---|
-| InterventionForm | `self.save_btn` | 💾 ذخیره مداخله | 259 | `self.save_intervention` | BACKEND |
-| InterventionForm | `self.cancel_btn` | ❌ انصراف | 275 | `self.reject` | UI_ONLY |
+| InterventionForm | `self.save_btn` | 💾 ذخیره مداخله | 285 | `self.save_intervention` | BACKEND |
+| InterventionForm | `self.cancel_btn` | ❌ انصراف | 301 | `self.reject` | UI_ONLY |
 
 ### `views/dialogs/login_dialog.py`
 
@@ -427,9 +427,9 @@
 
 | کلاس | دکمه/Action | متن | خط | handler | طبقه‌بندی ایستا |
 |---|---|---|---|---|---|
-| RecommendationWidget | `self.generate_btn` | 🔄 تولید پیشنهادات جدید | 75 | `self.generate_recommendations` | BACKEND |
-| RecommendationWidget | `accept_btn` | ✅ پذیرش | 327 | `lambda:self.accept_recommendation()` | BACKEND |
-| RecommendationWidget | `reject_btn` | ❌ رد | 345 | `lambda:self.reject_recommendation()` | BACKEND |
-| RecommendationWidget | `intervention_btn` | 🛠️ ثبت مداخله | 403 | `lambda:self.request_intervention()` | SIGNAL |
-| RecommendationWidget | `implement_btn` | 🚀 اجرا | 364 | `lambda:self.implement_recommendation()` | BACKEND |
-| RecommendationWidget | `complete_btn` | ✔️ تکمیل | 383 | `lambda:self.complete_recommendation()` | BACKEND |
+| RecommendationWidget | `self.generate_btn` | 🔄 تولید پیشنهادات جدید | 76 | `self.generate_recommendations` | BACKEND |
+| RecommendationWidget | `accept_btn` | ✅ پذیرش | 336 | `lambda:self.accept_recommendation()` | BACKEND |
+| RecommendationWidget | `reject_btn` | ❌ رد | 354 | `lambda:self.reject_recommendation()` | BACKEND |
+| RecommendationWidget | `intervention_btn` | 🛠️ ثبت مداخله | 412 | `lambda:self.request_intervention()` | SIGNAL |
+| RecommendationWidget | `implement_btn` | 🚀 اجرا | 373 | `lambda:self.implement_recommendation()` | BACKEND |
+| RecommendationWidget | `complete_btn` | ✔️ تکمیل | 392 | `lambda:self.complete_recommendation()` | BACKEND |

@@ -236,6 +236,7 @@ PARTO/
 | ۱۵ | `docs/review_report_15_fa.md` (داوری محتوایی/فنی دوم — مرحلهٔ ۱: سه ایراد محتوایی + ایراد واقعی جهت تغییر؛ مرحلهٔ ۲: تریگرهای اعلان‌ها، توضیحات کهنه، لاگ Migration، دلیل check_same_thread) |
 | ۱۶ | `docs/tech_audit_16_fa.md` (عیب‌یابی فنی کامل ۳۸ بندی — تجمعی؛ قالب BUG-XXX با اولویت P0–P4 و BEFORE/FIX/AFTER/STATUS) |
 | ۱۶ | `docs/ui_inventory_16.md` (Inventory خودکار دکمه‌ها، handlerها و سیگنال‌های `views/` — خروجی `tools/ui_inventory.py`) |
+| ۱۶ | `docs/gui_test_checklist_fa.md` (چک‌لیست تست GUI واقعی با پس‌شرط قابل مشاهده — برای داور) |
 
 ## نسخه
 
