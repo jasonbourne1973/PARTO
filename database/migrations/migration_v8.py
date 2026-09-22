@@ -137,7 +137,8 @@ def upgrade(connection):
             print(f"  ⚠️ ایندکس {index_name} ساخته نشد: {e}")
             skipped += 1
 
-    connection.commit()
+    # (بازرسی شانزدهم — BUG-NEW-02) commit این‌جا حذف شد: تراکنش را فقط
+    # MigrationManager._run_step (یا _heal_schema) باز و commit/rollback می‌کند.
     print(f"  ✅ {created} ایندکس ساخته/بررسی شد"
           f"{f'، {skipped} مورد رد شد' if skipped else ''}.")
 
@@ -149,5 +150,6 @@ def downgrade(connection):
     for entry in FK_INDEXES:
         index_name = entry[0]
         cursor.execute(f"DROP INDEX IF EXISTS {index_name}")
-    connection.commit()
+    # (بازرسی شانزدهم — BUG-NEW-02) commit این‌جا حذف شد: تراکنش را فقط
+    # MigrationManager._run_step (یا _heal_schema) باز و commit/rollback می‌کند.
     print("✅ بازگشت از نسخه ۸ انجام شد.")

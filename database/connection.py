@@ -714,6 +714,12 @@ class DatabaseConnection(metaclass=_DatabaseConnectionMeta):
                 continue
 
             try:
+                # (بازرسی شانزدهم — BUG-NEW-02) migrationها دیگر خودشان commit
+                # نمی‌کنند؛ این‌جا هم مثل MigrationManager هر ماژول در یک تراکنش
+                # صریح اجرا می‌شود (DDL بدون BEGIN صریح در sqlite3 پایتون
+                # autocommit است) و فقط پس از موفقیت کامل commit می‌شود.
+                if not self._connection.in_transaction:
+                    self._connection.execute("BEGIN")
                 upgrade(self._connection)
                 self._connection.commit()
             except Exception as e:

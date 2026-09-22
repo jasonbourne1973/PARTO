@@ -141,7 +141,8 @@ def upgrade(connection):
     # ===== Seed کردن ابزارهای پیش‌فرض =====
     _seed_default_tools(cursor)
     
-    connection.commit()
+    # (بازرسی شانزدهم — BUG-NEW-02) commit این‌جا حذف شد: تراکنش را فقط
+    # MigrationManager._run_step (یا _heal_schema) باز و commit/rollback می‌کند.
     print("✅ Migration به نسخه 5 با موفقیت انجام شد.")
 
 
@@ -164,7 +165,8 @@ def downgrade(connection):
     cursor.execute("DROP TABLE IF EXISTS screening_results")
     cursor.execute("DROP TABLE IF EXISTS screening_tools")
     
-    connection.commit()
+    # (بازرسی شانزدهم — BUG-NEW-02) commit این‌جا حذف شد: تراکنش را فقط
+    # MigrationManager._run_step (یا _heal_schema) باز و commit/rollback می‌کند.
     print("✅ بازگشت از نسخه 5 با موفقیت انجام شد.")
 
 

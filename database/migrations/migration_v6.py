@@ -54,7 +54,8 @@ def upgrade(connection):
     # راه‌اندازی ساخته/به‌روز می‌شوند (JSON کامل ردیف، انجام‌دهندهٔ
     # واقعی)، بدون حذف داده‌ای از audit_logs.
 
-    connection.commit()
+    # (بازرسی شانزدهم — BUG-NEW-02) commit این‌جا حذف شد: تراکنش را فقط
+    # MigrationManager._run_step (یا _heal_schema) باز و commit/rollback می‌کند.
     print("✅ Migration به نسخه 6 با موفقیت انجام شد.")
 
 
@@ -66,5 +67,6 @@ def downgrade(connection):
     
     cursor.execute("DROP TABLE IF EXISTS notifications")
     
-    connection.commit()
+    # (بازرسی شانزدهم — BUG-NEW-02) commit این‌جا حذف شد: تراکنش را فقط
+    # MigrationManager._run_step (یا _heal_schema) باز و commit/rollback می‌کند.
     print("✅ بازگشت از نسخه 6 با موفقیت انجام شد.")

@@ -155,7 +155,8 @@ def upgrade(connection):
             total_updated += updated
             print(f"  ✅ {table}.{column}: {updated} مقدار نرمال شد")
 
-    connection.commit()
+    # (بازرسی شانزدهم — BUG-NEW-02) commit این‌جا حذف شد: تراکنش را فقط
+    # MigrationManager._run_step (یا _heal_schema) باز و commit/rollback می‌کند.
     print(
         f"  📊 جمع: {total_updated} مقدار اصلاح شد"
         f"{f'، {total_skipped} مقدار غیرتاریخی رد شد' if total_skipped else ''}."

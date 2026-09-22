@@ -43,7 +43,11 @@
 داوری سوم مدیر پروژه — مرحلهٔ ۱:
   J) رد/تکمیل پیشنهاد با QInputDialog (BUG-NEW-01)، کنتراست «اقدام پیشنهادی» و نشان‌های داشبورد (BUG-NEW-03) ... ۲ بررسی
 
-جمع: ۸۷ بررسی
+داوری سوم — مرحلهٔ ۲:
+  K) Migrationهای واقعاً اتمیک: بدون commit داخلی، فایل واقعی با شکست وسط کار، زنجیرهٔ واقعی ۵→۹ و ۹→۸→۹،
+     مسیر ترمیم با تراکنش صریح (BUG-NEW-02) ...................................................... ۴ بررسی
+
+جمع: ۹۱ بررسی
 """
 
 import contextlib
@@ -2310,6 +2314,116 @@ check("J", "BUG-NEW-03: برچسب «اقدام پیشنهادی» دیگر هم
       and not re.search(r'color: #66BB6A;\n\s+background-color: #66BB6A;', read("views/pages/dashboard_page.py"))
       and not re.search(r'color: #0B2E4F;\n\s+background-color: #0B2E4F;', read("views/pages/dashboard_page.py")),
       "")
+
+# ============================================================
+print()
+print("=" * 76)
+print("بخش K: داوری سوم — مرحلهٔ ۲: Migrationهای واقعاً اتمیک (BUG-NEW-02)")
+print("=" * 76)
+
+import glob as _glob  # noqa: E402
+
+# --- K1: هیچ migrationی خودش commit/rollback نمی‌کند
+mig_files = sorted(_glob.glob("database/migrations/migration_v*.py"))
+self_commit = [(f, i + 1) for f in mig_files for i, line in enumerate(read(f).splitlines())
+               if re.match(r"^\s*connection\.(commit|rollback)\(\)", line)]
+check("K", "BUG-NEW-02: هیچ‌یک از ۹ فایل migration خودش connection.commit()/rollback() ندارد؛ مالک تراکنش فقط MigrationManager است",
+      mig_files and not self_commit and "def _begin_transaction" in read("database/migrations/manager.py"),
+      f"files={len(mig_files)} self_commit={self_commit}")
+
+# --- K2: اتمیک‌بودن با یک فایل migration واقعی (نه شیء ساختگی): چند DDL/DML و شکست وسط کار → هیچ‌چیز نمی‌ماند
+atomic_dir = tempfile.mkdtemp(prefix="r16_atomic_", dir=TMP)
+ATOMIC_MIGRATION_SRC = "\n".join([
+    "def upgrade(connection):",
+    "    cursor = connection.cursor()",
+    "    cursor.execute(\"CREATE TABLE atomic_a (id INTEGER PRIMARY KEY, v TEXT)\")",
+    "    cursor.execute(\"INSERT INTO atomic_a (v) VALUES ('x')\")",
+    "    cursor.execute(\"CREATE INDEX idx_atomic_a_v ON atomic_a (v)\")",
+    "    cursor.execute(\"CREATE TABLE atomic_b (id INTEGER PRIMARY KEY)\")",
+    "    raise RuntimeError('failure injected after 4 statements')",
+    "",
+    "",
+    "def downgrade(connection):",
+    "    connection.execute(\"DROP TABLE IF EXISTS atomic_b\")",
+    "    connection.execute(\"DROP TABLE IF EXISTS atomic_a\")",
+    "",
+])
+_write(atomic_dir, "migration_v1.py", ATOMIC_MIGRATION_SRC)
+atomic_db = os.path.join(TMP, "atomic.db")
+atomic_conn = sqlite3.connect(atomic_db)
+atomic_modules = mm._discover_migrations(directory=atomic_dir)
+mm._discover_migrations = lambda: atomic_modules
+atomic_error = None
+try:
+    mm.MigrationManager.migrate(atomic_conn, 1)
+except Exception as e:
+    atomic_error = e
+finally:
+    mm._discover_migrations = real_discover
+leftover = {r[0] for r in atomic_conn.execute("SELECT name FROM sqlite_master WHERE name LIKE 'atomic_%' OR name LIKE 'idx_atomic%'").fetchall()}
+atomic_version = mm.MigrationManager.get_current_version(atomic_conn)
+# همان فایل بدون شکست → همه‌چیز یک‌جا commit می‌شود (نام ماژول تازه تا کش import مزاحم نشود)
+_write(atomic_dir, "migration_v1.py", ATOMIC_MIGRATION_SRC.replace(
+    "    raise RuntimeError('failure injected after 4 statements')\n", ""))
+atomic_modules = mm._discover_migrations(directory=atomic_dir)
+mm._discover_migrations = lambda: atomic_modules
+try:
+    mm.MigrationManager.migrate(atomic_conn, 1)
+finally:
+    mm._discover_migrations = real_discover
+after_fix = {r[0] for r in atomic_conn.execute("SELECT name FROM sqlite_master WHERE name LIKE 'atomic_%' OR name LIKE 'idx_atomic%'").fetchall()}
+atomic_final_version = mm.MigrationManager.get_current_version(atomic_conn)
+atomic_conn.close()
+check("K", "فایل migration واقعی که پس از ۴ دستور DDL/DML شکست می‌خورد: هیچ جدول/ایندکس/ردیفی نمی‌ماند، نسخه ۰ می‌ماند، تراکنش باز نمی‌ماند؛ همان فایل بدون شکست → همه یک‌جا اعمال و نسخه ۱",
+      isinstance(atomic_error, mm.MigrationStepError) and not leftover and atomic_version == 0
+      and after_fix == {"atomic_a", "idx_atomic_a_v", "atomic_b"} and atomic_final_version == 1,
+      f"error={atomic_error} leftover={leftover} version={atomic_version} after_fix={after_fix} final={atomic_final_version}")
+
+# --- K3: زنجیرهٔ واقعی ۹ migration بدون commit داخلی: ۵→۹ در راه‌اندازی، ۹→۸→۹ با Manager
+with contextlib.redirect_stdout(io.StringIO()):
+    mm.MigrationManager.set_version(conn, 5)
+    db.close_all()
+    conn = db.get_connection(user_id=1)
+    chain_version = db.get_db_version()
+    raw_chain = sqlite3.connect(TEST_DB)
+    mm.MigrationManager.migrate(raw_chain, 8)
+    down_version = mm.MigrationManager.get_current_version(raw_chain)
+    mm.MigrationManager.migrate(raw_chain, 9)
+    up_version = mm.MigrationManager.get_current_version(raw_chain)
+    raw_in_tx = raw_chain.in_transaction
+    raw_chain.close()
+    conn = db.get_connection(user_id=1)
+check("K", "زنجیرهٔ واقعی migrationها بدون commit داخلی: دیتابیس اجبارشده به ۵ در راه‌اندازی → ۹؛ بازگشت ۹→۸ و ارتقای دوباره → ۹؛ هیچ تراکنشی باز نمی‌ماند",
+      chain_version == 9 and down_version == 8 and up_version == 9 and not raw_in_tx and not conn.in_transaction,
+      f"reopen={chain_version} down={down_version} up={up_version}")
+
+# --- K4: مسیر ترمیم (_heal_schema) که migrationهای idempotent را مستقیم اجرا می‌کند: تراکنش صریح + commit/rollback
+import database.migrations.migration_v7 as migration_v7  # noqa: E402
+
+with contextlib.redirect_stdout(io.StringIO()):
+    conn.execute("DROP TABLE IF EXISTS backups")
+    conn.commit()
+    real_v7_upgrade = migration_v7.upgrade
+
+    def _v7_boom(connection):
+        real_v7_upgrade(connection)                       # DDL واقعی (ساخت backups و …)
+        connection.execute("CREATE TABLE heal_probe_tmp (id INTEGER)")
+        raise RuntimeError("heal failure injected")
+
+    migration_v7.upgrade = _v7_boom
+    try:
+        db.close_all()
+        conn = db.get_connection(user_id=1)             # راه‌اندازی با ترمیم شکست‌خورده
+    finally:
+        migration_v7.upgrade = real_v7_upgrade
+    tables_after_fail = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('backups', 'heal_probe_tmp')").fetchall()}
+    in_tx_after_fail = conn.in_transaction
+    db.close_all()
+    conn = db.get_connection(user_id=1)                 # راه‌اندازی سالم → ترمیم commit می‌شود
+    tables_after_ok = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('backups', 'heal_probe_tmp')").fetchall()}
+check("K", "مسیر ترمیم ساختار (_heal_schema): شکست وسط migration_v7 → همهٔ DDL همان گام برمی‌گردد (نه backups نه جدول کمکی)، برنامه بالا می‌آید و تراکنش باز نمی‌ماند؛ راه‌اندازی بعدی → backups دوباره ساخته و commit می‌شود",
+      tables_after_fail == set() and not in_tx_after_fail and tables_after_ok == {"backups"} and not conn.in_transaction,
+      f"after_fail={tables_after_fail} in_tx={in_tx_after_fail} after_ok={tables_after_ok}")
 
 # ============================================================
 print()

@@ -1613,7 +1613,7 @@ verify9 (۱)، verify10 (۲). هیچ آزمونی برای «سبزشدن» حذ
 | مرحله | موارد داور | محتوا | وضعیت |
 |---|---|---|---|
 | **۱** | BUG-NEW-01، BUG-NEW-03 | `QMessageBox.getText` → `QInputDialog.getText` در رد/تکمیل پیشنهاد؛ کنتراست «اقدام پیشنهادی» (+ اسکن کنتراست برای استایل‌های بدون selector) | **انجام شد** (این بخش) |
-| ۲ | BUG-NEW-02 (+ نکتهٔ ۳ downgrade) | حذف `connection.commit()`/`rollback()` از همهٔ ۹ migration؛ تراکنش فقط در `MigrationManager`؛ تطبیق مسیر `_heal_schema` که migrationهای idempotent را مستقیم اجرا می‌کند؛ آزمون شکست وسط migration واقعی → rollback کامل | منتظر تأیید |
+| ۲ | BUG-NEW-02 (+ نکتهٔ ۳ downgrade) | حذف `connection.commit()`/`rollback()` از همهٔ ۹ migration؛ تراکنش فقط در `MigrationManager`؛ تطبیق مسیر `_heal_schema` که migrationهای idempotent را مستقیم اجرا می‌کند؛ آزمون شکست وسط migration واقعی → rollback کامل | **انجام شد** (بخش ۱۲) |
 | ۳ | BUG-NEW-04 | «ثبت مداخله از روی پیشنهاد»: پیش‌پرکردن فرم مداخله با نوع/عنوان پیشنهاد و پیوند پیشنهاد ↔ مداخله پس از ذخیره (اجراشدن پیشنهاد) | منتظر تأیید |
 | ۴ | «تست واقعی» | اجرای کامل باتری، به‌روزرسانی گزارش/README/PR؛ آزمون GUI واقعی همچنان بر عهدهٔ داور | منتظر تأیید |
 
@@ -1664,3 +1664,50 @@ STATUS: FIXED
 `pytest` 26 passed؛ verify_fixes 1…15 همه سبز؛ **verify_fixes16: 87/87**؛
 `ruff` صفر. (اجرای کامل باتری در همین محیط انجام شد؛ داور می‌تواند همان
 دستورهای README را اجرا کند.)
+
+---
+
+# بخش ۱۲ — داوری سوم، مرحلهٔ ۲: Migrationهای واقعاً اتمیک (BUG-NEW-02 و نکتهٔ ۳)
+
+## [BUG-NEW-02]
+### بخش
+```text
+database/migrations/migration_v1.py … migration_v9.py (۱۷ فراخوانی connection.commit())
+database/migrations/manager.py — _run_step ؛ database/connection.py — _heal_schema
+```
+### وضعیت
+`PARTIALLY_BROKEN` (P1 — Database consistency)
+### مشکل (تأیید داور درست بود)
+`MigrationManager._run_step` گام را در تراکنش صریح اجرا می‌کرد، ولی هر ۹
+فایل migration در پایان `upgrade()`/`downgrade()` خودشان `connection.commit()`
+می‌زدند؛ در حالت commit داخلی، هر شکستِ بعد از آن فقط بخش بعد از commit را
+برمی‌گرداند و «یا کامل، یا هیچ» تضمین نمی‌شد (خودِ کد این محدودیت را در
+داک‌استرینگ پذیرفته بود).
+### اصلاح
+- هر ۱۷ فراخوانی `connection.commit()` از فایل‌های migration حذف شد (با
+  کامنت توضیحی)؛ هیچ migrationی rollback/commit ندارد؛ مالک تراکنش فقط
+  `_run_step` است (BEGIN صریح → upgrade/downgrade → set_version → commit؛ شکست
+  → rollback + `MigrationStepError`). داک‌استرینگ محدودیت قبلی حذف شد.
+- `_heal_schema` (که migrationهای idempotent v7/v8 را مستقیم اجرا می‌کند و
+  خودش commit می‌کرد) اکنون قبل از هر ماژول BEGIN صریح می‌زند؛ DDL بدون
+  BEGIN در sqlite3 پایتون autocommit است و در شکست قابل بازگشت نبود.
+- نکتهٔ ۳ داور (downgrade): با حذف commit داخلیِ `downgrade()`ها، ترتیبِ
+  اصلاح‌شدهٔ «اول downgrade بعد کاهش نسخه» حالا واقعاً اتمیک است.
+### تست (verify_fixes16 §K — همه روی کد و فایل‌های واقعی، نه شیء ساختگی)
+- K1: هیچ `connection.commit()/rollback()` در ۹ فایل migration.
+- K2: یک **فایل migration واقعی** (۴ دستور DDL/DML بدون commit + شکست) از
+  مسیر `MigrationManager.migrate` → `MigrationStepError`، **هیچ جدول/ایندکس/
+  ردیفی نمی‌ماند**، نسخه ۰، تراکنش باز نمی‌ماند؛ همان فایل بدون شکست → همه
+  یک‌جا اعمال و نسخه ۱.
+- K3: زنجیرهٔ واقعی: دیتابیس اجبارشده به ۵ در راه‌اندازی → ۹؛ بازگشت ۹→۸ و
+  ارتقای دوباره → ۹؛ بدون تراکنش باز.
+- K4: مسیر ترمیم: شکست تزریق‌شده وسط `migration_v7.upgrade` (پس از DDL
+  واقعی) → نه `backups` ساخته می‌ماند نه جدول کمکی؛ برنامه بالا می‌آید؛
+  راه‌اندازی بعدی `backups` را می‌سازد و commit می‌کند.
+```text
+STATUS: FIXED
+```
+
+## آزمون پس از مرحلهٔ ۲ داوری سوم
+`pytest` 26 passed؛ verify_fixes 1…15 همه سبز؛ **verify_fixes16: 91/91**؛
+`ruff` صفر. باقی‌مانده: مرحلهٔ ۳ (BUG-NEW-04) و مرحلهٔ ۴ (جمع‌بندی/PR؛ GUI با داور).
