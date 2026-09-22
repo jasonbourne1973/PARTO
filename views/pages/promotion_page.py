@@ -719,62 +719,99 @@ class PromotionPage(QWidget):
             QMessageBox.critical(self, "خطا", f"مشکل در ارتقاء:\n{e!s}")
     
     def repeat_grade_students(self):
-        """تکرار پایه دانش‌آموزان انتخاب شده"""
+        """تکرار پایه دانش‌آموزان انتخاب شده بدون تغییر پرونده تاریخی."""
         selected = self.get_selected_students()
-        
+
         if not selected:
             QMessageBox.warning(self, "توجه", "لطفاً حداقل یک دانش‌آموز را انتخاب کنید.")
             return
-        
+
         reply = QMessageBox.question(
             self,
             "تأیید تکرار پایه",
             f"آیا از تکرار پایه {len(selected)} دانش‌آموز اطمینان دارید؟",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
-        
+
         if reply == QMessageBox.StandardButton.No:
             return
-        
+
         next_year = self.year_input.currentText()
         success_count = 0
         errors = []
-        
+
         try:
-            active_year = self._get_or_create_target_year(next_year)
-            
+            target_year = self._get_or_create_target_year(next_year)
+            from models.student_academic_profile import StudentAcademicProfile
+
             for student in selected:
                 try:
-                    profile = self.profile_dal.get_active_by_student(student.id)
-                    if profile:
-                        # پایه را تغییر نمی‌دهیم، فقط سال تحصیلی را به‌روز می‌کنیم
-                        profile.academic_year_id = active_year.id
-                        self.profile_dal.update(profile)
-                        success_count += 1
-                    else:
-                        from models.student_academic_profile import (
-                            StudentAcademicProfile,
+                    current_profile = self.profile_dal.get_active_by_student(student.id)
+
+                    if self.profile_dal.get_by_student_and_year(
+                        student.id, target_year.id
+                    ):
+                        errors.append(
+                            f"{student.full_name}: پرونده سال {next_year} از قبل وجود دارد."
                         )
+                        continue
+
+                    if current_profile:
+                        grade = current_profile.grade or 1
                         new_profile = StudentAcademicProfile()
                         new_profile.student_id = student.id
-                        new_profile.academic_year_id = active_year.id
-                        new_profile.grade = 1
+                        new_profile.academic_year_id = target_year.id
+                        new_profile.grade = grade
                         new_profile.class_name = ""
-                        new_profile.status = "active"
+                        new_profile.status = StudentAcademicProfile.STATUS_ACTIVE
+                        self.profile_dal.create(new_profile)
+
+                        # پرونده قبلی فقط غیرفعال می‌شود؛ شناسه و سال آن ثابت می‌ماند.
+                        current_profile.status = StudentAcademicProfile.STATUS_INACTIVE
+                        self.profile_dal.update(current_profile)
+                        success_count += 1
+                    else:
+                        history = self.profile_dal.get_all_profiles_for_student(
+                            student.id
+                        ) or []
+                        if not history:
+                            errors.append(
+                                f"{student.full_name}: پرونده‌ای برای تعیین پایه پیدا نشد."
+                            )
+                            continue
+
+                        latest = history[-1]
+                        grade = getattr(latest, "grade", None)
+                        if not grade:
+                            errors.append(
+                                f"{student.full_name}: پایه پرونده قبلی مشخص نیست."
+                            )
+                            continue
+
+                        new_profile = StudentAcademicProfile()
+                        new_profile.student_id = student.id
+                        new_profile.academic_year_id = target_year.id
+                        new_profile.grade = grade
+                        new_profile.class_name = ""
+                        new_profile.status = StudentAcademicProfile.STATUS_ACTIVE
                         self.profile_dal.create(new_profile)
                         success_count += 1
+
                 except Exception as e:
                     errors.append(f"{student.full_name}: {e!s}")
-            
-            msg = f"✅ {success_count} دانش‌آموز با موفقیت تکرار پایه شدند.\nسال تحصیلی آن‌ها به {next_year} تغییر یافت."
+
+            msg = (
+                f"✅ {success_count} دانش‌آموز با موفقیت برای سال {next_year} "
+                "پرونده تکرار پایه دریافت کردند."
+            )
             if errors:
-                msg += "\n\n⚠️ خطاها:\n" + "\n".join(errors[:5])
+                msg += "\n\n⚠️ موارد انجام‌نشده:\n" + "\n".join(errors[:5])
                 if len(errors) > 5:
-                    msg += f"\nو {len(errors)-5} خطای دیگر..."
-            
-            QMessageBox.information(self, "موفقیت", msg)
+                    msg += f"\nو {len(errors) - 5} مورد دیگر..."
+
+            QMessageBox.information(self, "نتیجه تکرار پایه", msg)
             self.selected_student_ids = []
             self.load_students()
-            
+
         except Exception as e:
             QMessageBox.critical(self, "خطا", f"مشکل در تکرار پایه:\n{e!s}")
