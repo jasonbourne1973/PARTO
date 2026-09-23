@@ -468,7 +468,6 @@ class MainWindow(QMainWindow):
         self.students_page.profile_page.report_requested.connect(self.open_student_report)
         # (بازرسی شانزدهم) دابل‌کلیک در داشبورد تحلیلی
         self.dashboard_page.analytics_dashboard_page.student_selected.connect(self.open_student_profile)
-        self.students_page.table.itemDoubleClicked.connect(self.on_student_double_clicked)
         self.stacked_widget.addWidget(self.students_page)
 
         self.observations_page = ObservationsPage()
@@ -745,6 +744,24 @@ class MainWindow(QMainWindow):
         """
         if index < 0 or getattr(self, '_year_switching', False):
             return
+
+        # تغییر این combo در معماری فعلی، سال فعال سراسری دیتابیس را
+        # تغییر می‌دهد؛ بنابراین فقط نقش دارای مجوز مدیریت سال تحصیلی
+        # حق انجام آن را دارد.
+        if not self.has_permission(Permission.MANAGE_ACADEMIC_YEARS.value):
+            try:
+                active = self.academic_year_dal.get_active()
+                active_id = active.id if active else None
+            except Exception:
+                active_id = None
+            self._select_year_in_combo(active_id)
+            QMessageBox.warning(
+                self,
+                "دسترسی غیرمجاز",
+                "شما مجوز تغییر سال تحصیلی فعال سامانه را ندارید."
+            )
+            return
+
         year_id = self.year_combo.itemData(index)
         if not year_id:
             return
