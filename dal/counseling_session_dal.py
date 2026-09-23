@@ -302,8 +302,9 @@ class CounselingSessionDAL:
             WHERE id = ? AND is_deleted = 1
         """, (session_id,))
         
+        updated = cursor.rowcount > 0
         self.db.commit()
-        return True
+        return updated
     
     def get_session_stats(self, profile_id):
         """دریافت آمار جلسات یک دانش‌آموز"""
