@@ -100,7 +100,16 @@ class CounselingService(BaseService):
             self._validate_session_data(data, is_update=True)
             
             # به‌روزرسانی فیلدها
-            session.student_profile_id = data.get('student_profile_id', session.student_profile_id)
+            requested_profile_id = data.get('student_profile_id')
+            if requested_profile_id:
+                requested_profile = self.profile_dal.get_by_id(requested_profile_id)
+                current_profile = self.profile_dal.get_by_id(session.student_profile_id)
+                if (requested_profile and current_profile
+                        and requested_profile.student_id == current_profile.student_id):
+                    # ویرایش همان دانش‌آموز: پرونده تاریخی رکورد حفظ می‌شود.
+                    session.student_profile_id = current_profile.id
+                else:
+                    session.student_profile_id = requested_profile_id
             session.counselor_id = data.get('counselor_id', session.counselor_id)
             session.referred_by = data.get('referred_by', session.referred_by)
             session.session_date = self.clean_date(
