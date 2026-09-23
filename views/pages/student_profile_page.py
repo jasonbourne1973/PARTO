@@ -1410,7 +1410,6 @@ class StudentProfilePage(QWidget):
         form = FollowUpForm(parent=self)
         if form.exec() == QDialog.DialogCode.Accepted:
             self.load_student_data()
-            QMessageBox.information(self, "موفقیت", "پیگیری با موفقیت ثبت شد.")
     
     def view_observation(self, obs):
         details = f"""
