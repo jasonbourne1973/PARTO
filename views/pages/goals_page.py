@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from dal.staff_dal import StaffDAL
+undefined
 from dal.student_dal import StudentDAL
 from models.individual_goal import IndividualGoal
 from services.goal_service import GoalService
@@ -46,6 +46,8 @@ class GoalsPage(QWidget):
         self.goal_service = GoalService()
         self.student_dal = StudentDAL()
         self.staff_dal = StaffDAL()
+        self.profile_dal = StudentAcademicProfileDAL()
+        self.academic_year_dal = AcademicYearDAL()
         self.logger = get_logger(self.__class__.__name__)
         
         self.goals = []
@@ -233,6 +235,11 @@ class GoalsPage(QWidget):
         """بارگذاری اهداف"""
         try:
             self.goals = self.goal_service.get_all_goals()
+            active_year = self.academic_year_dal.get_active()
+            if active_year:
+                profiles = self.profile_dal.get_by_ids([g.student_profile_id for g in self.goals if g.student_profile_id])
+                valid_profile_ids = {pid for pid, p in profiles.items() if p and p.academic_year_id == active_year.id}
+                self.goals = [g for g in self.goals if g.student_profile_id in valid_profile_ids]
             self.display_goals(self.goals)
         except Exception as e:
             QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اهداف:\n{e!s}")
