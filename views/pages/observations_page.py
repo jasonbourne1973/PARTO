@@ -383,27 +383,30 @@ class ObservationsPage(QWidget):
         severity_max = self.filter_severity_max.currentData()
         
         try:
+            active_year = self.academic_year_dal.get_active()
+            year_id = active_year.id if active_year else None
+            # سال فعال باید در خود query اعمال شود؛ فیلتر UI پایین فقط دفاع ثانویه است.
             # اگر جستجوی متنی وجود دارد
             if search_text:
                 # جستجو در سرویس
                 if student_id:
                     observations = self.observation_service.search_observations_by_student(
-                        student_id, search_text
+                        student_id, search_text, year_id=year_id
                     )
                 elif teacher_id:
                     observations = self.observation_service.search_observations_by_teacher(
-                        teacher_id, search_text
+                        teacher_id, search_text, year_id=year_id
                     )
                 else:
-                    observations = self.observation_service.search_observations(search_text)
+                    observations = self.observation_service.search_observations(search_text, limit=None, year_id=year_id)
             else:
                 # فیلتر معمولی
                 if student_id:
-                    observations = self.observation_service.get_observations_by_student(student_id)
+                    observations = self.observation_service.get_observations_by_student(student_id, year_id=year_id, limit=None)
                 elif teacher_id:
-                    observations = self.observation_service.get_observations_by_teacher(teacher_id)
+                    observations = self.observation_service.get_observations_by_teacher(teacher_id, year_id=year_id, limit=None)
                 else:
-                    observations = self.observation_service.get_all_observations(include_staff_info=True)
+                    observations = self.observation_service.get_all_observations(limit=None, include_staff_info=True, year_id=year_id)
             
             # اعمال فیلترهای اضافی
             if behavior_type:
@@ -422,7 +425,6 @@ class ObservationsPage(QWidget):
             if student_id and teacher_id:
                 observations = [o for o in observations if o.staff_id == teacher_id]
             
-            active_year = self.academic_year_dal.get_active()
             if active_year:
                 profiles = self.profile_dal.get_by_ids(o.student_profile_id for o in observations)
                 observations = [
@@ -450,8 +452,9 @@ class ObservationsPage(QWidget):
     def load_observations(self):
         """بارگذاری مشاهدات با استفاده از سرویس"""
         try:
-            observations = self.observation_service.get_all_observations(limit=100, include_staff_info=True)
             active_year = self.academic_year_dal.get_active()
+            year_id = active_year.id if active_year else None
+            observations = self.observation_service.get_all_observations(limit=None, include_staff_info=True, year_id=year_id)
             if active_year:
                 profiles = self.profile_dal.get_by_ids(o.student_profile_id for o in observations)
                 observations = [
