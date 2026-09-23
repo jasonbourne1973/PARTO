@@ -335,10 +335,7 @@ class CounselingPage(QWidget):
     def add_session(self):
         """افزودن جلسه جدید"""
         form = CounselingSessionForm(parent=self)
-        form.session_saved.connect(self.load_sessions)
-        if form.exec() == QDialog.DialogCode.Accepted:
-            self.load_sessions()
-            QMessageBox.information(self, "موفقیت", "جلسه مشاوره با موفقیت ثبت شد")
+        form.exec()
 
     def edit_session(self, session):
         """ویرایش جلسه"""
