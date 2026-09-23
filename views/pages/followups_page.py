@@ -378,8 +378,13 @@ class FollowUpsPage(QWidget):
         )
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                self.followup_service.delete_followup(followup.id)
+                deleted = self.followup_service.delete_followup(followup.id)
                 self.filter_followups()
-                QMessageBox.information(self, "موفقیت", "پیگیری با موفقیت حذف شد")
+                if deleted:
+                    QMessageBox.information(
+                        self, "موفقیت", "پیگیری با موفقیت حذف شد"
+                    )
+                else:
+                    QMessageBox.warning(self, "خطا", "پیگیری حذف نشد.")
             except Exception as e:
                 QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
