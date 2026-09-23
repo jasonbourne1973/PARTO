@@ -1006,6 +1006,7 @@ class SettingsPage(QWidget):
                     user['id'], user_id_actor=self._current_staff_id())
                 if not ok:
                     QMessageBox.warning(self, "خطا", "کاربر مورد نظر یافت نشد.")
+                    return
 
                 self.load_users()
 
