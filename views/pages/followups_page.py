@@ -272,7 +272,20 @@ class FollowUpsPage(QWidget):
     def load_followups(self):
         """بارگذاری پیگیری‌ها با استفاده از سرویس"""
         try:
-            self.followups = self.followup_service.get_all_followups(limit=100)
+            followups = self.followup_service.get_all_followups(limit=100)
+            active_year = self.academic_year_dal.get_active()
+            if active_year:
+                interventions = self.intervention_dal.get_by_ids(f.intervention_id for f in followups)
+                profiles = self.profile_dal.get_by_ids(
+                    i.student_profile_id for i in interventions.values()
+                )
+                followups = [
+                    f for f in followups
+                    if (interventions.get(f.intervention_id)
+                        and profiles.get(interventions[f.intervention_id].student_profile_id)
+                        and profiles[interventions[f.intervention_id].student_profile_id].academic_year_id == active_year.id)
+                ]
+            self.followups = followups
             self.display_followups(self.followups)
         except Exception as e:
             QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری پیگیری‌ها:\n{e!s}")
