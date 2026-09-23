@@ -286,6 +286,14 @@ class InterventionsPage(QWidget):
             if student_id and teacher_id:
                 interventions = [i for i in interventions if i.staff_id == teacher_id]
             
+            active_year = self.academic_year_dal.get_active()
+            if active_year:
+                profiles = self.profile_dal.get_by_ids(i.student_profile_id for i in interventions)
+                interventions = [
+                    i for i in interventions
+                    if profiles.get(i.student_profile_id)
+                    and profiles[i.student_profile_id].academic_year_id == active_year.id
+                ]
             self.interventions = interventions
             self.display_interventions(self.interventions)
             
