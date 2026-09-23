@@ -690,7 +690,9 @@ class BackupManager:
                                    f"پشتیبانِ وضعیت قبلی هم در این فایل هست: "
                                    f"{pre_restore.get('file')}"
                     }
-                self._remove_quietly(safety_copy)
+                # فایل safety_copy عمداً تا پایان بازیابی پیوست‌ها نگه داشته می‌شود.
+                # اگر جایگزینی پیوست‌ها شکست بخورد، می‌توانیم دیتابیس را هم
+                # به وضعیت قبلی برگردانیم و از وضعیت نیمه‌کاره جلوگیری کنیم.
             
             # بازیابی فایل‌های پیوست
             # (بازرسی شانزدهم) نسخهٔ قبلی اول پوشهٔ پیوست‌های فعلی را پاک
@@ -716,11 +718,53 @@ class BackupManager:
                 "تا همهٔ صفحه‌ها دادهٔ بازیابی‌شده را نشان دهند."
             )
             if attachments_restored is False:
+                # Restore باید اتمیک از نظر «دیتابیس + پیوست‌ها» باشد:
+                # اگر DB جدید نصب شده ولی پیوست‌ها قابل بازیابی نیستند،
+                # DB قبلی را هم برمی‌گردانیم تا برنامه وارد وضعیت
+                # ناسازگار «DB جدید + فایل‌های قدیمی» نشود.
+                rollback_error = None
+                from database.connection import DB_THREAD_LOCK
+                with DB_THREAD_LOCK:
+                    try:
+                        if os.path.exists(safety_copy):
+                            self._quiesce_database()
+                            self._remove_quietly(self.db_path)
+                            os.replace(safety_copy, self.db_path)
+                            self._remove_journal_files()
+                        else:
+                            rollback_error = "فایل safety برای بازگردانی دیتابیس موجود نیست."
+                    except Exception as rollback_exc:
+                        rollback_error = str(rollback_exc)
                 message = (
-                    f"⚠️ دیتابیس از {os.path.basename(backup_file)} بازیابی شد ({detail})، "
-                    f"ولی بازیابی پوشهٔ پیوست‌ها ناموفق بود و پیوست‌های قبلی سر جای خود "
-                    f"ماندند: {attachments_error}"
+                    f"❌ بازیابی کامل انجام نشد. پیوست‌ها قابل بازیابی نبودند: "
+                    f"{attachments_error}"
                 )
+                if rollback_error:
+                    message += (
+                        f"\n⚠️ بازگردانی دیتابیس قبلی نیز ناموفق بود: {rollback_error}"
+                    )
+                else:
+                    message += "\nدیتابیس و پیوست‌ها به وضعیت قبل از Restore بازگردانده شدند."
+                return {
+                    'success': False,
+                    'message': message,
+                    'pre_restore_file': pre_restore.get('file'),
+                    'checksum': checksum,
+                    'journal_removed': journal_removed,
+                    'detail': detail,
+                    'attachments_restored': False,
+                    'attachments_error': attachments_error,
+                    'rollback_error': rollback_error,
+                }
+
+            # فقط پس از موفقیت DB و پیوست‌ها، فایل safety حذف می‌شود.
+            self._remove_quietly(safety_copy)
+            message = (
+                f"✅ بازیابی با موفقیت از {os.path.basename(backup_file)} "
+                f"انجام شد.\n({detail})\n\n"
+                "برای اطمینان، برنامه را یک بار ببندید و دوباره باز کنید "
+                "تا همهٔ صفحه‌ها دادهٔ بازیابی‌شده را نشان دهند."
+            )
             return {
                 'success': True,
                 'message': message,
