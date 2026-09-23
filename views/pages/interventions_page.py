@@ -310,7 +310,16 @@ class InterventionsPage(QWidget):
     def load_interventions(self):
         """بارگذاری مداخلات با استفاده از سرویس"""
         try:
-            self.interventions = self.intervention_service.get_all_interventions(limit=100, include_staff_info=True)
+            interventions = self.intervention_service.get_all_interventions(limit=100, include_staff_info=True)
+            active_year = self.academic_year_dal.get_active()
+            if active_year:
+                profiles = self.profile_dal.get_by_ids(i.student_profile_id for i in interventions)
+                interventions = [
+                    i for i in interventions
+                    if profiles.get(i.student_profile_id)
+                    and profiles[i.student_profile_id].academic_year_id == active_year.id
+                ]
+            self.interventions = interventions
             self.display_interventions(self.interventions)
         except Exception as e:
             QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری مداخلات:\n{e!s}")
