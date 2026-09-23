@@ -95,8 +95,12 @@ class ClassReportService(BaseService):
             )
             
             # دریافت آمار مداخلات و پیگیری‌ها
-            intervention_stats = self._get_class_intervention_stats(class_obj.name, start_date, end_date)
-            followup_stats = self._get_class_followup_stats(class_obj.name, start_date, end_date)
+            intervention_stats = self._get_class_intervention_stats(
+                class_obj.name, class_obj.academic_year_id, start_date, end_date
+            )
+            followup_stats = self._get_class_followup_stats(
+                class_obj.name, class_obj.academic_year_id, start_date, end_date
+            )
             
             # تحلیل شایستگی‌ها
             competency_analysis = self._analyze_competencies(class_summary.get('competency_stats', {}))
@@ -196,8 +200,10 @@ class ClassReportService(BaseService):
             self.logger.error(f"خطا در دریافت خلاصه کلاس: {e}")
             return None
     
-    def _get_class_intervention_stats(self, class_name, start_date=None, end_date=None):
-        """دریافت آمار مداخلات یک کلاس"""
+    def _get_class_intervention_stats(
+        self, class_name, academic_year_id, start_date=None, end_date=None
+    ):
+        """دریافت آمار مداخلات همان کلاس در همان سال تحصیلی."""
         try:
             conn = self.db.get_connection()
             cursor = conn.cursor()
@@ -207,9 +213,10 @@ class ClassReportService(BaseService):
                 FROM interventions i
                 JOIN student_academic_profiles sap ON i.student_profile_id = sap.id
                 WHERE sap.class_name = ?
+                AND sap.academic_year_id = ?
                 AND i.is_deleted = 0
             """
-            params = [class_name]
+            params = [class_name, academic_year_id]
             
             if start_date:
                 query += " AND i.date >= ?"
@@ -242,8 +249,10 @@ class ClassReportService(BaseService):
             self.logger.error(f"خطا در دریافت آمار مداخلات کلاس: {e}")
             return {'total': 0, 'planned': 0, 'in_progress': 0, 'completed': 0, 'cancelled': 0}
     
-    def _get_class_followup_stats(self, class_name, start_date=None, end_date=None):
-        """دریافت آمار پیگیری‌های یک کلاس"""
+    def _get_class_followup_stats(
+        self, class_name, academic_year_id, start_date=None, end_date=None
+    ):
+        """دریافت آمار پیگیری‌های همان کلاس در همان سال تحصیلی."""
         try:
             conn = self.db.get_connection()
             cursor = conn.cursor()
@@ -254,9 +263,10 @@ class ClassReportService(BaseService):
                 JOIN interventions i ON f.intervention_id = i.id
                 JOIN student_academic_profiles sap ON i.student_profile_id = sap.id
                 WHERE sap.class_name = ?
+                AND sap.academic_year_id = ?
                 AND f.is_deleted = 0
             """
-            params = [class_name]
+            params = [class_name, academic_year_id]
             
             if start_date:
                 query += " AND f.date >= ?"
