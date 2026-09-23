@@ -530,9 +530,16 @@ class StudentsPage(QWidget):
         
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                self.student_dal.delete(student.id)
+                deleted = self.student_dal.delete(student.id)
                 self.load_students()
-                QMessageBox.information(self, "موفقیت", "دانش‌آموز با موفقیت حذف شد")
+                if deleted:
+                    QMessageBox.information(
+                        self, "موفقیت", "دانش‌آموز با موفقیت حذف شد"
+                    )
+                else:
+                    QMessageBox.warning(
+                        self, "خطا", "دانش‌آموز مورد نظر حذف نشد."
+                    )
             except Exception as e:
                 QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
