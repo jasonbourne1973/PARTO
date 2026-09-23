@@ -290,6 +290,10 @@ class BackupManager:
 
             # ایجاد فایل ZIP (در فایل موقت)
             self._remove_quietly(tmp_zip)
+            # حساب‌داری واقعی پیوست‌ها (دور هفدهم): سه عدد مستقل —
+            # «موردانتظار طبق DB اسنپ‌شات»، «بسته‌بندی‌شده» و «گم‌شده».
+            attachment_ledger = self.attachment_ledger(db_file=tmp_db_snapshot)
+            packaged_files = 0
             with zipfile.ZipFile(tmp_zip, 'w', zipfile.ZIP_DEFLATED) as zipf:
                 # 1. دیتابیس (از اسنپ‌شات سازگار و راستی‌آزمایی‌شده)
                 zipf.write(tmp_db_snapshot, "database/partow.db")
@@ -301,6 +305,7 @@ class BackupManager:
                             file_path = os.path.join(root, file)
                             arcname = os.path.join("attachments", os.path.relpath(file_path, self.attachments_dir))
                             zipf.write(file_path, arcname)
+                            packaged_files += 1
                 
                 # 3. متادیتا
                 metadata = {
@@ -310,6 +315,15 @@ class BackupManager:
                     'created_by_name': user_name or 'سیستم',
                     'db_file': os.path.basename(self.db_path),
                     'attachments_count': self._count_attachments(),
+                    # (دور هفدهم — BUG-BACKUP-04/05) گزارش صادقانهٔ پیوست‌ها:
+                    # اگر جدول attachments به فایلی اشاره کند که روی دیسک
+                    # نیست، پشتیبان «کامل» نیست و باید همان‌جا گفته شود.
+                    'attachments_expected_in_db': attachment_ledger['expected_in_db'],
+                    'attachments_packaged_files': packaged_files,
+                    'attachments_missing_count': attachment_ledger['missing_count'],
+                    'attachments_missing_files': attachment_ledger['missing_files'][:50],
+                    'attachments_ledger_error': attachment_ledger.get('error'),
+                    'complete': bool(attachment_ledger['complete']),
                     # (بازرسی دوازدهم) نسخه از همان منبع اصلی برنامه؛
                     # دیگر hard-code جداگانه نیست تا سازگاری پشتیبان با
                     # نسخهٔ برنامه قابل تشخیص بماند.
@@ -353,6 +367,27 @@ class BackupManager:
             message = f"✅ Backup با موفقیت در {backup_file} ایجاد شد."
             if not checksum_saved:
                 message += "\n⚠️ فایل checksum کنار آن ذخیره نشد؛ هنگام بازیابی یکپارچگی راستی‌آزمایی نخواهد شد."
+            # (دور هفدهم — BUG-BACKUP-04/05) پشتیبان ناقص نباید «کامل»
+            # معرفی شود: اختلاف بین جدول attachments و فایل‌های روی دیسک
+            # صریح گزارش می‌شود (نام فایل‌های گم‌شده هم می‌آید).
+            if not attachment_ledger['complete']:
+                if attachment_ledger.get('error'):
+                    message = (
+                        "⚠️ پشتیبان ساخته شد ولی وضعیت پیوست‌ها قابل بررسی نبود:\n"
+                        f"{attachment_ledger['error']}\n\n" + message
+                    )
+                else:
+                    missing_names = '، '.join(attachment_ledger['missing_files'][:5])
+                    more = attachment_ledger['missing_count'] - 5
+                    if more > 0:
+                        missing_names += f" و {more} فایل دیگر"
+                    message = (
+                        "⚠️ پشتیبان ناقص است: "
+                        f"{attachment_ledger['expected_in_db']} پیوست در دیتابیس ثبت شده "
+                        f"ولی فقط {packaged_files} فایل روی دیسک بود؛ "
+                        f"{attachment_ledger['missing_count']} فایل گم‌شده "
+                        f"({missing_names}).\n\n" + message
+                    )
             return {
                 'success': True,
                 'file': backup_file,
@@ -363,6 +398,11 @@ class BackupManager:
                 'checksum_saved': checksum_saved,
                 'created_at': metadata['created_at'],
                 'created_by': user_id,
+                'attachments_expected_in_db': attachment_ledger['expected_in_db'],
+                'attachments_packaged_files': packaged_files,
+                'attachments_missing_count': attachment_ledger['missing_count'],
+                'attachments_missing_files': attachment_ledger['missing_files'],
+                'complete': bool(attachment_ledger['complete'] and checksum_saved),
                 'message': message,
             }
 
@@ -529,6 +569,23 @@ class BackupManager:
         """
         return self._verify_sqlite_file(self.db_path, "دیتابیس بازیابی‌شده")
 
+    @staticmethod
+    def _unverified_checksum_note(checksum_state):
+        """
+        یادداشت هشدار برای پشتیبانی که یکپارچگی‌اش راستی‌آزمایی نشد
+
+        (دور هفدهم — BUG-BACKUP-03) بازیابی از پشتیبان قدیمی (بدون فایل
+        کناری `.sha256`) مجاز می‌ماند، ولی موفقیتِ آن نباید بی‌هشدار
+        نمایش داده شود.
+        """
+        if checksum_state == 'legacy_no_sidecar':
+            return (
+                "\n\n⚠️ این پشتیبان فایل checksum کنار (.sha256) ندارد؛ "
+                "یکپارچگی آن راستی‌آزمایی نشد (حالت سازگاری با پشتیبان‌های "
+                "قدیمی)."
+            )
+        return ""
+
     def restore_backup(self, backup_file, user_id=None, user_name=None):
         """
         بازیابی از فایل پشتیبان با تأیید و ثبت
@@ -541,6 +598,13 @@ class BackupManager:
         # وقتی خطا پیش از ساخته‌شدنشان رخ دهد، خطای NameError ندهد.
         safety_copy = None
         pre_restore_file = None
+        # (دور هفدهم — BUG-BACKUP-03) وضعیت راستی‌آزمایی یکپارچگی باید
+        # صریح در نتیجه و پیام باشد، نه فقط در لاگ:
+        #   verified            → فایل .sha256 بود و برابر بود
+        #   legacy_no_sidecar   → فایل .sha256 نبود (پشتیبان قدیمی/دستی)
+        #   failed              → بود ولی برابر نبود (بازیابی متوقف شد)
+        checksum_verified = False
+        checksum_state = 'legacy_no_sidecar'
         try:
             if not os.path.exists(backup_file):
                 return {
@@ -559,8 +623,11 @@ class BackupManager:
             expected = self._read_sidecar(backup_file)
             if expected is not None:
                 if not self._checksum_matches(backup_file, expected):
+                    checksum_state = 'failed'
                     return {
                         'success': False,
+                        'checksum_verified': False,
+                        'checksum_state': checksum_state,
                         'message': (
                             "❌ فایل پشتیبان سالم نیست یا دستکاری شده است.\n"
                             f"checksum ثبت‌شده: {expected[:16]}...\n"
@@ -568,10 +635,14 @@ class BackupManager:
                             "بازیابی انجام نشد تا دیتابیس فعلی خراب نشود."
                         )
                     }
+                checksum_state = 'verified'
+                checksum_verified = True
             else:
+                checksum_state = 'legacy_no_sidecar'
+                checksum_verified = False
                 self.logger.warning(
                     f"فایل checksum برای {os.path.basename(backup_file)} یافت نشد؛ "
-                    "یکپارچگی راستی‌آزمایی نمی‌شود."
+                    "یکپارچگی راستی‌آزمایی نمی‌شود (حالت سازگاری با پشتیبان قدیمی)."
                 )
 
             # بررسی اینکه ZIP واقعاً باز می‌شود (قبل از هر تغییری)
@@ -682,7 +753,18 @@ class BackupManager:
                 journal_removed += self._remove_journal_files()
 
                 # ۴) راستی‌آزمایی اینکه بازیابی واقعاً اثر کرده
-                healthy, detail = self._verify_restored_database()
+                # (دور هفدهم) اگر خودِ راستی‌آزمایی هم استثنا بدهد (مثلاً
+                # خطای دسترسی/I-O روی فایل تازه)، نباید دیتابیس
+                # راستی‌آزمایی‌نشده سر جای دیتابیس قبلی بماند؛ مثل حالت
+                # «سالم نبود» رفتار می‌شود: برگشت فایل قبلی + شکست صریح.
+                try:
+                    healthy, detail = self._verify_restored_database()
+                except Exception as verify_error:  # pragma: no cover - مسیر خطای I-O
+                    healthy = False
+                    detail = f"راستی‌آزمایی پس از جایگزینی شکست خورد: {verify_error}"
+                    self.logger.error(
+                        f"خطا در راستی‌آزمایی دیتابیس بازیابی‌شده: {verify_error}",
+                        exc_info=True)
                 if not healthy:
                     if had_previous:
                         self._remove_quietly(self.db_path)
@@ -744,9 +826,12 @@ class BackupManager:
                         "بازگشت به وضعیت قبل از این بازیابی، پشتیبان "
                         f"«{os.path.basename(pre_restore_file or '')}» را "
                         "بازیابی کنید."
+                        + self._unverified_checksum_note(checksum_state)
                     ),
                     'pre_restore_file': pre_restore.get('file'),
                     'checksum': checksum,
+                    'checksum_verified': checksum_verified,
+                    'checksum_state': checksum_state,
                     'journal_removed': journal_removed,
                     'detail': detail,
                     'attachments_restored': False,
@@ -755,21 +840,42 @@ class BackupManager:
 
             # فقط پس از موفقیت DB و پیوست‌ها، فایل safety حذف می‌شود.
             self._remove_quietly(safety_copy)
+
+            # (دور هفدهم — BUG-BACKUP-04/05) پس از بازیابی هم وضعیت واقعی
+            # پیوست‌ها گزارش می‌شود: اگر ردیفی در DB باشد که فایل فیزیکی
+            # ندارد، «موفقیت کامل» اعلام نمی‌شود.
+            post_ledger = self.verify_attachment_ledger_for_restored_db()
             message = (
                 f"✅ بازیابی با موفقیت از {os.path.basename(backup_file)} "
                 f"انجام شد.\n({detail})\n\n"
                 "برای اطمینان، برنامه را یک بار ببندید و دوباره باز کنید "
                 "تا همهٔ صفحه‌ها دادهٔ بازیابی‌شده را نشان دهند."
+                + self._unverified_checksum_note(checksum_state)
             )
+            if post_ledger['missing_count'] > 0:
+                message = (
+                    "⚠️ بازیابی انجام شد، اما پیوست‌های زیر در دیتابیس "
+                    "ثبت شده‌اند و فایل فیزیکی‌شان موجود نیست:\n"
+                    + "، ".join(post_ledger['missing_files'][:5])
+                    + ("\n\n" if post_ledger['missing_count'] <= 5 else " و ...\n\n")
+                    + message
+                )
             return {
                 'success': True,
                 'message': message,
                 'pre_restore_file': pre_restore.get('file'),
                 'checksum': checksum,
+                'checksum_verified': checksum_verified,
+                'checksum_state': checksum_state,
                 'journal_removed': journal_removed,
                 'detail': detail,
                 'attachments_restored': attachments_restored,
                 'attachments_error': attachments_error,
+                'attachments_expected_in_db': post_ledger['expected_in_db'],
+                'attachments_present_count': post_ledger['packaged_files'],
+                'attachments_missing_count': post_ledger['missing_count'],
+                'attachments_missing_files': post_ledger['missing_files'],
+                'complete': post_ledger['missing_count'] == 0,
             }
 
         except Exception as e:
@@ -782,6 +888,8 @@ class BackupManager:
                 )
             return {
                 'success': False,
+                'checksum_verified': checksum_verified,
+                'checksum_state': checksum_state,
                 'message': f"❌ خطا در بازیابی: {e!s}{backup_hint}"
             }
         finally:
@@ -940,6 +1048,120 @@ class BackupManager:
             for root, dirs, files in os.walk(self.attachments_dir):
                 count += len(files)
         return count
+
+    # ============================================================
+    # حساب‌داری واقعی پیوست‌ها (دور هفدهم — BUG-BACKUP-04/05)
+    # ============================================================
+    # پیش از این، متادیتای پشتیبان فقط «تعداد فایل روی دیسک» را می‌نوشت.
+    # یعنی اگر جدول attachments به ۱۰ فایل اشاره می‌کرد و تنها ۷ فایل روی
+    # دیسک بود، همان ۷ نوشته می‌شد و پشتیبانِ ناقص، «کامل» به نظر می‌رسید.
+    # حالا سه عدد مستقل گزارش می‌شود:
+    #   expected_in_db     → تعداد ردیف‌های غیرحذف‌شده در جدول attachments
+    #   packaged_files     → فایل‌هایی که واقعاً داخل ZIP نوشته شدند
+    #   missing_files      → ردیف‌های DB که فایل فیزیکی‌شان پیدا نشد
+    @staticmethod
+    def _resolve_attachment_path(file_path, base_dir):
+        """مسیر فیزیکی یک پیوست: مطلق یا نسبی به ریشهٔ برنامه"""
+        if not file_path:
+            return None
+        path = os.path.expanduser(str(file_path))
+        if not os.path.isabs(path):
+            path = os.path.join(base_dir, path)
+        return os.path.normpath(path)
+
+    def attachment_ledger(self, db_file=None, base_dir=None):
+        """
+        وضعیت واقعی پیوست‌ها: موردانتظار طبق DB / بسته‌بندی‌شده / گم‌شده
+
+        Args:
+            db_file: فایل دیتابیسی که باید خوانده شود (پیش‌فرض: دیتابیس فعال)
+            base_dir: ریشهٔ حل مسیرهای نسبی (پیش‌فرض: پوشهٔ پروژه)
+
+        Returns:
+            dict: {
+                'expected_in_db': int,        # ردیف‌های غیرحذف‌شده
+                'deleted_rows': int,          # ردیف‌های حذف‌شده (اطلاعاتی)
+                'packaged_files': int,        # فایل‌های موجود روی دیسک
+                'missing_files': list[str],   # نام فایل‌های گم‌شده
+                'missing_count': int,
+                'complete': bool,
+                'error': str|None,            # اگر خواندن DB ممکن نبود
+            }
+        """
+        base_dir = base_dir or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        ledger = {
+            'expected_in_db': 0,
+            'deleted_rows': 0,
+            'packaged_files': 0,
+            'missing_files': [],
+            'missing_count': 0,
+            'complete': True,
+            'error': None,
+        }
+
+        # ۱) فایل‌های واقعاً موجود در پوشهٔ پیوست‌ها
+        if os.path.isdir(self.attachments_dir):
+            for root, _dirs, files in os.walk(self.attachments_dir):
+                ledger['packaged_files'] += len(files)
+
+        # ۲) ردیف‌های جدول attachments در دیتابیس موردنظر
+        db_target = db_file or self.db_path
+        paths = []
+        try:
+            if not os.path.exists(db_target):
+                raise FileNotFoundError(f"فایل دیتابیس پیدا نشد: {db_target}")
+            uri = f"file:{Path(db_target).as_posix()}?mode=ro"
+            conn = sqlite3.connect(uri, uri=True)
+            try:
+                conn.row_factory = sqlite3.Row
+                table = conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table' "
+                    "AND name = 'attachments'"
+                ).fetchone()
+                if table is None:
+                    # دیتابیس سالم ولی جدول پیوست ندارد (نسخه‌های قدیمی)
+                    ledger['note'] = 'جدول attachments در این دیتابیس وجود ندارد'
+                    return ledger
+                ledger['expected_in_db'] = conn.execute(
+                    "SELECT COUNT(*) FROM attachments WHERE is_deleted = 0"
+                ).fetchone()[0]
+                ledger['deleted_rows'] = conn.execute(
+                    "SELECT COUNT(*) FROM attachments WHERE is_deleted = 1"
+                ).fetchone()[0]
+                paths = [
+                    row[0] for row in conn.execute(
+                        "SELECT file_path FROM attachments WHERE is_deleted = 0"
+                    ).fetchall()
+                ]
+            finally:
+                conn.close()
+        except Exception as e:
+            ledger['error'] = str(e)
+            ledger['complete'] = False
+            self.logger.warning(
+                f"خواندن فهرست پیوست‌ها از دیتابیس ممکن نشد ({db_target}): {e}"
+            )
+            return ledger
+
+        # ۳) کدام ردیف‌ها فایل فیزیکی ندارند؟
+        for raw_path in paths:
+            resolved = self._resolve_attachment_path(raw_path, base_dir)
+            if not resolved or not os.path.exists(resolved):
+                name = os.path.basename(str(raw_path)) if raw_path else 'نامشخص'
+                ledger['missing_files'].append(name)
+
+        ledger['missing_count'] = len(ledger['missing_files'])
+        ledger['complete'] = ledger['missing_count'] == 0 and ledger['error'] is None
+        return ledger
+
+    def verify_attachment_ledger_for_restored_db(self, base_dir=None):
+        """
+        پس از بازیابی: آیا هر ردیف پیوست دیتابیس، فایل فیزیکی دارد؟
+
+        Returns:
+            dict: همان ساختار `attachment_ledger` روی دیتابیس و پوشهٔ فعلی
+        """
+        return self.attachment_ledger(db_file=None, base_dir=base_dir)
     
     def _calculate_checksum(self, file_path, algorithm='sha256'):
         """

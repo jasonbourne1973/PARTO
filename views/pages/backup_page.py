@@ -24,7 +24,10 @@ from config.settings import ATTACHMENTS_DIR, BACKUP_DIR, DB_PATH, LEGACY_BACKUP_
 from dal.staff_dal import StaffDAL
 from database.connection import DatabaseConnection
 from utils.backup import BackupManager
+from utils.logger import get_logger
 from utils.persian_date import format_timestamp
+
+logger = get_logger(__name__)
 
 
 class BackupWorker(QThread):
@@ -322,6 +325,23 @@ class BackupPage(QWidget):
             return
         self._start_worker("create")
     
+    @staticmethod
+    def _checksum_warning(status):
+        """
+        هشدار وضعیت checksum برای دیالوگ تأیید بازیابی
+
+        (دور هفدهم — BUG-BACKUP-03) پشتیبانی که فایل `.sha256` ندارد
+        («حالت سازگاری قدیمی») مجاز به بازیابی است، ولی کاربر باید **پیش
+        از** تأیید بداند که یکپارچگی راستی‌آزمایی نمی‌شود.
+        """
+        if status == 'no_checksum':
+            return ("\n\n⚠️ توجه: فایل checksum کنار این پشتیبان وجود ندارد؛ "
+                    "یکپارچگی آن راستی‌آزمایی نمی‌شود.")
+        if status == 'mismatch':
+            return ("\n\n❌ هشدار: checksum این پشتیبان با فایل کناری نمی‌خواند "
+                    "(خراب/دستکاری‌شده). بازیابی از آن توصیه نمی‌شود.")
+        return ""
+
     def restore_backup(self, backup):
         """بازیابی از یک Backup موجود"""
         if self._operation_in_progress():
@@ -329,7 +349,9 @@ class BackupPage(QWidget):
         reply = QMessageBox.question(
             self,
             "تأیید بازیابی",
-            f"آیا از بازیابی فایل '{backup['name']}' اطمینان دارید؟\n\n⚠️ اطلاعات فعلی با اطلاعات فایل Backup جایگزین می‌شود.",
+            f"آیا از بازیابی فایل '{backup['name']}' اطمینان دارید؟\n\n"
+            "⚠️ اطلاعات فعلی با اطلاعات فایل Backup جایگزین می‌شود."
+            + self._checksum_warning(backup.get('status')),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         
@@ -348,10 +370,21 @@ class BackupPage(QWidget):
         )
         
         if file_path:
+            # وضعیت واقعی فایل انتخاب‌شده پیش از تأیید کاربر بررسی می‌شود
+            # (دور هفدهم — BUG-BACKUP-03): پشتیبان بدون checksum با هشدار
+            # صریح، پشتیبان خراب با خطای صریح.
+            file_status = self.backup_manager.backup_status(file_path)
+            if file_status == 'corrupt':
+                QMessageBox.critical(
+                    self, "فایل نامعتبر",
+                    "این فایل ZIP معتبری نیست یا عضو خراب دارد؛ بازیابی انجام نشد.")
+                return
             reply = QMessageBox.question(
                 self,
                 "تأیید بازیابی",
-                f"آیا از بازیابی فایل '{os.path.basename(file_path)}' اطمینان دارید؟\n\n⚠️ اطلاعات فعلی با اطلاعات فایل Backup جایگزین می‌شود.",
+                f"آیا از بازیابی فایل '{os.path.basename(file_path)}' اطمینان دارید؟\n\n"
+                "⚠️ اطلاعات فعلی با اطلاعات فایل Backup جایگزین می‌شود."
+                + self._checksum_warning(file_status),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
             
@@ -393,6 +426,37 @@ class BackupPage(QWidget):
         else:
             QMessageBox.critical(self, "خطا", message)
     
+    def shutdown(self, timeout=10):
+        """
+        توقف کارگر پس‌زمینهٔ پشتیبان‌گیری/بازیابی پیش از بستن برنامه
+
+        (دور هفدهم — BUG-BACKUP-09) مسیر logout برنامه را می‌بندد و همان
+        فرایند را دوباره اجرا می‌کند؛ اگر کارگر پشتیبان‌گیری هنوز در حال
+        کار باشد، فرایند جدید با نخ/اتصال در حال استفاده روبه‌رو می‌شود و
+        دیتابیس ممکن است وسط نوشتن رها شود. این متد منتظر پایان کارگر
+        می‌ماند و وضعیت واقعی را برمی‌گرداند (بدون دروغ «متوقف شد»).
+
+        Returns:
+            bool: True اگر کارگری در حال اجرا نمانده باشد.
+        """
+        worker = getattr(self, 'worker', None)
+        if worker is None:
+            return True
+        try:
+            if worker.isRunning():
+                logger.info("انتظار برای پایان کارگر پشتیبان‌گیری پیش از خروج...")
+                if not worker.wait(timeout * 1000):
+                    logger.warning(
+                        "کارگر پشتیبان‌گیری در مهلت تعیین‌شده تمام نشد؛ "
+                        "خروج برنامه ادامه می‌یابد ولی عملیات ممکن است "
+                        "نیمه‌کاره بماند.")
+                    return False
+        except RuntimeError as e:
+            # شیء Qt ممکن است در حال نابودشدن باشد
+            logger.debug(f"بررسی کارگر پشتیبان‌گیری در خروج ممکن نشد: {e}")
+            return True
+        return not worker.isRunning()
+
     def set_buttons_enabled(self, enabled):
         """فعال/غیرفعال کردن دکمه‌ها (نوار ابزار و جدول، تا دکمه‌های ردیف هم قفل شوند)"""
         self.create_btn.setEnabled(enabled)

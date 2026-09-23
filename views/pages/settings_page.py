@@ -1451,6 +1451,57 @@ class SettingsPage(YearAwarePage, QWidget):
         except Exception as e:
             QMessageBox.critical(self, "خطا", f"مشکل در فعال‌سازی پشتیبان‌گیری خودکار:\n{e!s}")
     
+    def shutdown_backup_workers(self, timeout=10):
+        """
+        توقف قطعی کارگرهای پشتیبان‌گیری هنگام بستن برنامه
+
+        (دور هفدهم — BUG-BACKUP-09) پیش از این، خروج از برنامه (و مسیر
+        «خروج → اجرای دوبارهٔ فرایند») هیچ‌وقت زمان‌بند پشتیبان‌گیری خودکار
+        را متوقف نمی‌کرد؛ نخ پس‌زمینه می‌توانست پس از خروج هم روی همان فایل
+        دیتابیس کار کند و فرایند تازه با اتصال در حال استفاده روبه‌رو شود.
+
+        این متد عمداً تنظیمات QSettings را **تغییر نمی‌دهد** (برخلاف دکمهٔ
+        «توقف» که انتخاب کاربر است)؛ فقط نخ را می‌بندد تا در اجرای بعدی،
+        پشتیبان‌گیری خودکار مثل قبل از حالت ذخیره‌شده ادامه پیدا کند.
+
+        Returns:
+            dict: {'auto_backup_stopped': bool, 'backup_page_stopped': bool}
+                   هر مقدار True یعنی کارگری در حال اجرا نمانده است.
+        """
+        result = {'auto_backup_stopped': True, 'backup_page_stopped': True}
+
+        handle = getattr(self, 'auto_backup_thread', None)
+        if handle is not None:
+            stopper = getattr(handle, 'stop', None)
+            if callable(stopper):
+                try:
+                    stopped = stopper(timeout)
+                except TypeError:
+                    stopped = stopper()
+                except Exception as e:  # pragma: no cover - وابسته به نخ
+                    stopped = False
+                    logger.error(
+                        f"خطا در توقف زمان‌بند پشتیبان‌گیری خودکار: {e}",
+                        exc_info=True)
+                result['auto_backup_stopped'] = bool(stopped)
+                if not stopped:
+                    logger.warning(
+                        "زمان‌بند پشتیبان‌گیری خودکار در مهلت تعیین‌شده "
+                        "متوقف نشد؛ احتمالاً وسط یک پشتیبان‌گیری است.")
+            self.auto_backup_thread = None
+
+        page = getattr(self, 'backup_page', None)
+        shutdown = getattr(page, 'shutdown', None)
+        if callable(shutdown):
+            try:
+                result['backup_page_stopped'] = bool(shutdown(timeout))
+            except Exception as e:  # pragma: no cover - وابسته به Qt
+                result['backup_page_stopped'] = False
+                logger.error(
+                    f"خطا در توقف کارگر صفحهٔ پشتیبان‌گیری: {e}", exc_info=True)
+
+        return result
+
     def stop_auto_backup(self):
         """توقف پشتیبان‌گیری خودکار"""
         try:

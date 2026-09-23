@@ -1039,9 +1039,41 @@ class MainWindow(QMainWindow):
                 logger.debug(f"ری‌استارت تایمر بی‌کاری ممکن نشد: {e}")
         return super().eventFilter(obj, event)
 
+    def _shutdown_background_workers(self):
+        """
+        توقف صریح کارگرها/تایمرهای پس‌زمینه پیش از بستن پنجره
+
+        (دور هفدهم — BUG-BACKUP-09 و بند ۳۳) مسیر خروج برنامه، فرایند را
+        با `subprocess.Popen` دوباره اجرا می‌کند؛ اگر زمان‌بند پشتیبان‌گیری
+        خودکار یا کارگر پشتیبان/بازیابی هنوز زنده باشد، فرایند جدید روی
+        همان فایل دیتابیس با یک نویسندهٔ زنده روبه‌رو می‌شود. این متد تنها
+        جایی است که این توقف انجام می‌شود (فهرست صریح، بدون بازتاب).
+        """
+        try:
+            shutdown = getattr(self.settings_page, 'shutdown_backup_workers', None)
+            if callable(shutdown):
+                result = shutdown()
+                if not all(result.values()):
+                    self.logger.warning(
+                        f"توقف کامل کارگرهای پشتیبان‌گیری ممکن نشد: {result}")
+        except Exception as e:
+            self.logger.error(f"خطا در توقف کارگرهای پشتیبان‌گیری: {e}",
+                              exc_info=True)
+
+        for timer_name in ('notification_timer', 'idle_timer'):
+            timer = getattr(self, timer_name, None)
+            if timer is not None:
+                try:
+                    timer.stop()
+                except RuntimeError as e:
+                    self.logger.debug(f"توقف {timer_name} ممکن نشد: {e}")
+
     def closeEvent(self, event):
         # (بازرسی شانزدهم) وقتی بستن از مسیر logout() می‌آید، خروج همان‌جا در
         # Audit ثبت شده؛ دوباره ثبت نمی‌شود (قبلاً هر خروج دو ردیف logout داشت).
+        # (دور هفدهم) پیش از هر چیز کارگرهای پس‌زمینه متوقف می‌شوند تا هیچ
+        # نخ زنده‌ای پس از خروج روی دیتابیس کار نکند.
+        self._shutdown_background_workers()
         if self.is_logged_in and not getattr(self, '_logout_logged', False):
             try:
                 from utils.security import AuditLogger
