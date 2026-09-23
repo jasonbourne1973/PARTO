@@ -842,10 +842,17 @@ class AttachmentDialog(QDialog):
         
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                self.attachment_service.delete_attachment(self.current_attachment_id)
+                deleted = self.attachment_service.delete_attachment(
+                    self.current_attachment_id
+                )
                 self.load_attachments()
-                self.attachment_deleted.emit()
-                QMessageBox.information(self, "موفقیت", "فایل با موفقیت حذف شد")
+                if deleted:
+                    self.attachment_deleted.emit()
+                    QMessageBox.information(
+                        self, "موفقیت", "فایل با موفقیت حذف شد"
+                    )
+                else:
+                    QMessageBox.warning(self, "خطا", "فایل حذف نشد.")
             except Exception as e:
                 self.logger.error(f"خطا در حذف فایل: {e}")
                 QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
