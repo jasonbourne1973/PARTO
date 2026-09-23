@@ -745,7 +745,7 @@ class FollowUpService(BaseService):
             self.logger.debug(f"خطای مدیریت‌شده در validate_followup (مسیر جایگزین): {e}")
             return False, [str(e)]
 
-    def search_followups(self, search_term, limit=100, year_id=None):
+    def search_followups(self, search_term, limit=None, year_id=None):
         """
         جستجوی پیگیری‌ها بر اساس متن
         
