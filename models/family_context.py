@@ -29,6 +29,24 @@ class FamilyContext(BaseModel):
         (GUARDIAN_GRANDPARENTS, "پدربزرگ و مادربزرگ"),
         (GUARDIAN_OTHER, "سایر"),
     ]
+
+    # ===== نگاشت «وضعیت زندگی» فرم دانش‌آموز به همان ستون guardian_status =====
+    # (بازبینی نهایی — رفع BUG-GUI-02)
+    # فرم ثبت/ویرایش دانش‌آموز فیلد «وضعیت زندگی» را با متن‌های
+    # config.constants.LIVING_STATUSES نشان می‌دهد. همان مفهوم با کدهای
+    # GUARDIAN_CHOICES در family_contexts.guardian_status ذخیره می‌شود؛
+    # پس هیچ ستون/جدول تازه‌ای لازم نیست و دادهٔ خانواده در جای
+    # قانونی خودش (زمینهٔ خانوادگی هر پرونده) می‌ماند.
+    LIVING_STATUS_MAP: ClassVar[dict] = {
+        "با هر دو والدین": GUARDIAN_BOTH,
+        "فقط با مادر": GUARDIAN_MOTHER,
+        "فقط با پدر": GUARDIAN_FATHER,
+        "با پدربزرگ و مادربزرگ": GUARDIAN_GRANDPARENTS,
+        "سایر": GUARDIAN_OTHER,
+    }
+    GUARDIAN_TO_LIVING_STATUS: ClassVar[dict] = {
+        code: label for label, code in LIVING_STATUS_MAP.items()
+    }
     
     # وضعیت‌های ارتباط با مدرسه
     CONTACT_GOOD = "good"
@@ -108,6 +126,36 @@ class FamilyContext(BaseModel):
     def siblings_count(self):
         """تعداد کل خواهر و برادر"""
         return (self.siblings_brothers or 0) + (self.siblings_sisters or 0)
+
+    @property
+    def living_status(self):
+        """
+        «وضعیت زندگی با والدین» به‌صورت متنِ فرم (LIVING_STATUSES)
+
+        همان مقدار guardian_status است که برای نمایش در فرم دانش‌آموز به
+        متن فارسی برگردانده می‌شود. اگر دادهٔ قدیمی متن باشد، خودش
+        برگردانده می‌شود تا چیزی «ناشناخته» نشود.
+        """
+        if not self.guardian_status:
+            return None
+        if self.guardian_status in self.GUARDIAN_TO_LIVING_STATUS:
+            return self.GUARDIAN_TO_LIVING_STATUS[self.guardian_status]
+        return self.guardian_status
+
+    @living_status.setter
+    def living_status(self, value):
+        """
+        تنظیم «وضعیت زندگی» با متن فرم
+
+        مقدار خالی/ناموجود → دست‌نخورده ماندن مقدار فعلی (هیچ داده‌ای پاک
+        نمی‌شود). اگر متن ناشناخته باشد، همان‌طور ذخیره می‌شود تا کاربر
+        داده‌اش را از دست ندهد، ولی نگاشت معکوس فقط برای کدهای شناخته‌شده
+        انجام می‌شود.
+        """
+        if value is None or str(value).strip() == "":
+            return
+        text = str(value).strip()
+        self.guardian_status = self.LIVING_STATUS_MAP.get(text, text)
     
     def to_dict(self):
         """تبدیل به دیکشنری برای نمایش"""

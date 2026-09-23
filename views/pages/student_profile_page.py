@@ -823,7 +823,17 @@ class StudentProfilePage(QWidget):
             context = self.family_dal.get_by_student_profile(self.profile_id)
             if context:
                 parts = []
-                parts.append(f"وضعیت سرپرستی: {getattr(context, 'guardian_status_display', '-')}")
+                # «وضعیت زندگی» ثبت‌شده در فرم دانش‌آموز هم همان
+                # guardian_status است؛ برای کاربر با همان متن فرم نمایش
+                # داده می‌شود (رفع BUG-GUI-02: قبلاً هیچ‌جا دیده نمی‌شد).
+                living_status = getattr(context, 'living_status', None)
+                parts.append(
+                    f"وضعیت زندگی: {living_status or getattr(context, 'guardian_status_display', '-')}"
+                )
+                parts.append(
+                    f"خواهر/برادر: {context.siblings_sisters or 0} خواهر، "
+                    f"{context.siblings_brothers or 0} برادر"
+                )
                 parts.append(f"حمایت والدین: {getattr(context, 'parental_support', None) or '-'}")
                 parts.append(f"وضعیت اقتصادی: {getattr(context, 'economic_status', None) or '-'}")
                 parts.append(f"فضای مطالعه: {'دارد' if getattr(context, 'has_study_space', 0) else 'ندارد'}")

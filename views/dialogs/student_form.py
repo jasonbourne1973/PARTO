@@ -22,9 +22,11 @@ from PySide6.QtWidgets import (
 
 from config.settings import GRADES, LIVING_STATUSES
 from dal.academic_year_dal import AcademicYearDAL
+from dal.family_context_dal import FamilyContextDAL
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.student_dal import StudentDAL
 from models.academic_year import AcademicYear
+from models.family_context import FamilyContext
 from models.student import Student
 from utils.logger import get_logger
 from utils.time_utils import utc_now
@@ -44,11 +46,24 @@ class StudentForm(QDialog):
         self.student_dal = StudentDAL()
         self.profile_dal = StudentAcademicProfileDAL()
         self.year_dal = AcademicYearDAL()
+        self.family_dal = FamilyContextDAL()
         self.is_edit_mode = student is not None
 
         self.existing_profile = None
         if self.is_edit_mode and self.student.id:
             self.existing_profile = self.profile_dal.get_active_by_student(self.student.id)
+
+        # در حالت ویرایش، اطلاعات خانوادگی از دیتابیس خوانده می‌شود
+        # (رفع BUG-GUI-02: قبلاً از فیلدهای سایه‌ای مدل Student خوانده
+        # می‌شد که هیچ‌وقت در دیتابیس ذخیره نمی‌شدند).
+        self.existing_family = None
+        if self.existing_profile:
+            try:
+                self.existing_family = self.family_dal.get_by_student_profile(
+                    self.existing_profile.id)
+            except Exception as e:
+                logger.error(f"خطا در خواندن زمینهٔ خانوادگی دانش‌آموز: {e}")
+                self.existing_family = None
 
         self.setWindowTitle("ویرایش دانش‌آموز" if self.is_edit_mode else "ثبت دانش‌آموز جدید")
         self.setModal(True)
@@ -253,14 +268,26 @@ class StudentForm(QDialog):
         
         self.guardian_name_input.setText(self.student.guardian_name or "")
         self.guardian_phone_input.setText(self.student.guardian_phone or "")
-        self.brothers_spin.setValue(getattr(self.student, 'siblings_brothers', 0))
-        self.sisters_spin.setValue(getattr(self.student, 'siblings_sisters', 0))
-        
-        if hasattr(self.student, 'living_status') and self.student.living_status:
-            index = self.living_status_combo.findText(self.student.living_status)
+
+        # اطلاعات خانوادگی از family_contexts خوانده می‌شود؛ اگر پروندهٔ فعالی
+        # نباشد، یک ردیف FamilyContext خالی برای پیش‌فرض نمایش استفاده می‌شود
+        # (بدون نوشتن در دیتابیس در مرحلهٔ بارگذاری).
+        family = self.existing_family or FamilyContext()
+        self.brothers_spin.setValue(int(family.siblings_brothers or 0))
+        self.sisters_spin.setValue(int(family.siblings_sisters or 0))
+
+        living_status = family.living_status
+        if living_status:
+            index = self.living_status_combo.findText(living_status)
             if index >= 0:
                 self.living_status_combo.setCurrentIndex(index)
-        
+            else:
+                # مقدار ثبت‌شده در لیست استاندارد نیست (دادهٔ قدیمی/دستی)؛
+                # نباید بی‌صدا به گزینهٔ اول تغییر کند.
+                self.living_status_combo.addItem(living_status)
+                self.living_status_combo.setCurrentIndex(
+                    self.living_status_combo.count() - 1)
+
         self.address_input.setText(self.student.address or "")
     
     @single_submit()
@@ -276,9 +303,13 @@ class StudentForm(QDialog):
         self.student.address = self.address_input.toPlainText().strip()
         self.student.is_active = 1
 
-        self.student.siblings_brothers = self.brothers_spin.value()
-        self.student.siblings_sisters = self.sisters_spin.value()
-        self.student.living_status = self.living_status_combo.currentText()
+        # اطلاعات خانوادگی دیگر روی مدل Student (که ستون دیتابیس ندارد)
+        # گذاشته نمی‌شود؛ مقادیر فرم مستقیم به family_contexts می‌روند.
+        family_inputs = {
+            'living_status': self.living_status_combo.currentText(),
+            'siblings_brothers': self.brothers_spin.value(),
+            'siblings_sisters': self.sisters_spin.value(),
+        }
 
         errors = self.student.validate()
         if errors:
@@ -323,6 +354,7 @@ class StudentForm(QDialog):
                 existing_profile.class_name = class_name
                 existing_profile.status = "active"
                 self.profile_dal.update(existing_profile)
+                profile_id = existing_profile.id
             else:
                 from models.student_academic_profile import StudentAcademicProfile
 
@@ -335,7 +367,21 @@ class StudentForm(QDialog):
 
                 logger.debug(f"DEBUG profile -> student_id={new_profile.student_id}, academic_year_id={new_profile.academic_year_id}")
 
-                self.profile_dal.create(new_profile)
+                saved_profile = self.profile_dal.create(new_profile)
+                profile_id = getattr(saved_profile, 'id', None) or new_profile.id
+
+            if not profile_id:
+                raise Exception("شناسهٔ پروندهٔ سالانه پس از ذخیره برنگشت")
+
+            # 3) ذخیرهٔ اطلاعات خانوادگی در جای قانونی‌اش (family_contexts)
+            #    upsert تک‌ردیفی + بررسی rowcount + بازخوانی از دیتابیس.
+            saved_family = self.family_dal.upsert_family_facts(
+                profile_id,
+                living_status=family_inputs['living_status'],
+                siblings_brothers=family_inputs['siblings_brothers'],
+                siblings_sisters=family_inputs['siblings_sisters'],
+            )
+            self.existing_family = saved_family
 
             QMessageBox.information(self, "موفقیت", message)
             self.accept()

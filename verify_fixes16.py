@@ -2686,6 +2686,140 @@ check("I", "AssignTeacherDialog در حالت ویرایش: معلم فعلی ب
       and edit_dlg.result() == QDialog.DialogCode.Accepted and not [m for m in ui_msgs[n_msgs:] if m[0] == "crit"],
       f"loaded={loaded_teacher} row={tuple(saved_row) if saved_row else None} msgs={ui_msgs[n_msgs:][-1:]}")
 
+# ============================================================
+print()
+print("=" * 76)
+print("بخش M: بازبینی نهایی — پایداری اطلاعات خانوادگی دانش‌آموز (BUG-GUI-02)")
+print("=" * 76)
+
+# --- M1: جای قانونی داده: ستون‌های خانوادگی در students وجود ندارند و
+#         مسیر رسمی، جدول family_contexts است
+_students_cols = {row[1] for row in conn.execute("PRAGMA table_info(students)").fetchall()}
+_family_cols = {row[1] for row in conn.execute("PRAGMA table_info(family_contexts)").fetchall()}
+_shadow_in_students = {"siblings_brothers", "siblings_sisters", "living_status"} & _students_cols
+_required_family_cols = {"student_profile_id", "siblings_brothers", "siblings_sisters", "guardian_status"}
+check("M", "جای قانونی داده: جدول students هیچ ستون خانوادگی ندارد و family_contexts ستون‌های لازم (پرونده، برادر، خواهر، وضعیت سرپرستی/زندگی) را دارد",
+      not _shadow_in_students and _required_family_cols <= _family_cols,
+      f"shadow_in_students={sorted(_shadow_in_students)} family_missing={sorted(_required_family_cols - _family_cols)}")
+
+# --- M2: مدل Student دیگر نسخهٔ سایه ندارد؛ مدل FamilyContext نگاشت
+#         «وضعیت زندگی» فرم را به guardian_status دارد
+from models.family_context import FamilyContext  # noqa: E402
+from models.student import Student  # noqa: E402
+
+_probe_student = Student()
+_shadow_model_fields = [name for name in ("siblings_brothers", "siblings_sisters", "living_status")
+                        if hasattr(_probe_student, name)]
+_probe_family = FamilyContext()
+_probe_family.living_status = "فقط با مادر"
+_map_ok = (_probe_family.guardian_status == FamilyContext.GUARDIAN_MOTHER
+           and _probe_family.living_status == "فقط با مادر")
+_probe_family.living_status = "با عمه"          # مقدار ناشناخته نباید پاک شود
+_unknown_ok = _probe_family.guardian_status == "با عمه" and _probe_family.living_status == "با عمه"
+check("M", "مدل: Student هیچ فیلد سایه‌ای ندارد؛ FamilyContext «وضعیت زندگی» فرم را به guardian_status نگاشت می‌کند و مقدار ناشناخته را پاک نمی‌کند",
+      not _shadow_model_fields and _map_ok and _unknown_ok,
+      f"shadow={_shadow_model_fields} map={_map_ok} unknown_kept={_unknown_ok}")
+
+# --- M3: مسیر واقعی فرم: ثبت → ذخیره در family_contexts → بازخوانی در فرم
+#         → ویرایش → همان ردیف به‌روز می‌شود (بدون ردیف تکراری)
+from views.dialogs.student_form import StudentForm  # noqa: E402
+
+_form_student = Student()
+_form_student.first_name = "خانوادگی"
+_form_student.last_name = "فرم"
+_form_student.national_code = "5555555555"
+_form_student = StudentDAL().create(_form_student)
+
+_family_profile = StudentAcademicProfile()
+_family_profile.student_id = _form_student.id
+_family_profile.academic_year_id = active_year.id
+_family_profile.grade = 3
+_family_profile.class_name = "ط"
+_family_profile.status = "active"
+_family_profile = StudentAcademicProfileDAL().create(_family_profile)
+
+_family_detail = ""
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        create_form = StudentForm(student=StudentDAL().get_by_id(_form_student.id))
+    create_form.brothers_spin.setValue(2)
+    create_form.sisters_spin.setValue(1)
+    create_form.living_status_combo.setCurrentText("فقط با مادر")
+    _msgs_before = len(ui_msgs)
+    with contextlib.redirect_stdout(io.StringIO()):
+        create_form.save_student()
+
+    _row = conn.execute(
+        "SELECT id, student_profile_id, guardian_status, siblings_brothers, siblings_sisters "
+        "FROM family_contexts WHERE student_profile_id = ?", (_family_profile.id,)).fetchone()
+    _n_rows_after_create = conn.execute(
+        "SELECT COUNT(*) FROM family_contexts WHERE student_profile_id = ?",
+        (_family_profile.id,)).fetchone()[0]
+
+    # بازخوانی در فرم (بدون هیچ کوئری دستی) — همان چیزی که کاربر می‌بیند
+    with contextlib.redirect_stdout(io.StringIO()):
+        reopen_form = StudentForm(student=StudentDAL().get_by_id(_form_student.id))
+    _read_back = (reopen_form.brothers_spin.value(), reopen_form.sisters_spin.value(),
+                  reopen_form.living_status_combo.currentText())
+
+    # ویرایش مقادیر → همان ردیف به‌روز شود، نه ردیف تازه
+    reopen_form.brothers_spin.setValue(0)
+    reopen_form.sisters_spin.setValue(3)
+    reopen_form.living_status_combo.setCurrentText("با پدربزرگ و مادربزرگ")
+    with contextlib.redirect_stdout(io.StringIO()):
+        reopen_form.save_student()
+    _n_rows_after_edit = conn.execute(
+        "SELECT COUNT(*) FROM family_contexts WHERE student_profile_id = ?",
+        (_family_profile.id,)).fetchone()[0]
+    _row_after_edit = conn.execute(
+        "SELECT id, guardian_status, siblings_brothers, siblings_sisters "
+        "FROM family_contexts WHERE student_profile_id = ?", (_family_profile.id,)).fetchone()
+
+    # مدل Student نباید مقدار خانوادگی حمل کند (مسیر سایهٔ قبلی)
+    _shadow_on_saved = [name for name in ("siblings_brothers", "siblings_sisters", "living_status")
+                        if hasattr(create_form.student, name)]
+
+    _family_detail = (f"row={tuple(_row) if _row else None} rows={_n_rows_after_create} "
+                      f"read_back={_read_back} after_edit={tuple(_row_after_edit) if _row_after_edit else None} "
+                      f"rows_edit={_n_rows_after_edit} shadow={_shadow_on_saved} "
+                      f"msg={ui_msgs[_msgs_before:_msgs_before + 1]}")
+    check("M", "فرم دانش‌آموز: ذخیره → ردیف family_contexts با همان مقدارها ساخته می‌شود؛ بازکردن دوبارهٔ فرم همان‌ها را از DB نشان می‌دهد؛ ویرایش فقط همان ردیف را به‌روز می‌کند (بدون ردیف تکراری و بدون فیلد سایه روی Student)",
+          _row is not None and _row['guardian_status'] == FamilyContext.GUARDIAN_MOTHER
+          and _row['siblings_brothers'] == 2 and _row['siblings_sisters'] == 1
+          and _n_rows_after_create == 1
+          and _read_back == (2, 1, "فقط با مادر")
+          and _n_rows_after_edit == 1
+          and _row_after_edit['id'] == _row['id']
+          and _row_after_edit['guardian_status'] == FamilyContext.GUARDIAN_GRANDPARENTS
+          and _row_after_edit['siblings_brothers'] == 0 and _row_after_edit['siblings_sisters'] == 3
+          and not _shadow_on_saved
+          and any(kind == "info" for kind, _ in ui_msgs[_msgs_before:]),
+          _family_detail)
+except Exception as _family_exc:
+    check("M", "فرم دانش‌آموز: ذخیره/بازخوانی/ویرایش اطلاعات خانوادگی از مسیر واقعی فرم", False,
+          f"{type(_family_exc).__name__}: {_family_exc} {_family_detail}")
+
+# --- M4: پایداری پس از «راه‌اندازی دوباره»: اتصال بسته و دوباره باز می‌شود،
+#         و داده با همین شناسه از DB خوانده می‌شود (بدون حافظهٔ درون‌برنامه‌ای)
+_restart_ok = False
+_restart_detail = ""
+try:
+    dbc.DatabaseConnection().close_all()
+    # اتصال تازه (مثل بازکردن دوبارهٔ برنامه)؛ همان اتصال ماژول هم تازه می‌شود
+    # تا بررسی‌های بعدی روی اتصال بسته اجرا نشوند.
+    conn = dbc.DatabaseConnection().get_connection(user_id=1)
+    _restart_row = conn.execute(
+        "SELECT guardian_status, siblings_brothers, siblings_sisters FROM family_contexts "
+        "WHERE student_profile_id = ?", (_family_profile.id,)).fetchone()
+    _restart_ok = (_restart_row is not None
+                   and _restart_row['siblings_sisters'] == 3
+                   and _restart_row['guardian_status'] == FamilyContext.GUARDIAN_GRANDPARENTS)
+    _restart_detail = f"row={tuple(_restart_row) if _restart_row else None}"
+except Exception as _restart_exc:
+    _restart_detail = f"{type(_restart_exc).__name__}: {_restart_exc}"
+check("M", "پایداری پس از راه‌اندازی دوباره: با بستن کامل اتصال‌ها و اتصال تازه، همان مقدارها از دیتابیس خوانده می‌شوند (داده در حافظه نیست)",
+      _restart_ok, _restart_detail)
+
 # --- I4: قیدهای CHECK در دیتابیس تازه: شدت خارج از ۱..۵ و نوع رفتار ناشناخته در سطح دیتابیس رد می‌شوند
 sev_err = _integrity("INSERT INTO observations (student_profile_id, staff_id, observation_date, description, behavior, behavior_type, severity) "
                      "VALUES (?, 1, '1405/01/01', 'x', 'y', 'مثبت', 9)", (form_pid,))

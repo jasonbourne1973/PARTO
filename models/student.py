@@ -19,11 +19,18 @@ class Student(BaseModel):
         self.guardian_phone = None
         self.address = None
         self._is_active = 1  # استفاده از متغیر خصوصی
-        
-        # این فیلدها در دیتابیس وجود ندارند - برای نمایش استفاده می‌شوند
-        self.siblings_brothers = 0
-        self.siblings_sisters = 0
-        self.living_status = None
+
+        # ===== اطلاعات خانوادگی (رفع BUG-GUI-02) =====
+        # نسخهٔ قبلی این سه فیلد را روی «دانش‌آموز» نگه می‌داشت:
+        #     siblings_brothers / siblings_sisters / living_status
+        # در حالی که هیچ‌کدام ستون جدول students نیستند (و نیستند)؛ پس
+        # StudentDAL آن‌ها را ذخیره نمی‌کرد و هر ورودی کاربر در فرم
+        # دانش‌آموز بی‌سروصدا از بین می‌رفت. جای قانونی این داده‌ها
+        # جدول family_contexts است (per پروندهٔ سالانه):
+        #     siblings_brothers / siblings_sisters / guardian_status
+        # و مسیر ثبت/خوانش آن‌ها:
+        #     FamilyContextDAL.upsert_family_facts(...)  و  StudentForm.
+        # حالا Student هیچ نسخهٔ سایه‌ای از آن‌ها ندارد.
 
     # ------------------------------------------------------------------
     # پراپرتی is_active با getter و setter

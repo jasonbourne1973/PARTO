@@ -4,7 +4,10 @@
 
 from database.connection import DatabaseConnection
 from models.family_context import FamilyContext
+from utils.logger import get_logger
 from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class FamilyContextDAL:
@@ -12,6 +15,7 @@ class FamilyContextDAL:
     
     def __init__(self):
         self.db = DatabaseConnection()
+        self.logger = logger
     
     def create(self, family_context):
         """ایجاد اطلاعات زمینه‌ای خانواده جدید"""
@@ -79,7 +83,129 @@ class FamilyContextDAL:
         if row:
             return self._row_to_family_context(row)
         return None
-    
+
+    def count_for_profile(self, profile_id, include_deleted=True):
+        """تعداد ردیف‌های زمینهٔ خانوادگی یک پرونده (برای تضمین نبود تکرار)"""
+        query = "SELECT COUNT(*) FROM family_contexts WHERE student_profile_id = ?"
+        if not include_deleted:
+            query += " AND is_deleted = 0"
+        cursor = self.db.execute_query(query, (profile_id,))
+        return cursor.fetchone()[0]
+
+    def upsert_family_facts(self, profile_id, living_status=None,
+                            siblings_brothers=None, siblings_sisters=None):
+        """
+        ثبت/به‌روزرسانی «اطلاعات پایهٔ خانواده» یک پرونده در «یک» ردیف
+        (بازبینی نهایی — رفع BUG-GUI-02)
+
+        چرا این متد؟ فرم دانش‌آموز سه ورودی خانوادگی دارد (وضعیت زندگی،
+        تعداد برادران، تعداد خواهران). این داده‌ها جای قانونی‌شان در
+        جدول family_contexts است، پس ذخیره باید:
+
+          • برای هر پرونده دقیقاً یک ردیف بسازد (نه ردیف تکراری در هر ذخیره)،
+          • نتیجهٔ واقعی درج/به‌روزرسانی را بررسی کند (rowcount)،
+          • و در پایان، همان چیزی را که در دیتابیس نشسته بازبخواند.
+
+        Args:
+            profile_id: شناسهٔ پروندهٔ سالانه (student_profile_id)
+            living_status: متن «وضعیت زندگی» فرم یا None (دست‌نخوردنی)
+            siblings_brothers: تعداد برادران یا None (دست‌نخوردنی)
+            siblings_sisters: تعداد خواهران یا None (دست‌نخوردنی)
+
+        Returns:
+            FamilyContext: ردیف بازخوانی‌شده از دیتابیس
+
+        Raises:
+            ValueError: اگر profile_id نامعتبر باشد
+            RuntimeError: اگر درج/به‌روزرسانی واقعاً روی دیتابیس اثر نکند
+        """
+        if not profile_id:
+            raise ValueError("ثبت اطلاعات خانوادگی بدون شناسهٔ پرونده ممکن نیست.")
+
+        existing = self.get_by_student_profile(profile_id)
+        context = existing or FamilyContext()
+        context.student_profile_id = profile_id
+
+        # مقدارهای None یعنی «این فیلد را تغییر نده» (حفظ رفتار قبلیِ داده)
+        if living_status is not None:
+            context.living_status = living_status
+        if siblings_brothers is not None:
+            context.siblings_brothers = max(0, int(siblings_brothers))
+        if siblings_sisters is not None:
+            context.siblings_sisters = max(0, int(siblings_sisters))
+
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+
+        if existing is None:
+            cursor.execute("""
+                INSERT INTO family_contexts (
+                    student_profile_id, guardian_status,
+                    siblings_brothers, siblings_sisters
+                ) VALUES (?, ?, ?, ?)
+            """, (
+                profile_id,
+                context.guardian_status,
+                context.siblings_brothers or 0,
+                context.siblings_sisters or 0,
+            ))
+            if cursor.rowcount != 1 or not cursor.lastrowid:
+                raise RuntimeError(
+                    "درج اطلاعات خانوادگی روی دیتابیس اثر نکرد "
+                    f"(rowcount={cursor.rowcount})."
+                )
+            context.id = cursor.lastrowid
+            action = "ایجاد"
+        else:
+            cursor.execute("""
+                UPDATE family_contexts SET
+                    guardian_status = ?,
+                    siblings_brothers = ?,
+                    siblings_sisters = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND is_deleted = 0
+            """, (
+                context.guardian_status,
+                context.siblings_brothers or 0,
+                context.siblings_sisters or 0,
+                context.id,
+            ))
+            if cursor.rowcount != 1:
+                raise RuntimeError(
+                    "به‌روزرسانی اطلاعات خانوادگی روی دیتابیس اثر نکرد "
+                    f"(rowcount={cursor.rowcount})."
+                )
+            action = "به‌روزرسانی"
+
+        self.db.commit()
+
+        # بازخوانی از دیتابیس: تنها شاهد «ذخیره‌شدن» همین است
+        saved = self.get_by_student_profile(profile_id)
+        if saved is None:
+            raise RuntimeError(
+                "اطلاعات خانوادگی پس از ذخیره در دیتابیس یافت نشد."
+            )
+
+        rows = self.count_for_profile(profile_id, include_deleted=False)
+        if rows != 1:
+            raise RuntimeError(
+                f"برای این پرونده {rows} ردیف زمینهٔ خانوادگی ثبت شده است؛ "
+                "باید دقیقاً یک ردیف باشد."
+            )
+
+        if (saved.siblings_brothers or 0) != (context.siblings_brothers or 0) \
+                or (saved.siblings_sisters or 0) != (context.siblings_sisters or 0):
+            raise RuntimeError(
+                "اطلاعات خانوادگی ذخیره‌شده با ورودی مطابقت ندارد."
+            )
+
+        self.logger.info(
+            f"{action} اطلاعات خانوادگی پرونده {profile_id}: "
+            f"وضعیت زندگی={saved.living_status!r}، "
+            f"برادر={saved.siblings_brothers}، خواهر={saved.siblings_sisters}"
+        )
+        return saved
+
     def update(self, family_context):
         """به‌روزرسانی اطلاعات زمینه‌ای خانواده"""
         conn = self.db.get_connection()
