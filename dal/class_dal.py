@@ -157,13 +157,15 @@ class ClassDAL:
         return True
     
     def get_student_count(self, class_id):
-        """دریافت تعداد دانش‌آموزان یک کلاس"""
+        """دریافت تعداد دانش‌آموزان همان کلاس در همان سال تحصیلی."""
         cursor = self.db.execute_query("""
-            SELECT COUNT(*) as count
-            FROM student_academic_profiles
-            WHERE class_name = (
-                SELECT name FROM classes WHERE id = ?
-            ) AND is_deleted = 0 AND status = 'active'
+            SELECT COUNT(*) AS count
+            FROM student_academic_profiles sap
+            JOIN classes c ON c.id = ?
+            WHERE sap.class_name = c.name
+              AND sap.academic_year_id = c.academic_year_id
+              AND sap.is_deleted = 0
+              AND sap.status = 'active'
         """, (class_id,))
         row = cursor.fetchone()
         return row['count'] if row else 0
@@ -219,9 +221,12 @@ class ClassDAL:
                 SELECT DISTINCT s.id
                 FROM students s
                 JOIN student_academic_profiles sap ON s.id = sap.student_id
-                WHERE sap.class_name = ? AND sap.is_deleted = 0 AND sap.status = 'active'
+                WHERE sap.class_name = ?
+                  AND sap.academic_year_id = ?
+                  AND sap.is_deleted = 0
+                  AND sap.status = 'active'
             """
-            params = [class_obj.name]
+            params = [class_obj.name, class_obj.academic_year_id]
             
             cursor.execute(students_query, params)
             student_rows = cursor.fetchall()
@@ -246,9 +251,14 @@ class ClassDAL:
                 FROM observations o
                 JOIN student_academic_profiles sap ON o.student_profile_id = sap.id
                 WHERE sap.student_id IN ({placeholders})
+                AND sap.academic_year_id = ?
+                AND sap.class_name = ?
                 AND o.is_deleted = 0
             """
-            obs_params = list(student_ids)
+            obs_params = list(student_ids) + [
+                class_obj.academic_year_id,
+                class_obj.name,
+            ]
             
             if start_date:
                 obs_query += " AND o.observation_date >= ?"
@@ -324,9 +334,15 @@ class ClassDAL:
                 SELECT DISTINCT s.id
                 FROM students s
                 JOIN student_academic_profiles sap ON s.id = sap.student_id
-                WHERE sap.class_name = ? AND sap.is_deleted = 0 AND sap.status = 'active'
+                WHERE sap.class_name = ?
+                  AND sap.academic_year_id = ?
+                  AND sap.is_deleted = 0
+                  AND sap.status = 'active'
             """
-            cursor.execute(students_query, (class_obj.name,))
+            cursor.execute(
+                students_query,
+                (class_obj.name, class_obj.academic_year_id),
+            )
             student_rows = cursor.fetchall()
             student_ids = [row['id'] for row in student_rows]
             
@@ -341,10 +357,15 @@ class ClassDAL:
                 JOIN student_academic_profiles sap ON o.student_profile_id = sap.id
                 LEFT JOIN competencies c ON o.competency_id = c.id
                 WHERE sap.student_id IN ({placeholders})
+                AND sap.academic_year_id = ?
+                AND sap.class_name = ?
                 AND o.competency_id IS NOT NULL
                 AND o.is_deleted = 0
             """
-            obs_params = list(student_ids)
+            obs_params = list(student_ids) + [
+                class_obj.academic_year_id,
+                class_obj.name,
+            ]
             
             if start_date:
                 obs_query += " AND o.observation_date >= ?"
@@ -423,10 +444,16 @@ class ClassDAL:
                 SELECT s.id, s.first_name, s.last_name, sap.grade, sap.class_name
                 FROM students s
                 JOIN student_academic_profiles sap ON s.id = sap.student_id
-                WHERE sap.class_name = ? AND sap.is_deleted = 0 AND sap.status = 'active'
+                WHERE sap.class_name = ?
+                  AND sap.academic_year_id = ?
+                  AND sap.is_deleted = 0
+                  AND sap.status = 'active'
                 ORDER BY s.last_name, s.first_name
             """
-            cursor.execute(students_query, (class_obj.name,))
+            cursor.execute(
+                students_query,
+                (class_obj.name, class_obj.academic_year_id),
+            )
             student_rows = cursor.fetchall()
             
             if not student_rows:
@@ -443,9 +470,15 @@ class ClassDAL:
                     FROM observations o
                     JOIN student_academic_profiles sap ON o.student_profile_id = sap.id
                     WHERE sap.student_id = ?
+                    AND sap.academic_year_id = ?
+                    AND sap.class_name = ?
                     AND o.is_deleted = 0
                 """
-                obs_params = [student_id]
+                obs_params = [
+                    student_id,
+                    class_obj.academic_year_id,
+                    class_obj.name,
+                ]
                 
                 if start_date:
                     obs_query += " AND o.observation_date >= ?"
