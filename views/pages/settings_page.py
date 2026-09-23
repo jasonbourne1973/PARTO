@@ -2,7 +2,7 @@
 صفحه تنظیمات برنامه - نسخه کامل با مدیریت کاربران
 """
 
-from PySide6.QtCore import QSettings, Qt
+from PySide6.QtCore import QSettings, QTimer, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QComboBox,
@@ -83,6 +83,12 @@ class SettingsPage(QWidget):
         self.can_manage_staff = self.can_manage_users or self.can_edit_settings
 
         self.setup_ui()
+
+        # وضعیت پشتیبان‌گیری خودکار یک تنظیم واقعی و ماندگار است؛
+        # با بازشدن برنامه، اگر کاربر قبلاً آن را فعال کرده باشد، همان
+        # زمان‌بندی دوباره راه‌اندازی می‌شود.
+        if self.can_backup:
+            self._restore_auto_backup_state()
 
         # فقط داده‌های تب‌هایی که واقعاً ساخته شده‌اند بارگذاری شود
         if self.can_manage_years:
@@ -1327,6 +1333,9 @@ class SettingsPage(QWidget):
         self.auto_backup_interval.addItem("هر ۲۴ ساعت (روزانه)", 24)
         self.auto_backup_interval.addItem("هر ۴۸ ساعت (دو روز یکبار)", 48)
         self.auto_backup_interval.addItem("هر ۷۲ ساعت (سه روز یکبار)", 72)
+        saved_interval = self._auto_backup_settings().value("interval_hours", 24, type=int)
+        idx = self.auto_backup_interval.findData(saved_interval)
+        self.auto_backup_interval.setCurrentIndex(idx if idx >= 0 else 2)
         auto_layout.addRow("بازه زمانی:", self.auto_backup_interval)
         
         # وضعیت پشتیبان‌گیری خودکار
@@ -1374,7 +1383,20 @@ class SettingsPage(QWidget):
         
         return tab
     
-    def start_auto_backup(self):
+    AUTO_BACKUP_SETTINGS_ORG = "PARTOW"
+    AUTO_BACKUP_SETTINGS_APP = "PARTOW"
+    
+    def _auto_backup_settings(self):
+        return QSettings(self.AUTO_BACKUP_SETTINGS_ORG, self.AUTO_BACKUP_SETTINGS_APP)
+    
+    def _restore_auto_backup_state(self):
+        settings = self._auto_backup_settings()
+        enabled = settings.value("auto_backup/enabled", False, type=bool)
+        if enabled:
+            # پس از تکمیل ساخت رابط، زمان‌بندی را وارد حلقه رویداد Qt می‌کنیم.
+            QTimer.singleShot(0, lambda: self.start_auto_backup(show_message=False))
+    
+    def start_auto_backup(self, show_message=True):
         """شروع پشتیبان‌گیری خودکار"""
         try:
             # (بازرسی شانزدهم) همان پوشهٔ واحد صفحهٔ پشتیبان‌گیری
@@ -1402,12 +1424,18 @@ class SettingsPage(QWidget):
                 user_name="سیستم"
             )
             
+            settings = self._auto_backup_settings()
+            settings.setValue("auto_backup/enabled", True)
+            settings.setValue("interval_hours", int(interval))
+            settings.sync()
+            
             self.auto_backup_status.setText(f"🟢 فعال (هر {interval} ساعت)")
             self.auto_backup_status.setStyleSheet("color: #66BB6A; font-weight: bold;")
             self.start_auto_backup_btn.setEnabled(False)
             self.stop_auto_backup_btn.setEnabled(True)
             
-            QMessageBox.information(self, "موفقیت", f"پشتیبان‌گیری خودکار هر {interval} ساعت فعال شد.")
+            if show_message:
+                QMessageBox.information(self, "موفقیت", f"پشتیبان‌گیری خودکار هر {interval} ساعت فعال شد.")
             
         except Exception as e:
             QMessageBox.critical(self, "خطا", f"مشکل در فعال‌سازی پشتیبان‌گیری خودکار:\n{e!s}")
@@ -1425,6 +1453,10 @@ class SettingsPage(QWidget):
                         "درخواست توقف ثبت شد ولی نخ پشتیبان‌گیری هنوز مشغول است "
                         "(احتمالاً وسط یک پشتیبان‌گیری)؛ پس از پایان کار فعلی متوقف می‌شود.")
             self.auto_backup_thread = None
+
+            settings = self._auto_backup_settings()
+            settings.setValue("auto_backup/enabled", False)
+            settings.sync()
 
             self.auto_backup_status.setText("⏹️ غیرفعال")
             self.auto_backup_status.setStyleSheet("color: #C62828; font-weight: bold;")
