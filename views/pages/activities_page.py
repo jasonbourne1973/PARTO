@@ -280,10 +280,7 @@ class ActivitiesPage(QWidget):
     def add_activity(self):
         """افزودن فعالیت جدید"""
         form = ActivityForm(parent=self)
-        form.activity_saved.connect(self.load_activities)
-        if form.exec() == QDialog.DialogCode.Accepted:
-            self.load_activities()
-            QMessageBox.information(self, "موفقیت", "فعالیت با موفقیت ثبت شد")
+        form.exec()
     
     def edit_activity(self, activity):
         """ویرایش فعالیت"""
