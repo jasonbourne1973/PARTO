@@ -259,24 +259,26 @@ class InterventionsPage(QWidget):
         status = self.status_filter_combo.currentData()
         
         try:
+            active_year = self.academic_year_dal.get_active()
+            year_id = active_year.id if active_year else None
             if search_text:
                 if student_id:
                     interventions = self.intervention_service.search_interventions_by_student(
-                        student_id, search_text
+                        student_id, search_text, year_id=year_id
                     )
                 elif teacher_id:
                     interventions = self.intervention_service.search_interventions_by_teacher(
-                        teacher_id, search_text
+                        teacher_id, search_text, year_id=year_id
                     )
                 else:
-                    interventions = self.intervention_service.search_interventions(search_text)
+                    interventions = self.intervention_service.search_interventions(search_text, limit=None, year_id=year_id)
             else:
                 if student_id:
-                    interventions = self.intervention_service.get_interventions_by_student(student_id)
+                    interventions = self.intervention_service.get_interventions_by_student(student_id, year_id=year_id, limit=None)
                 elif teacher_id:
-                    interventions = self.intervention_service.get_interventions_by_teacher(teacher_id)
+                    interventions = self.intervention_service.get_interventions_by_teacher(teacher_id, year_id=year_id, limit=None)
                 else:
-                    interventions = self.intervention_service.get_all_interventions(include_staff_info=True)
+                    interventions = self.intervention_service.get_all_interventions(limit=None, include_staff_info=True, year_id=year_id)
             
             # فیلتر وضعیت
             if status is not None:
@@ -305,12 +307,15 @@ class InterventionsPage(QWidget):
         self.search_input.clear()
         self.status_filter_combo.setCurrentIndex(0)
         self.student_filter_combo.setCurrentIndex(0)
+        self.teacher_combo.setCurrentIndex(0)
         self.load_interventions()
     
     def load_interventions(self):
         """بارگذاری مداخلات با استفاده از سرویس"""
         try:
-            interventions = self.intervention_service.get_all_interventions(limit=100, include_staff_info=True)
+            active_year = self.academic_year_dal.get_active()
+            year_id = active_year.id if active_year else None
+            interventions = self.intervention_service.get_all_interventions(limit=None, include_staff_info=True, year_id=year_id)
             active_year = self.academic_year_dal.get_active()
             if active_year:
                 profiles = self.profile_dal.get_by_ids(i.student_profile_id for i in interventions)
