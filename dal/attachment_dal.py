@@ -155,31 +155,76 @@ class AttachmentDAL:
         و ترجیحاً از صفحه «مدیریت فایل‌های حذف‌شده» صدا زده شود.
         """
         attachment = self.get_by_id(attachment_id)
+        if not attachment:
+            return False
 
         conn = self.db.get_connection()
         cursor = conn.cursor()
+        quarantine_path = None
 
-        # اول ردیف دیتابیس حذف می‌شود تا اگر حذف فایل شکست خورد،
-        # وضعیت نصفه‌نیمه نماند
-        cursor.execute("DELETE FROM attachments WHERE id = ?", (attachment_id,))
-        self.db.commit()
-
-        if attachment and attachment.file_path:
-            # فقط اگر هیچ پیوست دیگری به همین مسیر اشاره نمی‌کند
-            cursor.execute(
-                "SELECT COUNT(*) FROM attachments WHERE file_path = ?",
-                (attachment.file_path,)
-            )
-            still_referenced = cursor.fetchone()[0]
-            if still_referenced == 0 and os.path.exists(attachment.file_path):
+        try:
+            # فقط اگر هیچ پیوست دیگری به همین مسیر اشاره نمی‌کند، فایل فیزیکی
+            # باید حذف شود. برای اتمیک‌کردن عملیات، فایل ابتدا در همان پوشه
+            # به نام موقت منتقل می‌شود؛ سپس حذف DB commit می‌شود. اگر commit
+            # شکست بخورد، فایل به مسیر اصلی برگردانده می‌شود.
+            file_path = attachment.file_path
+            if file_path and os.path.exists(file_path):
+                attachments_root = os.path.realpath(self.attachments_dir)
+                real_file = os.path.realpath(file_path)
                 try:
-                    os.remove(attachment.file_path)
-                    self.logger.info(f"فایل پیوست برای همیشه حذف شد: {attachment.file_path}")
-                except OSError as e:
-                    self.logger.warning(f"خطا در حذف فایل: {e}")
+                    inside_root = os.path.commonpath([attachments_root, real_file]) == attachments_root
+                except ValueError:
+                    inside_root = False
+                if not inside_root or os.path.islink(file_path):
+                    return False
 
-        self.logger.info(f"پیوست با ID {attachment_id} برای همیشه حذف شد")
-        return True
+                cursor.execute(
+                    "SELECT COUNT(*) FROM attachments WHERE file_path = ? AND id != ?",
+                    (file_path, attachment_id)
+                )
+                still_referenced = cursor.fetchone()[0]
+                if still_referenced == 0:
+                    quarantine_path = f"{file_path}.delete_{attachment_id}.tmp"
+                    if os.path.exists(quarantine_path):
+                        os.remove(quarantine_path)
+                    os.replace(file_path, quarantine_path)
+
+            cursor.execute("DELETE FROM attachments WHERE id = ?", (attachment_id,))
+            if cursor.rowcount != 1:
+                conn.rollback()
+                if quarantine_path and os.path.exists(quarantine_path):
+                    os.replace(quarantine_path, file_path)
+                return False
+            conn.commit()
+
+            # بعد از commit، حذف نهایی دیگر نباید روی DB اثر بگذارد.
+            if quarantine_path and os.path.exists(quarantine_path):
+                try:
+                    os.remove(quarantine_path)
+                except OSError as e:
+                    # رکورد DB قبلاً حذف شده؛ در این حالت فقط یک فایل orphan
+                    # باقی می‌ماند و باید با گزارش صریح قابل شناسایی باشد.
+                    self.logger.warning(
+                        f"رکورد پیوست حذف شد ولی پاک‌سازی فایل موقت ناموفق بود: {e}"
+                    )
+                    return False
+
+            self.logger.info(f"پیوست با ID {attachment_id} برای همیشه حذف شد")
+            return True
+        except Exception as e:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            if quarantine_path and os.path.exists(quarantine_path):
+                try:
+                    os.replace(quarantine_path, file_path)
+                except OSError:
+                    self.logger.exception(
+                        f"بازگردانی فایل پیوست پس از خطای حذف ناموفق بود: {file_path}"
+                    )
+            self.logger.error(f"حذف دائمی پیوست {attachment_id} ناموفق بود: {e}", exc_info=True)
+            return False
 
     def delete_by_entity(self, entity_type, entity_id, user_id=None):
         """حذف تمام پیوست‌های یک موجودیت"""
