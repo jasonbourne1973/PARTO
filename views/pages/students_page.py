@@ -547,8 +547,11 @@ class StudentsPage(QWidget):
     
     def export_to_excel(self):
         """خروجی Excel از دانش‌آموزان"""
-        if not self.students:
-            QMessageBox.warning(self, "توجه", "هیچ دانش‌آموزی برای خروجی وجود ندارد.")
+        export_students = self.all_students or self.students
+        if not export_students:
+            QMessageBox.warning(
+                self, "توجه", "هیچ دانش‌آموزی برای خروجی وجود ندارد."
+            )
             return
         
         file_path, _ = QFileDialog.getSaveFileName(
@@ -567,7 +570,7 @@ class StudentsPage(QWidget):
             
             active_year = self.academic_year_dal.get_active()
             success, message = importer.export_students_to_excel(
-                self.students, file_path, active_year
+                export_students, file_path, active_year
             )
             
             if success:
@@ -584,7 +587,7 @@ class StudentsPage(QWidget):
             self,
             "انتخاب فایل Excel",
             "",
-            "Excel Files (*.xlsx *.xls)"
+            "Excel Files (*.xlsx)"
         )
         
         if not file_path:
