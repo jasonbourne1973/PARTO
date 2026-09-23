@@ -42,6 +42,7 @@ class InterventionsPage(QWidget):
         self.intervention_service = InterventionService()
         self.student_dal = StudentDAL()
         self.profile_dal = StudentAcademicProfileDAL()
+        self.academic_year_dal = AcademicYearDAL()
         self.staff_dal = StaffDAL()
         self.assignment_dal = TeacherAssignmentDAL()
         self.logger = get_logger(self.__class__.__name__)
