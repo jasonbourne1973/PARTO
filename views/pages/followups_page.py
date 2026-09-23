@@ -245,6 +245,18 @@ class FollowUpsPage(QWidget):
             if status is not None:
                 followups = [f for f in followups if f.status == status]
             
+            active_year = self.academic_year_dal.get_active()
+            if active_year:
+                interventions = self.intervention_dal.get_by_ids(f.intervention_id for f in followups)
+                profiles = self.profile_dal.get_by_ids(
+                    i.student_profile_id for i in interventions.values()
+                )
+                followups = [
+                    f for f in followups
+                    if (interventions.get(f.intervention_id)
+                        and profiles.get(interventions[f.intervention_id].student_profile_id)
+                        and profiles[interventions[f.intervention_id].student_profile_id].academic_year_id == active_year.id)
+                ]
             self.followups = followups
             self.display_followups(self.followups)
             
