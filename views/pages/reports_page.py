@@ -171,7 +171,7 @@ class ReportsPage(QWidget):
         self.year_combo = QComboBox()
         self.year_combo.setMinimumWidth(150)
         self.year_combo.addItem("همه سال‌ها", None)
-        self.year_combo.currentIndexChanged.connect(self.load_report)
+        self.year_combo.currentIndexChanged.connect(self.on_year_changed)
         toolbar.addWidget(self.year_combo)
         
         # ===== دکمه‌ها =====
@@ -313,6 +313,18 @@ class ReportsPage(QWidget):
         """وقتی معلم تغییر می‌کند، لیست دانش‌آموزان را به‌روز کن"""
         self.selected_teacher_id = self.teacher_combo.currentData()
         self.load_students_for_teacher()
+
+    def on_year_changed(self, index):
+        """با تغییر سال، دامنه دانش‌آموزان و سپس گزارش را تازه کن."""
+        selected_student_id = self.student_combo.currentData()
+        self.load_students_for_teacher()
+
+        if selected_student_id is not None:
+            idx = self.student_combo.findData(selected_student_id)
+            if idx >= 0:
+                self.student_combo.setCurrentIndex(idx)
+
+        self.load_report()
     
     def load_students_for_teacher(self):
         """بارگذاری دانش‌آموزان یک معلم خاص"""
@@ -328,7 +340,17 @@ class ReportsPage(QWidget):
                 # قبلاً برای هر تخصیص دو کوئری جدا زده می‌شد)
                 student_map = self.student_dal.get_by_ids(
                     a.student_id for a in assignments)
-                profile_map = self.profile_dal.get_active_by_students(student_map.keys())
+                if year_id:
+                    profile_map = {
+                        student_id: self.profile_dal.get_by_student_and_year(
+                            student_id, year_id
+                        )
+                        for student_id in student_map.keys()
+                    }
+                else:
+                    profile_map = self.profile_dal.get_active_by_students(
+                        student_map.keys()
+                    )
                 for assignment in assignments:
                     student = student_map.get(assignment.student_id)
                     if student:
