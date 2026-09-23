@@ -1361,7 +1361,6 @@ class StudentProfilePage(QWidget):
         form = ObservationForm(student_id=self.student_id, parent=self)
         if form.exec() == QDialog.DialogCode.Accepted:
             self.load_student_data()
-            QMessageBox.information(self, "موفقیت", "مشاهده با موفقیت ثبت شد.")
     
     def on_intervention_requested(self, data=None):
         """
