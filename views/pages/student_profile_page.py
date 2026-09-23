@@ -1396,7 +1396,6 @@ class StudentProfilePage(QWidget):
         form = InterventionForm(student_id=self.student_id, parent=self)
         if form.exec() == QDialog.DialogCode.Accepted:
             self.load_student_data()
-            QMessageBox.information(self, "موفقیت", "مداخله با موفقیت ثبت شد.")
     
     def add_followup(self):
         if not self.profile_id:
