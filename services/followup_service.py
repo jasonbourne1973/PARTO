@@ -379,7 +379,7 @@ class FollowUpService(BaseService):
         """
         try:
             # دریافت همه پیگیری‌ها
-            followups = self.followup_dal.get_all()
+            followups = self.followup_dal.get_all(academic_year_id=year_id, staff_id=teacher_id)
             
             # فیلتر بر اساس معلم
             followups = [f for f in followups if f.staff_id == teacher_id]
@@ -408,7 +408,7 @@ class FollowUpService(BaseService):
             self.logger.error(f"خطا در دریافت پیگیری‌های معلم: {e}")
             raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
-    def get_all_followups(self, limit=None):
+    def get_all_followups(self, limit=None, year_id=None):
         """
         دریافت همه پیگیری‌ها
         
@@ -419,7 +419,7 @@ class FollowUpService(BaseService):
             list: لیست پیگیری‌ها
         """
         try:
-            followups = self.followup_dal.get_all(limit)
+            followups = self.followup_dal.get_all(limit=limit, academic_year_id=year_id)
             for follow in followups:
                 self._enrich_followup(follow)
             return followups
@@ -745,7 +745,7 @@ class FollowUpService(BaseService):
             self.logger.debug(f"خطای مدیریت‌شده در validate_followup (مسیر جایگزین): {e}")
             return False, [str(e)]
 
-    def search_followups(self, search_term, limit=100):
+    def search_followups(self, search_term, limit=100, year_id=None):
         """
         جستجوی پیگیری‌ها بر اساس متن
         
@@ -757,7 +757,7 @@ class FollowUpService(BaseService):
             list: لیست پیگیری‌ها مطابق با جستجو
         """
         try:
-            followups = self.followup_dal.search(search_term, limit)
+            followups = self.followup_dal.search(search_term, limit, academic_year_id=year_id)
             for follow in followups:
                 self._enrich_followup(follow)
             return followups
@@ -765,7 +765,7 @@ class FollowUpService(BaseService):
             self.logger.error(f"خطا در جستجوی پیگیری‌ها: {e}")
             raise ServiceError(f"خطا در جستجو: {e!s}")
     
-    def search_followups_by_student(self, student_id, search_term):
+    def search_followups_by_student(self, student_id, search_term, year_id=None):
         """
         جستجوی پیگیری‌های یک دانش‌آموز بر اساس متن
         
@@ -777,7 +777,7 @@ class FollowUpService(BaseService):
             list: لیست پیگیری‌ها مطابق با جستجو
         """
         try:
-            followups = self.followup_dal.search_by_student(student_id, search_term)
+            followups = self.followup_dal.search_by_student(student_id, search_term, academic_year_id=year_id)
             for follow in followups:
                 self._enrich_followup(follow)
             return followups
@@ -785,7 +785,7 @@ class FollowUpService(BaseService):
             self.logger.error(f"خطا در جستجوی پیگیری‌های دانش‌آموز: {e}")
             raise ServiceError(f"خطا در جستجو: {e!s}")
     
-    def search_followups_by_teacher(self, teacher_id, search_term):
+    def search_followups_by_teacher(self, teacher_id, search_term, year_id=None):
         """
         جستجوی پیگیری‌های یک معلم بر اساس متن
         
@@ -797,7 +797,7 @@ class FollowUpService(BaseService):
             list: لیست پیگیری‌ها مطابق با جستجو
         """
         try:
-            followups = self.followup_dal.search_by_teacher(teacher_id, search_term)
+            followups = self.followup_dal.search_by_teacher(teacher_id, search_term, academic_year_id=year_id)
             for follow in followups:
                 self._enrich_followup(follow)
             return followups
