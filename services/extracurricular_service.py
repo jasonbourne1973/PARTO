@@ -82,7 +82,16 @@ class ExtracurricularService(BaseService):
             
             self._validate_activity_data(data, is_update=True)
             
-            activity.student_profile_id = data.get('student_profile_id', activity.student_profile_id)
+            requested_profile_id = data.get('student_profile_id')
+            if requested_profile_id:
+                requested_profile = self.profile_dal.get_by_id(requested_profile_id)
+                current_profile = self.profile_dal.get_by_id(activity.student_profile_id)
+                if (requested_profile and current_profile
+                        and requested_profile.student_id == current_profile.student_id):
+                    # ویرایش همان دانش‌آموز: پرونده تاریخی رکورد حفظ می‌شود.
+                    activity.student_profile_id = current_profile.id
+                else:
+                    activity.student_profile_id = requested_profile_id
             activity.teacher_id = data.get('teacher_id', activity.teacher_id)
             activity.title = data.get('title', activity.title)
             activity.type = data.get('type', activity.type)
