@@ -359,8 +359,19 @@ class ReportsPage(QWidget):
                         display_text = f"{student.full_name} - پایه {grade_text}"
                         self.student_combo.addItem(display_text, student.id)
             else:
-                # همه دانش‌آموزان
-                self.all_students = self.student_dal.get_all()
+                # همه دانش‌آموزان، اما در صورت انتخاب سال فقط کسانی که
+                # در همان سال پرونده دارند در دامنه گزارش قرار می‌گیرند.
+                year_id = self.year_combo.currentData()
+                all_students = self.student_dal.get_all()
+                if year_id:
+                    self.all_students = [
+                        student for student in all_students
+                        if self.profile_dal.get_by_student_and_year(
+                            student.id, year_id
+                        )
+                    ]
+                else:
+                    self.all_students = all_students
                 for student in self.all_students:
                     display_text = f"{student.full_name}"
                     self.student_combo.addItem(display_text, student.id)
@@ -428,6 +439,17 @@ class ReportsPage(QWidget):
         
         try:
             results = self.student_dal.search(search_term)
+
+            # Search فقط داخل دامنه فعلی Teacher/Year مجاز است. لیست
+            # combo همین دامنه را نمایش می‌دهد، پس نتایج global را با
+            # شناسه‌های مجاز intersect می‌کنیم.
+            allowed_ids = {
+                self.student_combo.itemData(i)
+                for i in range(self.student_combo.count())
+                if self.student_combo.itemData(i) is not None
+            }
+            results = [student for student in results if student.id in allowed_ids]
+
             if not results:
                 QMessageBox.information(self, "نتیجه", "هیچ دانش‌آموزی یافت نشد.")
                 return
