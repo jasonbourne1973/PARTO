@@ -660,7 +660,7 @@ class ObservationService(BaseService):
             self.logger.debug(f"خطای مدیریت‌شده در validate_observation (مسیر جایگزین): {e}")
             return False, [str(e)]
 
-    def search_observations(self, search_term, limit=100, year_id=None):
+    def search_observations(self, search_term, limit=None, year_id=None):
         """
         جستجوی مشاهدات بر اساس متن
         
