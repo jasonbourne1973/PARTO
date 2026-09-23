@@ -347,10 +347,7 @@ class GoalsPage(QWidget):
     def add_goal(self):
         """افزودن هدف جدید"""
         form = GoalForm(parent=self)
-        form.goal_saved.connect(self.load_goals)
-        if form.exec() == QDialog.DialogCode.Accepted:
-            self.load_goals()
-            QMessageBox.information(self, "موفقیت", "هدف با موفقیت ثبت شد")
+        form.exec()
 
     def edit_goal(self, goal):
         """ویرایش هدف"""
