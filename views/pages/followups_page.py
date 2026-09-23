@@ -275,7 +275,7 @@ class FollowUpsPage(QWidget):
     def load_followups(self):
         """بارگذاری پیگیری‌ها با استفاده از سرویس"""
         try:
-            followups = active_year = self.academic_year_dal.get_active()
+            active_year = self.academic_year_dal.get_active()
             year_id = active_year.id if active_year else None
             followups = self.followup_service.get_all_followups(limit=None, year_id=year_id)
             active_year = self.academic_year_dal.get_active()
