@@ -770,6 +770,15 @@ class ExportAIDialog(QDialog):
                 f.write(f"تاریخ: {inter.get('date', '')} | نوع: {inter.get('type_display', 'نامشخص')}\n")
                 f.write(f"توضیحات: {inter.get('description', '')}\n")
                 f.write(f"نتیجه: {inter.get('result', 'هنوز مشخص نشده')}\n\n")
+
+            f.write("\n" + "-" * 40 + "\n")
+            f.write("🔔 پیگیری‌ها:\n")
+            f.write("-" * 40 + "\n")
+            for follow in data.get('followups', []):
+                f.write(f"تاریخ: {follow.get('date', '')} | وضعیت: {follow.get('status_display', follow.get('status', ''))}\n")
+                f.write(f"نتیجه: {follow.get('result_type_display', follow.get('result_type', ''))}\n")
+                f.write(f"اقدام بعدی: {follow.get('next_action_date', '')}\n")
+                f.write(f"توضیحات: {follow.get('description', '')}\n\n")
     
     def _export_zip(self, data, file_path):
         """خروجی ZIP شامل همه فرمت‌ها"""
