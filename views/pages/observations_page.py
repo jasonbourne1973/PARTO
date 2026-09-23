@@ -422,6 +422,14 @@ class ObservationsPage(QWidget):
             if student_id and teacher_id:
                 observations = [o for o in observations if o.staff_id == teacher_id]
             
+            active_year = self.academic_year_dal.get_active()
+            if active_year:
+                profiles = self.profile_dal.get_by_ids(o.student_profile_id for o in observations)
+                observations = [
+                    o for o in observations
+                    if profiles.get(o.student_profile_id)
+                    and profiles[o.student_profile_id].academic_year_id == active_year.id
+                ]
             self.observations = observations
             self.display_observations(self.observations)
             
