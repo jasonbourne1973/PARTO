@@ -450,7 +450,16 @@ class ObservationsPage(QWidget):
     def load_observations(self):
         """بارگذاری مشاهدات با استفاده از سرویس"""
         try:
-            self.observations = self.observation_service.get_all_observations(limit=100, include_staff_info=True)
+            observations = self.observation_service.get_all_observations(limit=100, include_staff_info=True)
+            active_year = self.academic_year_dal.get_active()
+            if active_year:
+                profiles = self.profile_dal.get_by_ids(o.student_profile_id for o in observations)
+                observations = [
+                    o for o in observations
+                    if profiles.get(o.student_profile_id)
+                    and profiles[o.student_profile_id].academic_year_id == active_year.id
+                ]
+            self.observations = observations
             self.display_observations(self.observations)
         except Exception as e:
             QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری مشاهدات:\n{e!s}")
