@@ -711,7 +711,7 @@ class InterventionService(BaseService):
             self.logger.debug(f"خطای مدیریت‌شده در validate_intervention (مسیر جایگزین): {e}")
             return False, [str(e)]
 
-    def search_interventions(self, search_term, limit=100, year_id=None):
+    def search_interventions(self, search_term, limit=None, year_id=None):
         """
         جستجوی مداخلات بر اساس متن
         
