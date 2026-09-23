@@ -181,11 +181,15 @@ class ObservationService(BaseService):
             self._validate_observation_data(data, is_update=True)
             
             # 4. به‌روزرسانی فیلدها
-            student_id = data.get('student_id')
-            if student_id:
-                profile = self._get_or_create_profile(student_id)
-                if profile:
-                    observation.student_profile_id = profile.id
+            # ویرایش یک رکورد تاریخی نباید آن را به پروفایل فعال سال جاری
+            # منتقل کند. پروفایل موجود حفظ می‌شود مگر اینکه caller صراحتاً
+            # student_profile_id دیگری ارسال کرده باشد.
+            explicit_profile_id = data.get('student_profile_id')
+            if explicit_profile_id is not None:
+                profile = self.profile_dal.get_by_id(explicit_profile_id)
+                if not profile:
+                    raise ValidationError("پرونده دانش‌آموز انتخاب‌شده یافت نشد")
+                observation.student_profile_id = profile.id
             
             observation.staff_id = data.get('staff_id', observation.staff_id)
             observation.competency_id = data.get('competency_id', observation.competency_id)
