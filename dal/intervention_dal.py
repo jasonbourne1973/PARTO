@@ -134,21 +134,30 @@ class InterventionDAL:
         rows = cursor.fetchall()
         return [self._row_to_intervention(row) for row in rows]
     
-    def get_all(self, limit=None, include_deleted=False):
-        """دریافت همه مداخلات - فقط رکوردهای موجود"""
-        query = "SELECT * FROM interventions"
-        
-        if not include_deleted:
-            query += " WHERE is_deleted = 0"
-        
-        query += " ORDER BY date DESC"
+    def get_all(self, limit=None, include_deleted=False, academic_year_id=None, staff_id=None):
+        """دریافت همه مداخلات با فیلتر سال/معلم قبل از LIMIT."""
+        query = "SELECT i.* FROM interventions i"
+        joins = []
+        where = []
         params = []
-        
+        if academic_year_id is not None:
+            joins.append("JOIN student_academic_profiles sap ON i.student_profile_id = sap.id")
+            where.append("sap.academic_year_id = ?")
+            params.append(academic_year_id)
+        if not include_deleted:
+            where.append("i.is_deleted = 0")
+        if staff_id is not None:
+            where.append("i.staff_id = ?")
+            params.append(staff_id)
+        if joins:
+            query += " " + " ".join(joins)
+        if where:
+            query += " WHERE " + " AND ".join(where)
+        query += " ORDER BY i.date DESC"
         if limit is not None:
             query += " LIMIT ?"
             params.append(limit)
-        
-        cursor = self.db.execute_query(query, params if params else None)
+        cursor = self.db.execute_query(query, params)
         rows = cursor.fetchall()
         return [self._row_to_intervention(row) for row in rows]
     
@@ -728,22 +737,22 @@ class InterventionDAL:
     _LIKE = "LIKE ? ESCAPE '\\'"
     _SEARCH_COLUMNS = ('description', 'goal', 'result', 'type', 'status')
 
-    def search(self, search_term, limit=None, include_deleted=False):
+    def search(self, search_term, limit=None, include_deleted=False, academic_year_id=None):
         """جست‌وجوی متن آزاد در همه مداخلات"""
-        return self._search_text(search_term, limit=limit, include_deleted=include_deleted)
+        return self._search_text(search_term, limit=limit, include_deleted=include_deleted, academic_year_id=academic_year_id)
 
-    def search_by_student(self, student_id, search_term, limit=None, include_deleted=False):
+    def search_by_student(self, student_id, search_term, limit=None, include_deleted=False, academic_year_id=None):
         """جست‌وجوی متن آزاد در مداخلات یک دانش‌آموز"""
         return self._search_text(search_term, student_id=student_id, limit=limit,
-                                 include_deleted=include_deleted)
+                                 include_deleted=include_deleted, academic_year_id=academic_year_id)
 
-    def search_by_teacher(self, teacher_id, search_term, limit=None, include_deleted=False):
+    def search_by_teacher(self, teacher_id, search_term, limit=None, include_deleted=False, academic_year_id=None):
         """جست‌وجوی متن آزاد در مداخلات یک معلم"""
         return self._search_text(search_term, teacher_id=teacher_id, limit=limit,
-                                 include_deleted=include_deleted)
+                                 include_deleted=include_deleted, academic_year_id=academic_year_id)
 
     def _search_text(self, search_term, student_id=None, teacher_id=None,
-                     limit=None, include_deleted=False):
+                     limit=None, include_deleted=False, academic_year_id=None):
         """پیاده‌سازی مشترک جست‌وجو (ساختار کوئری همانند get_by_student)"""
         if search_term is None or not str(search_term).strip():
             return []
@@ -763,6 +772,12 @@ class InterventionDAL:
         if teacher_id is not None:
             where.append("i.staff_id = ?")
             params.append(teacher_id)
+
+        if academic_year_id is not None:
+            if "sap" not in joins:
+                joins += " JOIN student_academic_profiles sap ON i.student_profile_id = sap.id"
+            where.append("sap.academic_year_id = ?")
+            params.append(academic_year_id)
 
         if not include_deleted:
             where.append("i.is_deleted = 0")
