@@ -595,6 +595,23 @@ class ExportAIDialog(QDialog):
             pdf.add_text(f"   پیامد: {obs.get('consequence', '-')}")
             pdf.add_spacer(0.1)
         
+        pdf.add_subtitle("🛠️ مداخلات")
+        for i, inter in enumerate(data.get('interventions', []), 1):
+            pdf.add_text(f"{i}. تاریخ: {inter.get('date', '')} | نوع: {inter.get('type_display', 'نامشخص')}")
+            pdf.add_text(f"   هدف: {inter.get('goal', '-')}")
+            pdf.add_text(f"   وضعیت: {inter.get('status', '-')}")
+            pdf.add_text(f"   نتیجه: {inter.get('result', '-')}")
+            pdf.add_text(f"   توضیحات: {inter.get('description', '-')}")
+            pdf.add_spacer(0.1)
+
+        pdf.add_subtitle("🔔 پیگیری‌ها")
+        for i, follow in enumerate(data.get('followups', []), 1):
+            pdf.add_text(f"{i}. تاریخ: {follow.get('date', '')} | وضعیت: {follow.get('status_display', '-')}")
+            pdf.add_text(f"   نتیجه: {follow.get('result_type_display', '-')}")
+            pdf.add_text(f"   اقدام بعدی: {follow.get('next_action_date', '-')}")
+            pdf.add_text(f"   توضیحات: {follow.get('description', '-')}")
+            pdf.add_spacer(0.1)
+
         pdf.add_page_break()
         pdf.add_title("📋 پرامپت پیشنهادی برای هوش مصنوعی")
         pdf.add_spacer(0.3)
@@ -663,10 +680,22 @@ class ExportAIDialog(QDialog):
                 ws3.cell(row=row, column=6, value=inter.get('status', ''))
                 ws3.cell(row=row, column=7, value=inter.get('result', ''))
             
+            ws4 = wb.create_sheet("پیگیری‌ها")
+            headers = ["ردیف", "تاریخ", "وضعیت", "نتیجه", "اقدام بعدی", "توضیحات"]
+            for col, h in enumerate(headers, 1):
+                ws4.cell(row=1, column=col, value=h)
+            for row, follow in enumerate(data.get('followups', []), 2):
+                ws4.cell(row=row, column=1, value=row - 1)
+                ws4.cell(row=row, column=2, value=follow.get('date', ''))
+                ws4.cell(row=row, column=3, value=follow.get('status_display', follow.get('status', '')))
+                ws4.cell(row=row, column=4, value=follow.get('result_type_display', follow.get('result_type', '')))
+                ws4.cell(row=row, column=5, value=follow.get('next_action_date', ''))
+                ws4.cell(row=row, column=6, value=follow.get('description', ''))
+
             wb.save(file_path)
             
         except ImportError:
-            self._export_csv(data, file_path.replace('.xlsx', '.csv'))
+            raise RuntimeError("کتابخانه openpyxl برای خروجی Excel نصب نیست.")
     
     def _export_csv(self, data, file_path):
         """خروجی CSV"""
@@ -696,6 +725,17 @@ class ExportAIDialog(QDialog):
                     inter.get('status', ''),
                     inter.get('result', ''),
                     inter.get('description', '')
+                ])
+
+            for follow in data.get('followups', []):
+                writer.writerow([
+                    'پیگیری',
+                    follow.get('date', ''),
+                    follow.get('status_display', follow.get('status', '')),
+                    follow.get('result_type_display', follow.get('result_type', '')),
+                    follow.get('status', ''),
+                    follow.get('result_description', ''),
+                    follow.get('description', '')
                 ])
     
     def _export_json(self, data, file_path):
