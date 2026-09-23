@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from dal.staff_dal import StaffDAL
+undefined
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.student_dal import StudentDAL
 from models.extracurricular_activity import ExtracurricularActivity
@@ -44,6 +44,7 @@ class ActivitiesPage(QWidget):
         self.student_dal = StudentDAL()
         self.profile_dal = StudentAcademicProfileDAL()
         self.staff_dal = StaffDAL()
+        self.academic_year_dal = AcademicYearDAL()
         self.logger = get_logger(self.__class__.__name__)
         
         self.activities = []
@@ -178,6 +179,11 @@ class ActivitiesPage(QWidget):
         """بارگذاری فعالیت‌ها"""
         try:
             self.activities = self.extracurricular_service.get_all_activities()
+            active_year = self.academic_year_dal.get_active()
+            if active_year:
+                profiles = self.profile_dal.get_by_ids([a.student_profile_id for a in self.activities if a.student_profile_id])
+                valid_profile_ids = {pid for pid, p in profiles.items() if p and p.academic_year_id == active_year.id}
+                self.activities = [a for a in self.activities if a.student_profile_id in valid_profile_ids]
             self.display_activities(self.activities)
         except Exception as e:
             QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری فعالیت‌ها:\n{e!s}")
