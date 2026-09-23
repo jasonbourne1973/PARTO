@@ -169,7 +169,7 @@ class AttachmentDAL:
             # شکست بخورد، فایل به مسیر اصلی برگردانده می‌شود.
             file_path = attachment.file_path
             if file_path and os.path.exists(file_path):
-                attachments_root = os.path.realpath(self.attachments_dir)
+                attachments_root = os.path.realpath(ATTACHMENTS_DIR)
                 real_file = os.path.realpath(file_path)
                 try:
                     inside_root = os.path.commonpath([attachments_root, real_file]) == attachments_root
