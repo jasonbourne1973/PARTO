@@ -2,15 +2,19 @@
 ویجت راهنمای سریع - نمایش درون فرم‌ها
 """
 
+from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QFrame, QTextEdit, QScrollArea, QMessageBox
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, QEvent
-from PySide6.QtGui import QColor, QFont
 
-from utils.help_system import HelpWidget as FullHelpDialog, HelpSystem
-from utils.tooltip_manager import TooltipManager
+from utils.help_system import HelpSystem
+from utils.help_system import HelpWidget as FullHelpDialog
 
 
 class HelpWidget(QFrame):
@@ -204,10 +208,12 @@ class HelpWidget(QFrame):
     def eventFilter(self, watched, event):
         """باز کردن راهنما با کلیک روی نوار زرد، آیکون یا عنوان."""
         targets = getattr(self, "_help_click_targets", ())
-        if watched in targets and event.type() == QEvent.Type.MouseButtonRelease:
-            if event.button() == Qt.MouseButton.LeftButton:
-                self.show_full_help()
-                return True
+        # بازرسی دهم: شرط‌های تودرتو با «and» ادغام شدند
+        if (watched in targets
+                and event.type() == QEvent.Type.MouseButtonRelease
+                and event.button() == Qt.MouseButton.LeftButton):
+            self.show_full_help()
+            return True
         return super().eventFilter(watched, event)
 
     def add_help_button(self, widget: QWidget):
@@ -239,7 +245,8 @@ class HelpWidget(QFrame):
             value = getattr(help_messages, constant_name, None)
             if value:
                 return str(value)
-        except Exception:
+        except (ImportError, AttributeError):
+            # نصب قدیمی بدون ماژول help_messages → متن پیش‌فرض
             pass
         return fallback
 

@@ -2,10 +2,15 @@
 لایه دسترسی به داده پیشنهادات (Recommendation)
 """
 
+import json
+import sqlite3
+
 from database.connection import DatabaseConnection
 from models.recommendation import Recommendation
-import json
-from datetime import datetime
+from utils.logger import get_logger
+from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class RecommendationDAL:
@@ -51,7 +56,7 @@ class RecommendationDAL:
             recommendation.feedback_notes
         ))
         
-        conn.commit()
+        self.db.commit()
         recommendation.id = cursor.lastrowid
         return recommendation
     
@@ -197,7 +202,7 @@ class RecommendationDAL:
             recommendation.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return recommendation
     
     def update_status(self, recommendation_id, new_status, feedback=None, notes=None):
@@ -205,7 +210,7 @@ class RecommendationDAL:
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         
         query = """
             UPDATE recommendations SET
@@ -232,7 +237,7 @@ class RecommendationDAL:
         params.append(recommendation_id)
         
         cursor.execute(query, params)
-        conn.commit()
+        self.db.commit()
         return True
     
     def delete(self, recommendation_id, user_id=None):
@@ -247,7 +252,7 @@ class RecommendationDAL:
         if not cursor.fetchone():
             return False
         
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE recommendations SET
                 is_deleted = 1,
@@ -256,7 +261,7 @@ class RecommendationDAL:
             WHERE id = ?
         """, (now, user_id, recommendation_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def restore(self, recommendation_id):
@@ -272,7 +277,7 @@ class RecommendationDAL:
             WHERE id = ? AND is_deleted = 1
         """, (recommendation_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def get_count_by_student(self, profile_id, status=None):
@@ -317,7 +322,7 @@ class RecommendationDAL:
                 query += " AND created_at <= ?"
                 params.append(end_date)
             
-            cursor.execute(query, params if params else None)
+            cursor.execute(query, tuple(params))  # اصلاح: None می‌داد «parameters are of unsupported type»
             row = cursor.fetchone()
             
             return {
@@ -330,8 +335,8 @@ class RecommendationDAL:
                 'high': row['high'] if row else 0
             }
             
-        except Exception as e:
-            print(f"خطا در دریافت آمار پیشنهادها: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت آمار پیشنهادها: {e}")
             return {'total': 0, 'pending': 0, 'accepted': 0, 'rejected': 0, 'implemented': 0, 'critical': 0, 'high': 0}
     
     def _row_to_recommendation(self, row):
@@ -353,7 +358,8 @@ class RecommendationDAL:
         if row['related_observation_ids']:
             try:
                 recommendation.related_observation_ids = json.loads(row['related_observation_ids'])
-            except:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_recommendation (مسیر جایگزین): {_exc}")
                 recommendation.related_observation_ids = None
         else:
             recommendation.related_observation_ids = None
@@ -363,7 +369,8 @@ class RecommendationDAL:
         if row['metadata']:
             try:
                 recommendation.metadata = json.loads(row['metadata'])
-            except:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_recommendation (مسیر جایگزین): {_exc}")
                 recommendation.metadata = None
         else:
             recommendation.metadata = None

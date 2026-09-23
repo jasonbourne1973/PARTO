@@ -2,21 +2,38 @@
 تست‌های سرویس‌ها - نسخه کامل
 """
 
-import sys
 import os
+import sys
 import unittest
-import tempfile
-import shutil
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.observation_service import ObservationService
-from services.intervention_service import InterventionService
-from services.followup_service import FollowUpService
-from services.student_service import StudentService
-from services.dashboard_service import DashboardService
+# ============================================================
+# جداسازی تست‌ها از دیتابیس واقعی (بازرسی ششم)
+# ============================================================
+# نسخه قبلی تست‌ها مستقیماً به database/partow.db واقعی وصل
+# می‌شدند؛ یعنی اجرای تست‌ها می‌توانست داده در دیتابیس کاربر
+# بنویسد (test_create_student یک دانش‌آموز با کد ملی جعلی
+# «1234567890» ثبت می‌کرد). حالا هر اجرا روی یک دیتابیس موقت
+# انجام می‌شود و به دیتابیس واقعی دست نمی‌زند.
+import tempfile as _tempfile
+
+import database.connection as _dbc
+from config import settings as _settings
+
+_TMP_DB_DIR = _tempfile.mkdtemp(prefix='partow_test_')
+_settings.DB_PATH = os.path.join(_TMP_DB_DIR, 'partow.db')
+_dbc.DB_PATH = _settings.DB_PATH
+_dbc.DatabaseConnection._instance = None
+_dbc.DatabaseConnection._connection = None
+_dbc.DatabaseConnection._initialized = False
+
 from services.case_timeline_service import CaseTimelineService
-from utils.error_handler import ServiceError, ValidationError
+from services.dashboard_service import DashboardService
+from services.followup_service import FollowUpService
+from services.intervention_service import InterventionService
+from services.observation_service import ObservationService
+from services.student_service import StudentService
 
 
 class TestObservationService(unittest.TestCase):
@@ -69,24 +86,33 @@ class TestObservationService(unittest.TestCase):
         is_valid, errors = self.service.validate_observation(invalid_data)
         self.assertFalse(is_valid)
         
-        # تاریخ با فرمت اشتباه
-        invalid_data = self.test_data.copy()
-        invalid_data['observation_date'] = '1405-08-15'
-        is_valid, errors = self.service.validate_observation(invalid_data)
-        self.assertFalse(is_valid)
+        # تاریخ با جداکنندهٔ خط تیره — سیاست دور هشتم:
+        # این قالب دیگر «فرمت اشتباه» نیست؛ نرمال می‌شود و می‌پذیریم،
+        # چون فایل‌های اکسل و منابع بیرونی همین قالب را می‌دهند.
+        dashed_data = self.test_data.copy()
+        dashed_data['observation_date'] = '1405-08-15'
+        is_valid, errors = self.service.validate_observation(dashed_data)
+        self.assertTrue(is_valid, errors)
+
+        # ولی تاریخ بی‌اعتبارِ تقویمی در هر قالبی باید رد شود
+        for bad in ('1405/13/15', '1405/00/10', '1405/12/31', 'بوق'):
+            invalid_data = self.test_data.copy()
+            invalid_data['observation_date'] = bad
+            is_valid, errors = self.service.validate_observation(invalid_data)
+            self.assertFalse(is_valid, f"تاریخ {bad} نباید پذیرفته شود")
     
     def test_validate_severity(self):
         """تست اعتبارسنجی شدت"""
         # شدت کمتر از 1
         invalid_data = self.test_data.copy()
         invalid_data['severity'] = 0
-        is_valid, errors = self.service.validate_observation(invalid_data)
+        is_valid, _errors = self.service.validate_observation(invalid_data)
         self.assertFalse(is_valid)
         
         # شدت بیشتر از 5
         invalid_data = self.test_data.copy()
         invalid_data['severity'] = 6
-        is_valid, errors = self.service.validate_observation(invalid_data)
+        is_valid, _errors = self.service.validate_observation(invalid_data)
         self.assertFalse(is_valid)
 
 
@@ -132,14 +158,14 @@ class TestInterventionService(unittest.TestCase):
         # وضعیت نامعتبر
         invalid_data = self.test_data.copy()
         invalid_data['status'] = 'invalid_status'
-        is_valid, errors = self.service.validate_intervention(invalid_data)
+        is_valid, _errors = self.service.validate_intervention(invalid_data)
         self.assertFalse(is_valid)
         
         # وضعیت معتبر
         for status in ['planned', 'in_progress', 'done', 'completed', 'cancelled']:
             valid_data = self.test_data.copy()
             valid_data['status'] = status
-            is_valid, errors = self.service.validate_intervention(valid_data)
+            is_valid, _errors = self.service.validate_intervention(valid_data)
             self.assertTrue(is_valid)
 
 
@@ -184,7 +210,7 @@ class TestFollowUpService(unittest.TestCase):
         # تاریخ نامعتبر
         invalid_data = self.test_data.copy()
         invalid_data['date'] = '1405/13/17'
-        is_valid, errors = self.service.validate_followup(invalid_data)
+        is_valid, _errors = self.service.validate_followup(invalid_data)
         self.assertFalse(is_valid)
     
     def test_validate_status(self):
@@ -192,14 +218,14 @@ class TestFollowUpService(unittest.TestCase):
         # وضعیت نامعتبر
         invalid_data = self.test_data.copy()
         invalid_data['status'] = 'invalid_status'
-        is_valid, errors = self.service.validate_followup(invalid_data)
+        is_valid, _errors = self.service.validate_followup(invalid_data)
         self.assertFalse(is_valid)
         
         # وضعیت معتبر
         for status in ['pending', 'done', 'continued', 'closed', 'cancelled']:
             valid_data = self.test_data.copy()
             valid_data['status'] = status
-            is_valid, errors = self.service.validate_followup(valid_data)
+            is_valid, _errors = self.service.validate_followup(valid_data)
             self.assertTrue(is_valid)
 
 
@@ -244,14 +270,12 @@ class TestDashboardService(unittest.TestCase):
     def test_get_dashboard_data(self):
         """تست دریافت داده‌های داشبورد"""
         # تست دریافت داده بدون فیلتر
-        try:
-            data = self.service.get_dashboard_data()
-            self.assertIsNotNone(data)
-            self.assertIn('general_stats', data)
-            self.assertIn('management_indicators', data)
-        except Exception as e:
-            # اگر دیتابیس خالی باشد، خطا می‌دهد
-            pass
+        # بازرسی دهم: try/except پوشاننده حذف شد تا assert ها واقعاً
+        # سنجیده شوند (دیتابیس موقت در setUp آماده می‌شود).
+        data = self.service.get_dashboard_data()
+        self.assertIsNotNone(data)
+        self.assertIn('general_stats', data)
+        self.assertIn('management_indicators', data)
 
 
 class TestCaseTimelineService(unittest.TestCase):
@@ -269,25 +293,25 @@ class TestCaseTimelineService(unittest.TestCase):
         
         # تست با شناسه معتبر (اگر وجود داشته باشد)
         # در محیط تست ممکن است داده نباشد
-        try:
-            events = self.service.get_timeline(1)
-            self.assertIsInstance(events, list)
-        except:
-            pass
+        # بازرسی دهم: try/except پوشاننده حذف شد
+        events = self.service.get_timeline(1)
+        self.assertIsInstance(events, list)
 
 
 def run_tests():
     """اجرای همه تست‌ها"""
     # ایجاد suite تست
+    # (بازرسی شانزدهم) بارگذاری با TestLoader؛ API قدیمی ساخت suite در Python 3.13 حذف شده است.
+    loader = unittest.TestLoader()
     suite = unittest.TestSuite()
     
     # اضافه کردن تست‌ها
-    suite.addTest(unittest.makeSuite(TestObservationService))
-    suite.addTest(unittest.makeSuite(TestInterventionService))
-    suite.addTest(unittest.makeSuite(TestFollowUpService))
-    suite.addTest(unittest.makeSuite(TestStudentService))
-    suite.addTest(unittest.makeSuite(TestDashboardService))
-    suite.addTest(unittest.makeSuite(TestCaseTimelineService))
+    suite.addTest(loader.loadTestsFromTestCase(TestObservationService))
+    suite.addTest(loader.loadTestsFromTestCase(TestInterventionService))
+    suite.addTest(loader.loadTestsFromTestCase(TestFollowUpService))
+    suite.addTest(loader.loadTestsFromTestCase(TestStudentService))
+    suite.addTest(loader.loadTestsFromTestCase(TestDashboardService))
+    suite.addTest(loader.loadTestsFromTestCase(TestCaseTimelineService))
     
     # اجرا
     runner = unittest.TextTestRunner(verbosity=2)
@@ -295,7 +319,7 @@ def run_tests():
     
     # نمایش خلاصه
     print("\n" + "=" * 50)
-    print(f"📊 خلاصه تست‌ها:")
+    print("📊 خلاصه تست‌ها:")
     print(f"  • اجرا شده: {result.testsRun}")
     print(f"  • موفق: {result.testsRun - len(result.failures) - len(result.errors)}")
     print(f"  • ناموفق: {len(result.failures)}")

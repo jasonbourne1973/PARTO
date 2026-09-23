@@ -1,0 +1,35 @@
+# ===== فایل‌های موقت پایتون =====
+__pycache__/
+*.py[cod]
+*.pyo
+
+# ===== دیتابیس واقعی برنامه (دادهٔ کاربر — بازرسی شانزدهم) =====
+database/partow.db
+database/partow.db.restore_safety
+
+# ===== فایل‌های جانبی SQLite =====
+# (partow.db-wal / partow.db-shm داده نیستند؛ فقط وضعیت موقت اتصال‌اند)
+*.db-wal
+*.db-shm
+
+# ===== لاگ‌ها و خروجی‌های اجرا =====
+*.log
+logs/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# ===== محیط مجازی =====
+venv/
+.venv/
+env/
+
+# ===== فایل‌های سیستمی/ویرایشگر =====
+.DS_Store
+Thumbs.db
+*.swp
+
+# ===== پشتیبان‌ها (دادهٔ کاربر، نه کد — بازرسی شانزدهم) =====
+backups/
+*.partobak
+*.partobak.sha256

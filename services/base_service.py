@@ -2,14 +2,14 @@
 سرویس پایه با پشتیبانی از Transaction و مدیریت خطا
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database.connection import DatabaseConnection
-from utils.logger import get_logger
 from utils.error_handler import ErrorHandler, ServiceError
+from utils.logger import get_logger
 
 
 class BaseService:
@@ -63,7 +63,7 @@ class BaseService:
         except Exception as e:
             self.logger.error(f"خطا در تأیید Transaction: {e}")
             self.rollback_transaction()
-            raise ServiceError(f"خطا در ذخیره‌سازی: {str(e)}")
+            raise ServiceError(f"خطا در ذخیره‌سازی: {e!s}")
 
     def rollback_transaction(self):
         """بازگشت Transaction (همه لایه‌های تودرتو)"""
@@ -103,7 +103,361 @@ class BaseService:
             # همان پیام به کاربر می‌رسد نه «خطا در عملیات: ...».
             if isinstance(e, ServiceError):
                 raise
-            raise ServiceError(f"خطا در عملیات: {str(e)}") from e
+            raise ServiceError(f"خطا در عملیات: {e!s}") from e
+
+    # ============================================================
+    # Audit Log / مدیریت خطا / اعتبارسنجی
+    # ============================================================
+    #
+    # ===== اصلاح بحرانی =====
+    # این سه متد (log_audit، handle_error، validate_model) با تورفتگی
+    # اشتباه **داخل کلاس _TransactionContext** تعریف شده بودند، در
+    # حالی که بدنه‌شان از self.db و self.logger و self.error_handler
+    # استفاده می‌کند؛ یعنی فقط روی BaseService معنا دارند.
+    #
+    # نتیجه در زمان اجرا:
+    #     AttributeError: 'StudentService' object has no attribute 'validate_model'
+    #     AttributeError: 'ObservationService' object has no attribute 'log_audit'
+    #
+    # چون این فراخوان‌ها داخل execute_in_transaction بودند، خطا به
+    # ServiceError تبدیل می‌شد و تراکنش rollback می‌کرد. یعنی عملاً
+    # «ثبت دانش‌آموز»، «ثبت مشاهده»، «ثبت مداخله»، «ثبت پیگیری» و
+    # «ثبت پیوست» همه شکست می‌خوردند و هیچ داده‌ای ذخیره نمی‌شد.
+    #
+    # تست روی کد قبلی:
+    #     hasattr(BaseService, "log_audit")      → False
+    #     hasattr(BaseService, "validate_model") → False
+    # حالا هر سه متد به BaseService برگردانده شده‌اند.
+
+    # ============================================================
+    # جلوگیری از Audit تکراری (باگ بازرسی ششم)
+    # ============================================================
+    #
+    # دیتابیس برنامه برای هر جدول حساس (۱۸ جدول از بازرسی دوازدهم)
+    # تریگر حسابرسی دارد:
+    #     trg_<table>_{insert,update,soft_delete,restore,hard_delete}_audit
+    # (ابتدا ۷ جدول students, observations, interventions, followups,
+    # student_academic_profiles, staff, competencies بود.)
+    #
+    # این تریگرها خودشان بعد از هر نوشتن یک ردیف در audit_logs
+    # می‌سازند. اما سرویس‌ها هم صریحاً log_audit صدا می‌زنند؛
+    # نتیجه، دو ردیف برای «یک» تغییر بود:
+    #
+    #     id 163 | user_id NULL | create | students | 6
+    #     id 165 | user_id 1    | create | student  | 6
+    #
+    # یعنی هم شمارش گزارش‌های حسابرسی دوبرابر می‌شد و هم
+    # entity_type دو واژه‌نامهٔ متفاوت داشت ('students' تریگر و
+    # 'student' سرویس)، پس فیلترکردن لاگ‌ها هم قابل‌اعتماد نبود.
+    #
+    # تصمیم: تریگرها می‌مانند (چون تغییراتِ staff، competencies و
+    # پروندهٔ سالانه هم از همان مسیر ثبت می‌شوند و کوتاه‌کردن آن‌ها
+    # یعنی از دست دادن بخشی از تاریخچه)، و ثبتِ صریح سرویس وقتی
+    # تریگرِ همان جدول و همان action وجود دارد، تکرار نمی‌شود.
+    #
+    # نام کاربر در ردیف تریگر از get_current_user_id() می‌آید که
+    # در ورودِ کاربر (set_current_user) مقدار می‌گیرد؛ تست شد که
+    # user_id درست ثبت می‌شود.
+    # ===== نگاشت نام موجودیت → نام جدول (بازرسی هفتم) =====
+    # این نگاشت به utils.security.AUDIT_ENTITY_ALIASES منتقل شد تا
+    # سرویس‌ها، AuditLogger و DAL همگی از «یک» منبع بخوانند؛ سه
+    # نسخهٔ جدا از هم دقیقاً همان چیزی است که باعث ناهمخوانی
+    # 'student' در برابر 'students' شده بود.
+    @staticmethod
+    def _entity_table_map():
+        try:
+            from utils.security import AUDIT_ENTITY_ALIASES
+            return AUDIT_ENTITY_ALIASES
+        except Exception:  # pragma: no cover - مسیر پشتیبان
+            # آینهٔ AUDIT_ENTITY_ALIASES (بازرسی دوازدهم: پوشش ۱۸ جدول)
+            return {
+                'student': 'students',
+                'observation': 'observations',
+                'intervention': 'interventions',
+                'followup': 'followups',
+                'student_academic_profile': 'student_academic_profiles',
+                'profile': 'student_academic_profiles',
+                'staff': 'staff',
+                'competency': 'competencies',
+                'user': 'users',
+                'attachment': 'attachments',
+                'family_context': 'family_contexts',
+                'parent_interview': 'parent_interviews',
+                'counseling_session': 'counseling_sessions',
+                'screening': 'screenings',
+                'screening_result': 'screening_results',
+                'professional_interpretation': 'professional_interpretations',
+                'interpretation': 'professional_interpretations',
+                'individual_goal': 'individual_goals',
+                'extracurricular_activity': 'extracurricular_activities',
+                'recommendation': 'recommendations',
+                'notification': 'notifications',
+                'students': 'students',
+                'observations': 'observations',
+                'interventions': 'interventions',
+                'followups': 'followups',
+                'student_academic_profiles': 'student_academic_profiles',
+                'competencies': 'competencies',
+                'users': 'users',
+                'attachments': 'attachments',
+                'family_contexts': 'family_contexts',
+                'parent_interviews': 'parent_interviews',
+                'counseling_sessions': 'counseling_sessions',
+                'screenings': 'screenings',
+                'screening_results': 'screening_results',
+                'professional_interpretations': 'professional_interpretations',
+                'individual_goals': 'individual_goals',
+                'extracurricular_activities': 'extracurricular_activities',
+                'recommendations': 'recommendations',
+                'notifications': 'notifications',
+            }
+    _AUDIT_ACTIONS = ('create', 'edit', 'delete_soft', 'restore', 'delete')
+    _TRIGGER_CACHE = None
+
+    def _trigger_audit_tables(self):
+        """
+        جدول‌هایی که تریگر حسابرسی فعال دارند (یک‌بار خوانده می‌شود)
+
+        Returns:
+            set: نام جدول‌هایی که تریگر دارند
+        """
+        if BaseService._TRIGGER_CACHE is not None:
+            return BaseService._TRIGGER_CACHE
+
+        tables = set()
+        try:
+            conn = self.db.get_connection()
+            cursor = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'trigger' "
+                "AND name LIKE 'trg_%_audit'"
+            )
+            for (name,) in cursor.fetchall():
+                # trg_<table>_insert_audit / ..._update_audit / ...
+                rest = name[len('trg_'):-len('_audit')]
+                for suffix in ('_insert', '_update', '_soft_delete', '_restore',
+                               '_hard_delete'):
+                    if rest.endswith(suffix):
+                        tables.add(rest[:-len(suffix)])
+                        break
+        except Exception as e:
+            self.logger.debug(f"خواندن تریگرهای حسابرسی ممکن نشد: {e}")
+
+        BaseService._TRIGGER_CACHE = tables
+        return tables
+
+    def _audit_handled_by_trigger(self, entity_type, action):
+        """آیا تریگرِ دیتابیس همین تغییر را ثبت می‌کند؟"""
+        if action not in self._AUDIT_ACTIONS:
+            return False
+        table = self._entity_table_map().get(
+            str(entity_type).strip().lower() if entity_type else None)
+        if not table:
+            return False
+        return table in self._trigger_audit_tables()
+
+    def log_audit(self, user_id, action, entity_type, entity_id=None,
+                  old_value=None, new_value=None, ip_address=None):
+        """
+        ثبت Audit Log (بدون تکرارِ ردیف‌های تریگر)
+
+        ===== اصلاح (بازرسی هفتم) =====
+        نام موجودیت با `normalize_entity_type` یکدست می‌شود (مفرد →
+        نام جدول) تا با ردیف‌هایی که تریگرهای دیتابیس می‌نویسند
+        یکی باشد. قبلاً یک رویداد واحد با دو نام («student» و
+        «students») ثبت می‌شد و جست‌وجوی تاریخچه ناقص می‌ماند.
+        """
+        if self._audit_handled_by_trigger(entity_type, action):
+            self.logger.debug(
+                f"Audit تکراری ثبت نشد؛ تریگر {entity_type}/{action} "
+                f"خودش ردیف را نوشت (entity_id={entity_id})."
+            )
+            return True
+
+        try:
+            from utils.security import AuditLogger
+            audit_logger = AuditLogger(self.db)
+            return audit_logger.log(user_id, action, entity_type, entity_id,
+                                   old_value, new_value, ip_address)
+        except Exception as e:
+            self.logger.warning(f"خطا در ثبت Audit Log: {e}")
+            return False
+
+    # ============================================================
+    # کمک‌تابع‌های اعتبارسنجی (بازرسی ششم)
+    # ============================================================
+    #
+    # الگوی پرتکرارِ کل پروژه این بود:
+    #     value = data.get('result_type', '').strip()
+    # اگر کلید در دیکشنری وجود داشت ولی مقدارش None بود،
+    # data.get پيش‌فرض را برنمی‌گرداند و None برمی‌گردد؛ نتیجه:
+    #     AttributeError: 'NoneType' object has no attribute 'strip'
+    #
+    # این خطا در create_followup باعث می‌شد ثبت پیگیری با پیام
+    # مبهمِ زیر کامل شکست بخورد، در حالی که فراخوان فقط
+    # result_type=None داده بود:
+    #     ServiceError: خطا در عملیات: 'NoneType' object has no
+    #     attribute 'strip'
+    #
+    # تست عملی روی کد قبلی:
+    #     FollowUpService.create_followup({..., 'result_type': None})
+    #         → ServiceError (ذخیره نمی‌شد)
+    @staticmethod
+    def coerce_id(value, default=None):
+        """
+        شناسه (کلید خارجی) را به عدد صحیح تبدیل می‌کند
+
+        ورودی‌های قابل قبول: 5، "5"، None
+        هر چیز دیگری (لیست، دیکشنری، متن غیرعددی) → default
+
+        چرا؟ الگوی رایج کد این بود که شناسه را بدون بررسی به
+        پارامتر SQL می‌داد؛ اگر اشتباهاً لیست پاس داده می‌شد،
+        خطای مبهمِ زیر بالا می‌آمد و در بعضی مسیرها هم بی‌صدا
+        خورده می‌شد:
+            sqlite3.ProgrammingError: Error binding parameter 2:
+            type 'list' is not supported
+        """
+        if value is None or value == '':
+            return default
+        if isinstance(value, bool):
+            return default
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float):
+            return int(value)
+        if isinstance(value, str):
+            text = value.strip()
+            if text.lstrip('-').isdigit():
+                return int(text)
+            return default
+        return default
+
+    @staticmethod
+    def clean_text(value, default=''):
+        """
+        متنِ ورودی را امن می‌کند
+
+        Args:
+            value: مقدار ورودی (ممکن است None باشد)
+            default: مقدار جانشین وقتی ورودی None است
+
+        Returns:
+            str یا default: متن بدون فاصله‌های ابتدا/انتها
+        """
+        if value is None:
+            return default
+        return str(value).strip()
+
+    @staticmethod
+    def clean_date(value, default=None):
+        """
+        تاریخ (شمسی) را برای ذخیره یکدست می‌کند
+
+        ورودی‌های پذیرفته‌شده: «1405/06/26»، «1405-6-6»، None
+        خروجی همیشه «yyyy/MM/dd» با صفرِ ابتدایی است تا مقایسه و
+        مرتب‌سازی رشته‌ای تاریخ‌ها در کوئری‌ها درست بماند.
+        مقدار نامعتبر/خالی → default
+        """
+        if value is None or value == '':
+            return default
+        try:
+            from utils.persian_date import to_db_date
+            normalized = to_db_date(value)
+        except Exception as _exc:
+            get_logger(__name__).debug(f"خطای مدیریت‌شده در clean_date (مسیر جایگزین): {_exc}")
+            normalized = None
+        if not normalized:
+            return default
+        return normalized
+
+    def check_date(self, value, label='تاریخ', required=False):
+        """
+        بررسی یک تاریخ شمسیِ ورودی و برگرداندن شکل کانونیکال آن
+
+        قاعده:
+            «1405-6-6»   → «1405/06/06» و معتبر
+            «1405/13/45» → معتبر نیست (ماه/روز خارج از تقویم)
+            «» / None    → اگر required باشد خطا، وگرنه None
+
+        Args:
+            value: مقدار ورودی
+            label: نام فیلد برای پیام خطا (مثلاً «تاریخ جلسه»)
+            required: آیا خالی‌بودن خطاست؟
+
+        Returns:
+            tuple: (normalized_value_or_None, error_message_or_None)
+        """
+        raw = self.clean_text(value)
+        if not raw:
+            if required:
+                return None, f"{label} نمی‌تواند خالی باشد"
+            return None, None
+
+        normalized = self.clean_date(raw)
+        if not normalized or not self.is_valid_jalali_date(normalized):
+            return None, f"{label} معتبر نیست (قالب: yyyy/MM/dd)"
+
+        return normalized, None
+
+    @staticmethod
+    def is_valid_jalali_date(value):
+        """
+        اعتبارسنجی واقعی تاریخ شمسی (نه فقط شکل ظاهری)
+
+        قبلاً سرویس‌ها با یک regex ساده فقط شکل «yyyy/MM/dd» را
+        بررسی می‌کردند؛ نتیجه: تاریخ‌هایی مثل «1405/13/45» معتبر
+        شمرده می‌شدند و در دیتابیس ذخیره می‌شدند (ماه ۱۳ و روز ۴۵).
+        تست عملی روی کد قبلی:
+            ObservationService.validate_observation({...,
+                'observation_date': '1405/13/45'})
+                → (True, [])
+        """
+        if not value:
+            return False
+
+        text = str(value).strip()
+        # جداکننده باید «/» باشد؛ to_db_date فرمت‌های دیگر را
+        # نرمال می‌کند، ولی ورودیِ فرم/سرویس باید یکدست باشد.
+        import re
+        if not re.match(r'^\d{4}/\d{1,2}/\d{1,2}$', text):
+            return False
+
+        try:
+            from utils.persian_date import PersianDate
+            return PersianDate.is_valid_persian_date(text)
+        except Exception as _exc:
+            get_logger(__name__).debug(f"خطای مدیریت‌شده در is_valid_jalali_date (مسیر جایگزین): {_exc}")
+            return False
+
+    def handle_error(self, error, user_message=None, log_level='error'):
+        """
+        مدیریت یک خطا
+
+        Args:
+            error: شیء خطا
+            user_message: پیام نمایشی به کاربر
+            log_level: سطح لاگ ('error', 'warning', 'info')
+        """
+        return self.error_handler.handle(error, user_message, log_level)
+
+    def validate_model(self, model):
+        """
+        اعتبارسنجی یک مدل
+
+        Args:
+            model: مدل مورد نظر
+
+        Returns:
+            bool: آیا مدل معتبر است؟
+
+        Raises:
+            ServiceError: در صورت عدم اعتبار
+        """
+        errors = model.validate()
+        if errors:
+            error_msg = "\n".join(errors)
+            self.logger.warning(f"خطای اعتبارسنجی: {error_msg}")
+            raise ServiceError(f"خطا در اعتبارسنجی:\n{error_msg}")
+        return True
 
     def transaction(self):
         """
@@ -133,46 +487,3 @@ class _TransactionContext:
             self._service.rollback_transaction()
         # خطا را بلعیده نمی‌کنیم؛ به بالادست propagate می‌شود
         return False
-    
-    def log_audit(self, user_id, action, entity_type, entity_id=None,
-                  old_value=None, new_value=None, ip_address=None):
-        """ثبت Audit Log"""
-        try:
-            from utils.security import AuditLogger
-            audit_logger = AuditLogger(self.db)
-            return audit_logger.log(user_id, action, entity_type, entity_id,
-                                   old_value, new_value, ip_address)
-        except Exception as e:
-            self.logger.warning(f"خطا در ثبت Audit Log: {e}")
-            return False
-    
-    def handle_error(self, error, user_message=None, log_level='error'):
-        """
-        مدیریت یک خطا
-        
-        Args:
-            error: شیء خطا
-            user_message: پیام نمایشی به کاربر
-            log_level: سطح لاگ ('error', 'warning', 'info')
-        """
-        return self.error_handler.handle(error, user_message, log_level)
-    
-    def validate_model(self, model):
-        """
-        اعتبارسنجی یک مدل
-        
-        Args:
-            model: مدل مورد نظر
-            
-        Returns:
-            bool: آیا مدل معتبر است؟
-            
-        Raises:
-            ServiceError: در صورت عدم اعتبار
-        """
-        errors = model.validate()
-        if errors:
-            error_msg = "\n".join(errors)
-            self.logger.warning(f"خطای اعتبارسنجی: {error_msg}")
-            raise ServiceError(f"خطا در اعتبارسنجی:\n{error_msg}")
-        return True

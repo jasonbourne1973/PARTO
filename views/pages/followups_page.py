@@ -2,25 +2,37 @@
 صفحه مدیریت پیگیری‌ها - نسخه نهایی با ویرایش کامل و جستجوی پیشرفته
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QLabel, QHeaderView,
-    QMessageBox, QDialog, QComboBox, QLineEdit
-)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QKeyEvent
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
-from services.followup_service import FollowUpService
-from dal.student_dal import StudentDAL
 from dal.staff_dal import StaffDAL
+from dal.student_dal import StudentDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
-from views.dialogs.followup_form import FollowUpForm
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.intervention_dal import InterventionDAL
+from dal.academic_year_dal import AcademicYearDAL
+from services.followup_service import FollowUpService
 from utils.logger import get_logger
+from views.dialogs.followup_form import FollowUpForm
 
 
 class FollowUpsPage(QWidget):
@@ -30,6 +42,9 @@ class FollowUpsPage(QWidget):
         super().__init__(parent)
         self.followup_service = FollowUpService()
         self.student_dal = StudentDAL()
+        self.profile_dal = StudentAcademicProfileDAL()
+        self.intervention_dal = InterventionDAL()
+        self.academic_year_dal = AcademicYearDAL()
         self.staff_dal = StaffDAL()
         self.assignment_dal = TeacherAssignmentDAL()
         self.logger = get_logger(self.__class__.__name__)
@@ -89,7 +104,7 @@ class FollowUpsPage(QWidget):
         self.search_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
@@ -131,7 +146,7 @@ class FollowUpsPage(QWidget):
         self.add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -230,11 +245,23 @@ class FollowUpsPage(QWidget):
             if status is not None:
                 followups = [f for f in followups if f.status == status]
             
+            active_year = self.academic_year_dal.get_active()
+            if active_year:
+                interventions = self.intervention_dal.get_by_ids(f.intervention_id for f in followups)
+                profiles = self.profile_dal.get_by_ids(
+                    i.student_profile_id for i in interventions.values()
+                )
+                followups = [
+                    f for f in followups
+                    if (interventions.get(f.intervention_id)
+                        and profiles.get(interventions[f.intervention_id].student_profile_id)
+                        and profiles[interventions[f.intervention_id].student_profile_id].academic_year_id == active_year.id)
+                ]
             self.followups = followups
             self.display_followups(self.followups)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{e!s}")
     
     def clear_search(self):
         """پاک کردن جستجو"""
@@ -245,10 +272,23 @@ class FollowUpsPage(QWidget):
     def load_followups(self):
         """بارگذاری پیگیری‌ها با استفاده از سرویس"""
         try:
-            self.followups = self.followup_service.get_all_followups(limit=100)
+            followups = self.followup_service.get_all_followups(limit=100)
+            active_year = self.academic_year_dal.get_active()
+            if active_year:
+                interventions = self.intervention_dal.get_by_ids(f.intervention_id for f in followups)
+                profiles = self.profile_dal.get_by_ids(
+                    i.student_profile_id for i in interventions.values()
+                )
+                followups = [
+                    f for f in followups
+                    if (interventions.get(f.intervention_id)
+                        and profiles.get(interventions[f.intervention_id].student_profile_id)
+                        and profiles[interventions[f.intervention_id].student_profile_id].academic_year_id == active_year.id)
+                ]
+            self.followups = followups
             self.display_followups(self.followups)
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری پیگیری‌ها:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری پیگیری‌ها:\n{e!s}")
     
     def filter_followups(self):
         """فیلتر پیگیری‌ها بر اساس وضعیت و معلم"""
@@ -369,8 +409,13 @@ class FollowUpsPage(QWidget):
         )
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                self.followup_service.delete_followup(followup.id)
+                deleted = self.followup_service.delete_followup(followup.id)
                 self.filter_followups()
-                QMessageBox.information(self, "موفقیت", "پیگیری با موفقیت حذف شد")
+                if deleted:
+                    QMessageBox.information(
+                        self, "موفقیت", "پیگیری با موفقیت حذف شد"
+                    )
+                else:
+                    QMessageBox.warning(self, "خطا", "پیگیری حذف نشد.")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")

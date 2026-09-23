@@ -4,7 +4,7 @@
 
 from database.connection import DatabaseConnection
 from models.family_context import FamilyContext
-import json
+from utils.time_utils import utc_now_iso
 
 
 class FamilyContextDAL:
@@ -51,7 +51,7 @@ class FamilyContextDAL:
             family_context.recorded_by
         ))
         
-        conn.commit()
+        self.db.commit()
         family_context.id = cursor.lastrowid
         return family_context
     
@@ -129,7 +129,7 @@ class FamilyContextDAL:
             family_context.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return family_context
     
     def delete(self, context_id, user_id=None):
@@ -144,8 +144,7 @@ class FamilyContextDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE family_contexts SET
                 is_deleted = 1,
@@ -154,7 +153,7 @@ class FamilyContextDAL:
             WHERE id = ?
         """, (now, user_id, context_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def restore(self, context_id, user_id=None):
@@ -170,7 +169,7 @@ class FamilyContextDAL:
             WHERE id = ? AND is_deleted = 1
         """, (context_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def _row_to_family_context(self, row):

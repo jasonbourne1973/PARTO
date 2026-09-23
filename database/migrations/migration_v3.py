@@ -75,7 +75,8 @@ def upgrade(connection):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_interpretations_level ON professional_interpretations(level)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_interpretations_status ON professional_interpretations(status)")
     
-    connection.commit()
+    # (بازرسی شانزدهم — BUG-NEW-02) commit این‌جا حذف شد: تراکنش را فقط
+    # MigrationManager._run_step (یا _heal_schema) باز و commit/rollback می‌کند.
     print("✅ Migration به نسخه 3 با موفقیت انجام شد.")
 
 
@@ -88,5 +89,6 @@ def downgrade(connection):
     cursor.execute("DROP TABLE IF EXISTS professional_interpretations")
     cursor.execute("DROP TABLE IF EXISTS screenings")
     
-    connection.commit()
+    # (بازرسی شانزدهم — BUG-NEW-02) commit این‌جا حذف شد: تراکنش را فقط
+    # MigrationManager._run_step (یا _heal_schema) باز و commit/rollback می‌کند.
     print("✅ بازگشت از نسخه 3 با موفقیت انجام شد.")

@@ -2,31 +2,56 @@
 دیالوگ مدیریت پیوست‌ها - نسخه کامل با پیش‌نمایش بهتر
 """
 
-from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QListWidget, QListWidgetItem, QMessageBox,
-    QFileDialog, QProgressBar, QWidget, QSplitter,
-    QTextEdit, QFrame, QScrollArea, QGroupBox,
-    QLineEdit, QToolBar
-)
-from PySide6.QtCore import Qt, Signal, QThread
-from PySide6.QtGui import QColor, QPixmap, QIcon, QAction
-
 import os
 import sys
 
+from PySide6.QtCore import Qt, QThread, QUrl, Signal
+from PySide6.QtGui import QDesktopServices, QPixmap
+from PySide6.QtWidgets import (
+    QDialog,
+    QFileDialog,
+    QFrame,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QScrollArea,
+    QSplitter,
+    QTextEdit,
+    QVBoxLayout,
+)
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from database.connection import DatabaseConnection
 from services.attachment_service import AttachmentService
+from utils.error_handler import ServiceError
 from utils.logger import get_logger
-from utils.error_handler import ServiceError, ValidationError
 
 
 class AttachmentUploadWorker(QThread):
-    """کارگر برای آپلود فایل در پس‌زمینه"""
+    """
+    کارگر برای آپلود فایل در پس‌زمینه
+
+    ===== اصلاح (بازرسی چهاردهم) — هویت کاربر در نخ کارگر =====
+    کاربر جاری دیتابیس «نخ‌محلی» است (تا نخ زمان‌بند به نام کاربر
+    واردشده ثبت نشود). این کارگر در نخ جداگانه می‌نویسد؛ اگر هویت را
+    صریح تحویل نگیرد، ردیف Audit آپلود با user_id=NULL یعنی «سیستم»
+    ثبت می‌شد، در حالی که کاربر واقعی آن را انجام داده است. حالا
+    هویت در نخ UI (سازنده) گرفته و در نخ کارگر با worker_context
+    اعمال می‌شود؛ اتصال نخ کارگر هم در پایان آزاد می‌شود.
+    """
     
+    # (بازرسی شانزدهم) نام سیگنال از `finished` (که سیگنال داخلی QThread است)
+    # به `upload_finished` تغییر کرد تا دو سیگنال هم‌نام با امضای متفاوت روی
+    # یک شیء نباشد.
     progress = Signal(int)
-    finished = Signal(bool, str, object)  # success, message, attachment
+    upload_finished = Signal(bool, str, object)  # success, message, attachment
     
     def __init__(self, service, entity_type, entity_id, file_path, 
                  title=None, description=None, created_by=None):
@@ -37,7 +62,11 @@ class AttachmentUploadWorker(QThread):
         self.file_path = file_path
         self.title = title
         self.description = description
-        self.created_by = created_by
+        # سازنده در نخ UI اجرا می‌شود؛ همین‌جا هویت کاربر واقعی گرفته
+        # می‌شود تا در نخ کارگر (که کاربر نخ‌محلی ندارد) استفاده شود.
+        self.user_context = DatabaseConnection().get_current_user()
+        self.created_by = (created_by if created_by is not None
+                           else self.user_context)
     
     def run(self):
         try:
@@ -49,23 +78,24 @@ class AttachmentUploadWorker(QThread):
             
             self.progress.emit(60)
             
-            # آپلود
+            # آپلود (به نام همان کاربری که در نخ UI وارد شده است)
             file_name = os.path.basename(self.file_path)
-            attachment = self.service.upload_attachment(
-                entity_type=self.entity_type,
-                entity_id=self.entity_id,
-                file_data=file_data,
-                file_name=file_name,
-                title=self.title,
-                description=self.description,
-                created_by=self.created_by
-            )
+            with DatabaseConnection().worker_context(self.user_context):
+                attachment = self.service.upload_attachment(
+                    entity_type=self.entity_type,
+                    entity_id=self.entity_id,
+                    file_data=file_data,
+                    file_name=file_name,
+                    title=self.title,
+                    description=self.description,
+                    created_by=self.created_by
+                )
             
             self.progress.emit(100)
-            self.finished.emit(True, "فایل با موفقیت آپلود شد", attachment)
+            self.upload_finished.emit(True, "فایل با موفقیت آپلود شد", attachment)
             
         except Exception as e:
-            self.finished.emit(False, str(e), None)
+            self.upload_finished.emit(False, str(e), None)
 
 
 class AttachmentDialog(QDialog):
@@ -85,6 +115,9 @@ class AttachmentDialog(QDialog):
         self.attachments = []
         self.current_attachment_id = None
         self.search_results = []
+        # (بازرسی شانزدهم) صف آپلود: فایل‌های انتخاب‌شده یکی‌یکی آپلود می‌شوند
+        self._upload_queue = []
+        self._upload_results = []
         
         # تنظیم عنوان بر اساس نوع موجودیت
         entity_names = {
@@ -116,7 +149,7 @@ class AttachmentDialog(QDialog):
         self.add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -376,7 +409,7 @@ class AttachmentDialog(QDialog):
         self.download_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -408,7 +441,7 @@ class AttachmentDialog(QDialog):
         self.close_btn.setStyleSheet("""
             QPushButton {
                 background-color: #D9C36A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -470,7 +503,7 @@ class AttachmentDialog(QDialog):
             
         except Exception as e:
             self.logger.error(f"خطا در بارگذاری پیوست‌ها: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری:\n{e!s}")
     
     def search_attachments(self):
         """جستجوی پیوست‌ها"""
@@ -509,51 +542,124 @@ class AttachmentDialog(QDialog):
         if not file_paths:
             return
         
-        for file_path in file_paths:
-            self.upload_file(file_path)
-    
-    def upload_file(self, file_path):
-        """آپلود یک فایل"""
-        file_size = os.path.getsize(file_path)
-        if file_size > self.attachment_service.MAX_FILE_SIZE:
-            QMessageBox.warning(
-                self,
-                "خطا",
-                f"حجم فایل '{os.path.basename(file_path)}' از حد مجاز "
-                f"({self.attachment_service.MAX_FILE_SIZE // (1024*1024)} مگابایت) بیشتر است."
-            )
+        self.upload_files(list(file_paths))
+
+    def is_uploading(self):
+        return self.upload_worker is not None and self.upload_worker.isRunning()
+
+    def upload_files(self, file_paths):
+        """
+        آپلود چند فایل به‌صورت ترتیبی (بازرسی شانزدهم)
+
+        نسخهٔ قبلی برای هر فایل بلافاصله یک کارگر جدید می‌ساخت و در
+        `self.upload_worker` جایگزین می‌کرد؛ یعنی QThread قبلی در حال اجرا از
+        دست می‌رفت («QThread: Destroyed while thread is still running») و
+        چند آپلود هم‌زمان روی یک موجودیت انجام می‌شد.
+        """
+        if self.is_uploading():
+            QMessageBox.information(self, "لطفاً صبر کنید",
+                                    "آپلود قبلی هنوز تمام نشده است؛ پس از پایان آن دوباره تلاش کنید.")
             return
-        
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setValue(0)
-        self.set_buttons_enabled(False)
-        
-        self.upload_worker = AttachmentUploadWorker(
-            service=self.attachment_service,
-            entity_type=self.entity_type,
-            entity_id=self.entity_id,
-            file_path=file_path,
-            created_by=None
-        )
-        self.upload_worker.progress.connect(self.update_progress)
-        self.upload_worker.finished.connect(self.upload_finished)
-        self.upload_worker.start()
+        self._upload_queue = list(file_paths)
+        self._upload_results = []
+        self._start_next_upload()
+
+    def upload_file(self, file_path):
+        """آپلود یک فایل (سازگاری با فراخوان‌های قبلی)"""
+        self.upload_files([file_path])
+
+    def _start_next_upload(self):
+        """برداشتن فایل بعدی از صف و آغاز کارگر؛ اگر صف خالی شد، جمع‌بندی"""
+        while self._upload_queue:
+            file_path = self._upload_queue.pop(0)
+            try:
+                file_size = os.path.getsize(file_path)
+            except OSError as e:
+                self._upload_results.append((False, f"{os.path.basename(file_path)}: {e}"))
+                continue
+            if file_size > self.attachment_service.MAX_FILE_SIZE:
+                self._upload_results.append((
+                    False,
+                    f"حجم فایل '{os.path.basename(file_path)}' از حد مجاز "
+                    f"({self.attachment_service.MAX_FILE_SIZE // (1024*1024)} مگابایت) بیشتر است."))
+                continue
+
+            self.progress_bar.setVisible(True)
+            self.progress_bar.setValue(0)
+            self.set_buttons_enabled(False)
+
+            # created_by = کاربر واقعیِ واردشده (staff.id)؛ قبلاً None فرستاده
+            # می‌شد و «آپلودکننده» همیشه نامشخص می‌ماند.
+            self.upload_worker = AttachmentUploadWorker(
+                service=self.attachment_service,
+                entity_type=self.entity_type,
+                entity_id=self.entity_id,
+                file_path=file_path,
+                created_by=DatabaseConnection().get_current_user()
+            )
+            self.upload_worker.progress.connect(self.update_progress)
+            self.upload_worker.upload_finished.connect(self.upload_finished)
+            self.upload_worker.start()
+            return
+        self._finish_upload_batch()
+
+    def _finish_upload_batch(self):
+        """پایان صف: تازه‌سازی فهرست و یک پیام جمع‌بندی"""
+        self.progress_bar.setVisible(False)
+        self.set_buttons_enabled(True)
+        results = self._upload_results
+        self._upload_results = []
+        if not results:
+            return
+        ok = [m for s_ok, m in results if s_ok]
+        failed = [m for s_ok, m in results if not s_ok]
+        if ok:
+            self.load_attachments()
+            self.attachment_added.emit()
+        if failed and not ok:
+            QMessageBox.critical(self, "خطا", "مشکل در آپلود:\n" + "\n".join(failed))
+        elif failed:
+            QMessageBox.warning(
+                self, "آپلود ناتمام",
+                f"{len(ok)} فایل آپلود شد؛ {len(failed)} فایل ناموفق:\n" + "\n".join(failed))
+        elif len(ok) == 1:
+            QMessageBox.information(self, "موفقیت", ok[0])
+        else:
+            QMessageBox.information(self, "موفقیت", f"{len(ok)} فایل با موفقیت آپلود شد.")
     
     def update_progress(self, value):
         """به‌روزرسانی نوار پیشرفت"""
         self.progress_bar.setValue(value)
     
     def upload_finished(self, success, message, attachment):
-        """پایان آپلود"""
-        self.progress_bar.setVisible(False)
-        self.set_buttons_enabled(True)
-        
+        """پایان آپلود یک فایل از صف"""
         if success:
-            self.load_attachments()
-            self.attachment_added.emit()
-            QMessageBox.information(self, "موفقیت", message)
+            name = getattr(attachment, 'file_name', None) or ''
+            self._upload_results.append((True, f"{message}" + (f" ({name})" if name else "")))
         else:
-            QMessageBox.critical(self, "خطا", f"مشکل در آپلود:\n{message}")
+            self._upload_results.append((False, message))
+        self._start_next_upload()
+
+    def closeEvent(self, event):
+        """بستن دیالوگ وسط آپلود: منتظر پایان کارگر می‌ماند تا نخ زیر پایش نمیرد"""
+        if self.is_uploading():
+            self.upload_worker.wait(15000)
+            if self.upload_worker.isRunning():
+                QMessageBox.warning(self, "آپلود در جریان",
+                                    "آپلود هنوز تمام نشده است؛ لطفاً چند لحظه صبر کنید.")
+                event.ignore()
+                return
+        super().closeEvent(event)
+
+    def reject(self):
+        """انصراف/Escape وسط آپلود هم مثل بستن رفتار می‌کند"""
+        if self.is_uploading():
+            self.upload_worker.wait(15000)
+            if self.upload_worker.isRunning():
+                QMessageBox.warning(self, "آپلود در جریان",
+                                    "آپلود هنوز تمام نشده است؛ لطفاً چند لحظه صبر کنید.")
+                return
+        super().reject()
     
     def on_file_selected(self, item):
         """وقتی فایل انتخاب می‌شود"""
@@ -612,8 +718,10 @@ class AttachmentDialog(QDialog):
                     self.preview_label.setPixmap(pixmap)
                     self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                     return
-            except:
-                pass
+            except Exception as _exc:
+                self.logger.debug(
+                    f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+                )
         
         # PDF
         elif file_name.endswith('.pdf'):
@@ -624,7 +732,7 @@ class AttachmentDialog(QDialog):
         # متن
         elif file_name.endswith(('.txt', '.csv', '.json', '.xml', '.log', '.py', '.js', '.html', '.css')):
             try:
-                with open(attachment.file_path, 'r', encoding='utf-8') as f:
+                with open(attachment.file_path, encoding='utf-8') as f:
                     content = f.read(800)
                     if len(content) >= 800:
                         content += "\n\n... (ادامه فایل)"
@@ -642,8 +750,10 @@ class AttachmentDialog(QDialog):
                         }
                     """)
                     return
-            except:
-                pass
+            except Exception as _exc:
+                self.logger.debug(
+                    f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+                )
         
         # ویدئو و صدا
         elif file_name.endswith(('.mp4', '.avi', '.mkv', '.mov', '.mp3', '.wav', '.ogg')):
@@ -676,17 +786,16 @@ class AttachmentDialog(QDialog):
         
         try:
             file_path = self.attachment_service.get_attachment_path(self.current_attachment_id)
-            
-            if sys.platform == 'win32':
-                os.startfile(file_path)
-            elif sys.platform == 'darwin':
-                os.system(f'open "{file_path}"')
-            else:
-                os.system(f'xdg-open "{file_path}"')
+
+            # (بازرسی شانزدهم) نسخهٔ قبلی مسیر فایل را داخل رشتهٔ فرمان shell
+            # می‌گذاشت (xdg-open / open با رشته‌سازی)؛ نام فایلی با نویسهٔ «"» یا
+            # «;» می‌توانست فرمان دلخواه اجرا کند. حالا بدون shell و با Qt.
+            if not QDesktopServices.openUrl(QUrl.fromLocalFile(file_path)):
+                raise ServiceError("برنامه‌ای برای بازکردن این نوع فایل پیدا نشد.")
                 
         except Exception as e:
             self.logger.error(f"خطا در باز کردن فایل: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در باز کردن فایل:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در باز کردن فایل:\n{e!s}")
     
     def download_file(self):
         """دانلود فایل"""
@@ -713,7 +822,7 @@ class AttachmentDialog(QDialog):
                 
         except Exception as e:
             self.logger.error(f"خطا در دانلود فایل: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در دانلود:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در دانلود:\n{e!s}")
     
     def delete_selected(self):
         """حذف فایل انتخاب شده"""
@@ -733,13 +842,20 @@ class AttachmentDialog(QDialog):
         
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                self.attachment_service.delete_attachment(self.current_attachment_id)
+                deleted = self.attachment_service.delete_attachment(
+                    self.current_attachment_id
+                )
                 self.load_attachments()
-                self.attachment_deleted.emit()
-                QMessageBox.information(self, "موفقیت", "فایل با موفقیت حذف شد")
+                if deleted:
+                    self.attachment_deleted.emit()
+                    QMessageBox.information(
+                        self, "موفقیت", "فایل با موفقیت حذف شد"
+                    )
+                else:
+                    QMessageBox.warning(self, "خطا", "فایل حذف نشد.")
             except Exception as e:
                 self.logger.error(f"خطا در حذف فایل: {e}")
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
     def set_buttons_enabled(self, enabled):
         """فعال/غیرفعال کردن دکمه‌ها"""

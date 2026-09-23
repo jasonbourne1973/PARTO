@@ -430,7 +430,8 @@ def upgrade(connection):
     _seed_indicators(cursor)
     _seed_screening_tools(cursor)
 
-    connection.commit()
+    # (بازرسی شانزدهم — BUG-NEW-02) commit این‌جا حذف شد: تراکنش را فقط
+    # MigrationManager._run_step (یا _heal_schema) باز و commit/rollback می‌کند.
     print("✅ Migration به نسخه ۷ با موفقیت انجام شد.")
 
 
@@ -464,5 +465,6 @@ def downgrade(connection):
     except Exception as e:
         print(f"  ⚠️  حذف attachments.updated_at ممکن نشد: {e}")
 
-    connection.commit()
+    # (بازرسی شانزدهم — BUG-NEW-02) commit این‌جا حذف شد: تراکنش را فقط
+    # MigrationManager._run_step (یا _heal_schema) باز و commit/rollback می‌کند.
     print("✅ بازگشت از نسخه ۷ انجام شد.")

@@ -6,8 +6,6 @@ def upgrade(connection):
     """
     ارتقاء به نسخه 1
     """
-    cursor = connection.cursor()
-    
     # ایجاد تمام جداول
     # (کد ایجاد جداول در connection.py پیاده‌سازی شده است)
     
@@ -20,7 +18,8 @@ def upgrade(connection):
     # Seed داده‌های اولیه
     # (کد Seed در connection.py پیاده‌سازی شده است)
     
-    connection.commit()
+    # (بازرسی شانزدهم — BUG-NEW-02) commit این‌جا حذف شد: تراکنش را فقط
+    # MigrationManager._run_step (یا _heal_schema) باز و commit/rollback می‌کند.
     print("✅ Migration به نسخه 1 با موفقیت انجام شد.")
 
 
@@ -55,5 +54,6 @@ def downgrade(connection):
         except Exception as e:
             print(f"⚠️ خطا در حذف جدول {table}: {e}")
     
-    connection.commit()
+    # (بازرسی شانزدهم — BUG-NEW-02) commit این‌جا حذف شد: تراکنش را فقط
+    # MigrationManager._run_step (یا _heal_schema) باز و commit/rollback می‌کند.
     print("✅ بازگشت از نسخه 1 با موفقیت انجام شد.")

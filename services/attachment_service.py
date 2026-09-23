@@ -2,25 +2,24 @@
 سرویس مدیریت پیوست‌ها - نسخه کامل با قابلیت‌های جدید
 """
 
-import os
-import shutil
-import mimetypes
-from datetime import datetime
-import sys
-import os
 import hashlib
-import zipfile
-import json
+import mimetypes
+import os
+import sys
+import uuid
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
+from typing import ClassVar
+
+from config.settings import ATTACHMENTS_DIR
 from dal.attachment_dal import AttachmentDAL
 from models.attachment import Attachment
-from config.settings import ATTACHMENTS_DIR
+from services.base_service import BaseService
 from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
 from utils.security import Security
+from utils.time_utils import utc_now
 
 
 class AttachmentService(BaseService):
@@ -31,7 +30,7 @@ class AttachmentService(BaseService):
     """
     
     # انواع فایل‌های مجاز
-    ALLOWED_FILE_TYPES = {
+    ALLOWED_FILE_TYPES: ClassVar[dict[str, str]] = {
         'image': ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'tiff', 'ico'],
         'document': ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'odt', 'ods', 'odp'],
         'audio': ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'wma'],
@@ -87,75 +86,97 @@ class AttachmentService(BaseService):
                     f"تعداد پیوست‌های این موجودیت به حداکثر ({self.MAX_ATTACHMENTS_PER_ENTITY}) رسیده است."
                 )
             
-            # 3. ایجاد نام فایل ایمن
-            safe_filename = self._generate_safe_filename(file_name)
-            
-            # 4. ایجاد پوشه موجودیت
+            # 3. ایجاد نام فایل ایمن و یکتا
+            #    (بازرسی شانزدهم) نسخهٔ قبلی فقط timestamp با دقت ثانیه به نام
+            #    می‌چسباند؛ دو آپلود هم‌نام در یک ثانیه (چند فایل انتخاب‌شده در
+            #    دیالوگ) روی هم می‌نوشتند و دو رکورد به یک فایل اشاره می‌کردند.
             entity_folder = self._get_entity_folder(entity_type, entity_id)
-            if not os.path.exists(entity_folder):
-                os.makedirs(entity_folder)
-            
-            # 5. ذخیره فایل
+            os.makedirs(entity_folder, exist_ok=True)
+            safe_filename = self._generate_safe_filename(file_name)
             file_path = os.path.join(entity_folder, safe_filename)
-            with open(file_path, 'wb') as f:
+            while os.path.exists(file_path):
+                safe_filename = self._generate_safe_filename(file_name)
+                file_path = os.path.join(entity_folder, safe_filename)
+
+            # 4 و 5. ذخیرهٔ اتمیک فایل (اول .part، بعد جایگزینی)؛ هر شکستی از
+            #    این‌جا به بعد (اعتبارسنجی مدل، درج در DB، rollback تراکنش) فایل
+            #    نیمه‌کاره/یتیم را پاک می‌کند.
+            tmp_path = file_path + '.part'
+            with open(tmp_path, 'wb') as f:
                 f.write(file_data)
-            
-            # 6. محاسبه checksum
-            checksum = hashlib.md5(file_data).hexdigest()
-            
-            # 7. دریافت اطلاعات فایل
-            file_size = len(file_data)
-            file_type = self._get_file_category(file_name)
-            mime_type = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
-            extension = self._get_file_extension(file_name)
-            
-            # 8. ایجاد مدل Attachment
-            attachment = Attachment()
-            attachment.entity_type = entity_type
-            attachment.entity_id = entity_id
-            attachment.file_name = file_name
-            attachment.file_path = file_path
-            attachment.file_size = file_size
-            attachment.file_type = file_type
-            attachment.mime_type = mime_type
-            attachment.file_extension = extension
-            attachment.title = title
-            attachment.description = description
-            attachment.tags = tags
-            attachment.created_by = created_by
-            
-            # 9. اعتبارسنجی مدل
-            errors = attachment.validate()
-            if errors:
-                # حذف فایل ذخیره شده
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-                raise ValidationError("\n".join(errors))
-            
-            # 10. ذخیره در دیتابیس
-            created_attachment = self.attachment_dal.create(attachment)
-            
-            # 11. ثبت Audit Log
-            self.log_audit(
-                user_id=user_id,
-                action='create',
-                entity_type='attachment',
-                entity_id=created_attachment.id,
-                new_value={
-                    'attachment_id': created_attachment.id,
-                    'entity_type': entity_type,
-                    'entity_id': entity_id,
-                    'file_name': file_name,
-                    'file_size': file_size,
-                    'checksum': checksum
-                },
-                ip_address=ip_address
-            )
-            
-            self.logger.info(f"پیوست با ID {created_attachment.id} برای {entity_type}/{entity_id} آپلود شد")
-            return created_attachment
-        
+            os.replace(tmp_path, file_path)
+
+            try:
+                return self._register_uploaded_file(
+                    entity_type, entity_id, file_data, file_name, file_path,
+                    title, description, tags, created_by, user_id, ip_address)
+            except Exception:
+                self._remove_file_quietly(file_path)
+                raise
+
         return self.execute_in_transaction(_upload)
+
+    def _remove_file_quietly(self, path):
+        try:
+            if path and os.path.exists(path):
+                os.remove(path)
+        except OSError as e:
+            self.logger.warning(f"حذف فایل پیوست ناتمام ممکن نشد ({path}): {e}")
+
+    def _register_uploaded_file(self, entity_type, entity_id, file_data, file_name, file_path,
+                                title, description, tags, created_by, user_id, ip_address):
+        """ساخت مدل، اعتبارسنجی، درج در دیتابیس و ثبت Audit برای فایلی که روی دیسک نوشته شده"""
+        # 6. محاسبه checksum
+        checksum = hashlib.md5(file_data).hexdigest()
+        
+        # 7. دریافت اطلاعات فایل
+        file_size = len(file_data)
+        file_type = self._get_file_category(file_name)
+        mime_type = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
+        extension = self._get_file_extension(file_name)
+        
+        # 8. ایجاد مدل Attachment
+        attachment = Attachment()
+        attachment.entity_type = entity_type
+        attachment.entity_id = entity_id
+        attachment.file_name = file_name
+        attachment.file_path = file_path
+        attachment.file_size = file_size
+        attachment.file_type = file_type
+        attachment.mime_type = mime_type
+        attachment.file_extension = extension
+        attachment.title = title
+        attachment.description = description
+        attachment.tags = tags
+        attachment.created_by = created_by
+        
+        # 9. اعتبارسنجی مدل (فایل در صورت خطا توسط فراخوان پاک می‌شود)
+        errors = attachment.validate()
+        if errors:
+            raise ValidationError("\n".join(errors))
+        
+        # 10. ذخیره در دیتابیس
+        created_attachment = self.attachment_dal.create(attachment)
+        
+        # 11. ثبت Audit Log
+        self.log_audit(
+            user_id=user_id,
+            action='create',
+            entity_type='attachment',
+            entity_id=created_attachment.id,
+            new_value={
+                'attachment_id': created_attachment.id,
+                'entity_type': entity_type,
+                'entity_id': entity_id,
+                'file_name': file_name,
+                'file_size': file_size,
+                'checksum': checksum
+            },
+            ip_address=ip_address
+        )
+        
+        self.logger.info(f"پیوست با ID {created_attachment.id} برای {entity_type}/{entity_id} آپلود شد")
+        return created_attachment
     
     def get_attachment(self, attachment_id):
         """دریافت پیوست با شناسه"""
@@ -167,7 +188,7 @@ class AttachmentService(BaseService):
             return attachment
         except Exception as e:
             self.logger.error(f"خطا در دریافت پیوست: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_attachments_by_entity(self, entity_type, entity_id):
         """دریافت پیوست‌های یک موجودیت"""
@@ -178,7 +199,7 @@ class AttachmentService(BaseService):
             return attachments
         except Exception as e:
             self.logger.error(f"خطا در دریافت پیوست‌ها: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def delete_attachment(self, attachment_id, user_id=None, ip_address=None):
         """حذف پیوست"""
@@ -220,13 +241,15 @@ class AttachmentService(BaseService):
             return True
         except Exception as e:
             self.logger.error(f"خطا در حذف پیوست‌ها: {e}")
-            raise ServiceError(f"خطا در حذف: {str(e)}")
+            raise ServiceError(f"خطا در حذف: {e!s}")
     
     def get_attachment_path(self, attachment_id):
         """دریافت مسیر فیزیکی فایل پیوست"""
         attachment = self.get_attachment(attachment_id)
-        if not os.path.exists(attachment.file_path):
-            raise ServiceError(f"فایل پیوست در سیستم وجود ندارد.")
+        if attachment is None:
+            raise ServiceError(f"پیوست با شناسه {attachment_id} یافت نشد.")
+        if not attachment.file_path or not os.path.exists(attachment.file_path):
+            raise ServiceError("فایل پیوست در سیستم وجود ندارد.")
         return attachment.file_path
     
     def get_attachment_content(self, attachment_id):
@@ -237,7 +260,7 @@ class AttachmentService(BaseService):
                 return f.read()
         except Exception as e:
             self.logger.error(f"خطا در خواندن فایل: {e}")
-            raise ServiceError(f"خطا در خواندن فایل: {str(e)}")
+            raise ServiceError(f"خطا در خواندن فایل: {e!s}")
     
     def get_attachments_summary(self, entity_type, entity_id):
         """دریافت خلاصه پیوست‌های یک موجودیت"""
@@ -298,23 +321,47 @@ class AttachmentService(BaseService):
                 errors.append(f"نوع فایل '{ext}' مجاز نیست. پسوندهای مجاز: {', '.join(all_extensions)}")
         else:
             errors.append("فایل بدون پسوند است.")
-        
+
+        # ===== افزودن (بازرسی هفتم — اولویت ۳) =====
+        # بررسی محتوای فایل، نه فقط پسوند.
+        #
+        # پیش از این، اعتبارسنجی فقط پسوند را می‌دید؛ یعنی یک فایل
+        # اجرایی با نام «عکس.png» به‌عنوان پیوست ذخیره می‌شد. ابزار
+        # `utils/file_validator.py` دقیقاً برای همین نوشته شده بود
+        # ولی هیچ‌جا import نمی‌شد و ماژول هم به‌دلیل `import magic`
+        # (که نصب نبود) اصلاً بالا نمی‌آمد.
+        #
+        # حالا محتوای مشکوک رد می‌شود. این بررسی عمداً «پسوند‌محور»
+        # نیست؛ اگر کتابخانه در دسترس نباشد، هیچ پیوستی بی‌دلیل
+        # رد نمی‌شود (شکست نرم).
+        try:
+            from utils.file_validator import FileValidator
+            danger = FileValidator._detect_dangerous(file_data)
+            if danger:
+                errors.append(
+                    f"محتوای فایل «{danger}» است و مجاز نیست؛ "
+                    "پسوند فایل با محتوای آن هم‌خوان نیست."
+                )
+        except Exception as exc:  # pragma: no cover - مسیر پشتیبان
+            self.logger.warning(f"بررسی محتوای فایل انجام نشد: {exc}")
+
         if errors:
             raise ValidationError("\n".join(errors))
     
     def _generate_safe_filename(self, original_name):
-        """تولید نام فایل ایمن"""
+        """تولید نام فایل ایمن و یکتا (timestamp + شناسهٔ تصادفی کوتاه)"""
         safe_name = Security.sanitize_filename(original_name)
         
         if not safe_name:
-            safe_name = f"file_{int(datetime.now().timestamp())}"
+            safe_name = f"file_{int(utc_now().timestamp())}"
         
+        suffix = f"{int(utc_now().timestamp())}_{uuid.uuid4().hex[:8]}"
         name_parts = safe_name.rsplit('.', 1)
         if len(name_parts) == 2:
             base, ext = name_parts
-            return f"{base}_{int(datetime.now().timestamp())}.{ext}"
+            return f"{base}_{suffix}.{ext}"
         else:
-            return f"{safe_name}_{int(datetime.now().timestamp())}"
+            return f"{safe_name}_{suffix}"
     
     def _get_entity_folder(self, entity_type, entity_id):
         """دریافت پوشه ذخیره فایل‌های یک موجودیت"""
@@ -417,5 +464,6 @@ class AttachmentService(BaseService):
                 staff = staff_dal.get_by_id(attachment.created_by)
                 if staff:
                     attachment.created_by_name = staff.full_name
-            except:
+            except Exception as _exc:
+                self.logger.debug(f"خطای مدیریت‌شده در _enrich_attachment (مسیر جایگزین): {_exc}")
                 attachment.created_by_name = "نامشخص"

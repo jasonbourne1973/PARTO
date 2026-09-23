@@ -2,27 +2,34 @@
 صفحه مدیریت فعالیت‌های فوق‌برنامه
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QLabel, QHeaderView,
-    QMessageBox, QDialog, QComboBox, QLineEdit,
-    QSplitter, QTextEdit, QGroupBox
-)
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
-from services.extracurricular_service import ExtracurricularService
-from dal.student_dal import StudentDAL
+undefined
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.staff_dal import StaffDAL
-from views.dialogs.activity_form import ActivityForm
+from dal.student_dal import StudentDAL
 from models.extracurricular_activity import ExtracurricularActivity
+from services.extracurricular_service import ExtracurricularService
 from utils.logger import get_logger
+from views.dialogs.activity_form import ActivityForm
 
 
 class ActivitiesPage(QWidget):
@@ -37,9 +44,11 @@ class ActivitiesPage(QWidget):
         self.student_dal = StudentDAL()
         self.profile_dal = StudentAcademicProfileDAL()
         self.staff_dal = StaffDAL()
+        self.academic_year_dal = AcademicYearDAL()
         self.logger = get_logger(self.__class__.__name__)
         
         self.activities = []
+        self.visible_activities = []
         self.all_students = []
         
         self.setup_ui()
@@ -84,7 +93,7 @@ class ActivitiesPage(QWidget):
         self.add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -94,6 +103,24 @@ class ActivitiesPage(QWidget):
         """)
         self.add_btn.clicked.connect(self.add_activity)
         toolbar.addWidget(self.add_btn)
+
+        # (بازرسی شانزدهم) سیگنال student_selected تعریف و در پنجرهٔ اصلی
+        # متصل بود ولی این صفحه هیچ‌جا آن را emit نمی‌کرد؛ همان دکمهٔ
+        # صفحه‌های اهداف و مشاوره این‌جا هم اضافه شد.
+        self.view_profile_btn = QPushButton("👤 مشاهده پرونده دانش‌آموز")
+        self.view_profile_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #0B2E4F;
+                color: #F4C542;
+                padding: 8px 15px;
+                border: none;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #08223A; }
+        """)
+        self.view_profile_btn.clicked.connect(self.view_student_profile)
+        toolbar.addWidget(self.view_profile_btn)
         
         layout.addLayout(toolbar)
         
@@ -152,9 +179,14 @@ class ActivitiesPage(QWidget):
         """بارگذاری فعالیت‌ها"""
         try:
             self.activities = self.extracurricular_service.get_all_activities()
+            active_year = self.academic_year_dal.get_active()
+            if active_year:
+                profiles = self.profile_dal.get_by_ids([a.student_profile_id for a in self.activities if a.student_profile_id])
+                valid_profile_ids = {pid for pid, p in profiles.items() if p and p.academic_year_id == active_year.id}
+                self.activities = [a for a in self.activities if a.student_profile_id in valid_profile_ids]
             self.display_activities(self.activities)
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری فعالیت‌ها:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری فعالیت‌ها:\n{e!s}")
     
     def filter_activities(self):
         """فیلتر فعالیت‌ها"""
@@ -173,7 +205,11 @@ class ActivitiesPage(QWidget):
     
     def display_activities(self, activities):
         """نمایش فعالیت‌ها در جدول"""
-        self.table.setRowCount(len(activities))
+        # (بازرسی شانزدهم) فهرستِ نمایش‌داده‌شده جدا نگه داشته می‌شود؛ قبلاً
+        # دابل‌کلیک با فیلتر فعال، ردیف را در فهرست «فیلترنشده» جست‌وجو می‌کرد
+        # و فعالیت اشتباهی برای ویرایش باز می‌شد.
+        self.visible_activities = list(activities or [])
+        self.table.setRowCount(len(self.visible_activities))
         
         for row, activity in enumerate(activities):
             self.table.setItem(row, 0, QTableWidgetItem(str(row + 1)))
@@ -210,7 +246,7 @@ class ActivitiesPage(QWidget):
             
             edit_btn = QPushButton("✏️")
             edit_btn.setFixedSize(30, 30)
-            edit_btn.setStyleSheet("background-color: #F4D35E; color: #F4C542; border: none; border-radius: 4px;")
+            edit_btn.setStyleSheet("background-color: #F4D35E; color: #111111; border: none; border-radius: 4px;")
             edit_btn.clicked.connect(lambda checked, a=activity: self.edit_activity(a))
             btn_layout.addWidget(edit_btn)
             
@@ -224,19 +260,33 @@ class ActivitiesPage(QWidget):
             self.table.setCellWidget(row, 7, btn_widget)
             self.table.setRowHeight(row, 40)
     
+    def view_student_profile(self):
+        """مشاهده پرونده دانش‌آموزِ فعالیت انتخاب‌شده (از طریق پنجرهٔ اصلی)"""
+        row = self.table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "توجه", "لطفاً یک فعالیت را انتخاب کنید.")
+            return
+        visible = getattr(self, 'visible_activities', None) or self.activities
+        if row >= len(visible):
+            QMessageBox.warning(self, "توجه", "فعالیت انتخاب‌شده معتبر نیست.")
+            return
+        profile_id = getattr(visible[row], 'student_profile_id', None)
+        if profile_id:
+            self.student_selected.emit(profile_id)
+        else:
+            QMessageBox.warning(self, "توجه", "پرونده دانش‌آموز یافت نشد.")
+
     def on_item_double_clicked(self, item):
-        """ویرایش فعالیت با دابل کلیک"""
+        """ویرایش فعالیت با دابل کلیک (روی همان فهرست نمایش‌داده‌شده)"""
         row = item.row()
-        if row < len(self.activities):
-            self.edit_activity(self.activities[row])
+        visible = getattr(self, 'visible_activities', None) or self.activities
+        if 0 <= row < len(visible):
+            self.edit_activity(visible[row])
     
     def add_activity(self):
         """افزودن فعالیت جدید"""
         form = ActivityForm(parent=self)
-        form.activity_saved.connect(self.load_activities)
-        if form.exec() == QDialog.DialogCode.Accepted:
-            self.load_activities()
-            QMessageBox.information(self, "موفقیت", "فعالیت با موفقیت ثبت شد")
+        form.exec()
     
     def edit_activity(self, activity):
         """ویرایش فعالیت"""
@@ -287,8 +337,13 @@ class ActivitiesPage(QWidget):
         )
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                self.extracurricular_service.delete_activity(activity.id)
+                # (بازرسی شانزدهم) نتیجهٔ حذف بررسی می‌شود؛ قبلاً حتی وقتی سرویس
+                # False برمی‌گرداند (رکورد قبلاً حذف شده) پیام موفقیت داده می‌شد.
+                deleted = self.extracurricular_service.delete_activity(activity.id)
                 self.load_activities()
-                QMessageBox.information(self, "موفقیت", "فعالیت با موفقیت حذف شد")
+                if deleted:
+                    QMessageBox.information(self, "موفقیت", "فعالیت با موفقیت حذف شد")
+                else:
+                    QMessageBox.warning(self, "توجه", "این فعالیت پیدا نشد (احتمالاً قبلاً حذف شده است)؛ فهرست تازه‌سازی شد.")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")

@@ -2,6 +2,8 @@
 مدل مصاحبه با والدین (Parent Interview)
 """
 
+from typing import ClassVar
+
 from models.base import BaseModel
 
 
@@ -18,7 +20,7 @@ class ParentInterview(BaseModel):
     STATUS_CANCELLED = "cancelled"
     STATUS_NO_SHOW = "no_show"
     
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (STATUS_SCHEDULED, "برنامه‌ریزی شده"),
         (STATUS_COMPLETED, "انجام شده"),
         (STATUS_CANCELLED, "لغو شده"),
@@ -31,7 +33,7 @@ class ParentInterview(BaseModel):
     METHOD_VIDEO = "video"
     METHOD_OTHER = "other"
     
-    METHOD_CHOICES = [
+    METHOD_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (METHOD_IN_PERSON, "حضوری"),
         (METHOD_PHONE, "تلفنی"),
         (METHOD_VIDEO, "تصویری"),

@@ -2,9 +2,15 @@
 لایه دسترسی به داده تفسیر تخصصی (ProfessionalInterpretation)
 """
 
+import json
+import sqlite3
+
 from database.connection import DatabaseConnection
 from models.professional_interpretation import ProfessionalInterpretation
-import json
+from utils.logger import get_logger
+from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class ProfessionalInterpretationDAL:
@@ -46,7 +52,7 @@ class ProfessionalInterpretationDAL:
             interpretation.status
         ))
         
-        conn.commit()
+        self.db.commit()
         interpretation.id = cursor.lastrowid
         return interpretation
     
@@ -157,7 +163,7 @@ class ProfessionalInterpretationDAL:
             interpretation.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return interpretation
     
     def update_status(self, interpretation_id, new_status):
@@ -170,7 +176,7 @@ class ProfessionalInterpretationDAL:
             WHERE id = ? AND is_deleted = 0
         """, (new_status, interpretation_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def delete(self, interpretation_id, user_id=None):
@@ -185,8 +191,7 @@ class ProfessionalInterpretationDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE professional_interpretations SET
                 is_deleted = 1,
@@ -195,7 +200,7 @@ class ProfessionalInterpretationDAL:
             WHERE id = ?
         """, (now, user_id, interpretation_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def restore(self, interpretation_id, user_id=None):
@@ -211,7 +216,7 @@ class ProfessionalInterpretationDAL:
             WHERE id = ? AND is_deleted = 1
         """, (interpretation_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def _row_to_interpretation(self, row):
@@ -232,7 +237,8 @@ class ProfessionalInterpretationDAL:
         if row['recommendations']:
             try:
                 interpretation.recommendations = json.loads(row['recommendations'])
-            except:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_interpretation (مسیر جایگزین): {_exc}")
                 interpretation.recommendations = None
         else:
             interpretation.recommendations = None
@@ -240,7 +246,8 @@ class ProfessionalInterpretationDAL:
         if row['next_steps']:
             try:
                 interpretation.next_steps = json.loads(row['next_steps'])
-            except:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_interpretation (مسیر جایگزین): {_exc}")
                 interpretation.next_steps = None
         else:
             interpretation.next_steps = None

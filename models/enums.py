@@ -3,7 +3,7 @@
 نسخه کامل - ۱۴۰۵
 """
 
-from enum import Enum, IntEnum
+from enum import Enum
 
 
 class ObservationStatus(str, Enum):
@@ -446,6 +446,7 @@ class ActionType(str, Enum):
     CREATE = "create"
     EDIT = "edit"
     DELETE_SOFT = "delete_soft"
+    DELETE = "delete"              # حذف فیزیکی (تریگر hard_delete — بازرسی چهاردهم)
     RESTORE = "restore"
     LOGIN_SUCCESS = "login_success"
     LOGIN_FAILED = "login_failed"
@@ -465,6 +466,7 @@ class ActionType(str, Enum):
             cls.CREATE: "➕ ایجاد",
             cls.EDIT: "✏️ ویرایش",
             cls.DELETE_SOFT: "🗑️ حذف",
+            cls.DELETE: "🗑️ حذف دائم",
             cls.RESTORE: "↩️ بازیابی",
             cls.LOGIN_SUCCESS: "🔓 ورود موفق",
             cls.LOGIN_FAILED: "🔒 ورود ناموفق",
@@ -486,6 +488,7 @@ class ActionType(str, Enum):
             (cls.CREATE, "ایجاد"),
             (cls.EDIT, "ویرایش"),
             (cls.DELETE_SOFT, "حذف"),
+            (cls.DELETE, "حذف دائم"),
             (cls.RESTORE, "بازیابی"),
             (cls.LOGIN_SUCCESS, "ورود موفق"),
             (cls.LOGIN_FAILED, "ورود ناموفق"),

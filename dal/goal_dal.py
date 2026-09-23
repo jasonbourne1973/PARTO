@@ -2,9 +2,15 @@
 لایه دسترسی به داده اهداف فردی
 """
 
+import json
+import sqlite3
+
 from database.connection import DatabaseConnection
 from models.individual_goal import IndividualGoal
-import json
+from utils.logger import get_logger
+from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class GoalDAL:
@@ -50,7 +56,7 @@ class GoalDAL:
             goal.achievement_date
         ))
         
-        conn.commit()
+        self.db.commit()
         goal.id = cursor.lastrowid
         return goal
     
@@ -213,7 +219,7 @@ class GoalDAL:
             goal.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return goal
     
     def update_progress(self, goal_id, progress_percent, notes=None):
@@ -239,7 +245,7 @@ class GoalDAL:
             WHERE id = ? AND is_deleted = 0
         """, (progress_percent, notes, new_status, goal_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def update_status(self, goal_id, new_status):
@@ -254,7 +260,7 @@ class GoalDAL:
             WHERE id = ? AND is_deleted = 0
         """, (new_status, goal_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def delete(self, goal_id, user_id=None):
@@ -269,8 +275,7 @@ class GoalDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE individual_goals SET
                 is_deleted = 1,
@@ -279,7 +284,7 @@ class GoalDAL:
             WHERE id = ?
         """, (now, user_id, goal_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def restore(self, goal_id):
@@ -295,8 +300,9 @@ class GoalDAL:
             WHERE id = ? AND is_deleted = 1
         """, (goal_id,))
         
-        conn.commit()
-        return True
+        updated = cursor.rowcount > 0
+        self.db.commit()
+        return updated
     
     def get_goal_stats(self, profile_id):
         """دریافت آمار اهداف یک دانش‌آموز"""
@@ -345,7 +351,8 @@ class GoalDAL:
         if row['success_criteria']:
             try:
                 goal.success_criteria = json.loads(row['success_criteria'])
-            except:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_goal (مسیر جایگزین): {_exc}")
                 goal.success_criteria = None
         else:
             goal.success_criteria = None

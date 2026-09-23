@@ -3,31 +3,42 @@
 نمایش روند و وضعیت پرونده
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QFrame, QGridLayout, QScrollArea,
-    QMessageBox, QTableWidget, QTableWidgetItem,
-    QHeaderView, QComboBox, QSizePolicy, QProgressBar, QTabWidget
-)
+import matplotlib
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QColor, QFont
+from PySide6.QtWidgets import (
+    QComboBox,
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
-from services.dashboard_service import DashboardService
 from dal.staff_dal import StaffDAL
-from utils.logger import get_logger
+from services.dashboard_service import DashboardService
 from utils.chart_helper import ChartHelper
+from utils.logger import get_logger
+from utils.persian_date import format_timestamp
 from views.pages.analytics_dashboard import AnalyticsDashboardPage
 
-import matplotlib
 matplotlib.use('QtAgg')
+import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-import numpy as np
 
 
 class DashboardPage(QWidget):
@@ -231,7 +242,7 @@ class DashboardPage(QWidget):
         self.refresh_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0B2E4F;
-                color: #0B2E4F;
+                color: #F4C542;
                 border: none;
                 border-radius: 8px;
                 padding: 6px 16px;
@@ -374,7 +385,7 @@ class DashboardPage(QWidget):
         legend_badge.setStyleSheet("""
             font-size: 11px;
             font-weight: 600;
-            color: #0B2E4F;
+            color: #F4C542;
             background-color: #0B2E4F;
             padding: 3px 10px;
             border-radius: 12px;
@@ -429,7 +440,7 @@ class DashboardPage(QWidget):
         self.reminder_summary_label.setStyleSheet("""
             font-size: 11px;
             font-weight: bold;
-            color: #66BB6A;
+            color: #111111;
             background-color: #66BB6A;
             padding: 3px 10px;
             border-radius: 12px;
@@ -491,7 +502,7 @@ class DashboardPage(QWidget):
         act_live.setStyleSheet("""
             font-size: 11px;
             font-weight: 600;
-            color: #66BB6A;
+            color: #111111;
             background-color: #66BB6A;
             padding: 3px 10px;
             border-radius: 12px;
@@ -545,7 +556,7 @@ class DashboardPage(QWidget):
             }
             QTableWidget::item:selected {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
             }
             QHeaderView::section {
                 background-color: #66BB6A;
@@ -587,7 +598,6 @@ class DashboardPage(QWidget):
                 return
 
             stats = self.dashboard_data.get('general_stats', {})
-            indicators = self.dashboard_data.get('management_indicators', {})
 
             # ۱. به‌روزرسانی کارت‌ها
             self.stats_cards["دانش‌آموزان"].value_label.setText(str(stats.get('students_count', 0)))
@@ -634,7 +644,6 @@ class DashboardPage(QWidget):
         width = 0.35
 
         # استفاده از ChartHelper برای نمایش فارسی
-        from utils.chart_helper import ChartHelper
         labels_fa = [ChartHelper._farsi(str(label)) for label in labels]
 
         # رسم میله‌ها
@@ -686,7 +695,7 @@ class DashboardPage(QWidget):
                 self.reminder_summary_label.setStyleSheet("""
                     font-size: 11px;
                     font-weight: bold;
-                    color: #66BB6A;
+                    color: #111111;
                     background-color: #66BB6A;
                     padding: 3px 10px;
                     border-radius: 12px;
@@ -721,6 +730,7 @@ class DashboardPage(QWidget):
                 'create': ('➕ ایجاد', '#66BB6A'),
                 'edit': ('✏️ ویرایش', '#0B2E4F'),
                 'delete_soft': ('🗑️ حذف', '#DC2626'),
+                'delete': ('🗑️ حذف دائم', '#991B1B'),
                 'restore': ('↩️ بازیابی', '#66BB6A'),
                 'login_success': ('🔓 ورود', '#7C3AED'),
                 'logout': ('🚪 خروج', '#D9C36A'),
@@ -736,12 +746,22 @@ class DashboardPage(QWidget):
                 'academic_year': 'سال تحصیلی',
                 'auth': 'امنیت و ورود',
                 'user': 'کاربر سامانه',
+                'notification': 'اعلان',
+                'notifications': 'اعلان',
             }
 
             self.activity_table.setRowCount(min(len(logs), 6))
 
             for row, log in enumerate(logs[:6]):
-                self.activity_table.setItem(row, 0, QTableWidgetItem(log.get('created_at', '')))
+                # created_at از «CURRENT_TIMESTAMP» می‌آید یعنی میلادی و UTC.
+                # بدون تبدیل، کاربر در ایران ساعت را ۳ ساعت و ۳۰ دقیقه عقب‌تر
+                # از زمان واقعی و تاریخ را میلادی می‌دید (و بین ۰۰:۰۰ تا ۰۳:۳۰
+                # تهران، روز هم یک روز عقب‌تر بود). format_timestamp هر دو را
+                # به شمسیِ زمان محلی می‌برد.
+                self.activity_table.setItem(
+                    row, 0,
+                    QTableWidgetItem(format_timestamp(log.get('created_at')))
+                )
                 self.activity_table.setItem(row, 1, QTableWidgetItem(f"👤 {log.get('user_name', 'سیستم')}"))
 
                 act_raw = log.get('action', '')

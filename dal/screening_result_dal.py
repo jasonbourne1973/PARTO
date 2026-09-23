@@ -2,9 +2,15 @@
 لایه دسترسی به داده نتایج غربالگری (ScreeningResult)
 """
 
+import json
+import sqlite3
+
 from database.connection import DatabaseConnection
 from models.screening_result import ScreeningResult
-import json
+from utils.logger import get_logger
+from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class ScreeningResultDAL:
@@ -47,7 +53,7 @@ class ScreeningResultDAL:
             result.status
         ))
         
-        conn.commit()
+        self.db.commit()
         result.id = cursor.lastrowid
         return result
     
@@ -151,7 +157,7 @@ class ScreeningResultDAL:
             result.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return result
     
     def update_status(self, result_id, new_status):
@@ -164,7 +170,7 @@ class ScreeningResultDAL:
             WHERE id = ? AND is_deleted = 0
         """, (new_status, result_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def delete(self, result_id, user_id=None):
@@ -179,8 +185,7 @@ class ScreeningResultDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE screening_results SET
                 is_deleted = 1,
@@ -189,7 +194,7 @@ class ScreeningResultDAL:
             WHERE id = ?
         """, (now, user_id, result_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def restore(self, result_id, user_id=None):
@@ -205,7 +210,7 @@ class ScreeningResultDAL:
             WHERE id = ? AND is_deleted = 1
         """, (result_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def _row_to_result(self, row):
@@ -222,7 +227,8 @@ class ScreeningResultDAL:
         if row['raw_answers']:
             try:
                 result.raw_answers = json.loads(row['raw_answers'])
-            except:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_result (مسیر جایگزین): {_exc}")
                 result.raw_answers = None
         else:
             result.raw_answers = None
@@ -230,7 +236,8 @@ class ScreeningResultDAL:
         if row['raw_observations']:
             try:
                 result.raw_observations = json.loads(row['raw_observations'])
-            except:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_result (مسیر جایگزین): {_exc}")
                 result.raw_observations = None
         else:
             result.raw_observations = None
@@ -238,7 +245,8 @@ class ScreeningResultDAL:
         if row['domain_scores']:
             try:
                 result.domain_scores = json.loads(row['domain_scores'])
-            except:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as _exc:
+                logger.debug(f"خطای مدیریت‌شده در _row_to_result (مسیر جایگزین): {_exc}")
                 result.domain_scores = None
         else:
             result.domain_scores = None

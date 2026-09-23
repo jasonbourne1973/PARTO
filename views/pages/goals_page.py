@@ -2,26 +2,37 @@
 صفحه مدیریت اهداف فردی دانش‌آموزان
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QLabel, QHeaderView,
-    QMessageBox, QDialog, QComboBox, QLineEdit,
-    QSplitter, QTextEdit, QGroupBox, QProgressBar
-)
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QKeyEvent
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QSplitter,
+    QTableWidget,
+    QTableWidgetItem,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
-from services.goal_service import GoalService
+undefined
 from dal.student_dal import StudentDAL
-from dal.staff_dal import StaffDAL
-from views.dialogs.goal_form import GoalForm
 from models.individual_goal import IndividualGoal
+from services.goal_service import GoalService
 from utils.logger import get_logger
+from views.dialogs.goal_form import GoalForm
 
 
 class GoalsPage(QWidget):
@@ -35,6 +46,8 @@ class GoalsPage(QWidget):
         self.goal_service = GoalService()
         self.student_dal = StudentDAL()
         self.staff_dal = StaffDAL()
+        self.profile_dal = StudentAcademicProfileDAL()
+        self.academic_year_dal = AcademicYearDAL()
         self.logger = get_logger(self.__class__.__name__)
         
         self.goals = []
@@ -83,7 +96,7 @@ class GoalsPage(QWidget):
         self.add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -222,9 +235,14 @@ class GoalsPage(QWidget):
         """بارگذاری اهداف"""
         try:
             self.goals = self.goal_service.get_all_goals()
+            active_year = self.academic_year_dal.get_active()
+            if active_year:
+                profiles = self.profile_dal.get_by_ids([g.student_profile_id for g in self.goals if g.student_profile_id])
+                valid_profile_ids = {pid for pid, p in profiles.items() if p and p.academic_year_id == active_year.id}
+                self.goals = [g for g in self.goals if g.student_profile_id in valid_profile_ids]
             self.display_goals(self.goals)
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اهداف:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اهداف:\n{e!s}")
     
     def filter_goals(self):
         """فیلتر اهداف"""
@@ -307,7 +325,7 @@ class GoalsPage(QWidget):
             
             edit_btn = QPushButton("✏️")
             edit_btn.setFixedSize(30, 30)
-            edit_btn.setStyleSheet("background-color: #F4D35E; color: #F4C542; border: none; border-radius: 4px;")
+            edit_btn.setStyleSheet("background-color: #F4D35E; color: #111111; border: none; border-radius: 4px;")
             edit_btn.clicked.connect(lambda checked, g=goal: self.edit_goal(g))
             btn_layout.addWidget(edit_btn)
             
@@ -336,10 +354,7 @@ class GoalsPage(QWidget):
     def add_goal(self):
         """افزودن هدف جدید"""
         form = GoalForm(parent=self)
-        form.goal_saved.connect(self.load_goals)
-        if form.exec() == QDialog.DialogCode.Accepted:
-            self.load_goals()
-            QMessageBox.information(self, "موفقیت", "هدف با موفقیت ثبت شد")
+        form.exec()
 
     def edit_goal(self, goal):
         """ویرایش هدف"""
@@ -402,11 +417,15 @@ class GoalsPage(QWidget):
         )
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                self.goal_service.delete_goal(goal.id)
+                # (بازرسی شانزدهم) نتیجهٔ حذف بررسی می‌شود
+                deleted = self.goal_service.delete_goal(goal.id)
                 self.load_goals()
-                QMessageBox.information(self, "موفقیت", "هدف با موفقیت حذف شد")
+                if deleted:
+                    QMessageBox.information(self, "موفقیت", "هدف با موفقیت حذف شد")
+                else:
+                    QMessageBox.warning(self, "توجه", "این هدف پیدا نشد (احتمالاً قبلاً حذف شده است)؛ فهرست تازه‌سازی شد.")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
     def view_student_profile(self):
         """مشاهده پرونده دانش‌آموز"""

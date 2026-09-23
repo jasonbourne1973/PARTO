@@ -3,10 +3,17 @@
 با متدهای تحلیلی برای داشبورد و پیشنهادات
 """
 
-from database.connection import DatabaseConnection
-from models.competency import Competency
+import sqlite3
+
 from dal.indicator_dal import IndicatorDAL
 from dal.observable_behavior_dal import ObservableBehaviorDAL
+from database.connection import DatabaseConnection
+from models.competency import Competency
+from utils.batch_query import id_chunks, placeholders
+from utils.logger import get_logger
+from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class CompetencyDAL:
@@ -34,7 +41,7 @@ class CompetencyDAL:
             competency.sort_order
         ))
 
-        conn.commit()
+        self.db.commit()
         competency.id = cursor.lastrowid
         return competency
 
@@ -61,6 +68,48 @@ class CompetencyDAL:
             )
 
         return competency
+
+    def get_titles_by_ids(self, competency_ids, include_deleted=False):
+        """
+        دریافت عنوان چند شایستگی با «یک» کوئری (بازرسی دوازدهم: رفع N+1)
+
+        صفحهٔ پروندهٔ دانش‌آموز و گزارش‌ها قبلاً برای هر مشاهده یک
+        get_by_id جدا می‌زدند (۱۰۰ مشاهده ← ۱۰۰ کوئری). حالا شناسه‌ها
+        یک‌جا خوانده می‌شوند. رفتار فیلتر حذف‌شده‌ها دقیقاً مثل
+        get_by_id است (پیش‌فرض: حذف‌شده‌ها برنمی‌گردند).
+
+        Returns:
+            dict: {competency_id: title}
+        """
+        result = {}
+        for chunk in id_chunks(competency_ids):
+            query = f"SELECT id, title FROM competencies WHERE id IN ({placeholders(len(chunk))})"
+            if not include_deleted:
+                query += " AND is_deleted = 0"
+            cursor = self.db.execute_query(query, tuple(chunk))
+            result.update({row['id']: row['title'] for row in cursor.fetchall()})
+        return result
+
+    def get_by_ids(self, competency_ids, include_deleted=False):
+        """
+        دریافت چند شایستگی (شیء کامل، بدون شاخص‌ها) با «یک» کوئری
+
+        (بازرسی چهاردهم: رفع N+1 در گزارش معلم، روند چندساله و پیشنهادگر)
+        معناشناسی مثل get_by_id با load_full=False.
+
+        Returns:
+            dict: {competency_id: Competency}
+        """
+        result = {}
+        for chunk in id_chunks(competency_ids):
+            query = f"SELECT * FROM competencies WHERE id IN ({placeholders(len(chunk))})"
+            if not include_deleted:
+                query += " AND is_deleted = 0"
+            cursor = self.db.execute_query(query, tuple(chunk))
+            for row in cursor.fetchall():
+                competency = self._row_to_competency(row)
+                result[competency.id] = competency
+        return result
 
     def get_by_title(self, title, load_full=False):
         """دریافت شایستگی با عنوان"""
@@ -161,7 +210,7 @@ class CompetencyDAL:
             competency.id
         ))
 
-        conn.commit()
+        self.db.commit()
         return competency
 
     def delete(self, competency_id, user_id=None):
@@ -176,8 +225,7 @@ class CompetencyDAL:
         if not cursor.fetchone():
             return False
 
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
 
         cursor.execute("""
             UPDATE competencies SET
@@ -203,7 +251,7 @@ class CompetencyDAL:
             WHERE competency_id = ? AND is_deleted = 0
         """, (now, user_id, competency_id))
 
-        conn.commit()
+        self.db.commit()
         return True
 
     def restore(self, competency_id, user_id=None):
@@ -235,7 +283,7 @@ class CompetencyDAL:
             WHERE competency_id = ? AND is_deleted = 1
         """, (competency_id,))
 
-        conn.commit()
+        self.db.commit()
         return True
 
     def get_categories_with_counts(self):
@@ -343,7 +391,7 @@ class CompetencyDAL:
             cursor.execute(query, params)
             rows = cursor.fetchall()
 
-            used_comp_ids = set(row['competency_id'] for row in rows)
+            used_comp_ids = {row['competency_id'] for row in rows}
             used_competencies = len(used_comp_ids)
             unused_competencies = len(comp_ids) - used_competencies
 
@@ -375,8 +423,8 @@ class CompetencyDAL:
                 'least_used': least_used
             }
 
-        except Exception as e:
-            print(f"خطا در دریافت آمار استفاده از شایستگی‌ها: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت آمار استفاده از شایستگی‌ها: {e}")
             return {
                 'total_competencies': 0,
                 'used_competencies': 0,
@@ -402,8 +450,8 @@ class CompetencyDAL:
 
             return result
 
-        except Exception as e:
-            print(f"خطا در دریافت توزیع شایستگی‌ها: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت توزیع شایستگی‌ها: {e}")
             return []
 
     def get_competency_avg_severity(self, start_date=None, end_date=None):
@@ -431,7 +479,7 @@ class CompetencyDAL:
 
             query += " GROUP BY o.competency_id ORDER BY avg_severity DESC"
 
-            cursor.execute(query, params if params else None)
+            cursor.execute(query, tuple(params))  # اصلاح: None می‌داد «parameters are of unsupported type»
             rows = cursor.fetchall()
 
             result = []
@@ -445,8 +493,8 @@ class CompetencyDAL:
 
             return result
 
-        except Exception as e:
-            print(f"خطا در دریافت میانگین شدت شایستگی‌ها: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت میانگین شدت شایستگی‌ها: {e}")
             return []
 
     # ============================================================
@@ -486,15 +534,24 @@ class CompetencyDAL:
                     if obs.competency_id not in comp_stats:
                         comp_stats[obs.competency_id] = {
                             'count': 0,
-                            'total_severity': 0
+                            'total_severity': 0,
+                            # بازرسی یازدهم: شمارش نوع رفتار برای مرتب‌سازی
+                            # رفتارمحور (شدت فقط تکمیلی است)
+                            'positive': 0,
+                            'negative': 0,
                         }
                     comp_stats[obs.competency_id]['count'] += 1
                     comp_stats[obs.competency_id]['total_severity'] += obs.severity or 1
+                    if obs.behavior_type == 'مثبت':
+                        comp_stats[obs.competency_id]['positive'] += 1
+                    elif obs.behavior_type == 'منفی':
+                        comp_stats[obs.competency_id]['negative'] += 1
             
             # ترکیب با اطلاعات شایستگی
             result = []
             for comp in competencies:
-                stats = comp_stats.get(comp.id, {'count': 0, 'total_severity': 0})
+                stats = comp_stats.get(comp.id, {'count': 0, 'total_severity': 0,
+                                                 'positive': 0, 'negative': 0})
                 avg_severity = stats['total_severity'] / stats['count'] if stats['count'] > 0 else 0
                 result.append({
                     'competency_id': comp.id,
@@ -502,16 +559,21 @@ class CompetencyDAL:
                     'category': comp.category,
                     'category_display': comp.category_display,
                     'count': stats['count'],
-                    'avg_severity': round(avg_severity, 1)
+                    'positive': stats.get('positive', 0),
+                    'negative': stats.get('negative', 0),
+                    # شدت: اطلاعات تکمیلی (مبنای مرتب‌سازی نیست)
+                    'avg_severity': round(avg_severity, 1),
+                    'severity_is_auxiliary': True,
                 })
             
-            # مرتب‌سازی بر اساس تعداد و میانگین شدت
-            result.sort(key=lambda x: (x['count'], x['avg_severity']), reverse=True)
+            # مرتب‌سازی بر پایهٔ تعداد رفتارهای جهت‌دار (نه میانگین شدت)
+            result.sort(key=lambda x: (x['positive'] + x['negative'], x['count'],
+                                       x['positive']), reverse=True)
             
             return result
             
-        except Exception as e:
-            print(f"خطا در دریافت شایستگی‌های دسته برای دانش‌آموز: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت شایستگی‌های دسته برای دانش‌آموز: {e}")
             return []
 
     def get_recommended_competencies_for_student(self, profile_id, limit=3):
@@ -540,11 +602,10 @@ class CompetencyDAL:
             # اگر شایستگی ضعیفی وجود نداشت، شایستگی‌های بدون مشاهده را پیشنهاد کن
             # دریافت همه شایستگی‌های فعال
             all_comps = self.get_all(include_inactive=False)
-            all_comp_ids = [c.id for c in all_comps]
             
             # دریافت مشاهدات دانش‌آموز
             observations = obs_dal.get_by_student_profile(profile_id)
-            observed_comp_ids = set(o.competency_id for o in observations if o.competency_id)
+            observed_comp_ids = {o.competency_id for o in observations if o.competency_id}
             
             # شایستگی‌های بدون مشاهده
             unobserved = [c for c in all_comps if c.id not in observed_comp_ids]
@@ -561,6 +622,6 @@ class CompetencyDAL:
             
             return result
             
-        except Exception as e:
-            print(f"خطا در دریافت شایستگی‌های پیشنهادی: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت شایستگی‌های پیشنهادی: {e}")
             return []

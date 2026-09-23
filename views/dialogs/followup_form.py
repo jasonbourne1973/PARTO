@@ -2,21 +2,29 @@
 فرم ثبت و ویرایش پیگیری - نسخه با پشتیبانی از سیستم راهنما
 """
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QLineEdit, QComboBox, QPushButton,
-    QTextEdit, QMessageBox, QWidget, QScrollArea,
-    QGroupBox
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal
 
-from services.followup_service import FollowUpService
-from dal.student_dal import StudentDAL
 from dal.staff_dal import StaffDAL
-from utils.shamsi_date_input import ShamsiDateInput
+from dal.student_dal import StudentDAL
+from services.followup_service import FollowUpService
 from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
+from utils.shamsi_date_input import ShamsiDateInput
 from utils.tooltip_manager import TooltipManager
+from utils.ui_guards import single_submit
 from views.widgets.help_widget import HelpWidget
 
 
@@ -211,7 +219,7 @@ class FollowUpForm(QDialog):
         self.save_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 12px 40px;
                 border: none;
                 border-radius: 6px;
@@ -313,17 +321,39 @@ class FollowUpForm(QDialog):
                 return
             
             follow = self.existing_followup
-            
-            # دریافت دانش‌آموز از مداخله
+
+            # ===== اصلاح (بازرسی شانزدهم) — ویرایش پیگیری عملاً غیرممکن بود =====
+            # ۱) FollowUpDAL.get_by_id فقط ستون‌های followups را می‌دهد، پس
+            #    follow.student_id همیشه None بود و دانش‌آموز/مداخلات بارگذاری
+            #    نمی‌شدند؛ ۲) فهرست مداخلات فقط «مداخلات بدون پیگیری» است و
+            #    مداخلهٔ خودِ این پیگیری (که پیگیری دارد) در آن نبود. نتیجه:
+            #    «لطفاً یک مداخله انتخاب کنید» در هر ویرایش. حالا دانش‌آموز از
+            #    مداخله ← پرونده پیدا می‌شود و مداخلهٔ خودِ پیگیری به فهرست
+            #    اضافه و انتخاب می‌شود.
+            own_intervention = None
             student_id = getattr(follow, 'student_id', None)
+            if follow.intervention_id:
+                own_intervention = self.followup_service.intervention_dal.get_by_id(
+                    follow.intervention_id)
+                if own_intervention and not student_id:
+                    profile = self.followup_service.profile_dal.get_by_id(
+                        own_intervention.student_profile_id)
+                    student_id = getattr(profile, 'student_id', None) if profile else None
             if student_id:
+                self.student_combo.blockSignals(True)
                 for i in range(self.student_combo.count()):
                     if self.student_combo.itemData(i) == student_id:
                         self.student_combo.setCurrentIndex(i)
                         break
+                self.student_combo.blockSignals(False)
                 # بارگذاری مداخلات برای این دانش‌آموز
                 self.load_interventions_for_student(student_id)
-            
+
+            # مداخلهٔ خودِ این پیگیری باید در فهرست باشد (حتی اگر پیگیری دارد)
+            if own_intervention and self.intervention_combo.findData(own_intervention.id) < 0:
+                self.intervention_combo.addItem(
+                    f"{own_intervention.type_display} - {own_intervention.date}", own_intervention.id)
+
             # انتخاب مداخله (در حالت ویرایش، مداخله خودش را نشان بده)
             for i in range(self.intervention_combo.count()):
                 if self.intervention_combo.itemData(i) == follow.intervention_id:
@@ -353,8 +383,9 @@ class FollowUpForm(QDialog):
             self.description_input.setText(follow.description or "")
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{e!s}")
     
+    @single_submit()
     def save_followup(self):
         """ذخیره پیگیری با استفاده از سرویس"""
         # ===== جمع‌آوری داده‌ها =====
@@ -408,4 +439,4 @@ class FollowUpForm(QDialog):
             QMessageBox.critical(self, "خطا", str(e))
         except Exception as e:
             self.logger.error(f"خطا در ذخیره پیگیری: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{e!s}")

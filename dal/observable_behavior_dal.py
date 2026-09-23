@@ -4,6 +4,7 @@
 
 from database.connection import DatabaseConnection
 from models.observable_behavior import ObservableBehavior
+from utils.time_utils import utc_now_iso
 
 
 class ObservableBehaviorDAL:
@@ -28,7 +29,7 @@ class ObservableBehaviorDAL:
             behavior.sort_order
         ))
         
-        conn.commit()
+        self.db.commit()
         behavior.id = cursor.lastrowid
         return behavior
     
@@ -110,7 +111,7 @@ class ObservableBehaviorDAL:
             behavior.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return behavior
     
     def delete(self, behavior_id, user_id=None):
@@ -125,8 +126,7 @@ class ObservableBehaviorDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE observable_behaviors SET
                 is_deleted = 1,
@@ -135,7 +135,7 @@ class ObservableBehaviorDAL:
             WHERE id = ?
         """, (now, user_id, behavior_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def restore(self, behavior_id, user_id=None):
@@ -151,7 +151,7 @@ class ObservableBehaviorDAL:
             WHERE id = ? AND is_deleted = 1
         """, (behavior_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def _row_to_behavior(self, row):

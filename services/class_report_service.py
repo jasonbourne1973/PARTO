@@ -3,22 +3,25 @@
 نمایش وضعیت کلی کلاس بر اساس داده‌های ثبت‌شده
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from dal.class_dal import ClassDAL
-from dal.observation_dal import ObservationDAL
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.competency_dal import CompetencyDAL
-from dal.staff_dal import StaffDAL
-from dal.academic_year_dal import AcademicYearDAL
-from utils.logger import get_logger
-from utils.error_handler import ServiceError
 import jdatetime
+
+from dal.academic_year_dal import AcademicYearDAL
+from dal.class_dal import ClassDAL
+from dal.competency_dal import CompetencyDAL
+from dal.observation_dal import ObservationDAL
+from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from services.base_service import BaseService
+from utils.behavior_analysis import classify_pattern, pattern_label
+from utils.error_handler import ServiceError
+from utils.logger import get_logger
+from utils.time_utils import utc_now
 
 
 class ClassReportService(BaseService):
@@ -88,12 +91,20 @@ class ClassReportService(BaseService):
             
             # دریافت روند
             trend_data = self.observation_dal.get_trend_by_class(
-                class_obj.name, 'monthly', start_date, end_date
+                class_obj.name,
+                'monthly',
+                start_date,
+                end_date,
+                academic_year_id=class_obj.academic_year_id,
             )
             
             # دریافت آمار مداخلات و پیگیری‌ها
-            intervention_stats = self._get_class_intervention_stats(class_obj.name, start_date, end_date)
-            followup_stats = self._get_class_followup_stats(class_obj.name, start_date, end_date)
+            intervention_stats = self._get_class_intervention_stats(
+                class_obj.name, class_obj.academic_year_id, start_date, end_date
+            )
+            followup_stats = self._get_class_followup_stats(
+                class_obj.name, class_obj.academic_year_id, start_date, end_date
+            )
             
             # تحلیل شایستگی‌ها
             competency_analysis = self._analyze_competencies(class_summary.get('competency_stats', {}))
@@ -121,7 +132,7 @@ class ClassReportService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در دریافت گزارش کلاس: {e}")
-            raise ServiceError(f"خطا در دریافت گزارش: {str(e)}")
+            raise ServiceError(f"خطا در دریافت گزارش: {e!s}")
     
     def get_class_list_report(self, academic_year_id=None, start_date=None, end_date=None):
         """
@@ -148,7 +159,7 @@ class ClassReportService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در دریافت گزارش لیست کلاس‌ها: {e}")
-            raise ServiceError(f"خطا در دریافت گزارش: {str(e)}")
+            raise ServiceError(f"خطا در دریافت گزارش: {e!s}")
     
     def get_class_summary_for_dashboard(self, class_id):
         """
@@ -193,8 +204,10 @@ class ClassReportService(BaseService):
             self.logger.error(f"خطا در دریافت خلاصه کلاس: {e}")
             return None
     
-    def _get_class_intervention_stats(self, class_name, start_date=None, end_date=None):
-        """دریافت آمار مداخلات یک کلاس"""
+    def _get_class_intervention_stats(
+        self, class_name, academic_year_id, start_date=None, end_date=None
+    ):
+        """دریافت آمار مداخلات همان کلاس در همان سال تحصیلی."""
         try:
             conn = self.db.get_connection()
             cursor = conn.cursor()
@@ -204,9 +217,10 @@ class ClassReportService(BaseService):
                 FROM interventions i
                 JOIN student_academic_profiles sap ON i.student_profile_id = sap.id
                 WHERE sap.class_name = ?
+                AND sap.academic_year_id = ?
                 AND i.is_deleted = 0
             """
-            params = [class_name]
+            params = [class_name, academic_year_id]
             
             if start_date:
                 query += " AND i.date >= ?"
@@ -239,8 +253,10 @@ class ClassReportService(BaseService):
             self.logger.error(f"خطا در دریافت آمار مداخلات کلاس: {e}")
             return {'total': 0, 'planned': 0, 'in_progress': 0, 'completed': 0, 'cancelled': 0}
     
-    def _get_class_followup_stats(self, class_name, start_date=None, end_date=None):
-        """دریافت آمار پیگیری‌های یک کلاس"""
+    def _get_class_followup_stats(
+        self, class_name, academic_year_id, start_date=None, end_date=None
+    ):
+        """دریافت آمار پیگیری‌های همان کلاس در همان سال تحصیلی."""
         try:
             conn = self.db.get_connection()
             cursor = conn.cursor()
@@ -251,9 +267,10 @@ class ClassReportService(BaseService):
                 JOIN interventions i ON f.intervention_id = i.id
                 JOIN student_academic_profiles sap ON i.student_profile_id = sap.id
                 WHERE sap.class_name = ?
+                AND sap.academic_year_id = ?
                 AND f.is_deleted = 0
             """
-            params = [class_name]
+            params = [class_name, academic_year_id]
             
             if start_date:
                 query += " AND f.date >= ?"
@@ -289,45 +306,61 @@ class ClassReportService(BaseService):
             return {'total': 0, 'pending': 0, 'done': 0, 'continued': 0, 'closed': 0, 'cancelled': 0}
     
     def _analyze_competencies(self, competency_stats):
-        """تحلیل شایستگی‌های کلاس"""
+        """
+        تحلیل زمینه‌های کلاس بر پایهٔ **نوع رفتار ثبت‌شده** (بازرسی یازدهم)
+
+        پیش از این، قوت/ضعف هر زمینه با آستانهٔ «میانگین شدت» تعیین
+        می‌شد؛ اکنون مبنا الگوی تکرارشوندهٔ رفتارهای مثبت/منفی است و
+        شدت فقط اطلاعات تکمیلی است. این تحلیل در سطح **کلاس** است و
+        رتبه‌بندی یا مقایسهٔ دانش‌آموزان با یکدیگر نیست.
+        """
         if not competency_stats:
             return {
                 'strong': [],
                 'weak': [],
+                'mixed': [],
                 'total': 0,
                 'has_data': False
             }
-        
+
         strong = []
         weak = []
-        
+        mixed = []
+
         for name, stats in competency_stats.items():
             count = stats.get('count', 0)
-            avg = stats.get('avg_severity', 0)
-            
-            if count >= 2:
-                if avg >= 3.5:
-                    strong.append({
-                        'name': name,
-                        'avg_severity': avg,
-                        'count': count,
-                        'positive_ratio': stats.get('positive', 0) / count if count > 0 else 0
-                    })
-                elif avg <= 2.0:
-                    weak.append({
-                        'name': name,
-                        'avg_severity': avg,
-                        'count': count,
-                        'negative_ratio': stats.get('negative', 0) / count if count > 0 else 0
-                    })
-        
-        # مرتب‌سازی
-        strong.sort(key=lambda x: x['avg_severity'], reverse=True)
-        weak.sort(key=lambda x: x['avg_severity'])
-        
+            positive = stats.get('positive', 0)
+            negative = stats.get('negative', 0)
+            neutral = max(count - positive - negative, 0)
+            kind = classify_pattern(positive, negative, neutral, count)
+            entry = {
+                'name': name,
+                'count': count,
+                'positive': positive,
+                'negative': negative,
+                'pattern': kind,
+                'pattern_label': pattern_label(kind),
+                # شدت صرفاً تکمیلی
+                'avg_severity': stats.get('avg_severity', 0),
+                'positive_ratio': positive / count if count else 0,
+                'negative_ratio': negative / count if count else 0,
+            }
+            if kind == 'strength':
+                strong.append(entry)
+            elif kind == 'needs_attention':
+                weak.append(entry)
+            elif kind == 'mixed':
+                mixed.append(entry)
+
+        # مرتب‌سازی بر پایهٔ تعداد رفتار جهت‌دار (نه شدت)
+        strong.sort(key=lambda x: (x['positive'], x['count']), reverse=True)
+        weak.sort(key=lambda x: (x['negative'], x['count']), reverse=True)
+        mixed.sort(key=lambda x: x['count'], reverse=True)
+
         return {
-            'strong': strong[:5],  # ۵ شایستگی برتر
-            'weak': weak[:5],      # ۵ شایستگی نیازمند توجه
+            'strong': strong[:5],  # الگوهای تکرارشوندهٔ رفتار مثبت در کلاس
+            'weak': weak[:5],      # الگوهای تکرارشوندهٔ رفتار منفی در کلاس
+            'mixed': mixed[:5],
             'total': len(competency_stats),
             'has_data': len(competency_stats) > 0
         }
@@ -371,33 +404,40 @@ class ClassReportService(BaseService):
                 )
             elif positive_ratio >= 0.4:
                 recommendations['teacher'].append(
-                    f"🟡 {positive_ratio*100:.0f}% مشاهدات کلاس مثبت است. "
-                    "با تقویت رفتارهای مثبت و تشویق دانش‌آموزان می‌توان وضعیت را بهبود بخشید."
+                    f"🟡 {positive_ratio*100:.0f}% از رفتارهای ثبت‌شدهٔ کلاس مثبت "
+                    "است. با تقویت رفتارهای مثبت و تشویق دانش‌آموزان می‌توان "
+                    "این نسبت را بهتر کرد."
                 )
             else:
                 recommendations['teacher'].append(
-                    f"🔴 {positive_ratio*100:.0f}% مشاهدات کلاس مثبت است. "
-                    "بررسی علل و تغییر رویکرد آموزشی توصیه می‌شود. "
-                    "هماهنگی با مشاور مدرسه می‌تواند مفید باشد."
+                    f"🔴 {positive_ratio*100:.0f}% از رفتارهای ثبت‌شدهٔ کلاس مثبت "
+                    "است. بررسی زمینه‌ها و هماهنگی با مشاور مدرسه پیشنهاد می‌شود؛ "
+                    "این آمار «الگوی مشاهده‌شده» است، نه تشخیص."
                 )
         
         # ===== پیشنهادات بر اساس شایستگی‌ها =====
         weak_competencies = competency_analysis.get('weak', [])
         if weak_competencies:
-            weak_names = [w['name'] for w in weak_competencies[:3]]
+            weak_names = [
+                f"{w['name']} ({w.get('negative', 0)} رفتار منفی از "
+                f"{w.get('count', 0)} مشاهده)" for w in weak_competencies[:3]
+            ]
             recommendations['teacher'].append(
-                f"📋 شایستگی‌های نیازمند توجه در کلاس:\n"
+                f"📋 زمینه‌های با الگوی تکرارشوندهٔ رفتار منفی در کلاس:\n"
                 f"{chr(10).join(['   • ' + name for name in weak_names])}\n"
-                f"طراحی فعالیت‌های هدفمند برای این شایستگی‌ها توصیه می‌شود."
+                f"بررسی این الگوها و طراحی فعالیت‌های هدفمند پیشنهاد می‌شود."
             )
         
         strong_competencies = competency_analysis.get('strong', [])
         if strong_competencies:
-            strong_names = [s['name'] for s in strong_competencies[:3]]
+            strong_names = [
+                f"{s['name']} ({s.get('positive', 0)} رفتار مثبت از "
+                f"{s.get('count', 0)} مشاهده)" for s in strong_competencies[:3]
+            ]
             recommendations['teacher'].append(
-                f"⭐ شایستگی‌های برتر در کلاس:\n"
+                f"⭐ زمینه‌های با الگوی تکرارشوندهٔ رفتار مثبت در کلاس:\n"
                 f"{chr(10).join(['   • ' + name for name in strong_names])}\n"
-                f"از این نقاط قوت برای تقویت سایر شایستگی‌ها استفاده کنید."
+                f"تقویت این الگوها پیشنهاد می‌شود."
             )
         
         # ===== پیشنهادات بر اساس آمار دانش‌آموزان =====
@@ -568,9 +608,9 @@ class ClassReportService(BaseService):
             try:
                 today = jdatetime.date.today()
                 date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
-            except:
-                from datetime import datetime
-                date_str = datetime.now().strftime("%Y/%m/%d")
+            except Exception as _exc:
+                self.logger.debug(f"خطای مدیریت‌شده در export_class_report_pdf (مسیر جایگزین): {_exc}")
+                date_str = utc_now().strftime("%Y/%m/%d")
             
             pdf.add_text(f"تاریخ تهیه گزارش: {date_str}")
             pdf.add_text("PARTO - سامانه مدیریت پرونده دانش‌آموزان")
@@ -581,7 +621,7 @@ class ClassReportService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در خروجی PDF گزارش کلاس: {e}")
-            return False, f"خطا در ساخت فایل PDF: {str(e)}"
+            return False, f"خطا در ساخت فایل PDF: {e!s}"
     
     def export_class_report_excel(self, class_id, file_path, start_date=None, end_date=None):
         """
@@ -603,9 +643,10 @@ class ClassReportService(BaseService):
             
             try:
                 from openpyxl import Workbook
-                from openpyxl.styles import Font, PatternFill, Alignment
+                from openpyxl.styles import Alignment, Font, PatternFill
                 from openpyxl.utils import get_column_letter
-            except ImportError:
+            except ImportError as _exc:
+                self.logger.debug(f"خطای مدیریت‌شده در export_class_report_excel (مسیر جایگزین): {_exc}")
                 return False, "کتابخانه openpyxl نصب نیست. pip install openpyxl"
             
             wb = Workbook()
@@ -687,7 +728,8 @@ class ClassReportService(BaseService):
             # ===== برگه ۳: شایستگی‌ها =====
             ws3 = wb.create_sheet("شایستگی‌ها")
             
-            headers = ["شایستگی", "تعداد", "میانگین شدت", "مثبت", "منفی", "وضعیت"]
+            headers = ["شایستگی", "تعداد", "میانگین شدت", "مثبت", "منفی",
+                   "الگو (بر پایهٔ نوع رفتار)"]
             for col, header in enumerate(headers, 1):
                 cell = ws3.cell(row=1, column=col, value=header)
                 cell.font = Font(name='B Nazanin', size=11, bold=True)
@@ -703,15 +745,12 @@ class ClassReportService(BaseService):
                 ws3.cell(row=row, column=4, value=stats.get('positive', 0))
                 ws3.cell(row=row, column=5, value=stats.get('negative', 0))
                 
-                avg = stats.get('avg_severity', 0)
-                if avg >= 3.5:
-                    status = "عالی"
-                elif avg >= 2.5:
-                    status = "خوب"
-                elif avg >= 1.5:
-                    status = "متوسط"
-                else:
-                    status = "نیاز به توجه"
+                # وضعیت بر پایهٔ نوع رفتار ثبت‌شده (نه میانگین شدت)
+                status = pattern_label(classify_pattern(
+                    stats.get('positive', 0), stats.get('negative', 0),
+                    max(stats.get('count', 0) - stats.get('positive', 0)
+                        - stats.get('negative', 0), 0),
+                    stats.get('count', 0)))
                 ws3.cell(row=row, column=6, value=status)
                 row += 1
             
@@ -723,4 +762,4 @@ class ClassReportService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در خروجی Excel گزارش کلاس: {e}")
-            return False, f"خطا در ساخت فایل Excel: {str(e)}"
+            return False, f"خطا در ساخت فایل Excel: {e!s}"

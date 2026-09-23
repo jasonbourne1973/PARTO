@@ -4,35 +4,81 @@
 """
 
 import os
-import sys
+
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 try:
-    from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import cm, inch
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
-    from reportlab.lib.enums import TA_RIGHT, TA_CENTER, TA_LEFT
+    from reportlab.platypus import (
+        Image,
+        PageBreak,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
+    )
     REPORTLAB_AVAILABLE = True
 except ImportError:
     REPORTLAB_AVAILABLE = False
-    print("⚠️ reportlab نصب نیست. pip install reportlab")
+    logger.warning("⚠️ reportlab نصب نیست. pip install reportlab")
+    # ===== اصلاح (بازرسی دوم) =====
+    # try/except بالا برای این بود که برنامه «بدون reportlab هم بالا بیاید»
+    # و فقط موقع گرفتن خروجی PDF خطای خوانا بدهد. اما این قصد با یک خط
+    # خنثی می‌شد:
+    #
+    #     def add_image(self, image_data, width=14*cm, height=9*cm):
+    #
+    # مقدار پیش‌فرض آرگومان «در زمان import» ارزیابی می‌شود، پس وقتی
+    # reportlab نصب نباشد:
+    #
+    #     NameError: name 'cm' is not defined
+    #
+    # و چون utils.persian_pdf را این ماژول‌ها import می‌کنند:
+    #     services/report_generator، services/parent_report_service،
+    #     services/teacher_report_service
+    # و آن‌ها هم توسط صفحه‌های گزارش import می‌شوند ⇒ کل برنامه با یک
+    # NameError بی‌ربط بالا نمی‌آمد (نه پیام «reportlab نصب نیست»).
+    #
+    # اجرای واقعی روی محیط بدون reportlab (قبل از این اصلاح):
+    #     import services.report_generator
+    #     → ModuleNotFoundError/NameError: name 'cm' is not defined
+    #
+    # راه‌حل: همان مقادیر عددی reportlab به عنوان جایگزین تعریف می‌شوند
+    # (reportlab: cm = 28.346456692913385 و inch = 72.0 نقطه). اگر
+    # reportlab نصب باشد، import واقعی موفق است و این شاخه اصلاً اجرا
+    # نمی‌شود؛ اگر نصب نباشد، import ماژول سالم می‌ماند و build()
+    # پایین خطای خوانا می‌دهد.
+    cm = 28.346456692913385   # ۱ سانتی‌متر بر حسب نقطه (point)
+    inch = 72.0
+
+# پیام یکپارچه برای نبودِ reportlab (در __init__ و _load_font استفاده می‌شود)
+REPORTLAB_MISSING_MSG = (
+    "کتابخانه reportlab نصب نیست و خروجی PDF گرفته نمی‌شود. "
+    "نصب: pip install reportlab"
+)
 
 try:
     import arabic_reshaper
     ARABIC_RESHAPER_AVAILABLE = True
 except ImportError:
     ARABIC_RESHAPER_AVAILABLE = False
-    print("⚠️ arabic-reshaper نصب نیست. pip install arabic-reshaper")
+    logger.warning("⚠️ arabic-reshaper نصب نیست. pip install arabic-reshaper")
 
 try:
     from bidi.algorithm import get_display
     BIDI_AVAILABLE = True
 except ImportError:
     BIDI_AVAILABLE = False
-    print("⚠️ python-bidi نصب نیست. pip install python-bidi")
+    logger.warning("⚠️ python-bidi نصب نیست. pip install python-bidi")
 
 
 class PersianPDF:
@@ -53,6 +99,24 @@ class PersianPDF:
         self.font_name = None
         self.font_loaded = False
         self.font_error = None
+
+        # ===== اصلاح (بازرسی دوم) =====
+        # اگر reportlab نصب نباشد، _create_styles() با
+        #     NameError: name 'getSampleStyleSheet' is not defined
+        # و build() با
+        #     NameError: name 'SimpleDocTemplate' is not defined
+        # می‌شکست. هر دو بی‌ربط و گیج‌کننده‌اند.
+        #
+        # حالا همان اول، با پیام خوانا و قابل‌عمل شکست می‌خوریم تا
+        # سرویس‌های گزارش‌ساز (که داخل try/except هستند) همان پیام را
+        # به کاربر نشان دهند:
+        #     «خطا در تولید PDF: کتابخانه reportlab نصب نیست ...»
+        # و مهم‌تر: import ماژول (که با cm در مقدار پیش‌فرض add_image
+        # می‌ترکید) دیگر برنامه را از بالا آمدن نمی‌اندازد.
+        if not REPORTLAB_AVAILABLE:
+            self.font_error = REPORTLAB_MISSING_MSG
+            raise RuntimeError(self.font_error)
+
         self._load_font()
         self._create_styles()
     
@@ -64,6 +128,18 @@ class PersianPDF:
     
     def _load_font(self):
         """بارگذاری فونت فارسی از مسیر پروژه - بدون وابستگی به ویندوز"""
+        # ===== اصلاح (بازرسی دوم) =====
+        # اگر reportlab نصب نباشد، pdfmetrics/TTFont تعریف نشده‌اند و خطای
+        # واقعی «name 'pdfmetrics' is not defined» بود — پیامی که کاربر
+        # نمی‌فهمد. حالا همان اول، پیام خوانا در font_error گذاشته می‌شود
+        # تا _create_styles آن را با RuntimeError بالا بدهد و سرویس‌های
+        # گزارش‌ساز (که داخل try هستند) به کاربر بگویند:
+        # «reportlab نصب نیست؛ pip install reportlab».
+        if not REPORTLAB_AVAILABLE:
+            self.font_loaded = False
+            self.font_error = REPORTLAB_MISSING_MSG
+            return
+
         project_root = self._get_project_root()
         
         # لیست فونت‌های موجود در assets/fonts/
@@ -104,10 +180,10 @@ class PersianPDF:
                         pdfmetrics.registerFont(TTFont('PersianFont', font_path))
                         self.font_name = 'PersianFont'
                         self.font_loaded = True
-                        print(f"✅ فونت فارسی از {font_path} بارگذاری شد")
+                        logger.debug(f"✅ فونت فارسی از {font_path} بارگذاری شد")
                         return
                     except Exception as e:
-                        print(f"⚠️ خطا در بارگذاری فونت {font_path}: {e}")
+                        logger.error(f"⚠️ خطا در بارگذاری فونت {font_path}: {e}")
                         continue
         
         # اگر هیچ فونتی پیدا نشد، خطای واضح ایجاد کن
@@ -121,7 +197,7 @@ class PersianPDF:
             "  - IRANSans.ttf\n"
             "مسیر جستجو: " + os.path.join(self._get_project_root(), "assets", "fonts")
         )
-        print(self.font_error)
+        logger.debug(self.font_error)
         
         # از فونت پیش‌فرض ReportLab استفاده نکن
         self.font_name = None
@@ -252,16 +328,14 @@ class PersianPDF:
             try:
                 text = arabic_reshaper.reshape(text)
             except Exception as e:
-                print(f"⚠️ خطا در reshape: {e}")
-                pass
+                logger.error(f"⚠️ خطا در reshape: {e}")
         
         # مرحله ۲: راست‌چین کردن
         if BIDI_AVAILABLE:
             try:
                 text = get_display(text)
             except Exception as e:
-                print(f"⚠️ خطا در get_display: {e}")
-                pass
+                logger.error(f"⚠️ خطا در get_display: {e}")
         
         return text
     
@@ -388,7 +462,7 @@ class PersianPDF:
             self.elements.append(img)
             self.elements.append(Spacer(1, 0.3*cm))
         except Exception as e:
-            print(f"⚠️ خطا در اضافه کردن تصویر: {e}")
+            logger.error(f"⚠️ خطا در اضافه کردن تصویر: {e}")
             self.add_text("(نمودار قابل نمایش نیست)")
     
     def _remove_emoji(self, text):
@@ -444,6 +518,13 @@ class PersianPDF:
         if not output_path:
             raise ValueError("مسیر فایل مشخص نشده است.")
         
+        # ===== اصلاح (بازرسی دوم) =====
+        # گارد صریح reportlab: بدون آن، SimpleDocTemplate تعریف‌نشده بود و
+        # NameError می‌داد. (در حالت عادی __init__ زودتر شکست می‌خورد، اما
+        # اگر کسی نمونه را از راه دیگری ساخته باشد، پیام خوانا می‌گیرد.)
+        if not REPORTLAB_AVAILABLE:
+            raise RuntimeError(REPORTLAB_MISSING_MSG)
+
         # اگر فونت بارگذاری نشده، خطا بده
         if not self.font_loaded:
             raise RuntimeError(self.font_error)
@@ -464,10 +545,10 @@ class PersianPDF:
         
         try:
             doc.build(self.elements)
-            print(f"✅ PDF در {output_path} ساخته شد.")
+            logger.debug(f"✅ PDF در {output_path} ساخته شد.")
             return True
         except Exception as e:
-            print(f"❌ خطا در ساخت PDF: {e}")
+            logger.error(f"❌ خطا در ساخت PDF: {e}")
             import traceback
             traceback.print_exc()
             raise

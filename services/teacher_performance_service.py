@@ -2,21 +2,24 @@
 سرویس گزارش عملکرد معلم - نمایش تعداد و کیفیت مشاهدات، مداخلات و پیگیری‌ها
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
+import jdatetime
+
+from dal.competency_dal import CompetencyDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
 from dal.staff_dal import StaffDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
-from dal.competency_dal import CompetencyDAL
-from utils.logger import get_logger
+from services.base_service import BaseService
+from utils.behavior_analysis import classify_pattern, pattern_label
 from utils.error_handler import ServiceError
-import jdatetime
+from utils.logger import get_logger
+from utils.time_utils import utc_now
 
 
 class TeacherPerformanceService(BaseService):
@@ -100,7 +103,7 @@ class TeacherPerformanceService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در دریافت گزارش عملکرد معلم: {e}")
-            raise ServiceError(f"خطا در دریافت گزارش: {str(e)}")
+            raise ServiceError(f"خطا در دریافت گزارش: {e!s}")
     
     def get_all_teachers_performance(self, start_date=None, end_date=None):
         """
@@ -127,7 +130,7 @@ class TeacherPerformanceService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در دریافت گزارش همه معلمان: {e}")
-            raise ServiceError(f"خطا در دریافت گزارش: {str(e)}")
+            raise ServiceError(f"خطا در دریافت گزارش: {e!s}")
     
     def _calculate_competency_stats(self, observations):
         """محاسبه آمار شایستگی‌ها"""
@@ -135,11 +138,13 @@ class TeacherPerformanceService(BaseService):
             return {}
         
         stats = {}
+        # عنوان شایستگی‌ها یک‌جا خوانده می‌شود (رفع N+1)
+        titles = self.competency_dal.get_titles_by_ids(
+            o.competency_id for o in observations)
         for obs in observations:
             if obs.competency_id:
-                competency = self.competency_dal.get_by_id(obs.competency_id)
-                if competency:
-                    key = competency.title
+                key = titles.get(obs.competency_id)
+                if key:
                     if key not in stats:
                         stats[key] = {
                             'count': 0,
@@ -163,29 +168,41 @@ class TeacherPerformanceService(BaseService):
         return stats
     
     def _analyze_strengths_weaknesses(self, competency_stats):
-        """تحلیل نقاط قوت و ضعف"""
+        """
+        تحلیل توانمندی‌ها و زمینه‌های نیازمند توجه — بر پایهٔ **نوع رفتار**
+        (بازرسی یازدهم)
+
+        معیار پیشین «میانگین شدت» بود؛ اکنون الگوی تکرارشوندهٔ رفتارهای
+        مثبت/منفی مبناست و شدت فقط به‌عنوان اطلاعات تکمیلی همراه خروجی
+        می‌آید. این تحلیل در سطح معلم/کلاس است و برچسب‌گذاری فردی نیست.
+        """
         strengths = []
         weaknesses = []
         
         for competency, stats in competency_stats.items():
-            avg = stats.get('avg_severity', 0)
             count = stats.get('count', 0)
-            
-            if count >= 2 and avg >= 3.5:
-                strengths.append({
-                    'competency': competency,
-                    'avg_severity': avg,
-                    'count': count
-                })
-            elif count >= 2 and avg <= 2.0:
-                weaknesses.append({
-                    'competency': competency,
-                    'avg_severity': avg,
-                    'count': count
-                })
+            positive = stats.get('positive', 0)
+            negative = stats.get('negative', 0)
+            kind = classify_pattern(positive, negative,
+                                    max(count - positive - negative, 0), count)
+            entry = {
+                'competency': competency,
+                'count': count,
+                'positive': positive,
+                'negative': negative,
+                'pattern': kind,
+                'pattern_label': pattern_label(kind),
+                # شدت: تکمیلی
+                'avg_severity': stats.get('avg_severity', 0),
+                'severity_is_auxiliary': True,
+            }
+            if kind == 'strength':
+                strengths.append(entry)
+            elif kind == 'needs_attention':
+                weaknesses.append(entry)
         
-        strengths.sort(key=lambda x: x['avg_severity'], reverse=True)
-        weaknesses.sort(key=lambda x: x['avg_severity'])
+        strengths.sort(key=lambda x: (x['positive'], x['count']), reverse=True)
+        weaknesses.sort(key=lambda x: (x['negative'], x['count']), reverse=True)
         
         return strengths[:5], weaknesses[:5]
     
@@ -195,7 +212,6 @@ class TeacherPerformanceService(BaseService):
         
         total_obs = stats.get('total_observations', 0)
         positive = stats.get('positive', 0)
-        negative = stats.get('negative', 0)
         
         if total_obs > 0:
             positive_ratio = positive / total_obs
@@ -214,10 +230,17 @@ class TeacherPerformanceService(BaseService):
                 )
         
         if competency_stats:
-            weak = [c for c, s in competency_stats.items() if s.get('avg_severity', 0) <= 2.0 and s.get('count', 0) >= 2]
+            weak = [
+                c for c, s in competency_stats.items()
+                if classify_pattern(s.get('positive', 0), s.get('negative', 0),
+                                    max(s.get('count', 0) - s.get('positive', 0)
+                                        - s.get('negative', 0), 0),
+                                    s.get('count', 0)) == 'needs_attention'
+            ]
             if weak:
                 recommendations['teacher'].append(
-                    f"📋 شایستگی‌های نیازمند توجه: {', '.join(weak[:3])}"
+                    f"📋 زمینه‌های با الگوی تکرارشوندهٔ رفتار منفی: {', '.join(weak[:3])} "
+                    "— بررسی این الگوها پیشنهاد می‌شود."
                 )
         
         if students:
@@ -239,7 +262,8 @@ class TeacherPerformanceService(BaseService):
         """دریافت آمار ماهانه"""
         try:
             return self.assignment_dal.get_teacher_trend(teacher_id, 'monthly', start_date, end_date)
-        except:
+        except Exception as _exc:
+            self.logger.debug(f"خطای مدیریت‌شده در _get_monthly_stats (مسیر جایگزین): {_exc}")
             return []
     
     def export_teacher_report_pdf(self, teacher_id, file_path, start_date=None, end_date=None):
@@ -267,7 +291,7 @@ class TeacherPerformanceService(BaseService):
             teacher = report['teacher']
             stats = report.get('stats', {})
             
-            pdf.add_title(f"گزارش عملکرد معلم")
+            pdf.add_title("گزارش عملکرد معلم")
             pdf.add_spacer(0.2)
             
             info_items = [
@@ -300,9 +324,9 @@ class TeacherPerformanceService(BaseService):
             try:
                 today = jdatetime.date.today()
                 date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
-            except:
-                from datetime import datetime
-                date_str = datetime.now().strftime("%Y/%m/%d")
+            except Exception as _exc:
+                self.logger.debug(f"خطای مدیریت‌شده در export_teacher_report_pdf (مسیر جایگزین): {_exc}")
+                date_str = utc_now().strftime("%Y/%m/%d")
             
             pdf.add_text(f"تاریخ تهیه گزارش: {date_str}")
             pdf.add_text("PARTO - سامانه مدیریت پرونده دانش‌آموزان")
@@ -312,4 +336,4 @@ class TeacherPerformanceService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در خروجی PDF: {e}")
-            return False, f"خطا: {str(e)}"
+            return False, f"خطا: {e!s}"

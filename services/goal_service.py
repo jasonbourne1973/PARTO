@@ -2,20 +2,20 @@
 سرویس مدیریت اهداف فردی دانش‌آموزان
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from dal.goal_dal import GoalDAL
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.staff_dal import StaffDAL
 from dal.competency_dal import CompetencyDAL
+from dal.goal_dal import GoalDAL
+from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from models.individual_goal import IndividualGoal
-from utils.logger import get_logger
+from services.base_service import BaseService
 from utils.error_handler import ServiceError, ValidationError
+from utils.logger import get_logger
 
 
 class GoalService(BaseService):
@@ -58,10 +58,12 @@ class GoalService(BaseService):
             goal.domain = data.get('domain', IndividualGoal.DOMAIN_OTHER)
             goal.priority = data.get('priority', IndividualGoal.PRIORITY_MEDIUM)
             goal.success_criteria = data.get('success_criteria')
-            goal.target_date = data.get('target_date')
-            goal.start_date = data.get('start_date')
-            goal.end_date = data.get('end_date')
-            goal.progress_percent = 0
+            goal.target_date = self.clean_date(data.get('target_date'))
+            goal.start_date = self.clean_date(data.get('start_date'))
+            goal.end_date = self.clean_date(data.get('end_date'))
+            goal.progress_percent = max(0, min(100, data.get('progress_percent', 0) or 0))
+            goal.progress_notes = data.get('progress_notes')
+            goal.result = data.get('result')
             goal.status = data.get('status', IndividualGoal.STATUS_DRAFT)
             
             errors = goal.validate()
@@ -83,7 +85,16 @@ class GoalService(BaseService):
             
             self._validate_goal_data(data, is_update=True)
             
-            goal.student_profile_id = data.get('student_profile_id', goal.student_profile_id)
+            requested_profile_id = data.get('student_profile_id')
+            if requested_profile_id:
+                requested_profile = self.profile_dal.get_by_id(requested_profile_id)
+                current_profile = self.profile_dal.get_by_id(goal.student_profile_id)
+                if (requested_profile and current_profile
+                        and requested_profile.student_id == current_profile.student_id):
+                    # ویرایش همان دانش‌آموز: پرونده تاریخی رکورد حفظ می‌شود.
+                    goal.student_profile_id = current_profile.id
+                else:
+                    goal.student_profile_id = requested_profile_id
             goal.assigned_to = data.get('assigned_to', goal.assigned_to)
             goal.related_competency_id = data.get('related_competency_id', goal.related_competency_id)
             goal.related_intervention_id = data.get('related_intervention_id', goal.related_intervention_id)
@@ -92,9 +103,18 @@ class GoalService(BaseService):
             goal.domain = data.get('domain', goal.domain)
             goal.priority = data.get('priority', goal.priority)
             goal.success_criteria = data.get('success_criteria', goal.success_criteria)
-            goal.target_date = data.get('target_date', goal.target_date)
-            goal.start_date = data.get('start_date', goal.start_date)
-            goal.end_date = data.get('end_date', goal.end_date)
+            goal.target_date = self.clean_date(
+                data.get('target_date'), goal.target_date)
+            goal.start_date = self.clean_date(data.get('start_date'), goal.start_date)
+            goal.end_date = self.clean_date(data.get('end_date'), goal.end_date)
+            if 'progress_percent' in data:
+                goal.progress_percent = max(
+                    0, min(100, data.get('progress_percent') or 0)
+                )
+            if 'progress_notes' in data:
+                goal.progress_notes = data.get('progress_notes')
+            if 'result' in data:
+                goal.result = data.get('result')
             goal.status = data.get('status', goal.status)
             
             errors = goal.validate()
@@ -149,7 +169,8 @@ class GoalService(BaseService):
 
         try:
             goals = getter()
-        except TypeError:
+        except TypeError as _exc:
+            self.logger.debug(f"خطای مدیریت‌شده در get_all_goals (مسیر جایگزین): {_exc}")
             goals = getter(include_deleted=False)
 
         goals = list(goals or [])
@@ -235,14 +256,28 @@ class GoalService(BaseService):
         """اعتبارسنجی داده‌های هدف"""
         errors = []
         
-        if not is_update:
-            if not data.get('student_profile_id'):
-                errors.append("پرونده دانش‌آموز باید انتخاب شود")
+        if not is_update and not data.get('student_profile_id'):
+            errors.append("پرونده دانش‌آموز باید انتخاب شود")
         
-        if not data.get('title'):
+        title = self.clean_text(data.get('title'))
+        if not title:
             errors.append("عنوان هدف نمی‌تواند خالی باشد")
-        elif len(data.get('title', '').strip()) < 2:
+        elif len(title) < 2:
             errors.append("عنوان هدف باید حداقل ۲ کاراکتر باشد")
+
+        # ===== اصلاح (بازرسی هشتم): اعتبارسنجی واقعی تاریخ‌ها =====
+        start_date, err = self.check_date(data.get('start_date'), "تاریخ شروع")
+        if err:
+            errors.append(err)
+        _, err = self.check_date(data.get('target_date'), "تاریخ هدف")
+        if err:
+            errors.append(err)
+        end_date, err = self.check_date(data.get('end_date'), "تاریخ پایان")
+        if err:
+            errors.append(err)
+
+        if start_date and end_date and end_date < start_date:
+            errors.append("تاریخ پایان نمی‌تواند قبل از تاریخ شروع باشد")
         
         if data.get('priority') and data.get('priority') not in [p[0] for p in IndividualGoal.PRIORITY_CHOICES]:
             errors.append("اولویت هدف نامعتبر است")
@@ -268,7 +303,8 @@ class GoalService(BaseService):
                 student = self.student_dal.get_by_id(profile.student_id)
                 if student:
                     goal.student_name = student.full_name
-        except:
+        except Exception as _exc:
+            self.logger.debug(f"خطای مدیریت‌شده در _enrich_goal (مسیر جایگزین): {_exc}")
             goal.student_name = "نامشخص"
         
         # نام ایجادکننده
@@ -277,7 +313,8 @@ class GoalService(BaseService):
                 creator = self.staff_dal.get_by_id(goal.created_by)
                 if creator:
                     goal.created_by_name = creator.full_name
-            except:
+            except Exception as _exc:
+                self.logger.debug(f"خطای مدیریت‌شده در _enrich_goal (مسیر جایگزین): {_exc}")
                 goal.created_by_name = "نامشخص"
         
         # نام مسئول
@@ -286,7 +323,8 @@ class GoalService(BaseService):
                 assignee = self.staff_dal.get_by_id(goal.assigned_to)
                 if assignee:
                     goal.assigned_to_name = assignee.full_name
-            except:
+            except Exception as _exc:
+                self.logger.debug(f"خطای مدیریت‌شده در _enrich_goal (مسیر جایگزین): {_exc}")
                 goal.assigned_to_name = "نامشخص"
         
         # نام شایستگی
@@ -295,5 +333,6 @@ class GoalService(BaseService):
                 comp = self.competency_dal.get_by_id(goal.related_competency_id)
                 if comp:
                     goal.competency_name = comp.title
-            except:
+            except Exception as _exc:
+                self.logger.debug(f"خطای مدیریت‌شده در _enrich_goal (مسیر جایگزین): {_exc}")
                 goal.competency_name = "نامشخص"

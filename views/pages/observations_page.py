@@ -2,32 +2,39 @@
 صفحه ثبت و مدیریت مشاهدات با نمایش مدل ABC و StudentFile - با فیلتر معلم و جستجوی پیشرفته
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QLabel, QHeaderView,
-    QMessageBox, QDialog, QComboBox, QLineEdit, QGroupBox,
-    QDateEdit, QCheckBox
+    QComboBox,
+    QDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, QDate
-from PySide6.QtGui import QColor, QKeyEvent
 
-from services.observation_service import ObservationService
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.competency_dal import CompetencyDAL
 from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.academic_year_dal import AcademicYearDAL
+from dal.student_dal import StudentDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
-from views.dialogs.observation_form import ObservationForm
 from database.connection import DatabaseConnection
-from utils.error_handler import ServiceError, ValidationError
+from services.observation_service import ObservationService
 from utils.logger import get_logger
-from utils.shamsi_date_input import ShamsiDateInput
-import re
+from views.dialogs.observation_form import ObservationForm
 
 
 class ObservationsPage(QWidget):
@@ -38,6 +45,7 @@ class ObservationsPage(QWidget):
         self.observation_service = ObservationService()
         self.student_dal = StudentDAL()
         self.profile_dal = StudentAcademicProfileDAL()
+        self.academic_year_dal = AcademicYearDAL()
         self.competency_dal = CompetencyDAL()
         self.staff_dal = StaffDAL()
         self.assignment_dal = TeacherAssignmentDAL()
@@ -125,7 +133,7 @@ class ObservationsPage(QWidget):
         self.advanced_search_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
@@ -155,7 +163,7 @@ class ObservationsPage(QWidget):
         self.add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -231,7 +239,7 @@ class ObservationsPage(QWidget):
         self.apply_filter_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
@@ -334,7 +342,9 @@ class ObservationsPage(QWidget):
             if self.selected_teacher_id:
                 assignments = self.assignment_dal.get_by_teacher(self.selected_teacher_id)
                 student_ids = [a.student_id for a in assignments if a.is_active == 1]
-                self.all_students = [self.student_dal.get_by_id(sid) for sid in student_ids if sid]
+                # خوانش دسته‌ای (رفع N+1)؛ همان خروجی قبلی: شناسهٔ ناموجود → None
+                student_map = self.student_dal.get_by_ids(student_ids)
+                self.all_students = [student_map.get(sid) for sid in student_ids if sid]
             else:
                 self.all_students = self.student_dal.get_all()
             
@@ -412,11 +422,19 @@ class ObservationsPage(QWidget):
             if student_id and teacher_id:
                 observations = [o for o in observations if o.staff_id == teacher_id]
             
+            active_year = self.academic_year_dal.get_active()
+            if active_year:
+                profiles = self.profile_dal.get_by_ids(o.student_profile_id for o in observations)
+                observations = [
+                    o for o in observations
+                    if profiles.get(o.student_profile_id)
+                    and profiles[o.student_profile_id].academic_year_id == active_year.id
+                ]
             self.observations = observations
             self.display_observations(self.observations)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{e!s}")
     
     def clear_search(self):
         """پاک کردن جستجو و نمایش همه"""
@@ -432,10 +450,19 @@ class ObservationsPage(QWidget):
     def load_observations(self):
         """بارگذاری مشاهدات با استفاده از سرویس"""
         try:
-            self.observations = self.observation_service.get_all_observations(limit=100, include_staff_info=True)
+            observations = self.observation_service.get_all_observations(limit=100, include_staff_info=True)
+            active_year = self.academic_year_dal.get_active()
+            if active_year:
+                profiles = self.profile_dal.get_by_ids(o.student_profile_id for o in observations)
+                observations = [
+                    o for o in observations
+                    if profiles.get(o.student_profile_id)
+                    and profiles[o.student_profile_id].academic_year_id == active_year.id
+                ]
+            self.observations = observations
             self.display_observations(self.observations)
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری مشاهدات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری مشاهدات:\n{e!s}")
     
     def filter_observations(self):
         """فیلتر مشاهدات بر اساس دانش‌آموز و معلم"""
@@ -449,7 +476,7 @@ class ObservationsPage(QWidget):
         try:
             competency = self.competency_dal.get_by_id(competency_id)
             return competency.title if competency else "نامشخص"
-        except:
+        except Exception:
             return "نامشخص"
     
     def get_abc_preview(self, obs):
@@ -563,7 +590,7 @@ class ObservationsPage(QWidget):
 🏷️ برچسب‌ها: {obs.tags or 'ندارد'}
 """
         
-        QMessageBox.information(self, f"جزئیات مشاهده (مدل ABC)", detail_text)
+        QMessageBox.information(self, "جزئیات مشاهده (مدل ABC)", detail_text)
     
     def delete_observation(self, obs):
         """حذف مشاهده با استفاده از سرویس"""
@@ -575,11 +602,16 @@ class ObservationsPage(QWidget):
         )
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                self.observation_service.delete_observation(obs.id)
+                deleted = self.observation_service.delete_observation(obs.id)
                 self.filter_observations()
-                QMessageBox.information(self, "موفقیت", "مشاهده با موفقیت حذف شد")
+                if deleted:
+                    QMessageBox.information(
+                        self, "موفقیت", "مشاهده با موفقیت حذف شد"
+                    )
+                else:
+                    QMessageBox.warning(self, "خطا", "مشاهده حذف نشد.")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
     def on_item_double_clicked(self, item):
         """ویرایش مشاهده با دابل کلیک"""

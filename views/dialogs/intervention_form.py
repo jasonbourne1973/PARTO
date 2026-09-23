@@ -2,21 +2,29 @@
 فرم ثبت و ویرایش مداخله - نسخه با پشتیبانی از سیستم راهنما
 """
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QLineEdit, QComboBox, QPushButton,
-    QTextEdit, QMessageBox, QWidget, QScrollArea,
-    QGroupBox
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal
 
-from services.intervention_service import InterventionService
-from dal.student_dal import StudentDAL
 from dal.staff_dal import StaffDAL
-from utils.shamsi_date_input import ShamsiDateInput
+from dal.student_dal import StudentDAL
+from services.intervention_service import InterventionService
 from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
+from utils.shamsi_date_input import ShamsiDateInput
 from utils.tooltip_manager import TooltipManager
+from utils.ui_guards import single_submit
 from views.widgets.help_widget import HelpWidget
 
 
@@ -25,7 +33,15 @@ class InterventionForm(QDialog):
 
     intervention_saved = Signal()
 
-    def __init__(self, intervention_id=None, student_id=None, parent=None):
+    def __init__(self, intervention_id=None, student_id=None, parent=None,
+                 prefill=None, recommendation_id=None):
+        """
+        Args:
+            prefill: (بازرسی شانزدهم — BUG-NEW-04) پیش‌پرکردن فرم از روی یک پیشنهاد:
+                     کلیدهای اختیاری `type`، `description`، `goal`
+            recommendation_id: شناسهٔ پیشنهادی که این مداخله بر اساس آن ثبت می‌شود؛
+                     پس از ذخیرهٔ موفق، پیشنهاد «اجراشده» و به مداخله پیوند می‌خورد
+        """
         super().__init__(parent)
 
         self.intervention_service = InterventionService()
@@ -37,6 +53,10 @@ class InterventionForm(QDialog):
         self.existing_intervention = None
         self.selected_student_id = student_id
         self.is_edit_mode = intervention_id is not None
+        self.prefill = dict(prefill or {})
+        self.recommendation_id = recommendation_id
+        self.saved_intervention_id = None
+        self.recommendation_link_error = None
 
         self.setWindowTitle("ویرایش مداخله" if self.is_edit_mode else "ثبت مداخله جدید")
         self.setModal(True)
@@ -49,6 +69,20 @@ class InterventionForm(QDialog):
 
         if self.is_edit_mode:
             self.load_intervention_data()
+        elif self.prefill:
+            self.apply_prefill(self.prefill)
+
+    def apply_prefill(self, prefill):
+        """پرکردن فیلدها از روی پیشنهاد (نوع، شرح، هدف) — فیلدهای دیگر دست کاربر می‌ماند"""
+        type_key = prefill.get('type')
+        if type_key:
+            idx = self.type_combo.findData(type_key)
+            if idx >= 0:
+                self.type_combo.setCurrentIndex(idx)
+        if prefill.get('description'):
+            self.description_input.setPlainText(str(prefill['description']))
+        if prefill.get('goal'):
+            self.goal_input.setPlainText(str(prefill['goal']))
 
         if self.selected_student_id and not self.is_edit_mode:
             for i in range(self.student_combo.count()):
@@ -252,7 +286,7 @@ class InterventionForm(QDialog):
         self.save_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 12px 40px;
                 border: none;
                 border-radius: 6px;
@@ -296,7 +330,7 @@ class InterventionForm(QDialog):
             for student in students:
                 self.student_combo.addItem(student.full_name, student.id)
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{e!s}")
 
     def load_staff(self):
         try:
@@ -400,8 +434,9 @@ class InterventionForm(QDialog):
                 self.status_combo.setCurrentIndex(status_index)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{e!s}")
     
+    @single_submit()
     def save_intervention(self):
         """ذخیره مداخله با استفاده از سرویس"""
         # ===== جمع‌آوری داده‌ها =====
@@ -442,10 +477,28 @@ class InterventionForm(QDialog):
         try:
             if self.is_edit_mode:
                 self.intervention_service.update_intervention(self.intervention_id, data)
+                self.saved_intervention_id = self.intervention_id
                 msg = "✅ مداخله با موفقیت ویرایش شد"
             else:
-                self.intervention_service.create_intervention(data)
+                created = self.intervention_service.create_intervention(data)
+                self.saved_intervention_id = getattr(created, 'id', None)
                 msg = "✅ مداخله با موفقیت ثبت شد"
+                # (BUG-NEW-04) پیوند پیشنهاد ↔ مداخله: پیشنهاد «اجراشده» می‌شود و
+                # شناسهٔ مداخله در آن ثبت می‌شود. شکست این گام ثبت مداخله را
+                # باطل نمی‌کند ولی صریحاً به کاربر گفته می‌شود.
+                if self.recommendation_id and self.saved_intervention_id:
+                    try:
+                        from services.recommendation_service import RecommendationService
+                        RecommendationService().implement_recommendation(
+                            self.recommendation_id, intervention_id=self.saved_intervention_id)
+                        msg += "\nپیشنهاد مرتبط «اجراشده» و به این مداخله پیوند خورد."
+                    except Exception as link_error:
+                        self.recommendation_link_error = str(link_error)
+                        self.logger.warning(
+                            f"پیوند پیشنهاد {self.recommendation_id} به مداخله "
+                            f"{self.saved_intervention_id} ناموفق بود: {link_error}")
+                        msg += ("\n⚠️ مداخله ثبت شد ولی به‌روزرسانی وضعیت پیشنهاد مرتبط ناموفق بود: "
+                                f"{link_error}")
             
             QMessageBox.information(self, "موفقیت", msg)
             self.intervention_saved.emit()
@@ -456,4 +509,4 @@ class InterventionForm(QDialog):
             QMessageBox.critical(self, "خطا", str(e))
         except Exception as e:
             self.logger.error(f"خطا در ذخیره مداخله: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{e!s}")

@@ -4,17 +4,26 @@ Competency (شایستگی) → Indicator (شاخص) → ObservableBehavior (ر�
 با قابلیت انتخاب و بازگشت مقدار
 """
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget,
-    QTreeWidgetItem, QLabel, QPushButton, QMessageBox,
-    QLineEdit, QComboBox
-)
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
 from dal.competency_dal import CompetencyDAL
 from dal.indicator_dal import IndicatorDAL
 from dal.observable_behavior_dal import ObservableBehaviorDAL
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class CompetencyTreeWidget(QWidget):
@@ -114,7 +123,7 @@ class CompetencyTreeWidget(QWidget):
             }
             QTreeWidget::item:selected {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
             }
             QTreeWidget::item:hover {
     color: #FFE8A3;
@@ -137,7 +146,7 @@ class CompetencyTreeWidget(QWidget):
             self.select_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #66BB6A;
-                    color: #F4C542;
+                    color: #111111;
                     padding: 6px 20px;
                     border: none;
                     border-radius: 4px;
@@ -266,11 +275,11 @@ class CompetencyTreeWidget(QWidget):
                     if not comp.indicators:
                         comp_item.setExpanded(False)
             
-            print(f"✅ {len(competencies)} شایستگی در درخت بارگذاری شد")
+            logger.debug(f"✅ {len(competencies)} شایستگی در درخت بارگذاری شد")
             
         except Exception as e:
-            print(f"❌ خطا در بارگذاری شایستگی‌ها: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری:\n{str(e)}")
+            logger.error(f"❌ خطا در بارگذاری شایستگی‌ها: {e}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری:\n{e!s}")
     
     def search_competencies(self):
         """جستجو در شایستگی‌ها"""
@@ -290,7 +299,7 @@ class CompetencyTreeWidget(QWidget):
             self.info_label.setText(f"✅ انتخاب شده: {comp_name} (شایستگی)")
             self.info_label.setStyleSheet("""
                 QLabel {
-                    color: #66BB6A;
+                    color: #111111;
                     font-size: 12px;
                     padding: 4px 8px;
                     background-color: #eafaf1;
@@ -318,7 +327,7 @@ class CompetencyTreeWidget(QWidget):
             self.info_label.setText(f"✅ انتخاب شده: {ind_name} (شاخص)")
             self.info_label.setStyleSheet("""
                 QLabel {
-                    color: #08223A;
+                    color: #F4C542;
                     font-size: 12px;
                     padding: 4px 8px;
                     background-color: #174F78;
@@ -346,7 +355,7 @@ class CompetencyTreeWidget(QWidget):
             self.info_label.setText(f"✅ انتخاب شده: {beh_text} (رفتار قابل مشاهده)")
             self.info_label.setStyleSheet("""
                 QLabel {
-                    color: #66BB6A;
+                    color: #111111;
                     font-size: 12px;
                     padding: 4px 8px;
                     background-color: #66BB6A;
@@ -543,7 +552,7 @@ class CompetencyTreeWidget(QWidget):
         
         self.info_label.setStyleSheet("""
             QLabel {
-                color: #66BB6A;
+                color: #111111;
                 font-size: 12px;
                 padding: 4px 8px;
                 background-color: #eafaf1;

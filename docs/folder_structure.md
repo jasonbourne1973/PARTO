@@ -93,8 +93,6 @@ PARTOW/
 │ │ ├── reports_page.py
 │ │ ├── settings_page.py
 │ │ ├── promotion_page.py
-│ │ ├── assign_teacher_page.py
-│ │ ├── teacher_students_page.py
 │ │ ├── teacher_report_page.py
 │ │ ├── student_profile_page.py
 │ │ └── backup_page.py

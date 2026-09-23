@@ -2,26 +2,36 @@
 صفحه مدیریت مداخلات - نسخه نهایی با ویرایش کامل و جستجوی پیشرفته
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QLabel, QHeaderView,
-    QMessageBox, QDialog, QComboBox, QLineEdit, QGroupBox
-)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QKeyEvent
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
-from services.intervention_service import InterventionService
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.academic_year_dal import AcademicYearDAL
+from dal.student_dal import StudentDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
-from views.dialogs.intervention_form import InterventionForm
+from services.intervention_service import InterventionService
 from utils.logger import get_logger
+from views.dialogs.intervention_form import InterventionForm
 
 
 class InterventionsPage(QWidget):
@@ -32,6 +42,7 @@ class InterventionsPage(QWidget):
         self.intervention_service = InterventionService()
         self.student_dal = StudentDAL()
         self.profile_dal = StudentAcademicProfileDAL()
+        self.academic_year_dal = AcademicYearDAL()
         self.staff_dal = StaffDAL()
         self.assignment_dal = TeacherAssignmentDAL()
         self.logger = get_logger(self.__class__.__name__)
@@ -100,7 +111,7 @@ class InterventionsPage(QWidget):
         self.search_btn.setStyleSheet("""
             QPushButton {
                 background-color: #F28C28;
-                color: #F4C542;
+                color: #111111;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
@@ -142,7 +153,7 @@ class InterventionsPage(QWidget):
         self.add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #F28C28;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -227,7 +238,9 @@ class InterventionsPage(QWidget):
             if self.selected_teacher_id:
                 assignments = self.assignment_dal.get_by_teacher(self.selected_teacher_id)
                 student_ids = [a.student_id for a in assignments if a.is_active == 1]
-                self.all_students = [self.student_dal.get_by_id(sid) for sid in student_ids if sid]
+                # خوانش دسته‌ای (رفع N+1)؛ همان خروجی قبلی: شناسهٔ ناموجود → None
+                student_map = self.student_dal.get_by_ids(student_ids)
+                self.all_students = [student_map.get(sid) for sid in student_ids if sid]
             else:
                 self.all_students = self.student_dal.get_all()
             
@@ -273,11 +286,19 @@ class InterventionsPage(QWidget):
             if student_id and teacher_id:
                 interventions = [i for i in interventions if i.staff_id == teacher_id]
             
+            active_year = self.academic_year_dal.get_active()
+            if active_year:
+                profiles = self.profile_dal.get_by_ids(i.student_profile_id for i in interventions)
+                interventions = [
+                    i for i in interventions
+                    if profiles.get(i.student_profile_id)
+                    and profiles[i.student_profile_id].academic_year_id == active_year.id
+                ]
             self.interventions = interventions
             self.display_interventions(self.interventions)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{e!s}")
     
     def clear_search(self):
         """پاک کردن جستجو"""
@@ -289,10 +310,19 @@ class InterventionsPage(QWidget):
     def load_interventions(self):
         """بارگذاری مداخلات با استفاده از سرویس"""
         try:
-            self.interventions = self.intervention_service.get_all_interventions(limit=100, include_staff_info=True)
+            interventions = self.intervention_service.get_all_interventions(limit=100, include_staff_info=True)
+            active_year = self.academic_year_dal.get_active()
+            if active_year:
+                profiles = self.profile_dal.get_by_ids(i.student_profile_id for i in interventions)
+                interventions = [
+                    i for i in interventions
+                    if profiles.get(i.student_profile_id)
+                    and profiles[i.student_profile_id].academic_year_id == active_year.id
+                ]
+            self.interventions = interventions
             self.display_interventions(self.interventions)
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری مداخلات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری مداخلات:\n{e!s}")
     
     def filter_interventions(self):
         """فیلتر مداخلات بر اساس دانش‌آموز و معلم"""
@@ -413,8 +443,15 @@ class InterventionsPage(QWidget):
         )
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                self.intervention_service.delete_intervention(intervention.id)
+                deleted = self.intervention_service.delete_intervention(
+                    intervention.id
+                )
                 self.filter_interventions()
-                QMessageBox.information(self, "موفقیت", "مداخله با موفقیت حذف شد")
+                if deleted:
+                    QMessageBox.information(
+                        self, "موفقیت", "مداخله با موفقیت حذف شد"
+                    )
+                else:
+                    QMessageBox.warning(self, "خطا", "مداخله حذف نشد.")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")

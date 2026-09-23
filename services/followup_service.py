@@ -2,22 +2,23 @@
 سرویس مدیریت پیگیری‌ها - نسخه کامل با انتقال منطق از View به Service
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
+from typing import ClassVar
+
+from dal.academic_year_dal import AcademicYearDAL
 from dal.followup_dal import FollowUpDAL
 from dal.intervention_dal import InterventionDAL
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.staff_dal import StaffDAL
-from dal.academic_year_dal import AcademicYearDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from models.followup import FollowUp
+from services.base_service import BaseService
 from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
-import re
 
 
 class FollowUpService(BaseService):
@@ -29,10 +30,10 @@ class FollowUpService(BaseService):
     """
     
     # وضعیت‌های مجاز پیگیری
-    VALID_STATUSES = ['pending', 'done', 'continued', 'closed', 'cancelled']
+    VALID_STATUSES: ClassVar[list[str]] = ['pending', 'done', 'continued', 'closed', 'cancelled']
     
     # نوع‌های نتیجه مجاز
-    VALID_RESULT_TYPES = ['improved', 'no_change', 'continued', 'new_status', 'insufficient', 'needs_more']
+    VALID_RESULT_TYPES: ClassVar[list[str]] = ['improved', 'no_change', 'continued', 'new_status', 'insufficient', 'needs_more']
     
     def __init__(self):
         super().__init__()
@@ -99,13 +100,20 @@ class FollowUpService(BaseService):
             followup = FollowUp()
             followup.intervention_id = intervention_id
             followup.staff_id = staff_id
-            followup.date = data.get('date', '').strip()
-            followup.method = data.get('method', '').strip()
-            followup.description = data.get('description', '').strip()
-            followup.status = data.get('status', FollowUp.STATUS_PENDING)
-            followup.next_action_date = data.get('next_action_date', '').strip()
-            followup.result_type = data.get('result_type', '').strip()
-            followup.result_description = data.get('result_description', '').strip()
+            # ===== اصلاح (بازرسی ششم) =====
+            # الگوی data.get('x', '').strip() وقتی کلید وجود داشت و
+            # مقدارش None بود، AttributeError می‌داد و کل ثبت پیگیری
+            # با پیام «'NoneType' object has no attribute 'strip'»
+            # شکست می‌خورد. حالا clean_text/clean_date هر دو حالت را
+            # پوشش می‌دهند و تاریخ هم به فرمت یکدست yyyy/MM/dd
+            # نرمال می‌شود.
+            followup.date = self.clean_date(data.get('date'), '')
+            followup.method = self.clean_text(data.get('method'))
+            followup.description = self.clean_text(data.get('description'))
+            followup.status = data.get('status') or FollowUp.STATUS_PENDING
+            followup.next_action_date = self.clean_date(data.get('next_action_date'))
+            followup.result_type = self.clean_text(data.get('result_type'), None)
+            followup.result_description = self.clean_text(data.get('result_description'), None)
             
             # 7. اعتبارسنجی مدل
             errors = followup.validate()
@@ -184,13 +192,18 @@ class FollowUpService(BaseService):
                 followup.intervention_id = intervention_id
             
             followup.staff_id = data.get('staff_id', followup.staff_id)
-            followup.date = data.get('date', followup.date).strip()
-            followup.method = data.get('method', followup.method).strip()
-            followup.description = data.get('description', followup.description).strip()
+            # ===== اصلاح (بازرسی ششم): None-safe + یکدست‌سازی تاریخ =====
+            followup.date = self.clean_date(data.get('date'), followup.date or '')
+            followup.method = self.clean_text(data.get('method'), followup.method)
+            followup.description = self.clean_text(data.get('description'), followup.description)
             followup.status = data.get('status', followup.status)
-            followup.next_action_date = data.get('next_action_date', followup.next_action_date).strip()
-            followup.result_type = data.get('result_type', followup.result_type)
-            followup.result_description = data.get('result_description', followup.result_description).strip()
+            followup.next_action_date = self.clean_date(
+                data.get('next_action_date'), followup.next_action_date
+            )
+            followup.result_type = self.clean_text(data.get('result_type'), followup.result_type)
+            followup.result_description = self.clean_text(
+                data.get('result_description'), followup.result_description
+            )
             
             # 5. اگر وضعیت "انجام شده" است، تاریخ اقدام بعدی را پاک کن
             if followup.status == FollowUp.STATUS_DONE:
@@ -295,7 +308,7 @@ class FollowUpService(BaseService):
             return followup
         except Exception as e:
             self.logger.error(f"خطا در دریافت پیگیری: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_followups_by_intervention(self, intervention_id):
         """
@@ -314,7 +327,7 @@ class FollowUpService(BaseService):
             return followups
         except Exception as e:
             self.logger.error(f"خطا در دریافت پیگیری‌های مداخله: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_followups_by_student(self, student_id, year_id=None):
         """
@@ -348,7 +361,7 @@ class FollowUpService(BaseService):
             return followups
         except Exception as e:
             self.logger.error(f"خطا در دریافت پیگیری‌های دانش‌آموز: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_followups_by_teacher(self, teacher_id, year_id=None):
         """
@@ -373,11 +386,16 @@ class FollowUpService(BaseService):
             
             # فیلتر بر اساس سال (اگر مشخص شده باشد)
             if year_id:
+                # خوانش دسته‌ای مداخله‌ها و پرونده‌ها (رفع N+1؛ معناشناسی قبلی حفظ شده)
+                intervention_map = self.intervention_dal.get_by_ids(
+                    f.intervention_id for f in followups)
+                profile_map = self.profile_dal.get_by_ids(
+                    i.student_profile_id for i in intervention_map.values())
                 filtered = []
                 for follow in followups:
-                    intervention = self.intervention_dal.get_by_id(follow.intervention_id)
+                    intervention = intervention_map.get(follow.intervention_id)
                     if intervention:
-                        profile = self.profile_dal.get_by_id(intervention.student_profile_id)
+                        profile = profile_map.get(intervention.student_profile_id)
                         if profile and profile.academic_year_id == year_id:
                             filtered.append(follow)
                 followups = filtered
@@ -388,7 +406,7 @@ class FollowUpService(BaseService):
             return followups
         except Exception as e:
             self.logger.error(f"خطا در دریافت پیگیری‌های معلم: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_all_followups(self, limit=None):
         """
@@ -407,7 +425,7 @@ class FollowUpService(BaseService):
             return followups
         except Exception as e:
             self.logger.error(f"خطا در دریافت همه پیگیری‌ها: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_pending_followups(self):
         """
@@ -423,7 +441,7 @@ class FollowUpService(BaseService):
             return followups
         except Exception as e:
             self.logger.error(f"خطا در دریافت پیگیری‌های در انتظار: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def update_status(self, followup_id, new_status, user_id=None, ip_address=None):
         """
@@ -524,8 +542,10 @@ class FollowUpService(BaseService):
                 for f in followups:
                     if f.status == 'pending' and f.next_action_date and f.next_action_date < today_str:
                         overdue += 1
-            except:
-                pass
+            except Exception as _exc:
+                self.logger.debug(
+                    f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+                )
             
             return {
                 'total': total,
@@ -539,7 +559,7 @@ class FollowUpService(BaseService):
             }
         except Exception as e:
             self.logger.error(f"خطا در دریافت خلاصه پیگیری‌ها: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {str(e)}")
+            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
     def get_available_interventions_for_followup(self, student_id):
         """
@@ -589,40 +609,52 @@ class FollowUpService(BaseService):
             ValidationError: در صورت عدم اعتبار
         """
         errors = []
-        
+
+        # ===== اصلاح (بازرسی ششم) =====
+        # در حالت ویرایش، فقط کلیدهایی که واقعاً فرستاده شده‌اند
+        # اعتبارسنجی می‌شوند. نسخه قبلی برای یک ویرایش جزئی (مثلاً
+        # فقط تغییر وضعیت) هم «تاریخ پیگیری» و «مسئول پیگیری» را
+        # اجباری می‌دانست و ویرایش را رد می‌کرد.
+        # مقدار None هم دیگر باعث AttributeError نمی‌شود.
+        def provided(key):
+            return (not is_update) or (key in data)
+
         # بررسی مداخله (در حالت ایجاد اجباری است)
         if not is_update and not data.get('intervention_id'):
             errors.append("مداخله باید انتخاب شود")
-        
+
         # بررسی مسئول پیگیری
-        if data.get('staff_id') is None:
-            errors.append("مسئول پیگیری باید انتخاب شود")
-        elif data.get('staff_id') and data.get('staff_id') <= 0:
-            errors.append("مسئول پیگیری نامعتبر است")
-        
-        # بررسی تاریخ پیگیری
-        date = data.get('date', '').strip()
-        if not date:
-            errors.append("تاریخ پیگیری نمی‌تواند خالی باشد")
-        else:
-            if not re.match(r'^\d{4}/\d{2}/\d{2}$', date):
-                errors.append("فرمت تاریخ باید به صورت yyyy/MM/dd باشد")
-        
-        # بررسی تاریخ اقدام بعدی (اگر وارد شده باشد)
-        next_date = data.get('next_action_date', '').strip()
-        if next_date:
-            if not re.match(r'^\d{4}/\d{2}/\d{2}$', next_date):
-                errors.append("فرمت تاریخ اقدام بعدی باید به صورت yyyy/MM/dd باشد")
-        
+        if provided('staff_id'):
+            if data.get('staff_id') is None:
+                errors.append("مسئول پیگیری باید انتخاب شود")
+            elif data.get('staff_id') and data.get('staff_id') <= 0:
+                errors.append("مسئول پیگیری نامعتبر است")
+
+        # بررسی تاریخ پیگیری — قاعدهٔ یکسان: نرمال‌سازی، بعد اعتبارسنجی
+        if provided('date'):
+            _norm, _err = self.check_date(
+                data.get('date'), "تاریخ پیگیری", required=True)
+            if _err:
+                errors.append(_err)
+
+        # بررسی تاریخ اقدام بعدی (اختیاری)
+        if provided('next_action_date'):
+            _norm, _err = self.check_date(
+                data.get('next_action_date'), "تاریخ اقدام بعدی")
+            if _err:
+                errors.append(_err)
+
         # بررسی وضعیت
-        status = data.get('status', 'pending')
-        if status not in self.VALID_STATUSES:
-            errors.append(f"وضعیت '{status}' نامعتبر است")
-        
+        if provided('status'):
+            status = data.get('status') or 'pending'
+            if status not in self.VALID_STATUSES:
+                errors.append(f"وضعیت '{status}' نامعتبر است")
+
         # بررسی نوع نتیجه (اگر وارد شده باشد)
-        result_type = data.get('result_type', '').strip()
-        if result_type and result_type not in self.VALID_RESULT_TYPES:
-            errors.append(f"نوع نتیجه '{result_type}' نامعتبر است")
+        if provided('result_type'):
+            result_type = self.clean_text(data.get('result_type'))
+            if result_type and result_type not in self.VALID_RESULT_TYPES:
+                errors.append(f"نوع نتیجه '{result_type}' نامعتبر است")
         
         if errors:
             raise ValidationError("\n".join(errors))
@@ -707,8 +739,10 @@ class FollowUpService(BaseService):
             self._validate_followup_data(data)
             return True, []
         except ValidationError as e:
+            self.logger.debug(f"خطای مدیریت‌شده در validate_followup (مسیر جایگزین): {e}")
             return False, str(e).split('\n')
         except Exception as e:
+            self.logger.debug(f"خطای مدیریت‌شده در validate_followup (مسیر جایگزین): {e}")
             return False, [str(e)]
 
     def search_followups(self, search_term, limit=100):
@@ -729,7 +763,7 @@ class FollowUpService(BaseService):
             return followups
         except Exception as e:
             self.logger.error(f"خطا در جستجوی پیگیری‌ها: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")
     
     def search_followups_by_student(self, student_id, search_term):
         """
@@ -749,7 +783,7 @@ class FollowUpService(BaseService):
             return followups
         except Exception as e:
             self.logger.error(f"خطا در جستجوی پیگیری‌های دانش‌آموز: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")
     
     def search_followups_by_teacher(self, teacher_id, search_term):
         """
@@ -769,4 +803,4 @@ class FollowUpService(BaseService):
             return followups
         except Exception as e:
             self.logger.error(f"خطا در جستجوی پیگیری‌های معلم: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")

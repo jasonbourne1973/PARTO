@@ -4,6 +4,7 @@
 
 from database.connection import DatabaseConnection
 from models.indicator import Indicator
+from utils.time_utils import utc_now_iso
 
 
 class IndicatorDAL:
@@ -28,7 +29,7 @@ class IndicatorDAL:
             indicator.sort_order
         ))
         
-        conn.commit()
+        self.db.commit()
         indicator.id = cursor.lastrowid
         return indicator
     
@@ -102,7 +103,7 @@ class IndicatorDAL:
             indicator.id
         ))
         
-        conn.commit()
+        self.db.commit()
         return indicator
     
     def delete(self, indicator_id, user_id=None):
@@ -118,8 +119,7 @@ class IndicatorDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE indicators SET
                 is_deleted = 1,
@@ -128,7 +128,7 @@ class IndicatorDAL:
             WHERE id = ?
         """, (now, user_id, indicator_id))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def restore(self, indicator_id, user_id=None):
@@ -144,7 +144,7 @@ class IndicatorDAL:
             WHERE id = ? AND is_deleted = 1
         """, (indicator_id,))
         
-        conn.commit()
+        self.db.commit()
         return True
     
     def _row_to_indicator(self, row):

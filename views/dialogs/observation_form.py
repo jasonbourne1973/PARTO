@@ -2,29 +2,40 @@
 فرم ثبت و ویرایش مشاهده - نسخه با پشتیبانی از سیستم راهنما
 """
 
+import jdatetime
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QLineEdit, QComboBox, QPushButton,
-    QTextEdit, QSpinBox, QMessageBox, QWidget,
-    QScrollArea, QGroupBox, QFrame, QCompleter,
-    QCheckBox, QSplitter, QSizePolicy
+    QComboBox,
+    QCompleter,
+    QDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QSpinBox,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, QTimer
-from PySide6.QtGui import QFont, QIcon
 
-from services.observation_service import ObservationService
-from dal.student_dal import StudentDAL
-from dal.staff_dal import StaffDAL
-from dal.competency_dal import CompetencyDAL
 from config.settings import OBSERVATION_LOCATIONS
-from utils.shamsi_date_input import ShamsiDateInput
-from utils.constants import SUGGESTED_TAGS, DEFAULT_SEVERITY
-from views.widgets.competency_tree_widget import CompetencyTreeWidget
+from dal.competency_dal import CompetencyDAL
+from dal.staff_dal import StaffDAL
+from dal.student_dal import StudentDAL
+from services.observation_service import ObservationService
+from utils.constants import DEFAULT_SEVERITY, SUGGESTED_TAGS
 from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
+from utils.shamsi_date_input import ShamsiDateInput
 from utils.tooltip_manager import TooltipManager
+from utils.ui_guards import single_submit
+from views.widgets.competency_tree_widget import CompetencyTreeWidget
 from views.widgets.help_widget import HelpWidget
-import jdatetime
 
 
 class ObservationForm(QDialog):
@@ -324,7 +335,7 @@ class ObservationForm(QDialog):
                 background-color: #C62828;
                 padding: 5px 10px;
                 border-radius: 4px;
-                color: #C62828;
+                color: #FFFFFF;
                 font-size: 12px;
                 border: 1px solid #F4C542;
             }
@@ -573,7 +584,7 @@ class ObservationForm(QDialog):
         self.save_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 10px 30px;
                 border: none;
                 border-radius: 6px;
@@ -614,7 +625,6 @@ class ObservationForm(QDialog):
 
     def setup_tag_completer(self):
         """تنظیم تکمیل خودکار برای برچسب‌ها"""
-        from PySide6.QtWidgets import QCompleter
         completer = QCompleter(SUGGESTED_TAGS)
         completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
         completer.setFilterMode(Qt.MatchFlag.MatchContains)
@@ -626,8 +636,10 @@ class ObservationForm(QDialog):
             today = jdatetime.date.today()
             date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
             self.date_input.set_date(date_str)
-        except:
-            pass
+        except Exception as _exc:
+            self.logger.debug(
+                f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+            )
 
     def update_severity_display(self, value):
         self.severity_label.setText("⭐" * value)
@@ -653,7 +665,7 @@ class ObservationForm(QDialog):
             for student in students:
                 self.student_combo.addItem(student.full_name, student.id)
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{e!s}")
 
     def load_staff(self):
         try:
@@ -674,7 +686,7 @@ class ObservationForm(QDialog):
             self.selected_path_label.setText(f"✅ انتخاب‌شده: {full_path}")
             self.selected_path_label.setStyleSheet("""
                 QLabel {
-                    color: #66BB6A;
+                    color: #111111;
                     font-size: 12px;
                     padding: 4px 8px;
                     background-color: #eafaf1;
@@ -788,7 +800,7 @@ class ObservationForm(QDialog):
                     self.selected_path_label.setText(f"✅ انتخاب‌شده: {full_path}")
                     self.selected_path_label.setStyleSheet("""
                         QLabel {
-                            color: #66BB6A;
+                            color: #111111;
                             font-size: 12px;
                             padding: 4px 8px;
                             background-color: #eafaf1;
@@ -806,13 +818,14 @@ class ObservationForm(QDialog):
                     self.selected_behavior_text = obs.observable_behavior_text
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{e!s}")
     
     def get_behavior_text(self):
         """دریافت متن رفتار با حذف فاصله‌های اضافی"""
         text = self.behavior_input.toPlainText().strip()
         return text
     
+    @single_submit()
     def save_observation(self):
         """ذخیره مشاهده - با پشتیبانی از ساختار سه‌لایه"""
         
@@ -886,7 +899,7 @@ class ObservationForm(QDialog):
             QMessageBox.critical(self, "خطا", str(e))
         except Exception as e:
             self.logger.error(f"خطا در ذخیره مشاهده: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{e!s}")
     
     def keyPressEvent(self, event):
         """مدیریت کلیدهای میانبر"""

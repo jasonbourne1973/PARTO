@@ -2,8 +2,9 @@
 ابزارهای کمکی تحلیل داده برای داشبورد تحلیلی
 """
 
-from typing import List, Dict, Any
 from collections import defaultdict
+from typing import Optional
+
 import jdatetime
 
 
@@ -11,7 +12,7 @@ class AnalyticsHelpers:
     """ابزارهای کمکی برای تحلیل داده‌ها"""
     
     @staticmethod
-    def group_by_period(items: List[Dict], date_field: str, period: str = 'monthly') -> Dict:
+    def group_by_period(items: list[dict], date_field: str, period: str = 'monthly') -> dict:
         """
         گروه‌بندی آیتم‌ها بر اساس بازه زمانی
         
@@ -39,7 +40,7 @@ class AnalyticsHelpers:
                         day = int(parts[2])
                         week = (day - 1) // 7 + 1
                         key = f"{parts[0]}/{parts[1]}/W{week}"
-                    except:
+                    except Exception:
                         key = date_str[:7] if len(date_str) >= 7 else date_str
                 else:
                     key = date_str[:7] if len(date_str) >= 7 else date_str
@@ -51,7 +52,7 @@ class AnalyticsHelpers:
         return dict(sorted(grouped.items()))
     
     @staticmethod
-    def calculate_trend(grouped_data: Dict, value_field: str) -> List[Dict]:
+    def calculate_trend(grouped_data: dict, value_field: str) -> list[dict]:
         """
         محاسبه روند از داده‌های گروه‌بندی شده
         
@@ -74,20 +75,9 @@ class AnalyticsHelpers:
     
     @staticmethod
     def get_persian_month_label(date_str: str) -> str:
-        """دریافت برچسب فارسی ماه"""
-        if not date_str or len(date_str) < 7:
-            return date_str
-        try:
-            month_names = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-                          "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
-            parts = date_str.split('/')
-            if len(parts) >= 2:
-                month = int(parts[1])
-                if 1 <= month <= 12:
-                    return f"{month_names[month-1]} {parts[0]}"
-        except:
-            pass
-        return date_str
+        """دریافت برچسب فارسی ماه — پیاده‌سازی مشترک در utils.persian_date"""
+        from utils.persian_date import PersianDate
+        return PersianDate.get_month_label(date_str)
     
     @staticmethod
     def calculate_percentage(value: int, total: int) -> float:
@@ -95,8 +85,9 @@ class AnalyticsHelpers:
         return round((value / total * 100), 1) if total > 0 else 0
     
     @staticmethod
-    def filter_by_date_range(items: List[Dict], date_field: str, 
-                            start_date: str = None, end_date: str = None) -> List[Dict]:
+    def filter_by_date_range(items: list[dict], date_field: str,
+                            start_date: Optional[str] = None,
+                            end_date: Optional[str] = None) -> list[dict]:
         """فیلتر آیتم‌ها بر اساس بازه زمانی"""
         if not start_date and not end_date:
             return items
@@ -128,17 +119,17 @@ class AnalyticsHelpers:
             end_str = f"{end.year}/{end.month:02d}/{end.day:02d}"
             
             return start_str, end_str
-        except:
+        except Exception:
             return None, None
     
     @staticmethod
-    def calculate_avg_severity(items: List[Dict], severity_field: str = 'severity') -> float:
+    def calculate_avg_severity(items: list[dict], severity_field: str = 'severity') -> float:
         """محاسبه میانگین شدت"""
         severities = [item.get(severity_field, 1) for item in items if item.get(severity_field)]
         return round(sum(severities) / len(severities), 1) if severities else 0
     
     @staticmethod
-    def get_top_items(items: List[Dict], key_field: str, value_field: str, limit: int = 5) -> List[Dict]:
+    def get_top_items(items: list[dict], key_field: str, value_field: str, limit: int = 5) -> list[dict]:
         """دریافت آیتم‌های برتر"""
         sorted_items = sorted(items, key=lambda x: x.get(value_field, 0), reverse=True)
         return sorted_items[:limit]

@@ -2,42 +2,106 @@
 صفحه تنظیمات برنامه - نسخه کامل با مدیریت کاربران
 """
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QLineEdit, QMessageBox, QGroupBox,
-    QFormLayout, QCheckBox, QSpinBox, QTabWidget,
-    QTableWidget, QTableWidgetItem, QHeaderView,
-    QComboBox, QDialog, QTextEdit, QGridLayout, QScrollArea
-    
-)
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSettings, QTimer, Qt
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QComboBox,
+    QFormLayout,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSpinBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
+from config.constants import STAFF_ROLES
 from dal.academic_year_dal import AcademicYearDAL
 from dal.staff_dal import StaffDAL
+from dal.user_dal import UserDAL
+from database.connection import DatabaseConnection  # ✅ اضافه شد
 from models.academic_year import AcademicYear
 from models.staff import Staff
-from config.constants import STAFF_ROLES
-from utils.security import Security, SessionManager
-from database.connection import DatabaseConnection  # ✅ اضافه شد
-import sqlite3  # ✅ اضافه شد
-import os  # ✅ این خط را اضافه کنید
+from models.user import User
+from utils.logger import get_logger
+from utils.security import Permission, Security
+
+logger = get_logger(__name__)
 
 
 class SettingsPage(QWidget):
     """صفحه تنظیمات برنامه با مدیریت کاربران"""
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, permission_check=None, current_user_id=None):
+        """
+        Args:
+            permission_check: تابعی که یک مجوز می‌گیرد و True/False
+                برمی‌گرداند. از MainWindow پاس داده می‌شود
+                (بازرسی ششم). اگر None باشد، همهٔ تب‌ها ساخته
+                می‌شوند (رفتار قبلی؛ برای تست‌های مستقل).
+            current_user_id: شناسهٔ staff کاربر وارد‌شده، برای ثبت
+                «چه کسی این تغییر را داد» در Audit Log
+                (بازرسی هفتم). اگر None باشد، از اتصال دیتابیس
+                خوانده می‌شود.
+        """
         super().__init__(parent)
         self.academic_year_dal = AcademicYearDAL()
         self.staff_dal = StaffDAL()
+        self.user_dal = UserDAL()
         self.db = DatabaseConnection()  # ✅ اضافه شد
-        
+        # ===== افزودن (بازرسی هفتم) =====
+        # کاربر جاری صریحاً از MainWindow می‌آید تا Audit Log
+        # عملیات کاربری ثبت‌کننده داشته باشد.
+        self.current_user_id = current_user_id
+        self._permission_check = permission_check or (lambda perm: True)
+
+        # ===== اصلاح (بازرسی ششم) =====
+        # قبلاً این صفحه همهٔ تب‌ها را برای «همهٔ» نقش‌ها می‌ساخت:
+        # مدیریت کاربران (ساخت/حذف کاربر و ریست رمز)، پشتیبان‌گیری
+        # (بازیابی کل دیتابیس)، ساختار آموزشی و کلاس‌ها. با اینکه
+        # ROLE_PERMISSIONS از قبل تعریف شده بود، هیچ‌جا بررسی
+        # نمی‌شد؛ یعنی معلم یا مشاور هم می‌توانست کاربر بسازد و
+        # دیتابیس را بازیابی کند. حالا تب‌های حساس فقط با مجوز
+        # ساخته و بارگذاری می‌شوند.
+        self.can_manage_years = self._permission_check(
+            Permission.MANAGE_ACADEMIC_YEARS.value)
+        self.can_manage_users = self._permission_check(Permission.MANAGE_USERS.value)
+        self.can_backup = (
+            self._permission_check(Permission.CREATE_BACKUP.value)
+            or self._permission_check(Permission.RESTORE_BACKUP.value)
+        )
+        self.can_edit_settings = self._permission_check(Permission.EDIT_SETTINGS.value)
+        self.can_manage_staff = self.can_manage_users or self.can_edit_settings
+
         self.setup_ui()
-        self.load_academic_years()
-        self.load_staff()
-        self.load_users()
-        self.load_staff_for_users()
+
+        # وضعیت پشتیبان‌گیری خودکار یک تنظیم واقعی و ماندگار است؛
+        # با بازشدن برنامه، اگر کاربر قبلاً آن را فعال کرده باشد، همان
+        # زمان‌بندی دوباره راه‌اندازی می‌شود.
+        if self.can_backup:
+            self._restore_auto_backup_state()
+
+        # فقط داده‌های تب‌هایی که واقعاً ساخته شده‌اند بارگذاری شود
+        if self.can_manage_years:
+            self.load_academic_years()
+        # توجه: load_staff فقط وقتی صدا زده می‌شود که تب «کادر مدرسه»
+        # ساخته شده باشد؛ وگرنه self.staff_table وجود ندارد.
+        if self.can_manage_staff:
+            self.load_staff()
+        if self.can_manage_users:
+            self.load_users()
+            self.load_staff_for_users()
+        if self.can_manage_years:
+            self.load_classes()
     
     def setup_ui(self):
         """راه‌اندازی رابط کاربری"""
@@ -73,34 +137,42 @@ class SettingsPage(QWidget):
             }
         """)
         
-        # تب 1: سال‌های تحصیلی
-        year_tab = self.create_academic_years_tab()
-        tabs.addTab(year_tab, "📅 سال‌های تحصیلی")
-        
-        # تب 2: کادر مدرسه
-        staff_tab = self.create_staff_tab()
-        tabs.addTab(staff_tab, "👥 کادر مدرسه")
-        
-        # تب 3: مدیریت کاربران
-        user_tab = self.create_users_tab()
-        tabs.addTab(user_tab, "👤 مدیریت کاربران")
-        
-        # تب 4: اطلاعات مدرسه
+        # ===== اصلاح (بازرسی ششم): تب‌ها بر اساس مجوز ساخته می‌شوند =====
+        self.tabs = tabs
+
+        # تب 1: سال‌های تحصیلی (نیاز به manage_academic_years)
+        if getattr(self, 'can_manage_years', True):
+            year_tab = self.create_academic_years_tab()
+            tabs.addTab(year_tab, "📅 سال‌های تحصیلی")
+
+        # تب 2: کادر مدرسه (نیاز به manage_users یا edit_settings)
+        if getattr(self, 'can_manage_staff', True):
+            staff_tab = self.create_staff_tab()
+            tabs.addTab(staff_tab, "👥 کادر مدرسه")
+
+        # تب 3: مدیریت کاربران (نیاز به manage_users)
+        if getattr(self, 'can_manage_users', True):
+            user_tab = self.create_users_tab()
+            tabs.addTab(user_tab, "👤 مدیریت کاربران")
+
+        # تب 4: اطلاعات مدرسه — برای همه (فقط نمایش)
         school_tab = self.create_school_tab()
         tabs.addTab(school_tab, "🏫 اطلاعات مدرسه")
-        
-        # تب 5: درباره
+
+        # تب 5: درباره — برای همه
         about_tab = self.create_about_tab()
         tabs.addTab(about_tab, "ℹ️ درباره")
 
-        # تب 6: پشتیبان‌گیری
-        self.backup_tab = self.create_backup_tab()
-        tabs.addTab(self.backup_tab, "💾 پشتیبان‌گیری")
+        # تب 6: پشتیبان‌گیری (نیاز به create_backup یا restore_backup)
+        if getattr(self, 'can_backup', True):
+            self.backup_tab = self.create_backup_tab()
+            tabs.addTab(self.backup_tab, "💾 پشتیبان‌گیری")
 
-        # تب 7: مدیریت کلاس‌ها
-        class_tab = self.create_classes_tab()
-        tabs.addTab(class_tab, "🏫 مدیریت کلاس‌ها")
-        
+        # تب 7: مدیریت کلاس‌ها (نیاز به manage_academic_years)
+        if getattr(self, 'can_manage_years', True):
+            class_tab = self.create_classes_tab()
+            tabs.addTab(class_tab, "🏫 مدیریت کلاس‌ها")
+
         layout.addWidget(tabs)
     
     def create_academic_years_tab(self):
@@ -141,7 +213,7 @@ class SettingsPage(QWidget):
         self.add_year_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
@@ -222,14 +294,14 @@ class SettingsPage(QWidget):
                 if year.is_active == 0 and year.is_archived == 0:
                     activate_btn = QPushButton("✅ فعال کن")
                     activate_btn.setFixedSize(70, 25)
-                    activate_btn.setStyleSheet("background-color: #66BB6A; color: #F4C542; border: none; border-radius: 3px;")
+                    activate_btn.setStyleSheet("background-color: #66BB6A; color: #111111; border: none; border-radius: 3px;")
                     activate_btn.clicked.connect(lambda checked, y=year: self.activate_year(y))
                     btn_layout.addWidget(activate_btn)
                 
                 if year.is_archived == 0:
                     archive_btn = QPushButton("📦 بایگانی")
                     archive_btn.setFixedSize(70, 25)
-                    archive_btn.setStyleSheet("background-color: #F4D35E; color: #F4C542; border: none; border-radius: 3px;")
+                    archive_btn.setStyleSheet("background-color: #F4D35E; color: #111111; border: none; border-radius: 3px;")
                     archive_btn.clicked.connect(lambda checked, y=year: self.archive_year(y))
                     btn_layout.addWidget(archive_btn)
                 
@@ -244,7 +316,7 @@ class SettingsPage(QWidget):
                 self.year_table.setRowHeight(row, 35)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری سال‌های تحصیلی:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری سال‌های تحصیلی:\n{e!s}")
     
     def add_academic_year(self):
         """افزودن سال تحصیلی جدید"""
@@ -264,7 +336,7 @@ class SettingsPage(QWidget):
             self.load_academic_years()
             QMessageBox.information(self, "موفقیت", f"سال تحصیلی {title} با موفقیت اضافه شد.")
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در افزودن سال:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در افزودن سال:\n{e!s}")
     
     def activate_year(self, year):
         """فعال کردن یک سال تحصیلی"""
@@ -280,7 +352,7 @@ class SettingsPage(QWidget):
                 self.load_academic_years()
                 QMessageBox.information(self, "موفقیت", f"سال {year.title} با موفقیت فعال شد.")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در فعال‌سازی:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در فعال‌سازی:\n{e!s}")
     
     def archive_year(self, year):
         """بایگانی کردن یک سال تحصیلی"""
@@ -296,7 +368,7 @@ class SettingsPage(QWidget):
                 self.load_academic_years()
                 QMessageBox.information(self, "موفقیت", f"سال {year.title} با موفقیت بایگانی شد.")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در بایگانی:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در بایگانی:\n{e!s}")
     
     def delete_year(self, year):
         """حذف سال تحصیلی"""
@@ -312,7 +384,7 @@ class SettingsPage(QWidget):
                 self.load_academic_years()
                 QMessageBox.information(self, "موفقیت", f"سال {year.title} با موفقیت حذف شد.")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
     def create_staff_tab(self):
         """ایجاد تب کادر مدرسه"""
@@ -358,7 +430,7 @@ class SettingsPage(QWidget):
         self.add_staff_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
@@ -416,7 +488,7 @@ class SettingsPage(QWidget):
             staff_list = self.staff_dal.get_all(include_inactive=True)
             self.staff_table.setRowCount(len(staff_list))
             
-            role_map = {value: display for value, display in STAFF_ROLES}
+            role_map = dict(STAFF_ROLES)
             
             for row, staff in enumerate(staff_list):
                 self.staff_table.setItem(row, 0, QTableWidgetItem(str(staff.id)))
@@ -446,7 +518,7 @@ class SettingsPage(QWidget):
                 else:
                     activate_btn = QPushButton("🟢 فعال کن")
                     activate_btn.setFixedSize(80, 25)
-                    activate_btn.setStyleSheet("background-color: #66BB6A; color: #F4C542; border: none; border-radius: 3px;")
+                    activate_btn.setStyleSheet("background-color: #66BB6A; color: #111111; border: none; border-radius: 3px;")
                     activate_btn.clicked.connect(lambda checked, s=staff: self.toggle_staff_status(s))
                     btn_layout.addWidget(activate_btn)
                 
@@ -461,7 +533,7 @@ class SettingsPage(QWidget):
                 self.staff_table.setRowHeight(row, 35)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری کادر مدرسه:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری کادر مدرسه:\n{e!s}")
     
     def add_staff(self):
         """افزودن عضو جدید به کادر"""
@@ -484,7 +556,7 @@ class SettingsPage(QWidget):
             self.load_staff_for_users()
             QMessageBox.information(self, "موفقیت", f"عضو {full_name} با موفقیت اضافه شد.")
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در افزودن عضو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در افزودن عضو:\n{e!s}")
     
     def toggle_staff_status(self, staff):
         """تغییر وضعیت فعال/غیرفعال عضو کادر"""
@@ -504,24 +576,45 @@ class SettingsPage(QWidget):
                 self.load_staff()
                 QMessageBox.information(self, "موفقیت", f"وضعیت {staff.full_name} با موفقیت تغییر کرد.")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در تغییر وضعیت:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در تغییر وضعیت:\n{e!s}")
     
     def delete_staff(self, staff):
         """حذف عضو کادر"""
+        # ===== اصلاح (بازرسی سوم) =====
+        # پیام قبلی فقط می‌پرسید «آیا از حذف … اطمینان دارید؟».
+        # در حالی که StaffDAL.delete در آن زمان DELETE فیزیکی انجام
+        # می‌داد و به خاطر ON DELETE CASCADE روی یازده جدول، همهٔ
+        # مشاهده‌ها، مداخلات، پیگیری‌ها، جلسات مشاوره، مصاحبه‌های
+        # والدین و انتساب‌های آن فرد **برای همیشه** پاک می‌شدند —
+        # یعنی تاریخچهٔ رشد دانش‌آموزان بی‌خبر از بین می‌رفت.
+        #
+        # delete() حالا حذف منطقی می‌کند (is_deleted=1 + is_active=0) و
+        # همهٔ سوابق حفظ می‌شوند. پیام هم اصلاح شد تا کاربر بداند
+        # دقیقاً چه اتفاقی می‌افتد.
         reply = QMessageBox.question(
             self,
             "تأیید حذف",
-            f"آیا از حذف {staff.full_name} اطمینان دارید؟",
+            f"آیا از حذف «{staff.full_name}» اطمینان دارید؟\n\n"
+            "با این کار:\n"
+            "• این فرد از فهرست‌ها و از انتخاب معلم در فرم‌ها برداشته می‌شود\n"
+            "• ورود او به برنامه غیرفعال می‌شود\n"
+            "• همهٔ سوابقش (مشاهده‌ها، مداخلات، پیگیری‌ها، جلسات و…) "
+            "حفظ می‌شود و نامش در گزارش‌های قبلی باقی می‌ماند\n\n"
+            "این حذف قابل بازگرداندن است.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                self.staff_dal.delete(staff.id)
+                actor = getattr(self.db, '_current_user_id', None)
+                self.staff_dal.delete(staff.id, user_id=actor)
                 self.load_staff()
                 self.load_staff_for_users()
                 QMessageBox.information(self, "موفقیت", f"{staff.full_name} با موفقیت حذف شد.")
+            except ValueError as e:
+                # حساب «سیستم» حذف‌شدنی نیست؛ پیام توضیحیِ خودش را نشان بده
+                QMessageBox.warning(self, "امکان حذف نیست", str(e))
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
     def create_users_tab(self):
         """ایجاد تب مدیریت کاربران"""
@@ -565,7 +658,7 @@ class SettingsPage(QWidget):
         
         form_layout.addWidget(QLabel("رمز عبور:"), 2, 0)
         self.password_input = QLineEdit()
-        self.password_input.setPlaceholderText("رمز عبور (حداقل ۶ کاراکتر)")
+        self.password_input.setPlaceholderText("رمز عبور (حداقل ۸ کاراکتر)")
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
         form_layout.addWidget(self.password_input, 2, 1)
         
@@ -585,7 +678,7 @@ class SettingsPage(QWidget):
         self.add_user_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
@@ -646,26 +739,54 @@ class SettingsPage(QWidget):
             for staff in staff_list:
                 self.user_staff_combo.addItem(f"{staff.full_name} ({staff.role_display})", staff.id)
         except Exception as e:
-            print(f"خطا در بارگذاری اعضای کادر: {e}")
+            logger.error(f"خطا در بارگذاری اعضای کادر: {e}")
     
+    def _current_staff_id(self):
+        """
+        شناسهٔ staff کاربر جاری (برای ثبت در Audit Log)
+
+        ===== اصلاح (بازرسی هفتم) =====
+        قبلاً فقط در متد حذف، شناسه از دو جای مختلف با getattr خوانده
+        می‌شد و بقیهٔ عملیات‌ها هیچ ثبت‌کننده‌ای در Audit نداشتند.
+        حالا همهٔ عملیات کاربری از همین یک کمک‌تابع استفاده می‌کنند.
+        توجه: audit_logs.user_id به staff(id) وصل است، نه users(id).
+        """
+        value = getattr(self, 'current_user_id', None)
+        if value:
+            return value
+        # پشتیبان: همان کاری که main_window در on_login_successful
+        # انجام می‌دهد (set_current_user روی اتصالِ مشترک)
+        return getattr(self.db, '_current_user_id', None)
+
     def load_users(self):
-        """بارگذاری لیست کاربران"""
+        """
+        بارگذاری لیست کاربران
+
+        ===== اصلاح (بازرسی هفتم — اولویت ۱) =====
+        آخرین کوئری خام جدول users در لایهٔ نمایش حذف شد؛ حالا
+        لیست از `UserDAL.get_all()` می‌آید (که خودش is_deleted را
+        فیلتر می‌کند و نام عضو کادر را JOIN می‌زند).
+
+        خروجی DAL شیء `User` است، ولی دکمه‌های هر ردیف (فعال/غیرفعال،
+        ریست رمز، حذف) این مقدار را به‌صورت دیکشنری می‌خواندند.
+        برای اینکه رفتار قبلی حفظ شود، اینجا به دیکشنری تبدیل
+        می‌شود — با همان کلیدها (id / username / is_active / …).
+        """
         try:
-            conn = self.db.get_connection()
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                SELECT u.*, s.full_name as staff_name, s.role as staff_role
-                FROM users u
-                LEFT JOIN staff s ON u.staff_id = s.id
-                WHERE u.is_deleted = 0
-                ORDER BY u.id
-            """)
-            rows = cursor.fetchall()
+            rows = [
+                {
+                    'id': u.id,
+                    'username': u.username,
+                    'staff_name': u.staff_name,
+                    'role': u.role,
+                    'is_active': u.is_active,
+                }
+                for u in self.user_dal.get_all()
+            ]
             
             self.user_table.setRowCount(len(rows))
             
-            role_map = {value: display for value, display in STAFF_ROLES}
+            role_map = dict(STAFF_ROLES)
             
             for row, user in enumerate(rows):
                 self.user_table.setItem(row, 0, QTableWidgetItem(str(user['id'])))
@@ -697,13 +818,13 @@ class SettingsPage(QWidget):
                 else:
                     activate_btn = QPushButton("🟢 فعال کن")
                     activate_btn.setFixedSize(80, 25)
-                    activate_btn.setStyleSheet("background-color: #66BB6A; color: #F4C542; border: none; border-radius: 3px;")
+                    activate_btn.setStyleSheet("background-color: #66BB6A; color: #111111; border: none; border-radius: 3px;")
                     activate_btn.clicked.connect(lambda checked, u=user: self.toggle_user_status(u))
                     btn_layout.addWidget(activate_btn)
                 
                 reset_btn = QPushButton("🔑 ریست رمز")
                 reset_btn.setFixedSize(80, 25)
-                reset_btn.setStyleSheet("background-color: #F4D35E; color: #F4C542; border: none; border-radius: 3px;")
+                reset_btn.setStyleSheet("background-color: #F4D35E; color: #111111; border: none; border-radius: 3px;")
                 reset_btn.clicked.connect(lambda checked, u=user: self.reset_user_password(u))
                 btn_layout.addWidget(reset_btn)
                 
@@ -718,7 +839,7 @@ class SettingsPage(QWidget):
                 self.user_table.setRowHeight(row, 35)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری کاربران:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری کاربران:\n{e!s}")
     
     def add_user(self):
         """افزودن کاربر جدید"""
@@ -768,58 +889,41 @@ class SettingsPage(QWidget):
             return
         
         role = self.user_role_combo.currentData()
-        
+
         try:
-            conn = self.db.get_connection()
-            cursor = conn.cursor()
+            # ===== اصلاح (بازرسی هفتم — اولویت ۱) =====
+            # این متد سه کوئری خام روی users می‌زد. حالا همه از
+            # `UserDAL` می‌گذرد. DAL همان بررسی‌ها را دارد و از
+            # این‌ها هم قوی‌تر است:
+            #   • نام کاربری یکدست می‌شود (normalize_username)
+            #   • اعتبارسنجی مدل User اجرا می‌شود (طول و نویسه‌های مجاز)
+            #   • وجود و حذف‌نشدن عضو کادر بررسی می‌شود
+            #   • نام کاربری تکراری حتی در رکوردهای حذف‌شده بررسی می‌شود
+            #   • یک عضو کادر نمی‌تواند دو حساب بگیرد
+            #   • must_change_password = 1 ست می‌شود تا کاربر رمز
+            #     خودش را انتخاب کند
+            user = User()
+            user.staff_id = staff_id
+            user.username = username
+            user.role = role
+            user.is_active = 1
+            self.user_dal.create(
+                user, raw_password=password,
+                user_id_actor=self._current_staff_id(),
+            )
 
-            # ===== اصلاح =====
-            # نسخه قبلی بررسی نمی‌کرد که این عضو کادر از قبل حساب
-            # دارد یا نه. چون users.staff_id یکتا نیست، می‌شد برای
-            # یک نفر دو حساب ساخت. موقع ورود، کوئری
-            # `WHERE username = ?` هر دو را برمی‌گرداند و fetchone()
-            # فقط یکی را می‌گرفت — یعنی ورود تصادفی می‌شد.
-            cursor.execute("""
-                SELECT username FROM users
-                WHERE staff_id = ? AND is_deleted = 0
-            """, (staff_id,))
-            existing = cursor.fetchone()
-            if existing:
-                QMessageBox.warning(
-                    self, "خطا",
-                    f"برای این عضو کادر قبلاً حساب کاربری "
-                    f"«{existing['username']}» ساخته شده است.\n"
-                    "به جای ساخت حساب جدید، رمز همان حساب را بازنشانی کنید."
-                )
-                return
-
-            password_hash = Security.hash_password(password)
-
-            # ===== اصلاح =====
-            # نسخه قبلی ستون must_change_password را در INSERT
-            # نمی‌آورد. یعنی کاربر جدید با رمز ساخته‌شده توسط مدیر
-            # وارد می‌شد و هیچ‌وقت مجبور به تغییر آن نبود.
-            cursor.execute("""
-                INSERT INTO users (
-                    staff_id, username, password_hash, role,
-                    is_active, must_change_password
-                )
-                VALUES (?, ?, ?, ?, ?, 1)
-            """, (staff_id, username, password_hash, role, 1))
-
-            conn.commit()
-            
             self.username_input.clear()
             self.password_input.clear()
             self.password_confirm_input.clear()
             self.load_users()
-            
+
             QMessageBox.information(self, "موفقیت", f"کاربر {username} با موفقیت ایجاد شد.")
-            
-        except sqlite3.IntegrityError:
-            QMessageBox.critical(self, "خطا", "این نام کاربری قبلاً ثبت شده است.")
+
+        except ValueError as e:
+            # پیام‌های اعتبارسنجی DAL از قبل فارسی و گویا هستند
+            QMessageBox.warning(self, "خطا", str(e))
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در افزودن کاربر:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در افزودن کاربر:\n{e!s}")
     
     def toggle_user_status(self, user):
         """تغییر وضعیت کاربر"""
@@ -835,21 +939,23 @@ class SettingsPage(QWidget):
         
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                conn = self.db.get_connection()
-                cursor = conn.cursor()
-                
-                cursor.execute("""
-                    UPDATE users SET is_active = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                """, (new_status, user['id']))
-                
-                conn.commit()
+                # ===== اصلاح (بازرسی هفتم) =====
+                # SQL خام → UserDAL.set_active. نسخهٔ DAL کاربر حذف‌شده
+                # را تغییر نمی‌دهد، کاربر ناموجود را False برمی‌گرداند
+                # و ردیف Audit («چه کسی وضعیت را عوض کرد») می‌نویسد.
+                ok = self.user_dal.set_active(
+                    user['id'], new_status == 1,
+                    user_id_actor=self._current_staff_id(),
+                )
+                if not ok:
+                    QMessageBox.warning(self, "خطا", "کاربر مورد نظر یافت نشد.")
+                    return
+
                 self.load_users()
-                
                 QMessageBox.information(self, "موفقیت", f"وضعیت کاربر {user['username']} با موفقیت تغییر کرد.")
-                
+
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در تغییر وضعیت:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در تغییر وضعیت:\n{e!s}")
     
     def reset_user_password(self, user):
         """ریست رمز عبور کاربر"""
@@ -862,36 +968,17 @@ class SettingsPage(QWidget):
         
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                import secrets
-                import string
-                
-                # تولید رمز تصادفی
-                alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
-                new_password = ''.join(secrets.choice(alphabet) for _ in range(10))
-                
-                password_hash = Security.hash_password(new_password)
-                
-                conn = self.db.get_connection()
-                cursor = conn.cursor()
-                
-                # ===== اصلاح مهم =====
-                # نسخه قبلی فقط password_hash را به‌روز می‌کرد. یعنی
-                # کاربر با رمز تصادفی ساخته‌شده توسط مدیر وارد می‌شد
-                # و تا ابد همان رمز را نگه می‌داشت — مدیر هم رمزی را
-                # می‌دانست که نباید می‌دانست.
-                #
-                # حالا must_change_password = 1 هم ست می‌شود، پس در
-                # اولین ورود، LoginDialog سیگنال need_change_password
-                # را می‌فرستد و کاربر مجبور به انتخاب رمز خودش است.
-                cursor.execute("""
-                    UPDATE users
-                    SET password_hash = ?,
-                        must_change_password = 1,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                """, (password_hash, user['id']))
-
-                conn.commit()
+                # ===== اصلاح (بازرسی هفتم) =====
+                # تولید رمز و UPDATE خام → UserDAL.reset_password که
+                # خودش رمز تصادفی می‌سازد، must_change_password را
+                # ست می‌کند و رد Audit ثبت می‌کند.
+                new_password = self.user_dal.reset_password(
+                    user['id'],
+                    user_id_actor=self._current_staff_id(),
+                )
+                if not new_password:
+                    QMessageBox.warning(self, "خطا", "کاربر مورد نظر یافت نشد.")
+                    return
 
                 QMessageBox.information(
                     self,
@@ -901,9 +988,9 @@ class SettingsPage(QWidget):
                     "این رمز را به کاربر بدهید. در اولین ورود، سامانه "
                     "از او می‌خواهد رمز خودش را انتخاب کند."
                 )
-                
+
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در ریست رمز:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در ریست رمز:\n{e!s}")
     
     def delete_user(self, user):
         """حذف کاربر (Soft Delete)"""
@@ -916,33 +1003,17 @@ class SettingsPage(QWidget):
         
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                conn = self.db.get_connection()
-                cursor = conn.cursor()
-                
-                # ===== اصلاح =====
-                # نسخه قبلی فقط is_deleted = 1 ست می‌کرد و
-                # deleted_at و deleted_by را خالی می‌گذاشت. یعنی
-                # هیچ راهی نبود بفهمیم چه کسی و کِی این حساب را
-                # حذف کرده — برای سامانه‌ای که Audit دارد، این
-                # حفره بزرگی است.
-                #
-                # همچنین is_active دست‌نخورده می‌ماند، پس در هر
-                # کوئری‌ای که is_deleted را فیلتر نکند، کاربر «حذف‌شده»
-                # هنوز فعال دیده می‌شد.
-                current_user = getattr(self, 'current_user_id', None) \
-                    or getattr(self.db, '_current_user_id', None)
+                # ===== اصلاح (بازرسی هفتم) =====
+                # SQL خام → UserDAL.delete که deleted_at/deleted_by را
+                # هم پر می‌کند و is_active را صفر می‌کند (هر دو نکته‌ای
+                # که در نسخهٔ خام دیده شده بود، ولی حالا یک‌جا و
+                # آزمون‌پذیر است).
+                ok = self.user_dal.delete(
+                    user['id'], user_id_actor=self._current_staff_id())
+                if not ok:
+                    QMessageBox.warning(self, "خطا", "کاربر مورد نظر یافت نشد.")
+                    return
 
-                cursor.execute("""
-                    UPDATE users SET
-                        is_deleted = 1,
-                        is_active = 0,
-                        deleted_at = CURRENT_TIMESTAMP,
-                        deleted_by = ?,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                """, (current_user, user['id'],))
-
-                conn.commit()
                 self.load_users()
 
                 QMessageBox.information(
@@ -953,7 +1024,7 @@ class SettingsPage(QWidget):
                 )
 
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
 
     def restore_user(self, user):
         """
@@ -977,15 +1048,12 @@ class SettingsPage(QWidget):
             return
 
         try:
-            conn = self.db.get_connection()
-            cursor = conn.cursor()
-
-            # کاربر با همان نام کاربری فعال دیگری ساخته نشده باشد
-            cursor.execute("""
-                SELECT id FROM users
-                WHERE username = ? AND id != ? AND is_deleted = 0
-            """, (user['username'], user['id'],))
-            if cursor.fetchone():
+            # ===== اصلاح (بازرسی هفتم) =====
+            # بررسی تصاحب نام کاربری حفظ شد، ولی SQL خام → DAL.
+            # نکته: UserDAL.restore کاربر را «غیرفعال» برمی‌گرداند و
+            # خودِ برنامه تصمیم می‌گیرد فعالش کند — همان چیزی که
+            # این صفحه از قبل می‌خواست (is_active = 1).
+            if self.user_dal.username_exists(user['username']):
                 QMessageBox.warning(
                     self, "خطا",
                     f"نام کاربری «{user['username']}» اکنون در اختیار "
@@ -993,18 +1061,15 @@ class SettingsPage(QWidget):
                 )
                 return
 
-            cursor.execute("""
-                UPDATE users SET
-                    is_deleted = 0,
-                    deleted_at = NULL,
-                    deleted_by = NULL,
-                    is_active = 1,
-                    must_change_password = 1,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            """, (user['id'],))
+            if not self.user_dal.restore(
+                    user['id'], user_id_actor=self._current_staff_id()):
+                QMessageBox.warning(self, "خطا", "کاربر مورد نظر یافت نشد.")
+                return
 
-            conn.commit()
+            # بازگردانی با حساب فعال (رفتار قبلی همین صفحه)
+            self.user_dal.set_active(
+                user['id'], True, user_id_actor=self._current_staff_id())
+
             self.load_users()
 
             QMessageBox.information(
@@ -1012,7 +1077,7 @@ class SettingsPage(QWidget):
             )
 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بازگرداندن:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بازگرداندن:\n{e!s}")
     
     # ===== اطلاعات مدرسه =====
     
@@ -1043,13 +1108,15 @@ class SettingsPage(QWidget):
         layout.addRow("مدیر:", self.school_principal)
         
         layout.addRow(QLabel(""))
-        layout.addRow(QLabel("📌 این اطلاعات در گزارش‌ها نمایش داده می‌شود."))
-        
+        # (بازرسی شانزدهم) ادعای قبلی «در گزارش‌ها نمایش داده می‌شود» درست
+        # نبود؛ هیچ گزارشی این فیلدها را نمی‌خواند. متن صادقانه:
+        layout.addRow(QLabel("📌 این اطلاعات روی همین دستگاه ذخیره می‌شود."))
+
         save_btn = QPushButton("💾 ذخیره اطلاعات")
         save_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 10px 25px;
                 border: none;
                 border-radius: 5px;
@@ -1064,17 +1131,55 @@ class SettingsPage(QWidget):
         
         return tab
     
+    # کلیدهای ذخیره‌سازی اطلاعات مدرسه (QSettings؛ همان سازوکاری که تم برنامه
+    # از آن استفاده می‌کند — بازرسی شانزدهم)
+    SCHOOL_SETTINGS_ORG = "PARTOW"
+    SCHOOL_SETTINGS_APP = "PARTOW"
+    SCHOOL_FIELDS = (
+        ("school/name", "school_name"),
+        ("school/code", "school_code"),
+        ("school/address", "school_address"),
+        ("school/phone", "school_phone"),
+        ("school/principal", "school_principal"),
+    )
+
+    def _school_settings(self):
+        return QSettings(self.SCHOOL_SETTINGS_ORG, self.SCHOOL_SETTINGS_APP)
+
     def load_school_info(self):
-        """بارگذاری اطلاعات مدرسه"""
-        self.school_name.setText("مدرسه نمونه")
-        self.school_code.setText("12345")
-        self.school_address.setText("تهران، خیابان اصلی")
-        self.school_phone.setText("021-12345678")
-        self.school_principal.setText("مدیر مدرسه")
-    
+        """
+        بارگذاری اطلاعات مدرسه از ذخیره‌گاه واقعی
+
+        نسخهٔ قبلی مقادیر ساختگیِ ثابت را در فرم می‌گذاشت و «ذخیره» فقط پیام
+        موفقیت می‌داد؛ یعنی هر بار بازکردن برنامه همان دادهٔ ساختگی برمی‌گشت.
+        """
+        try:
+            settings = self._school_settings()
+            for key, widget_name in self.SCHOOL_FIELDS:
+                value = settings.value(key, "", type=str)
+                getattr(self, widget_name).setText(value or "")
+        except Exception as e:
+            QMessageBox.warning(self, "خطا", f"بارگذاری اطلاعات مدرسه ممکن نشد:\n{e!s}")
+
     def save_school_info(self):
-        """ذخیره اطلاعات مدرسه"""
-        QMessageBox.information(self, "موفقیت", "اطلاعات مدرسه با موفقیت ذخیره شد.")
+        """ذخیرهٔ واقعی اطلاعات مدرسه و راستی‌آزمایی پس از نوشتن"""
+        try:
+            settings = self._school_settings()
+            values = {}
+            for key, widget_name in self.SCHOOL_FIELDS:
+                values[key] = getattr(self, widget_name).text().strip()
+                settings.setValue(key, values[key])
+            settings.sync()
+            if settings.status() != QSettings.Status.NoError:
+                raise OSError(f"وضعیت ذخیره‌سازی: {settings.status()}")
+            # راستی‌آزمایی: آنچه ذخیره شد دوباره خوانده می‌شود
+            reread = QSettings(self.SCHOOL_SETTINGS_ORG, self.SCHOOL_SETTINGS_APP)
+            mismatched = [k for k, v in values.items() if (reread.value(k, "", type=str) or "") != v]
+            if mismatched:
+                raise OSError(f"مقادیر ذخیره‌شده با فرم هم‌خوان نیستند: {mismatched}")
+            QMessageBox.information(self, "موفقیت", "اطلاعات مدرسه ذخیره شد.")
+        except Exception as e:
+            QMessageBox.critical(self, "خطا", f"ذخیرهٔ اطلاعات مدرسه انجام نشد:\n{e!s}")
 
     # ===== درباره =====
 
@@ -1086,8 +1191,12 @@ class SettingsPage(QWidget):
         
         # دریافت اطلاعات از settings
         from config.settings import (
-            APP_NAME, APP_VERSION, APP_AUTHOR, 
-            APP_EMAIL, APP_WEBSITE, APP_COPYRIGHT
+            APP_AUTHOR,
+            APP_COPYRIGHT,
+            APP_EMAIL,
+            APP_NAME,
+            APP_VERSION,
+            APP_WEBSITE,
         )
         
         about_text = QLabel(f"""
@@ -1183,11 +1292,6 @@ class SettingsPage(QWidget):
     # ===== پشتیبان‌گیری =====
     
     def create_backup_tab(self):
-        """ایجاد تب پشتیبان‌گیری"""
-        from views.pages.backup_page import BackupPage
-        return BackupPage()
-
-    def create_backup_tab(self):
         """ایجاد تب پشتیبان‌گیری با تنظیمات خودکار"""
         from views.pages.backup_page import BackupPage
         
@@ -1229,6 +1333,9 @@ class SettingsPage(QWidget):
         self.auto_backup_interval.addItem("هر ۲۴ ساعت (روزانه)", 24)
         self.auto_backup_interval.addItem("هر ۴۸ ساعت (دو روز یکبار)", 48)
         self.auto_backup_interval.addItem("هر ۷۲ ساعت (سه روز یکبار)", 72)
+        saved_interval = self._auto_backup_settings().value("interval_hours", 24, type=int)
+        idx = self.auto_backup_interval.findData(saved_interval)
+        self.auto_backup_interval.setCurrentIndex(idx if idx >= 0 else 2)
         auto_layout.addRow("بازه زمانی:", self.auto_backup_interval)
         
         # وضعیت پشتیبان‌گیری خودکار
@@ -1243,7 +1350,7 @@ class SettingsPage(QWidget):
         self.start_auto_backup_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -1276,46 +1383,81 @@ class SettingsPage(QWidget):
         
         return tab
     
-    def start_auto_backup(self):
+    AUTO_BACKUP_SETTINGS_ORG = "PARTOW"
+    AUTO_BACKUP_SETTINGS_APP = "PARTOW"
+    
+    def _auto_backup_settings(self):
+        return QSettings(self.AUTO_BACKUP_SETTINGS_ORG, self.AUTO_BACKUP_SETTINGS_APP)
+    
+    def _restore_auto_backup_state(self):
+        settings = self._auto_backup_settings()
+        enabled = settings.value("auto_backup/enabled", False, type=bool)
+        if enabled:
+            # پس از تکمیل ساخت رابط، زمان‌بندی را وارد حلقه رویداد Qt می‌کنیم.
+            QTimer.singleShot(0, lambda: self.start_auto_backup(show_message=False))
+    
+    def start_auto_backup(self, show_message=True):
         """شروع پشتیبان‌گیری خودکار"""
         try:
-            # ✅ ایمپورت‌های مورد نیاز
-            import os  # ✅ این خط را داخل تابع اضافه کنید
+            # (بازرسی شانزدهم) همان پوشهٔ واحد صفحهٔ پشتیبان‌گیری
+            from config.settings import ATTACHMENTS_DIR, BACKUP_DIR, DB_PATH
             from utils.backup import BackupManager
-            from config.settings import DB_PATH, ATTACHMENTS_DIR
-            
-            # ایجاد پوشه backup
-            backup_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backups")
-            
+
+            backup_dir = BACKUP_DIR
+
+            # اگر زمان‌بند قبلی هنوز زنده است، اول همان متوقف شود تا دو نخ
+            # هم‌زمان پشتیبان نگیرند.
+            previous = getattr(self, 'auto_backup_thread', None)
+            if previous is not None and hasattr(previous, 'stop'):
+                previous.stop()
+
             backup_manager = BackupManager(DB_PATH, ATTACHMENTS_DIR, backup_dir)
-            
+
             interval = self.auto_backup_interval.currentData()
-            
-            # ذخیره مرجع به ترد برای توقف
+
+            # دستگیرهٔ قابل توقف (قبلاً یک نخ بی‌پایان بود که «توقف» فقط
+            # مرجعش را None می‌کرد و پشتیبان‌گیری ادامه می‌یافت).
+            # پشتیبان خودکار کار سیستم است، نه کاربر شمارهٔ ۱.
             self.auto_backup_thread = backup_manager.schedule_auto_backup(
                 interval_hours=interval,
-                user_id=1,
+                user_id=None,
                 user_name="سیستم"
             )
+            
+            settings = self._auto_backup_settings()
+            settings.setValue("auto_backup/enabled", True)
+            settings.setValue("interval_hours", int(interval))
+            settings.sync()
             
             self.auto_backup_status.setText(f"🟢 فعال (هر {interval} ساعت)")
             self.auto_backup_status.setStyleSheet("color: #66BB6A; font-weight: bold;")
             self.start_auto_backup_btn.setEnabled(False)
             self.stop_auto_backup_btn.setEnabled(True)
             
-            QMessageBox.information(self, "موفقیت", f"پشتیبان‌گیری خودکار هر {interval} ساعت فعال شد.")
+            if show_message:
+                QMessageBox.information(self, "موفقیت", f"پشتیبان‌گیری خودکار هر {interval} ساعت فعال شد.")
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در فعال‌سازی پشتیبان‌گیری خودکار:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در فعال‌سازی پشتیبان‌گیری خودکار:\n{e!s}")
     
     def stop_auto_backup(self):
         """توقف پشتیبان‌گیری خودکار"""
         try:
-            if hasattr(self, 'auto_backup_thread'):
-                # در Python، تردهای daemon با بسته شدن برنامه متوقف می‌شوند
-                # اما ما وضعیت را تغییر می‌دهیم
-                self.auto_backup_thread = None
-            
+            handle = getattr(self, 'auto_backup_thread', None)
+            if handle is not None and hasattr(handle, 'stop'):
+                # (بازرسی شانزدهم) توقف واقعی نخ زمان‌بند
+                stopped = handle.stop()
+                if not stopped:
+                    QMessageBox.warning(
+                        self, "توقف ناتمام",
+                        "درخواست توقف ثبت شد ولی نخ پشتیبان‌گیری هنوز مشغول است "
+                        "(احتمالاً وسط یک پشتیبان‌گیری)؛ پس از پایان کار فعلی متوقف می‌شود.")
+            self.auto_backup_thread = None
+
+            settings = self._auto_backup_settings()
+            settings.setValue("auto_backup/enabled", False)
+            settings.sync()
+
             self.auto_backup_status.setText("⏹️ غیرفعال")
             self.auto_backup_status.setStyleSheet("color: #C62828; font-weight: bold;")
             self.start_auto_backup_btn.setEnabled(True)
@@ -1324,7 +1466,7 @@ class SettingsPage(QWidget):
             QMessageBox.information(self, "موفقیت", "پشتیبان‌گیری خودکار متوقف شد.")
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در توقف پشتیبان‌گیری خودکار:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در توقف پشتیبان‌گیری خودکار:\n{e!s}")
 
     def create_classes_tab(self):
         """ایجاد تب مدیریت کلاس‌ها"""
@@ -1392,7 +1534,7 @@ class SettingsPage(QWidget):
         self.add_class_btn.setStyleSheet("""
             QPushButton {
                 background-color: #F28C28;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
@@ -1402,9 +1544,20 @@ class SettingsPage(QWidget):
         """)
         self.add_class_btn.clicked.connect(self.add_class)
         form_layout.addWidget(self.add_class_btn, 5, 0, 1, 2)
-        
+
+        # (بازرسی شانزدهم) حالت ویرایش: همین فرم برای ویرایش کلاس انتخاب‌شده
+        # استفاده می‌شود (قبلاً دکمهٔ ✏️ فقط پیام «در نسخهٔ بعدی» می‌داد).
+        self._editing_class_id = None
+        self.cancel_edit_class_btn = QPushButton("✖ انصراف از ویرایش")
+        self.cancel_edit_class_btn.setStyleSheet(
+            "QPushButton { background-color: #08223A; color: #F4C542; padding: 8px 20px; "
+            "border: 1px solid #D9C36A; border-radius: 5px; }")
+        self.cancel_edit_class_btn.clicked.connect(self.cancel_edit_class)
+        self.cancel_edit_class_btn.setVisible(False)
+        form_layout.addWidget(self.cancel_edit_class_btn, 6, 0, 1, 2)
+
         layout.addWidget(form_group)
-        
+
         # ===== جدول کلاس‌ها =====
         self.class_table = QTableWidget()
         self.class_table.setColumnCount(6)
@@ -1460,7 +1613,7 @@ class SettingsPage(QWidget):
                 if staff.role == "teacher":
                     self.class_teacher_combo.addItem(f"{staff.full_name}", staff.id)
         except Exception as e:
-            print(f"خطا در بارگذاری معلمان: {e}")
+            logger.error(f"خطا در بارگذاری معلمان: {e}")
     
     def load_class_years(self):
         """بارگذاری سال‌های تحصیلی برای کامبوباکس کلاس"""
@@ -1478,7 +1631,7 @@ class SettingsPage(QWidget):
                         self.class_year_combo.setCurrentIndex(i)
                         break
         except Exception as e:
-            print(f"خطا در بارگذاری سال‌ها: {e}")
+            logger.error(f"خطا در بارگذاری سال‌ها: {e}")
     
     def load_classes(self):
         """بارگذاری کلاس‌ها در جدول"""
@@ -1494,6 +1647,9 @@ class SettingsPage(QWidget):
             
             grade_names = {1: "اول", 2: "دوم", 3: "سوم", 4: "چهارم", 5: "پنجم", 6: "ششم"}
             
+            # نام معلم‌ها یک‌جا خوانده می‌شود (رفع N+1)
+            teacher_names = self.staff_dal.get_names_by_ids(
+                it['class'].teacher_id for it in classes)
             for row, item in enumerate(classes):
                 class_obj = item['class']
                 
@@ -1501,11 +1657,7 @@ class SettingsPage(QWidget):
                 self.class_table.setItem(row, 1, QTableWidgetItem(class_obj.name or ""))
                 self.class_table.setItem(row, 2, QTableWidgetItem(grade_names.get(class_obj.grade, str(class_obj.grade)) if class_obj.grade else "-"))
                 
-                teacher_name = "بدون معلم"
-                if class_obj.teacher_id:
-                    teacher = self.staff_dal.get_by_id(class_obj.teacher_id)
-                    if teacher:
-                        teacher_name = teacher.full_name
+                teacher_name = teacher_names.get(class_obj.teacher_id) or "بدون معلم"
                 self.class_table.setItem(row, 3, QTableWidgetItem(teacher_name))
                 
                 self.class_table.setItem(row, 4, QTableWidgetItem(str(item['student_count'])))
@@ -1518,7 +1670,7 @@ class SettingsPage(QWidget):
                 
                 edit_btn = QPushButton("✏️")
                 edit_btn.setFixedSize(30, 30)
-                edit_btn.setStyleSheet("background-color: #F4D35E; color: #F4C542; border: none; border-radius: 4px;")
+                edit_btn.setStyleSheet("background-color: #F4D35E; color: #111111; border: none; border-radius: 4px;")
                 edit_btn.clicked.connect(lambda checked, c=class_obj: self.edit_class(c))
                 btn_layout.addWidget(edit_btn)
                 
@@ -1533,10 +1685,10 @@ class SettingsPage(QWidget):
                 self.class_table.setRowHeight(row, 35)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری کلاس‌ها:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری کلاس‌ها:\n{e!s}")
     
     def add_class(self):
-        """افزودن کلاس جدید"""
+        """افزودن کلاس جدید — یا ذخیرهٔ ویرایش اگر فرم در حالت ویرایش باشد"""
         name = self.class_name_input.text().strip()
         if not name:
             QMessageBox.warning(self, "خطا", "لطفاً نام کلاس را وارد کنید.")
@@ -1556,6 +1708,25 @@ class SettingsPage(QWidget):
             from models.class_model import ClassModel
             
             class_dal = ClassDAL()
+            if self._editing_class_id:
+                # ===== حالت ویرایش (بازرسی شانزدهم) =====
+                class_obj = class_dal.get_by_id(self._editing_class_id)
+                if class_obj is None:
+                    raise ValueError("کلاس موردنظر دیگر وجود ندارد.")
+                class_obj.name = name
+                class_obj.grade = grade
+                class_obj.teacher_id = teacher_id
+                class_obj.academic_year_id = academic_year_id
+                class_obj.capacity = capacity
+                class_dal.update(class_obj)
+                saved = class_dal.get_by_id(class_obj.id)
+                if saved is None or saved.name != name or saved.grade != grade:
+                    raise ValueError("تغییرات در دیتابیس ثبت نشد.")
+                self.cancel_edit_class()
+                self.load_classes()
+                QMessageBox.information(self, "موفقیت", f"کلاس {name} ویرایش شد.")
+                return
+
             class_obj = ClassModel()
             class_obj.name = name
             class_obj.grade = grade
@@ -1573,16 +1744,37 @@ class SettingsPage(QWidget):
             QMessageBox.information(self, "موفقیت", f"کلاس {name} با موفقیت اضافه شد.")
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در افزودن کلاس:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ذخیرهٔ کلاس:\n{e!s}")
     
     def edit_class(self, class_obj):
-        """ویرایش کلاس"""
-        # در این نسخه ساده، یک پیام نمایش می‌دهیم
-        QMessageBox.information(
-            self,
-            "ویرایش کلاس",
-            f"ویرایش کلاس {class_obj.display_name}\n\nاین قابلیت در نسخه بعدی کامل می‌شود."
-        )
+        """
+        ویرایش کلاس: فرم بالای جدول با مقادیر کلاس پر می‌شود و دکمهٔ افزودن به
+        «ذخیرهٔ تغییرات» تبدیل می‌شود (بازرسی شانزدهم؛ قبلاً فقط پیام
+        «در نسخهٔ بعدی» نمایش داده می‌شد در حالی که ClassDAL.update وجود داشت).
+        """
+        self._editing_class_id = class_obj.id
+        self.class_name_input.setText(class_obj.name or "")
+        idx = self.class_grade_combo.findData(class_obj.grade)
+        if idx >= 0:
+            self.class_grade_combo.setCurrentIndex(idx)
+        idx = self.class_teacher_combo.findData(class_obj.teacher_id)
+        self.class_teacher_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        self.class_capacity_spin.setValue(int(class_obj.capacity or 0))
+        idx = self.class_year_combo.findData(class_obj.academic_year_id)
+        if idx >= 0:
+            self.class_year_combo.setCurrentIndex(idx)
+        self.add_class_btn.setText(f"💾 ذخیرهٔ تغییرات کلاس {class_obj.display_name}")
+        self.cancel_edit_class_btn.setVisible(True)
+        self.class_name_input.setFocus()
+
+    def cancel_edit_class(self):
+        """خروج از حالت ویرایش و بازگرداندن فرم به حالت افزودن"""
+        self._editing_class_id = None
+        self.class_name_input.clear()
+        self.class_capacity_spin.setValue(30)
+        self.class_teacher_combo.setCurrentIndex(0)
+        self.add_class_btn.setText("➕ افزودن کلاس")
+        self.cancel_edit_class_btn.setVisible(False)
     
     def delete_class(self, class_obj):
         """حذف کلاس"""
@@ -1599,6 +1791,6 @@ class SettingsPage(QWidget):
                 class_dal = ClassDAL()
                 class_dal.delete(class_obj.id)
                 self.load_classes()
-                QMessageBox.information(self, "موفقیت", f"کلاس با موفقیت حذف شد.")
+                QMessageBox.information(self, "موفقیت", "کلاس با موفقیت حذف شد.")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")

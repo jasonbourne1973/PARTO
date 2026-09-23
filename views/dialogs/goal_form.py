@@ -2,24 +2,36 @@
 فرم ثبت و ویرایش هدف فردی - نسخه با پشتیبانی از سیستم راهنما
 """
 
-from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QLineEdit, QComboBox, QPushButton,
-    QTextEdit, QSpinBox, QMessageBox, QWidget,
-    QScrollArea, QGroupBox, QSizePolicy
-)
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QSpinBox,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
-from services.goal_service import GoalService
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.staff_dal import StaffDAL
 from dal.competency_dal import CompetencyDAL
+from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from models.individual_goal import IndividualGoal
-from utils.shamsi_date_input import ShamsiDateInput
+from services.goal_service import GoalService
 from utils.error_handler import ValidationError
 from utils.logger import get_logger
+from utils.shamsi_date_input import ShamsiDateInput
 from utils.tooltip_manager import TooltipManager
+from utils.ui_guards import single_submit
 from views.widgets.help_widget import HelpWidget
 
 
@@ -325,7 +337,7 @@ class GoalForm(QDialog):
         self.save_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 10px 30px;
                 border: none;
                 border-radius: 6px;
@@ -464,8 +476,9 @@ class GoalForm(QDialog):
             self.result_input.setText(goal.result or "")
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{e!s}")
     
+    @single_submit()
     def save_goal(self):
         """ذخیره هدف"""
         # اعتبارسنجی
@@ -523,4 +536,4 @@ class GoalForm(QDialog):
             QMessageBox.warning(self, "خطا در اعتبارسنجی", str(e))
         except Exception as e:
             self.logger.error(f"خطا در ذخیره هدف: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{e!s}")

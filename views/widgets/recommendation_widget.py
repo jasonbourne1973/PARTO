@@ -2,22 +2,27 @@
 ویجت نمایش پیشنهادات هوشمند - نمایش در پرونده دانش‌آموز
 """
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QFrame, QScrollArea, QMessageBox,
-    QGroupBox, QGridLayout, QTextEdit
-)
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QFont
-
-import sys
 import os
+import sys
+
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from services.recommendation_service import RecommendationService
-from services.intervention_suggester import InterventionSuggester
 from models.recommendation import Recommendation
+from services.intervention_suggester import InterventionSuggester
+from services.recommendation_service import RecommendationService
 from utils.logger import get_logger
 
 
@@ -72,7 +77,7 @@ class RecommendationWidget(QWidget):
         self.generate_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0B2E4F;
-                color: #0B2E4F;
+                color: #F4C542;
                 border: none;
                 border-radius: 6px;
                 padding: 4px 14px;
@@ -202,7 +207,7 @@ class RecommendationWidget(QWidget):
             
         except Exception as e:
             self.logger.error(f"خطا در بارگذاری پیشنهادات: {e}")
-            QMessageBox.warning(self, "خطا", f"مشکل در بارگذاری پیشنهادات:\n{str(e)}")
+            QMessageBox.warning(self, "خطا", f"مشکل در بارگذاری پیشنهادات:\n{e!s}")
     
     def display_recommendations(self):
         """نمایش پیشنهادات در ویجت"""
@@ -274,7 +279,7 @@ class RecommendationWidget(QWidget):
                 background-color: #08223A;
                 padding: 2px 10px;
                 border-radius: 10px;
-                color: #475569;
+                color: #F4C542;
             }
         """)
         top_row.addWidget(status_label)
@@ -305,15 +310,23 @@ class RecommendationWidget(QWidget):
         # ===== اقدام پیشنهادی =====
         if recommendation.suggested_action:
             action_label = QLabel(f"📌 اقدام پیشنهادی: {recommendation.suggested_action}")
+            # (BUG-NEW-03) متن هم‌رنگ زمینه بود و «اقدام پیشنهادی» دیده نمی‌شد
             action_label.setStyleSheet("""
                 font-size: 12px;
-                color: #0B2E4F;
+                color: #F4C542;
                 background-color: #0B2E4F;
                 padding: 4px 8px;
                 border-radius: 4px;
             """)
             action_label.setWordWrap(True)
             layout.addWidget(action_label)
+
+        # (BUG-NEW-04) اگر بر اساس این پیشنهاد مداخله‌ای ثبت شده، پیوندش نشان داده می‌شود
+        linked_id = getattr(recommendation, 'linked_intervention_id', None)
+        if linked_id:
+            linked_label = QLabel(f"🔗 مداخلهٔ ثبت‌شده بر اساس این پیشنهاد: #{linked_id}")
+            linked_label.setStyleSheet("font-size: 11px; color: #D9C36A;")
+            layout.addWidget(linked_label)
         
         # ===== دکمه‌های عملیات =====
         btn_row = QHBoxLayout()
@@ -361,7 +374,7 @@ class RecommendationWidget(QWidget):
             implement_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #174F78;
-                    color: #0B2E4F;
+                    color: #F4C542;
                     border: none;
                     border-radius: 4px;
                     padding: 4px 12px;
@@ -458,7 +471,7 @@ class RecommendationWidget(QWidget):
                 )
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در تولید پیشنهادات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در تولید پیشنهادات:\n{e!s}")
     
     def accept_recommendation(self, recommendation):
         """پذیرش پیشنهاد"""
@@ -468,15 +481,16 @@ class RecommendationWidget(QWidget):
             self.load_recommendations()
             self.recommendation_updated.emit()
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در پذیرش:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در پذیرش:\n{e!s}")
     
     def reject_recommendation(self, recommendation):
         """رد پیشنهاد"""
-        notes, ok = QMessageBox.getText(
+        # (بازرسی شانزدهم — BUG-NEW-01) getText متعلق به QInputDialog است؛ نسخهٔ
+        # قبلی آن را روی کلاس پیام‌ها صدا می‌زد و با AttributeError می‌شکست.
+        notes, ok = QInputDialog.getText(
             self,
             "رد پیشنهاد",
             "لطفاً دلیل رد پیشنهاد را وارد کنید (اختیاری):",
-            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel
         )
         
         if not ok:
@@ -488,7 +502,7 @@ class RecommendationWidget(QWidget):
             self.load_recommendations()
             self.recommendation_updated.emit()
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در رد:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در رد:\n{e!s}")
     
     def implement_recommendation(self, recommendation):
         """اجرای پیشنهاد"""
@@ -498,15 +512,14 @@ class RecommendationWidget(QWidget):
             self.load_recommendations()
             self.recommendation_updated.emit()
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در اجرا:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در اجرا:\n{e!s}")
     
     def complete_recommendation(self, recommendation):
         """تکمیل پیشنهاد"""
-        feedback, ok = QMessageBox.getText(
+        feedback, ok = QInputDialog.getText(
             self,
             "تکمیل پیشنهاد",
             "لطفاً بازخورد خود را وارد کنید (اختیاری):",
-            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel
         )
         
         if not ok:
@@ -518,15 +531,18 @@ class RecommendationWidget(QWidget):
             self.load_recommendations()
             self.recommendation_updated.emit()
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در تکمیل:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در تکمیل:\n{e!s}")
     
     def request_intervention(self, recommendation):
         """درخواست ثبت مداخله"""
+        # (BUG-NEW-04) همهٔ آنچه فرم مداخله برای پیش‌پرکردن و پیوند لازم دارد
         data = {
             'recommendation_id': recommendation.id,
             'suggested_type': recommendation.suggested_intervention_type,
             'competency_id': recommendation.related_competency_id,
-            'title': recommendation.title
+            'title': recommendation.title,
+            'description': recommendation.suggested_action or recommendation.description or recommendation.title,
+            'goal': recommendation.title,
         }
         self.intervention_requested.emit(data)
     

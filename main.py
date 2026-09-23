@@ -2,17 +2,28 @@
 PARTOW - ورودی اصلی برنامه - نسخه دیباگ
 """
 
-import sys
+import contextlib
 import os
+import sys
 import traceback
+
+# نسخهٔ پشتیبانی‌شدهٔ پایتون (بازرسی شانزدهم): حداقل ۳.۹ — پیش از import
+# کتابخانه‌ها بررسی می‌شود تا به‌جای SyntaxError/ImportError مبهم، پیام روشن
+# داده شود. (README: بخش پیش‌نیازها)
+MIN_PYTHON = (3, 9)
+if sys.version_info < MIN_PYTHON:
+    sys.stderr.write(
+        f"PARTO به Python {MIN_PYTHON[0]}.{MIN_PYTHON[1]} یا بالاتر نیاز دارد؛ "
+        f"نسخهٔ فعلی: {sys.version.split()[0]}\n")
+    sys.exit(1)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtGui import QIcon
-from views.main_window import MainWindow
+from PySide6.QtWidgets import QApplication, QMessageBox
+
 from database.connection import DatabaseConnection
-from utils.logger import get_logger, log_error, log_info
+from views.main_window import MainWindow
 
 
 def main():
@@ -24,7 +35,7 @@ def main():
         # تست دیتابیس
         print("🔵 مرحله 2: تست دیتابیس...")
         db = DatabaseConnection()
-        conn = db.get_connection()
+        db.get_connection()  # فقط برای اطمینان از برقراری اتصال
         print("✅ دیتابیس متصل شد.")
         
         # ایجاد اپلیکیشن
@@ -56,12 +67,11 @@ def main():
             sys.exit(0)
         
         # ===== تنظیم آیکون پنجره اصلی =====
-        try:
+        # نبود/خرابی فایل آیکون نباید بالا آمدن برنامه را متوقف کند
+        with contextlib.suppress(Exception):
             from config.settings import LOGO_ICON_PATH
             if os.path.exists(LOGO_ICON_PATH):
                 window.setWindowIcon(QIcon(LOGO_ICON_PATH))
-        except:
-            pass
         
         print("🔵 مرحله 6: نمایش پنجره...")
         window.show()
@@ -72,11 +82,25 @@ def main():
     except Exception as e:
         print(f"❌ خطا: {e}")
         traceback.print_exc()
-        
+
+        # (بازرسی شانزدهم) خطای راه‌اندازی باید در لاگ برنامه هم بماند
+        # (مثلاً شکست Migration)، نه فقط در کنسولی که در اجرای پنجره‌ای
+        # دیده نمی‌شود. شکستِ خودِ لاگ‌گیری نباید پیام اصلی را پنهان کند.
+        with contextlib.suppress(Exception):
+            from utils.logger import get_logger
+            get_logger('main').error(f"خطا در راه‌اندازی برنامه: {e}", exc_info=True)
+
+        # اگر خطا پیش از ساخت QApplication رخ داده باشد (مثل شکست اتصال/
+        # Migration دیتابیس در مرحلهٔ ۲)، ساختن QMessageBox بدون
+        # QApplication خودِ برنامه را با
+        # «QWidget: Must construct a QApplication before a QWidget» می‌کُشت و
+        # کاربر هیچ پیامی نمی‌دید.
+        if QApplication.instance() is None:
+            QApplication(sys.argv)
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Icon.Critical)
         msg.setWindowTitle("خطا")
-        msg.setText(f"خطا در اجرای برنامه:\n{str(e)}")
+        msg.setText(f"خطا در اجرای برنامه:\n{e!s}")
         msg.exec()
         sys.exit(1)
 

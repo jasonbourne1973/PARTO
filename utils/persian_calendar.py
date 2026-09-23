@@ -2,16 +2,21 @@
 ویجت تقویم شمسی کامل و ابزارهای گروه‌بندی زمانی
 """
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QGridLayout, QFrame, QSizePolicy, QLineEdit
-)
-from PySide6.QtCore import Qt, Signal, QDate
-from PySide6.QtGui import QFont
+from collections import defaultdict
 
 import jdatetime
-from datetime import datetime
-from collections import defaultdict
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+from utils.time_utils import utc_now
 
 
 class TimeGrouper:
@@ -30,7 +35,8 @@ class TimeGrouper:
             parts = date_str.split('/')
             if len(parts) == 3:
                 return f"{parts[0]}/{parts[1]}"
-        except:
+        except (AttributeError, IndexError, TypeError):
+            # ورودی نامعتبر (مثلاً None) → کلید ندارد
             pass
         return None
     
@@ -47,7 +53,8 @@ class TimeGrouper:
                 day = int(parts[2])
                 week_num = (day - 1) // 7 + 1
                 return f"{year}/{month:02d}/W{week_num}"
-        except:
+        except (ValueError, IndexError, TypeError):
+            # اجزای تاریخ عددی نیستند → کلید هفته ساخته نمی‌شود
             pass
         return None
     
@@ -60,26 +67,18 @@ class TimeGrouper:
             parts = date_str.split('/')
             if len(parts) == 3:
                 return f"{parts[0]}/{parts[1]}/{parts[2]}"
-        except:
+        except (AttributeError, IndexError, TypeError):
+            # ورودی نامعتبر (None/عدد) → کلید روز ساخته نمی‌شود
             pass
         return None
     
     @staticmethod
     def get_month_label(month_key):
-        """دریافت برچسب فارسی ماه"""
+        """دریافت برچسب فارسی ماه — منبع واحد: utils.persian_date"""
         if not month_key:
             return ""
-        try:
-            parts = month_key.split('/')
-            if len(parts) == 2:
-                month_names = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-                               "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
-                month_num = int(parts[1])
-                if 1 <= month_num <= 12:
-                    return f"{month_names[month_num-1]} {parts[0]}"
-        except:
-            pass
-        return month_key
+        from utils.persian_date import PersianDate
+        return PersianDate.get_month_label(month_key)
     
     @staticmethod
     def get_week_label(week_key):
@@ -90,12 +89,12 @@ class TimeGrouper:
             parts = week_key.split('/')
             if len(parts) == 3:
                 week_num = parts[2].replace('W', '')
-                month_names = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-                               "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
                 month_num = int(parts[1])
                 if 1 <= month_num <= 12:
-                    return f"هفته {week_num} {month_names[month_num-1]}"
-        except:
+                    from utils.persian_date import PersianDate
+                    return f"هفته {week_num} {PersianDate.month_name(month_num)}"
+        except (ValueError, IndexError, TypeError):
+            # کلید هفتهٔ نامعتبر → همان کلید خام برگردانده می‌شود
             pass
         return week_key
     
@@ -212,9 +211,11 @@ class PersianCalendarWidget(QWidget):
             self.current_year = today.year
             self.current_month = today.month
             self.selected_day = today.day
-        except:
-            # Fallback
-            now = datetime.now()
+        except Exception:
+            # Fallback: تبدیل تقویمی میلادی → شمسی روی «تاریخ محلی»؛
+            # اگر از UTC استفاده شود، بین ۰۰:۰۰ تا ۰۳:۳۰ بامداد یک روز
+            # عقب می‌افتد (بازرسی هشتم).
+            now = utc_now().astimezone()
             self.current_year = now.year - 621
             self.current_month = now.month
             self.selected_day = now.day
@@ -232,7 +233,8 @@ class PersianCalendarWidget(QWidget):
                 self.selected_day = int(parts[2])
                 self.update_calendar()
                 return True
-        except:
+        except (ValueError, IndexError, TypeError):
+            # تاریخ نامعتبر برای ویجت → انتخاب تغییر نمی‌کند
             pass
         return False
     
@@ -251,15 +253,15 @@ class PersianCalendarWidget(QWidget):
                 widget.deleteLater()
         
         # بروزرسانی عنوان
-        month_names = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-                       "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
-        self.month_year_label.setText(f"{month_names[self.current_month-1]} {self.current_year}")
+        from utils.persian_date import PersianDate
+        self.month_year_label.setText(
+            f"{PersianDate.month_name(self.current_month)} {self.current_year}")
         
         # محاسبه روز اول ماه
         try:
             first_day = jdatetime.date(self.current_year, self.current_month, 1)
             first_weekday = first_day.weekday()  # 0=شنبه, 6=جمعه
-        except:
+        except Exception:
             first_weekday = 0
         
         # تعداد روزهای ماه
@@ -271,7 +273,7 @@ class PersianCalendarWidget(QWidget):
             else:
                 # اسفند - 29 روز (کبیسه‌گیری ساده)
                 days_in_month = 29
-        except:
+        except Exception:
             days_in_month = 30
         
         # ایجاد دکمه‌های روزها
@@ -410,7 +412,7 @@ class ShamsiDateEdit(QWidget):
             today = jdatetime.date.today()
             date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
             self.date_input.setText(date_str)
-        except:
+        except Exception:
             self.date_input.setText("")
     
     def set_date(self, date_str):

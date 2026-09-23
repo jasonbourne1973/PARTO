@@ -3,19 +3,18 @@
 """
 
 from models.enums import (
-    StaffRole,
-    ObservationStatus,
-    InterventionStatus,
-    FollowUpStatus,
-    FollowUpResultType,
-    StudentProfileStatus,
     AcademicYearStatus,
-    Grade,
-    LivingStatus,
-    CompetencyCategory,
-    UserRole,
     ActionType,
-    EntityType
+    CompetencyCategory,
+    EntityType,
+    FollowUpResultType,
+    FollowUpStatus,
+    Grade,
+    InterventionStatus,
+    ObservationStatus,
+    StaffRole,
+    StudentProfileStatus,
+    UserRole,
 )
 
 # ============================================================
@@ -145,38 +144,6 @@ ENTITY_TYPE_VALUES = [entity.value for entity in EntityType]
 # ============================================================
 # توابع کمکی برای دریافت وضعیت‌ها
 # ============================================================
-
-def get_observation_status_display(value):
-    """دریافت نمایش فارسی وضعیت مشاهده"""
-    return ObservationStatus.get_display(value)
-
-def get_intervention_status_display(value):
-    """دریافت نمایش فارسی وضعیت مداخله"""
-    return InterventionStatus.get_display(value)
-
-def get_followup_status_display(value):
-    """دریافت نمایش فارسی وضعیت پیگیری"""
-    return FollowUpStatus.get_display(value)
-
-def get_followup_result_display(value):
-    """دریافت نمایش فارسی نوع نتیجه پیگیری"""
-    return FollowUpResultType.get_display(value)
-
-def get_profile_status_display(value):
-    """دریافت نمایش فارسی وضعیت پرونده"""
-    return StudentProfileStatus.get_display(value)
-
-def get_grade_display(value):
-    """دریافت نمایش فارسی پایه تحصیلی"""
-    return Grade.get_display(value)
-
-def get_staff_role_display(value):
-    """دریافت نمایش فارسی نقش کادر"""
-    return StaffRole.get_display(value)
-
-def get_user_role_display(value):
-    """دریافت نمایش فارسی نقش کاربر"""
-    return UserRole.get_display(value)
 
 # ============================================================
 # نگاشت‌های سریع برای استفاده در Viewها

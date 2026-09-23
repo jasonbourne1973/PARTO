@@ -55,7 +55,8 @@ def upgrade(connection):
     if cursor.fetchone()[0] == 0:
         _seed_competencies_with_structure(cursor)
     
-    connection.commit()
+    # (بازرسی شانزدهم — BUG-NEW-02) commit این‌جا حذف شد: تراکنش را فقط
+    # MigrationManager._run_step (یا _heal_schema) باز و commit/rollback می‌کند.
     print("✅ Migration به نسخه 2 با موفقیت انجام شد.")
 
 
@@ -69,14 +70,15 @@ def downgrade(connection):
     cursor.execute("DROP TABLE IF EXISTS observable_behaviors")
     cursor.execute("DROP TABLE IF EXISTS indicators")
     
-    connection.commit()
+    # (بازرسی شانزدهم — BUG-NEW-02) commit این‌جا حذف شد: تراکنش را فقط
+    # MigrationManager._run_step (یا _heal_schema) باز و commit/rollback می‌کند.
     print("✅ بازگشت از نسخه 2 با موفقیت انجام شد.")
 
 
 def _seed_competencies_with_structure(cursor):
     """Seed کردن داده‌های شایستگی‌ها با ساختار کامل"""
-    import sys
     import os
+    import sys
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     
     try:

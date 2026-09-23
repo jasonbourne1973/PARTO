@@ -3,17 +3,22 @@
 مدیریت صفحات راهنما و نمایش آنها
 """
 
-import sys
-import os
-from typing import Dict, List, Optional
+from typing import ClassVar, Optional
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QTextEdit, QScrollArea, QFrame,
-    QDialog, QTabWidget, QListWidget, QListWidgetItem, QLineEdit
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QFont
 
 try:
     from config.help_messages import HELP_PAGES
@@ -72,31 +77,31 @@ class HelpSystem:
     """
     
     _instance = None
-    _help_pages = {}
-    _view_history = []
+    _help_pages: ClassVar[dict[str, str]] = {}
+    _view_history: ClassVar[list[str]] = []
     
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(HelpSystem, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
         return cls._instance
     
     def __init__(self):
         if not self._help_pages:
             self._help_pages = HELP_PAGES.copy()
     
-    def get_page(self, page_id: str) -> Optional[Dict]:
+    def get_page(self, page_id: str) -> Optional[dict]:
         """دریافت یک صفحه راهنما با شناسه"""
         return self._help_pages.get(page_id)
     
-    def get_all_pages(self) -> List[Dict]:
+    def get_all_pages(self) -> list[dict]:
         """دریافت لیست تمام صفحات راهنما"""
         return list(self._help_pages.values())
     
-    def get_pages_by_category(self, category: str) -> List[Dict]:
+    def get_pages_by_category(self, category: str) -> list[dict]:
         """دریافت صفحات راهنما بر اساس دسته‌بندی"""
         return [p for p in self._help_pages.values() if p.get('category') == category]
     
-    def search(self, query: str) -> List[Dict]:
+    def search(self, query: str) -> list[dict]:
         """جستجو در صفحات راهنما"""
         query = query.lower()
         results = []
@@ -112,7 +117,7 @@ class HelpSystem:
         
         return results
     
-    def get_related_pages(self, page_id: str, limit: int = 3) -> List[Dict]:
+    def get_related_pages(self, page_id: str, limit: int = 3) -> list[dict]:
         """دریافت صفحات مرتبط با یک صفحه"""
         page = self.get_page(page_id)
         if not page:
@@ -139,7 +144,7 @@ class HelpSystem:
         if len(self._view_history) > 20:
             self._view_history.pop()
     
-    def get_history(self, limit: int = 10) -> List[Dict]:
+    def get_history(self, limit: int = 10) -> list[dict]:
         """دریافت تاریخچه مشاهده صفحات"""
         pages = []
         for page_id in self._view_history[:limit]:
@@ -158,7 +163,7 @@ class HelpWidget(QDialog):
     ویجت نمایش راهنما - به صورت دیالوگ
     """
     
-    def __init__(self, page_id: str = None, parent=None):
+    def __init__(self, page_id: Optional[str] = None, parent=None):
         super().__init__(parent)
         
         self.help_system = HelpSystem()
@@ -460,7 +465,7 @@ class HelpWidget(QDialog):
         # به‌روزرسانی دکمه‌های ناوبری
         self.update_navigation_buttons()
     
-    def display_page(self, page: Dict):
+    def display_page(self, page: dict):
         """نمایش محتوای یک صفحه"""
         # پاک کردن محتوای قبلی
         for i in reversed(range(self.content_layout.count())):

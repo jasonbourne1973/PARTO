@@ -3,6 +3,7 @@
 """
 
 import sqlite3
+
 from database.connection import DatabaseConnection
 from models.academic_year import AcademicYear
 
@@ -33,12 +34,12 @@ class AcademicYearDAL:
                 year.is_archived
             ))
 
-            conn.commit()
+            self.db.commit()
             year.id = cursor.lastrowid
             return year
 
         except sqlite3.Error as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"خطا در ایجاد سال تحصیلی: {e}")
 
     def get_by_id(self, year_id):
@@ -85,6 +86,37 @@ class AcademicYearDAL:
             return self._row_to_year(row)
         return None
 
+    def get_by_title(self, title, include_archived=True):
+        """دریافت سال تحصیلی بر اساس عنوان (مثلاً «۱۴۰۵-۱۴۰۶»)
+
+        ===== اصلاح (بازرسی دوم) =====
+        views/pages/promotion_page.py این متد را صدا می‌زد:
+
+            existing = self.academic_year_dal.get_by_title(year_title)
+
+        ولی چنین متدی در این DAL وجود نداشت. صفحه آن را با
+        `except AttributeError: pass` می‌پوشاند و بعد در یک حلقه روی
+        get_all() می‌گشت. مشکل حلقه این بود که get_all() به‌طور پیش‌فرض
+        سال‌های بایگانی‌شده را برنمی‌گرداند (is_archived = 0)، پس اگر
+        سال مقصد قبلاً ساخته و بایگانی شده بود، پیدا نمی‌شد و یک سال
+        تحصیلی تکراری با همان عنوان ساخته می‌شد.
+
+        حالا جست‌وجو مستقیم و شامل سال‌های بایگانی‌شده انجام می‌شود.
+        """
+        if not title:
+            return None
+
+        query = "SELECT * FROM academic_years WHERE title = ? AND is_deleted = 0"
+        if not include_archived:
+            query += " AND is_archived = 0"
+        query += " LIMIT 1"
+
+        cursor = self.db.execute_query(query, (title,))
+        row = cursor.fetchone()
+        if row:
+            return self._row_to_year(row)
+        return None
+
     def update(self, year):
         """به‌روزرسانی سال تحصیلی"""
         conn = self.db.get_connection()
@@ -112,11 +144,11 @@ class AcademicYearDAL:
                 year.id
             ))
 
-            conn.commit()
+            self.db.commit()
             return year
 
         except sqlite3.Error as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"خطا در به‌روزرسانی سال تحصیلی: {e}")
 
     def delete(self, year_id):
@@ -134,11 +166,11 @@ class AcademicYearDAL:
                 WHERE id = ?
             """, (year_id,))
 
-            conn.commit()
+            self.db.commit()
             return True
 
         except sqlite3.Error as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"خطا در حذف سال تحصیلی: {e}")
 
     def set_active(self, year_id):
@@ -154,11 +186,11 @@ class AcademicYearDAL:
                 WHERE id = ? AND is_deleted = 0
             """, (year_id,))
 
-            conn.commit()
+            self.db.commit()
             return True
 
         except sqlite3.Error as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"خطا در فعال‌سازی سال تحصیلی: {e}")
 
     def archive(self, year_id):
@@ -173,11 +205,11 @@ class AcademicYearDAL:
                 WHERE id = ? AND is_deleted = 0
             """, (year_id,))
 
-            conn.commit()
+            self.db.commit()
             return True
 
         except sqlite3.Error as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"خطا در بایگانی سال تحصیلی: {e}")
 
     def _row_to_year(self, row):

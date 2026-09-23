@@ -1,6 +1,54 @@
 """
 Migration نسخه 5 - اضافه کردن جداول ابزارها و نتایج غربالگری
+
+===== چه چیزی اصلاح شد =====
+سه دستور `ALTER TABLE screenings ADD COLUMN ...` (tool_id، domain_scores،
+total_score) بدون هیچ گاردی اجرا می‌شدند. ولی جدول `screenings` در
+`_create_all_tables` از قبل با همین سه ستون ساخته می‌شود، پس اجرای این
+migration روی هر دیتابیس نرمالی فوراً می‌ترکید:
+
+    sqlite3.OperationalError: duplicate column name: tool_id
+
+(تست شد: اجرای migration_v5.upgrade روی دیتابیس تازه ⇒ همین خطا.)
+اگر هم دیتابیس قدیمی اصلاً جدول `screenings` نداشت، خطا
+«no such table: screenings» می‌شد.
+
+نتیجه: مسیر ارتقاء از نسخه ۴ به ۷ همیشه نصفه‌کاره می‌ماند.
+
+حالا وجود جدول و ستون قبل از هر ALTER بررسی می‌شود، پس این migration
+هم idempotent است و هم روی دیتابیس قدیمی/جدید یکسان کار می‌کند.
 """
+
+import sqlite3
+
+
+def _table_exists(cursor, table_name):
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+        (table_name,)
+    )
+    return cursor.fetchone() is not None
+
+
+def _column_exists(cursor, table_name, column_name):
+    if not _table_exists(cursor, table_name):
+        return False
+    cursor.execute(f"PRAGMA table_info({table_name})")
+    return any(row[1] == column_name for row in cursor.fetchall())
+
+
+def _add_column_if_missing(cursor, table_name, column_name, definition):
+    """افزودن ستون فقط وقتی جدول هست و ستون نیست"""
+    if not _table_exists(cursor, table_name):
+        print(f"  ⏭️  جدول {table_name} وجود ندارد؛ افزودن {column_name} رد شد.")
+        return False
+    if _column_exists(cursor, table_name, column_name):
+        print(f"  ⏭️  ستون {table_name}.{column_name} از قبل وجود دارد.")
+        return False
+    cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {definition}")
+    print(f"  ✅ ستون {table_name}.{column_name} اضافه شد.")
+    return True
+
 
 def upgrade(connection):
     """
@@ -65,21 +113,18 @@ def upgrade(connection):
     """)
     
     # ===== اصلاح جدول screenings =====
-    cursor.execute("""
-        ALTER TABLE screenings ADD COLUMN tool_id INTEGER
-    """)
-    
-    cursor.execute("""
-        ALTER TABLE screenings ADD COLUMN domain_scores TEXT
-    """)
-    
-    cursor.execute("""
-        ALTER TABLE screenings ADD COLUMN total_score REAL
-    """)
-    
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_screenings_tool_id ON screenings(tool_id)
-    """)
+    # گاردگذاری شد؛ توضیح کامل در docstring بالای همین فایل
+    print("📋 بررسی ستون‌های جدول screenings:")
+    _add_column_if_missing(cursor, "screenings", "tool_id", "tool_id INTEGER")
+    _add_column_if_missing(cursor, "screenings", "domain_scores", "domain_scores TEXT")
+    _add_column_if_missing(cursor, "screenings", "total_score", "total_score REAL")
+
+    # ایندکس فقط وقتی ساخته شود که جدول و ستون واقعاً وجود داشته باشند؛
+    # وگرنه «no such column: tool_id» می‌داد.
+    if _column_exists(cursor, "screenings", "tool_id"):
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_screenings_tool_id ON screenings(tool_id)
+        """)
     
     # ===== ایجاد ایندکس‌ها =====
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_screening_tools_name ON screening_tools(name)")
@@ -96,7 +141,8 @@ def upgrade(connection):
     # ===== Seed کردن ابزارهای پیش‌فرض =====
     _seed_default_tools(cursor)
     
-    connection.commit()
+    # (بازرسی شانزدهم — BUG-NEW-02) commit این‌جا حذف شد: تراکنش را فقط
+    # MigrationManager._run_step (یا _heal_schema) باز و commit/rollback می‌کند.
     print("✅ Migration به نسخه 5 با موفقیت انجام شد.")
 
 
@@ -111,13 +157,16 @@ def downgrade(connection):
         cursor.execute("ALTER TABLE screenings DROP COLUMN tool_id")
         cursor.execute("ALTER TABLE screenings DROP COLUMN domain_scores")
         cursor.execute("ALTER TABLE screenings DROP COLUMN total_score")
-    except:
-        pass
+    except sqlite3.OperationalError:
+        # SQLite قدیمی‌تر از ۳٫۳۵ ستون DROP را پشتیبانی نمی‌کند؛ جدول
+        # در ادامهٔ همین downgrade بازسازی می‌شود، پس بی‌اثر است.
+        print("  ⚠️ حذف ستون‌های screenings روی این نسخهٔ SQLite ممکن نبود.")
     
     cursor.execute("DROP TABLE IF EXISTS screening_results")
     cursor.execute("DROP TABLE IF EXISTS screening_tools")
     
-    connection.commit()
+    # (بازرسی شانزدهم — BUG-NEW-02) commit این‌جا حذف شد: تراکنش را فقط
+    # MigrationManager._run_step (یا _heal_schema) باز و commit/rollback می‌کند.
     print("✅ بازگشت از نسخه 5 با موفقیت انجام شد.")
 
 

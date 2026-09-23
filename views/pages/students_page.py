@@ -4,24 +4,37 @@
 
 import os
 import sys
-from datetime import datetime  # ✅ اضافه شد
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QLineEdit, QLabel,
-    QHeaderView, QMessageBox, QDialog, QComboBox, 
-    QFileDialog, QDialogButtonBox, QTabWidget
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor
 
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.academic_year_dal import AcademicYearDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from utils.logger import get_logger
+from utils.time_utils import utc_now
 from views.dialogs.student_form import StudentForm
 from views.pages.student_profile_page import StudentProfilePage
+
+logger = get_logger(__name__)
 
 
 class StudentsPage(QWidget):
@@ -123,7 +136,7 @@ class StudentsPage(QWidget):
         self.advanced_search_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -156,7 +169,7 @@ class StudentsPage(QWidget):
         self.import_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -190,7 +203,7 @@ class StudentsPage(QWidget):
         self.sample_btn.setStyleSheet("""
             QPushButton {
                 background-color: #F4D35E;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -335,7 +348,7 @@ class StudentsPage(QWidget):
             self.display_students(self.students)
             self.update_pagination_controls()
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{e!s}")
     
     def update_pagination_controls(self):
         """به‌روزرسانی کنترل‌های Pagination"""
@@ -364,8 +377,9 @@ class StudentsPage(QWidget):
                     'grade': profile.grade_display,
                     'class': profile.class_name or ''
                 }
-        except:
-            pass
+        except Exception as e:
+            # نبود پروندهٔ فعال برای این سال → ستون‌های پایه/کلاس خالی
+            logger.debug(f"پروندهٔ سالانهٔ دانش‌آموز {student_id} خوانده نشد: {e}")
         return {'grade': '-', 'class': '-'}
     
     def display_students(self, students):
@@ -393,7 +407,7 @@ class StudentsPage(QWidget):
             edit_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #F4D35E;
-                    color: #F4C542;
+                    color: #111111;
                     border: none;
                     border-radius: 4px;
                     font-size: 14px;
@@ -427,7 +441,7 @@ class StudentsPage(QWidget):
             profile_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #66BB6A;
-                    color: #F4C542;
+                    color: #111111;
                     border: none;
                     border-radius: 4px;
                     font-size: 14px;
@@ -463,7 +477,7 @@ class StudentsPage(QWidget):
             self.display_students(self.students)
             self.update_pagination_controls()
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{e!s}")
     
     def open_advanced_search(self):
         """باز کردن دیالوگ جستجوی پیشرفته"""
@@ -496,7 +510,7 @@ class StudentsPage(QWidget):
                 self.load_students()
                 QMessageBox.information(self, "موفقیت", "دانش‌آموز با موفقیت ثبت شد")
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در باز کردن فرم:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در باز کردن فرم:\n{e!s}")
     
     def edit_student(self, student):
         """ویرایش دانش‌آموز"""
@@ -516,24 +530,34 @@ class StudentsPage(QWidget):
         
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                self.student_dal.delete(student.id)
+                deleted = self.student_dal.delete(student.id)
                 self.load_students()
-                QMessageBox.information(self, "موفقیت", "دانش‌آموز با موفقیت حذف شد")
+                if deleted:
+                    QMessageBox.information(
+                        self, "موفقیت", "دانش‌آموز با موفقیت حذف شد"
+                    )
+                else:
+                    QMessageBox.warning(
+                        self, "خطا", "دانش‌آموز مورد نظر حذف نشد."
+                    )
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
     # ===== متدهای جدید برای Excel =====
     
     def export_to_excel(self):
         """خروجی Excel از دانش‌آموزان"""
-        if not self.students:
-            QMessageBox.warning(self, "توجه", "هیچ دانش‌آموزی برای خروجی وجود ندارد.")
+        export_students = self.all_students or self.students
+        if not export_students:
+            QMessageBox.warning(
+                self, "توجه", "هیچ دانش‌آموزی برای خروجی وجود ندارد."
+            )
             return
         
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "ذخیره فایل Excel",
-            f"دانش‌آموزان_{datetime.now().strftime('%Y%m%d')}.xlsx",
+            f"دانش‌آموزان_{utc_now().strftime('%Y%m%d')}.xlsx",
             "Excel Files (*.xlsx)"
         )
         
@@ -546,7 +570,7 @@ class StudentsPage(QWidget):
             
             active_year = self.academic_year_dal.get_active()
             success, message = importer.export_students_to_excel(
-                self.students, file_path, active_year
+                export_students, file_path, active_year
             )
             
             if success:
@@ -555,7 +579,7 @@ class StudentsPage(QWidget):
                 QMessageBox.critical(self, "خطا", message)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در خروجی:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در خروجی:\n{e!s}")
     
     def import_from_excel(self):
         """ایمپورت دانش‌آموزان از Excel"""
@@ -563,7 +587,7 @@ class StudentsPage(QWidget):
             self,
             "انتخاب فایل Excel",
             "",
-            "Excel Files (*.xlsx *.xls)"
+            "Excel Files (*.xlsx)"
         )
         
         if not file_path:
@@ -604,7 +628,8 @@ class StudentsPage(QWidget):
             importer = ExcelImporter()
             
             # ایمپورت
-            success, message, imported_count, errors = importer.import_students_from_excel(
+            # imported_count داخل message گزارش می‌شود
+            success, message, _imported_count, errors = importer.import_students_from_excel(
                 file_path, year_id
             )
             
@@ -623,7 +648,7 @@ class StudentsPage(QWidget):
                 QMessageBox.critical(self, "خطا", message)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در ایمپورت:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ایمپورت:\n{e!s}")
     
     def download_sample_excel(self):
         """دانلود فایل نمونه Excel"""
@@ -648,4 +673,4 @@ class StudentsPage(QWidget):
                 QMessageBox.critical(self, "خطا", message)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در ایجاد فایل نمونه:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ایجاد فایل نمونه:\n{e!s}")

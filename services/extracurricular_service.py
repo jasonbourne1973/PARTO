@@ -2,19 +2,19 @@
 سرویس مدیریت فعالیت‌های فوق‌برنامه
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
 from dal.extracurricular_dal import ExtracurricularDAL
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from models.extracurricular_activity import ExtracurricularActivity
-from utils.logger import get_logger
+from services.base_service import BaseService
 from utils.error_handler import ServiceError, ValidationError
+from utils.logger import get_logger
 
 
 class ExtracurricularService(BaseService):
@@ -51,8 +51,8 @@ class ExtracurricularService(BaseService):
             activity.title = data.get('title')
             activity.type = data.get('type')
             activity.description = data.get('description')
-            activity.start_date = data.get('start_date')
-            activity.end_date = data.get('end_date')
+            activity.start_date = self.clean_date(data.get('start_date'))
+            activity.end_date = self.clean_date(data.get('end_date'))
             activity.duration_hours = data.get('duration_hours')
             activity.location = data.get('location')
             activity.participation_level = data.get('participation_level', ExtracurricularActivity.LEVEL_PARTICIPANT)
@@ -82,13 +82,23 @@ class ExtracurricularService(BaseService):
             
             self._validate_activity_data(data, is_update=True)
             
-            activity.student_profile_id = data.get('student_profile_id', activity.student_profile_id)
+            requested_profile_id = data.get('student_profile_id')
+            if requested_profile_id:
+                requested_profile = self.profile_dal.get_by_id(requested_profile_id)
+                current_profile = self.profile_dal.get_by_id(activity.student_profile_id)
+                if (requested_profile and current_profile
+                        and requested_profile.student_id == current_profile.student_id):
+                    # ویرایش همان دانش‌آموز: پرونده تاریخی رکورد حفظ می‌شود.
+                    activity.student_profile_id = current_profile.id
+                else:
+                    activity.student_profile_id = requested_profile_id
             activity.teacher_id = data.get('teacher_id', activity.teacher_id)
             activity.title = data.get('title', activity.title)
             activity.type = data.get('type', activity.type)
             activity.description = data.get('description', activity.description)
-            activity.start_date = data.get('start_date', activity.start_date)
-            activity.end_date = data.get('end_date', activity.end_date)
+            activity.start_date = self.clean_date(
+                data.get('start_date'), activity.start_date)
+            activity.end_date = self.clean_date(data.get('end_date'), activity.end_date)
             activity.duration_hours = data.get('duration_hours', activity.duration_hours)
             activity.location = data.get('location', activity.location)
             activity.participation_level = data.get('participation_level', activity.participation_level)
@@ -157,7 +167,8 @@ class ExtracurricularService(BaseService):
 
         try:
             activities = getter()
-        except TypeError:
+        except TypeError as _exc:
+            self.logger.debug(f"خطای مدیریت‌شده در get_all_activities (مسیر جایگزین): {_exc}")
             activities = getter(include_deleted=False)
 
         activities = list(activities or [])
@@ -240,13 +251,13 @@ class ExtracurricularService(BaseService):
         """اعتبارسنجی داده‌های فعالیت"""
         errors = []
         
-        if not is_update:
-            if not data.get('student_profile_id'):
-                errors.append("پرونده دانش‌آموز باید انتخاب شود")
+        if not is_update and not data.get('student_profile_id'):
+            errors.append("پرونده دانش‌آموز باید انتخاب شود")
         
-        if not data.get('title'):
+        title = self.clean_text(data.get('title'))
+        if not title:
             errors.append("عنوان فعالیت نمی‌تواند خالی باشد")
-        elif len(data.get('title', '').strip()) < 2:
+        elif len(title) < 2:
             errors.append("عنوان فعالیت باید حداقل ۲ کاراکتر باشد")
         
         if not data.get('type'):
@@ -254,8 +265,20 @@ class ExtracurricularService(BaseService):
         elif data.get('type') and data.get('type') not in [t[0] for t in ExtracurricularActivity.TYPE_CHOICES]:
             errors.append("نوع فعالیت نامعتبر است")
         
-        if not data.get('start_date'):
-            errors.append("تاریخ شروع نمی‌تواند خالی باشد")
+        # ===== اصلاح (بازرسی هشتم): اعتبارسنجی واقعی تاریخ‌ها =====
+        start_date, err = self.check_date(
+            data.get('start_date'), "تاریخ شروع", required=True)
+        if err:
+            errors.append(err)
+
+        end_date, err = self.check_date(data.get('end_date'), "تاریخ پایان")
+        if err:
+            errors.append(err)
+
+        if start_date and end_date and end_date < start_date:
+            # مقایسهٔ رشته‌ای فقط وقتی معتبر است که قالب یکدست
+            # (yyyy/MM/dd با صفر ابتدایی) باشد — و همین است.
+            errors.append("تاریخ پایان نمی‌تواند قبل از تاریخ شروع باشد")
         
         if data.get('participation_level') and data.get('participation_level') not in [l[0] for l in ExtracurricularActivity.LEVEL_CHOICES]:
             errors.append("سطح مشارکت نامعتبر است")
@@ -275,7 +298,8 @@ class ExtracurricularService(BaseService):
                 student = self.student_dal.get_by_id(profile.student_id)
                 if student:
                     activity.student_name = student.full_name
-        except:
+        except Exception as _exc:
+            self.logger.debug(f"خطای مدیریت‌شده در _enrich_activity (مسیر جایگزین): {_exc}")
             activity.student_name = "نامشخص"
         
         # نام معلم
@@ -284,5 +308,6 @@ class ExtracurricularService(BaseService):
                 teacher = self.staff_dal.get_by_id(activity.teacher_id)
                 if teacher:
                     activity.teacher_name = teacher.full_name
-            except:
+            except Exception as _exc:
+                self.logger.debug(f"خطای مدیریت‌شده در _enrich_activity (مسیر جایگزین): {_exc}")
                 activity.teacher_name = "نامشخص"

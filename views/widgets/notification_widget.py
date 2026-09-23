@@ -2,16 +2,22 @@
 ویجت اعلان‌ها - نمایش پیگیری‌های معوق و یادآوری‌ها
 """
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QFrame, QScrollArea, QListWidget, QListWidgetItem,
-    QMessageBox, QApplication
-)
-from PySide6.QtCore import Qt, Signal, QTimer, QPoint
-from PySide6.QtGui import QColor, QFont, QIcon, QAction
-
-import sys
 import os
+import sys
+
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -277,7 +283,7 @@ class NotificationWidget(QWidget):
         self.view_all_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0B2E4F;
-                color: #0B2E4F;
+                color: #F4C542;
                 border: none;
                 border-radius: 6px;
                 padding: 6px 12px;

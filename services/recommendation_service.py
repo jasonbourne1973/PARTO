@@ -2,25 +2,26 @@
 سرویس پیشنهاددهی هوشمند - تولید پیشنهادات شخصی‌سازی‌شده برای دانش‌آموزان
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
-from dal.competency_dal import CompetencyDAL
-from dal.recommendation_dal import RecommendationDAL
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.staff_dal import StaffDAL
-from models.recommendation_rules import RuleManager, RecommendationResult, RulePriority, RecommendationCategory
-from models.recommendation import Recommendation
-from utils.logger import get_logger
-from utils.error_handler import ServiceError
 import jdatetime
+
+from dal.competency_dal import CompetencyDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
+from dal.recommendation_dal import RecommendationDAL
+from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from models.recommendation import Recommendation
+from models.recommendation_rules import RuleManager
+from services.base_service import BaseService
+from utils.error_handler import ServiceError
+from utils.logger import get_logger
 
 
 class RecommendationService(BaseService):
@@ -79,19 +80,45 @@ class RecommendationService(BaseService):
                 self.logger.info(f"هیچ پیشنهادی برای دانش‌آموز {student.full_name} تولید نشد.")
                 return []
             
-            # ذخیره پیشنهادات در دیتابیس
+            # ===== اصلاح (بازرسی ششم) =====
+            # نسخه قبلی خطای ذخیرهٔ هر پیشنهاد را فقط در لاگ می‌نوشت و
+            # None برمی‌گرداند. نتیجه برای کاربر این بود:
+            #     «هیچ پیشنهاد جدیدی برای این دانش‌آموز تولید نشد»
+            # در حالی که قوانین چند پیشنهاد پیدا کرده بودند و فقط
+            # ذخیره‌شان شکست خورده بود؛ هیچ راهی هم برای دیدن علت
+            # نبود. حالا تعداد ناموفق‌ها گزارش می‌شود و اگر هیچ‌کدام
+            # ذخیره نشد، خطای گویا بالا می‌رود.
             saved_recommendations = []
-            for result in results[:5]:  # حداکثر ۵ پیشنهاد
-                recommendation = self._save_recommendation(profile_id, staff_id, result)
+            save_errors = []
+            batch = results[:5]  # حداکثر ۵ پیشنهاد
+            for result in batch:
+                try:
+                    recommendation = self._save_recommendation(profile_id, staff_id, result)
+                except ServiceError as exc:
+                    self.logger.debug(f"خطای مدیریت‌شده در generate_recommendations (مسیر جایگزین): {exc}")
+                    save_errors.append(str(exc))
+                    continue
                 if recommendation:
                     saved_recommendations.append(recommendation)
-            
+
+            if save_errors:
+                if not saved_recommendations:
+                    raise ServiceError(
+                        f"هیچ‌کدام از {len(batch)} پیشنهاد تولیدشده ذخیره نشد. "
+                        f"علت: {save_errors[0]}"
+                    )
+                self.logger.warning(
+                    f"{len(save_errors)} پیشنهاد ذخیره نشد؛ "
+                    f"{len(saved_recommendations)} پیشنهاد ذخیره شد. "
+                    f"علت: {save_errors[0]}"
+                )
+
             self.logger.info(f"{len(saved_recommendations)} پیشنهاد برای دانش‌آموز {student.full_name} تولید شد.")
             return saved_recommendations
             
         except Exception as e:
             self.logger.error(f"خطا در تولید پیشنهادات: {e}")
-            raise ServiceError(f"خطا در تولید پیشنهادات: {str(e)}")
+            raise ServiceError(f"خطا در تولید پیشنهادات: {e!s}")
     
     def _collect_student_data(self, profile_id):
         """
@@ -137,7 +164,7 @@ class RecommendationService(BaseService):
             
             # شایستگی‌های بدون مشاهده
             all_competencies = self.competency_dal.get_all(include_inactive=False)
-            observed_comp_ids = set(o.competency_id for o in observations if o.competency_id)
+            observed_comp_ids = {o.competency_id for o in observations if o.competency_id}
             unobserved_competencies = [c for c in all_competencies if c.id not in observed_comp_ids]
             
             # محاسبه نسبت‌ها
@@ -150,6 +177,10 @@ class RecommendationService(BaseService):
             
             return {
                 'student_profile_id': profile_id,
+                # بازرسی یازدهم: مبنای هر پیشنهاد «رفتارهای ثبت‌شده» است.
+                'analysis_basis': 'رفتارهای ثبت‌شده (مثبت/منفی/خنثی)',
+                'disclaimer': ('پیشنهادها الگوهای مشاهده‌شده را گزارش می‌کنند '
+                               'و تشخیص روان‌شناختی نیستند.'),
                 'observations': observations,
                 'interventions': interventions,
                 'followups': followups,
@@ -205,7 +236,10 @@ class RecommendationService(BaseService):
                 if f.status == 'pending' and f.next_action_date and f.next_action_date < today_str:
                     overdue.append(f)
             return overdue
-        except:
+        except Exception as e:
+            # ===== اصلاح (بازرسی ششم): except لخت خطاهای غیرمنتظره
+            # (حتی KeyboardInterrupt/SystemExit) را هم می‌بلعید.
+            self.logger.warning(f"خطا در محاسبهٔ پیگیری‌های معوق: {e}")
             return []
     
     def _save_recommendation(self, profile_id, staff_id, result):
@@ -219,11 +253,21 @@ class RecommendationService(BaseService):
         
         Returns:
             Recommendation: پیشنهاد ذخیره‌شده
+
+        Raises:
+            ServiceError: اگر ذخیره در دیتابیس شکست بخورد. قبلاً خطا
+                بی‌صدا خورده می‌شد و کاربر پیام «پیشنهادی تولید نشد»
+                می‌گرفت (بازرسی ششم).
         """
         try:
             recommendation = Recommendation()
             recommendation.student_profile_id = profile_id
-            recommendation.staff_id = staff_id
+            # شناسهٔ کاربر باید عدد باشد؛ اگر لیست/متن غیرعددی برسد،
+            # به‌جای خطای مبهمِ binding، None (بی‌صاحب) ذخیره می‌شود.
+            recommendation.staff_id = self.coerce_id(staff_id)
+            recommendation.related_observation_ids = self._safe_observation_ids(
+                result.related_observation_ids
+            )
             recommendation.rule_id = result.rule_id
             recommendation.category = result.category.value
             recommendation.priority = result.priority.name.lower()
@@ -236,11 +280,56 @@ class RecommendationService(BaseService):
             recommendation.score = result.score
             recommendation.metadata = result.metadata
             recommendation.status = Recommendation.STATUS_PENDING
+
+            # بازرسی یازدهم: هر پیشنهاد باید به «رفتارهای ثبت‌شده» قابل
+            # ردیابی باشد و لحن آن غیرتشخیصی بماند (داده ← الگو ← پیشنهاد).
+            metadata = recommendation.metadata or {}
+            if metadata.get('behavior_based'):
+                ids = recommendation.related_observation_ids or []
+                if ids and 'شناسهٔ مشاهدات' not in (recommendation.description or ''):
+                    recommendation.description = (
+                        f"{recommendation.description} (شناسهٔ مشاهدات مرتبط: "
+                        f"{', '.join(str(i) for i in ids[:6])})"
+                    )
             
             return self.recommendation_dal.create(recommendation)
-            
+
         except Exception as e:
+            # نوشتنِ نیمه‌کاره را پاک کن؛ وگرنه تراکنشِ ضمنیِ بازمانده
+            # روی اتصال می‌ماند و عملیات بعدی با خطای
+            # «cannot start a transaction within a transaction» از
+            # کار می‌افتد (همان چیزی که در هارنس بازرسی دیده شد).
+            try:
+                self.db.discard_pending_writes()
+            except Exception as cleanup_error:  # pragma: no cover - مسیر اضطراری
+                # اگر پاک‌سازی هم شکست بخورد، خطای اصلی مهم‌تر است
+                self.logger.debug(f"پاک‌سازی تراکنش ناموفق بود: {cleanup_error}")
             self.logger.error(f"خطا در ذخیره پیشنهاد: {e}")
+            raise ServiceError(f"ذخیرهٔ پیشنهاد «{getattr(result, 'title', '')}» شکست خورد: {e}") from e
+
+    @staticmethod
+    def _safe_observation_ids(value):
+        """
+        شناسهٔ مشاهدات مرتبط را به لیستی از عدد صحیح تبدیل می‌کند
+
+        ستون related_observation_ids در دیتابیس TEXT است و DAL آن را
+        با json.dumps ذخیره می‌کند. قبلاً اگر مقدار مدل رشته یا None
+        بود (مثلاً از یک قانون دیگر)، همان‌طور خام ذخیره می‌شد و
+        خواندنِ بعدی آن را به لیست تبدیل نمی‌کرد.
+        """
+        if value is None:
+            return None
+        if isinstance(value, (int, str)):
+            value = [value]
+        try:
+            ids = []
+            for item in value:
+                coerced = BaseService.coerce_id(item)
+                if coerced is not None:
+                    ids.append(coerced)
+            return ids or None
+        except TypeError as _exc:
+            get_logger(__name__).debug(f"خطای مدیریت‌شده در _safe_observation_ids (مسیر جایگزین): {_exc}")
             return None
     
     def get_recommendations_for_student(self, profile_id, limit=None):
@@ -314,7 +403,7 @@ class RecommendationService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در پذیرش پیشنهاد: {e}")
-            raise ServiceError(f"خطا: {str(e)}")
+            raise ServiceError(f"خطا: {e!s}")
     
     def reject_recommendation(self, recommendation_id, notes=None, staff_id=None):
         """
@@ -341,15 +430,18 @@ class RecommendationService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در رد پیشنهاد: {e}")
-            raise ServiceError(f"خطا: {str(e)}")
+            raise ServiceError(f"خطا: {e!s}")
     
-    def implement_recommendation(self, recommendation_id, staff_id=None):
+    def implement_recommendation(self, recommendation_id, staff_id=None, intervention_id=None):
         """
         اجرای پیشنهاد
         
         Args:
             recommendation_id: شناسه پیشنهاد
             staff_id: شناسه کاربر
+            intervention_id: (بازرسی شانزدهم — BUG-NEW-04) شناسهٔ مداخله‌ای که بر اساس
+                این پیشنهاد ثبت شده؛ در `metadata['intervention_id']` نگه داشته می‌شود
+                تا پیوند پیشنهاد ↔ مداخله بدون تغییر اسکیما قابل ردیابی باشد
         
         Returns:
             bool: آیا عملیات موفق بود؟
@@ -360,6 +452,10 @@ class RecommendationService(BaseService):
                 raise ServiceError(f"پیشنهاد با شناسه {recommendation_id} یافت نشد.")
             
             recommendation.implement()
+            if intervention_id:
+                metadata = recommendation.metadata if isinstance(recommendation.metadata, dict) else {}
+                metadata['intervention_id'] = int(intervention_id)
+                recommendation.metadata = metadata
             self.recommendation_dal.update(recommendation)
             
             self.logger.info(f"پیشنهاد {recommendation_id} اجرا شد.")
@@ -367,7 +463,7 @@ class RecommendationService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در اجرای پیشنهاد: {e}")
-            raise ServiceError(f"خطا: {str(e)}")
+            raise ServiceError(f"خطا: {e!s}")
     
     def complete_recommendation(self, recommendation_id, feedback=None, staff_id=None):
         """
@@ -394,7 +490,7 @@ class RecommendationService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در تکمیل پیشنهاد: {e}")
-            raise ServiceError(f"خطا: {str(e)}")
+            raise ServiceError(f"خطا: {e!s}")
     
     def _enrich_recommendation(self, recommendation):
         """افزودن اطلاعات تکمیلی به پیشنهاد"""
@@ -405,7 +501,8 @@ class RecommendationService(BaseService):
                 student = self.student_dal.get_by_id(profile.student_id)
                 if student:
                     recommendation.student_name = student.full_name
-        except:
+        except Exception as _exc:
+            self.logger.debug(f"خطای مدیریت‌شده در _enrich_recommendation (مسیر جایگزین): {_exc}")
             recommendation.student_name = "نامشخص"
         
         # افزودن نام مسئول
@@ -414,7 +511,8 @@ class RecommendationService(BaseService):
                 staff = self.staff_dal.get_by_id(recommendation.staff_id)
                 if staff:
                     recommendation.staff_name = staff.full_name
-            except:
+            except Exception as _exc:
+                self.logger.debug(f"خطای مدیریت‌شده در _enrich_recommendation (مسیر جایگزین): {_exc}")
                 recommendation.staff_name = "نامشخص"
         
         # افزودن نام شایستگی
@@ -423,7 +521,8 @@ class RecommendationService(BaseService):
                 comp = self.competency_dal.get_by_id(recommendation.related_competency_id)
                 if comp:
                     recommendation.competency_name = comp.title
-            except:
+            except Exception as _exc:
+                self.logger.debug(f"خطای مدیریت‌شده در _enrich_recommendation (مسیر جایگزین): {_exc}")
                 recommendation.competency_name = "نامشخص"
     
     def get_recommendation_summary(self, profile_id):

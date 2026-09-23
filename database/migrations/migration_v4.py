@@ -83,7 +83,8 @@ def upgrade(connection):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_interview_date ON parent_interviews(interview_date)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_interview_is_deleted ON parent_interviews(is_deleted)")
     
-    connection.commit()
+    # (بازرسی شانزدهم — BUG-NEW-02) commit این‌جا حذف شد: تراکنش را فقط
+    # MigrationManager._run_step (یا _heal_schema) باز و commit/rollback می‌کند.
     print("✅ Migration به نسخه 4 با موفقیت انجام شد.")
 
 
@@ -96,5 +97,6 @@ def downgrade(connection):
     cursor.execute("DROP TABLE IF EXISTS parent_interviews")
     cursor.execute("DROP TABLE IF EXISTS family_contexts")
     
-    connection.commit()
+    # (بازرسی شانزدهم — BUG-NEW-02) commit این‌جا حذف شد: تراکنش را فقط
+    # MigrationManager._run_step (یا _heal_schema) باز و commit/rollback می‌کند.
     print("✅ بازگشت از نسخه 4 با موفقیت انجام شد.")

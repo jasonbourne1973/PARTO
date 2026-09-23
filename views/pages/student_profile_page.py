@@ -2,36 +2,60 @@
 صفحه مرکز پرونده دانش‌آموز - نسخه نهایی با Timeline واقعی و جستجو و انتخاب سال
 """
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QTabWidget, QFrame, QMessageBox, QScrollArea,
-    QGridLayout, QGroupBox, QTableWidget, QTableWidgetItem,
-    QHeaderView, QSplitter, QListWidget, QListWidgetItem,
-    QTextEdit, QDialog, QComboBox, QLineEdit
-)
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QFrame,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSplitter,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
 from dal.academic_year_dal import AcademicYearDAL
 from dal.competency_dal import CompetencyDAL
+from dal.family_context_dal import FamilyContextDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
+from dal.parent_interview_dal import ParentInterviewDAL
 from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from services.case_timeline_service import CaseTimelineService
-from views.dialogs.observation_form import ObservationForm
-from views.dialogs.intervention_form import InterventionForm
-from views.dialogs.followup_form import FollowUpForm
 from services.trend_analysis_service import TrendAnalysisService
-from utils.persian_calendar import TimeGrouper
+from utils.behavior_analysis import summarize_by_competency
+from utils.logger import get_logger
+from views.dialogs.followup_form import FollowUpForm
+from views.dialogs.intervention_form import InterventionForm
+from views.dialogs.observation_form import ObservationForm
+from views.widgets.recommendation_widget import RecommendationWidget
+
+logger = get_logger(__name__)
 
 
 class StudentProfilePage(QWidget):
     """صفحه مرکز پرونده دانش‌آموز با Timeline و جستجو و انتخاب سال"""
     
-    student_changed = Signal(int)
+    # (بازرسی شانزدهم) درخواست گزارش کامل: پنجرهٔ اصلی صفحهٔ گزارش‌ها را با
+    # همین دانش‌آموز باز می‌کند (قبلاً دکمه فقط پیام «به بخش گزارش‌ها بروید» می‌داد).
+    report_requested = Signal(int)
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -44,6 +68,9 @@ class StudentProfilePage(QWidget):
         self.academic_year_dal = AcademicYearDAL()
         self.competency_dal = CompetencyDAL()
         self.staff_dal = StaffDAL()
+        # زمینهٔ رشد (بازرسی یازدهم): زمینهٔ خانوادگی و گفت‌وگو با والدین
+        self.family_dal = FamilyContextDAL()
+        self.parent_interview_dal = ParentInterviewDAL()
         self.timeline_service = CaseTimelineService()
         self.trend_service = TrendAnalysisService()
         
@@ -181,7 +208,7 @@ class StudentProfilePage(QWidget):
         self.status_label = QLabel("وضعیت: -")
         self.status_label.setStyleSheet("""
             QLabel {
-                color: #F4C542;
+                color: #111111;
                 font-size: 14px;
                 font-weight: bold;
                 background-color: #66BB6A;
@@ -216,7 +243,7 @@ class StudentProfilePage(QWidget):
         self.btn_intervention.setStyleSheet("""
             QPushButton {
                 background-color: #F28C28;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
@@ -231,7 +258,7 @@ class StudentProfilePage(QWidget):
         self.btn_followup.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
@@ -248,7 +275,7 @@ class StudentProfilePage(QWidget):
         self.btn_report.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
@@ -258,6 +285,23 @@ class StudentProfilePage(QWidget):
         """)
         self.btn_report.clicked.connect(self.generate_report)
         action_layout.addWidget(self.btn_report)
+
+        # (بازرسی شانزدهم — BUG-027) دیالوگ پیوست‌ها کامل بود ولی هیچ نقطهٔ
+        # ورودی در برنامه نداشت؛ این دکمه همان دیالوگ را برای دانش‌آموز باز می‌کند.
+        self.btn_attachments = QPushButton("📎 پیوست‌ها")
+        self.btn_attachments.setStyleSheet("""
+            QPushButton {
+                background-color: #0B2E4F;
+                color: #F4C542;
+                padding: 8px 20px;
+                border: 1px solid #D9C36A;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #08223A; }
+        """)
+        self.btn_attachments.clicked.connect(self.open_attachments)
+        action_layout.addWidget(self.btn_attachments)
         
         main_layout.addLayout(action_layout)
         
@@ -366,7 +410,15 @@ class StudentProfilePage(QWidget):
         self.tabs.addTab(self.create_interventions_tab(), "🛠️ مداخلات")
         self.tabs.addTab(self.create_followups_tab(), "🔔 پیگیری‌ها")
         self.tabs.addTab(self.create_trend_tab(), "📈 روند")  # تب جدید
+        self.tabs.addTab(self.create_growth_context_tab(), "🌱 زمینهٔ رشد")
         self.tabs.addTab(self.create_summary_tab(), "📊 خلاصه")
+        # (بازرسی شانزدهم — بندهای ۸ و ۹) ویجت پیشنهادها قبلاً هیچ‌جا سوار
+        # نشده بود؛ اکنون یک تب پروندهٔ دانش‌آموز است و با همان پرونده
+        # هم‌گام می‌شود. درخواست «ثبت مداخله» از یک پیشنهاد، فرم مداخلهٔ
+        # همین صفحه را باز می‌کند.
+        self.recommendation_widget = RecommendationWidget()
+        self.recommendation_widget.intervention_requested.connect(self.on_intervention_requested)
+        self.tabs.addTab(self.recommendation_widget, "💡 پیشنهادها")
         
         main_layout.addWidget(self.tabs)
     
@@ -388,7 +440,7 @@ class StudentProfilePage(QWidget):
                         self.selected_year_id = active_year.id
                         break
         except Exception as e:
-            print(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
+            logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
     
     def on_year_changed(self, index):
         """وقتی سال تحصیلی تغییر می‌کند"""
@@ -403,13 +455,24 @@ class StudentProfilePage(QWidget):
             self.all_students = self.student_dal.get_all()
             self.student_select_combo.clear()
             self.student_select_combo.addItem("انتخاب دانش‌آموز...", None)
+            if self.selected_year_id:
+                profile_map = {
+                    student.id: self.profile_dal.get_by_student_and_year(
+                        student.id, self.selected_year_id
+                    )
+                    for student in self.all_students
+                }
+            else:
+                profile_map = self.profile_dal.get_active_by_students(
+                    s.id for s in self.all_students
+                )
             for student in self.all_students:
-                profile = self.profile_dal.get_active_by_student(student.id)
+                profile = profile_map.get(student.id)
                 grade_text = profile.grade_display if profile else "نامشخص"
                 display_text = f"{student.full_name} - پایه {grade_text}"
                 self.student_select_combo.addItem(display_text, student.id)
         except Exception as e:
-            print(f"خطا در بارگذاری لیست دانش‌آموزان: {e}")
+            logger.error(f"خطا در بارگذاری لیست دانش‌آموزان: {e}")
     
     def search_student(self):
         """جستجوی دانش‌آموز و انتخاب در کامبوباکس"""
@@ -436,7 +499,7 @@ class StudentProfilePage(QWidget):
                 QMessageBox.information(self, "نتیجه جستجو", msg)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{e!s}")
     
     def clear_search(self):
         """پاک کردن جستجو و نمایش همه"""
@@ -683,6 +746,116 @@ class StudentProfilePage(QWidget):
     # تب روند (جدید)
     # ============================================================
     
+    def create_growth_context_tab(self):
+        """
+        تب «زمینهٔ رشد» — زمینهٔ خانوادگی و گفت‌وگو با والدین
+
+        بازرسی یازدهم: این اطلاعات باید در کنار رفتارها و مداخلات دیده
+        شود، ولی **زمینه‌ای** است؛ مبنای قضاوت دربارهٔ خانواده یا
+        دانش‌آموز نیست و به‌تنهایی نتیجه‌گیری نمی‌سازد.
+        """
+        tab = QWidget()
+        layout = QVBoxLayout()
+        tab.setLayout(layout)
+
+        note = QLabel(
+            "این بخش، زمینهٔ رشد دانش‌آموز را نشان می‌دهد: وضعیت خانواده و "
+            "گفت‌وگوهای والدین، در کنار رفتارهای ثبت‌شده و اقدامات انجام‌شده. "
+            "این اطلاعات زمینه‌ای است، مبنای قضاوت دربارهٔ خانواده یا "
+            "دانش‌آموز نیست و PARTO هیچ تشخیص روان‌شناختی یا برچسبی تولید "
+            "نمی‌کند.\n"
+            "مسیر تحلیل: مشاهدهٔ رفتار ← ثبت داده ← تحلیل الگو ← اقدام ← "
+            "پیگیری ← نتیجه ← بررسی روند رشد."
+        )
+        note.setWordWrap(True)
+        note.setStyleSheet(
+            "background-color: #0B2E4F; color: #F4C542; border: 1px solid #D9C36A;"
+            "border-radius: 8px; padding: 12px; font-size: 13px;")
+        layout.addWidget(note)
+
+        # ----- زمینهٔ خانوادگی -----
+        family_frame = QGroupBox("🏠 زمینهٔ خانوادگی (اطلاعات زمینه‌ای)")
+        family_frame.setStyleSheet(
+            "QGroupBox { color: #111111; background-color: #66BB6A; font-weight: bold;"
+            "border: 2px solid #8BC34A; border-radius: 8px; margin-top: 12px; padding: 10px; }")
+        family_layout = QVBoxLayout()
+        family_frame.setLayout(family_layout)
+        self.family_info_label = QLabel("اطلاعات زمینه‌ای خانواده ثبت نشده است.")
+        self.family_info_label.setWordWrap(True)
+        self.family_info_label.setStyleSheet("color: #111111; background: transparent;")
+        family_layout.addWidget(self.family_info_label)
+        layout.addWidget(family_frame)
+
+        # ----- گفت‌وگو با والدین -----
+        interview_frame = QGroupBox("👨‍👩‍👦 گفت‌وگو با والدین")
+        interview_frame.setStyleSheet(
+            "QGroupBox { color: #111111; background-color: #66BB6A; font-weight: bold;"
+            "border: 2px solid #8BC34A; border-radius: 8px; margin-top: 12px; padding: 10px; }")
+        interview_layout = QVBoxLayout()
+        interview_frame.setLayout(interview_layout)
+
+        self.interview_table = QTableWidget()
+        self.interview_table.setColumnCount(5)
+        self.interview_table.setHorizontalHeaderLabels(
+            ["تاریخ", "روش", "موضوع", "وضعیت", "نتیجه"])
+        self.interview_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.interview_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.interview_table.setMaximumHeight(200)
+        interview_layout.addWidget(self.interview_table)
+
+        self.interview_note_label = QLabel(
+            "گفت‌وگوها برای درک بهتر وضعیت دانش‌آموز ثبت می‌شوند؛ نتیجهٔ آن‌ها "
+            "به‌عنوان «زمینه» در تحلیل دیده می‌شود، نه به‌عنوان برچسب.")
+        self.interview_note_label.setWordWrap(True)
+        self.interview_note_label.setStyleSheet("color: #111111; background: transparent;")
+        interview_layout.addWidget(self.interview_note_label)
+
+        layout.addWidget(interview_frame)
+        layout.addStretch()
+        return tab
+
+    def load_growth_context(self):
+        """بارگذاری زمینهٔ رشد: زمینهٔ خانوادگی و گفت‌وگوهای والدین"""
+        if not self.profile_id:
+            return
+
+        try:
+            context = self.family_dal.get_by_student_profile(self.profile_id)
+            if context:
+                parts = []
+                parts.append(f"وضعیت سرپرستی: {getattr(context, 'guardian_status_display', '-')}")
+                parts.append(f"حمایت والدین: {getattr(context, 'parental_support', None) or '-'}")
+                parts.append(f"وضعیت اقتصادی: {getattr(context, 'economic_status', None) or '-'}")
+                parts.append(f"فضای مطالعه: {'دارد' if getattr(context, 'has_study_space', 0) else 'ندارد'}")
+                stress = getattr(context, 'family_stress', None)
+                if stress:
+                    parts.append(f"فشارهای خانوادگی ثبت‌شده: {stress}")
+                notes = getattr(context, 'educational_notes', None)
+                if notes:
+                    parts.append(f"یادداشت: {notes}")
+                self.family_info_label.setText(" | ".join(parts))
+            else:
+                self.family_info_label.setText("اطلاعات زمینه‌ای خانواده ثبت نشده است.")
+        except Exception as e:
+            logger.error(f"خطا در بارگذاری زمینهٔ خانوادگی: {e}")
+            self.family_info_label.setText("اطلاعات زمینه‌ای خانواده در دسترس نیست.")
+
+        try:
+            interviews = self.parent_interview_dal.get_by_student_profile(self.profile_id) or []
+            self.interview_table.setRowCount(len(interviews))
+            for row, interview in enumerate(interviews):
+                self.interview_table.setItem(row, 0, QTableWidgetItem(interview.interview_date or "-"))
+                self.interview_table.setItem(row, 1, QTableWidgetItem(
+                    getattr(interview, 'method_display', None) or '-'))
+                self.interview_table.setItem(row, 2, QTableWidgetItem(interview.topic or "-"))
+                self.interview_table.setItem(row, 3, QTableWidgetItem(
+                    getattr(interview, 'status_display', None) or '-'))
+                self.interview_table.setItem(row, 4, QTableWidgetItem(
+                    interview.result or interview.summary or "-"))
+        except Exception as e:
+            logger.error(f"خطا در بارگذاری گفت‌وگوهای والدین: {e}")
+            self.interview_table.setRowCount(0)
+
     def create_trend_tab(self):
         """ایجاد تب روند"""
         tab = QWidget()
@@ -714,9 +887,15 @@ class StudentProfilePage(QWidget):
         self.trend_neutral_label.setStyleSheet("color: #D9C36A;")
         summary_layout.addWidget(self.trend_neutral_label, 2, 1)
         
-        self.trend_competencies_label = QLabel("شایستگی‌های برتر: -")
+        self.trend_competencies_label = QLabel("زمینه‌های پرتکرار ثبت‌شده: -")
         self.trend_competencies_label.setWordWrap(True)
         summary_layout.addWidget(self.trend_competencies_label, 3, 0, 1, 2)
+
+        # بازرسی یازدهم: یادآوری اینکه تعداد مشاهدات، شاخص رشد نیست
+        self.trend_note_label = QLabel("")
+        self.trend_note_label.setWordWrap(True)
+        self.trend_note_label.setStyleSheet("color: #7F8C8D; font-size: 11px;")
+        summary_layout.addWidget(self.trend_note_label, 4, 0, 1, 2)
         
         layout.addWidget(summary_frame)
         
@@ -804,9 +983,11 @@ class StudentProfilePage(QWidget):
             
             # دریافت پرونده بر اساس سال انتخاب شده
             if self.selected_year_id:
-                self.profile = self.profile_dal.get_by_student_and_year(self.student_id, self.selected_year_id)
-                if not self.profile:
-                    self.profile = self.profile_dal.get_active_by_student(self.student_id)
+                # انتخاب سال صریح است؛ در صورت نبود پرونده همان سال، داده
+                # سال دیگری نباید به‌عنوان جایگزین نمایش داده شود.
+                self.profile = self.profile_dal.get_by_student_and_year(
+                    self.student_id, self.selected_year_id
+                )
             else:
                 self.profile = self.profile_dal.get_active_by_student(self.student_id)
             
@@ -835,9 +1016,11 @@ class StudentProfilePage(QWidget):
             self.load_interventions()
             self.load_followups()
             self.load_trend_chart()  # بارگذاری روند
+            self.recommendation_widget.set_profile_id(self.profile_id)
+            self.load_growth_context()  # زمینهٔ رشد (خانواده و گفت‌وگوها)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{e!s}")
             self.clear_display()
     
     def load_timeline(self):
@@ -882,7 +1065,7 @@ class StudentProfilePage(QWidget):
         lines.append(f"📅 تاریخ: {event['date'] or 'نامشخص'}")
         lines.append(f"📝 عنوان: {event['title']}")
         lines.append("")
-        lines.append(f"📄 توضیحات:")
+        lines.append("📄 توضیحات:")
         lines.append(f"{event['description'] or 'توضیحاتی ثبت نشده است.'}")
         lines.append("")
         
@@ -929,13 +1112,38 @@ class StudentProfilePage(QWidget):
             return
         
         observations = self.observation_dal.get_by_student_profile(self.profile_id)
-        interventions = self.intervention_dal.get_by_student_profile(self.profile_id)
-        
-        strengths = [obs for obs in observations if obs.behavior_type == "مثبت"]
-        weaknesses = [obs for obs in observations if obs.behavior_type == "منفی"]
-        
-        self.strengths_label.setText(f"{len(strengths)} مشاهده مثبت ثبت شده است." if strengths else "هیچ نقطه قوتی ثبت نشده است.")
-        self.weaknesses_label.setText(f"{len(weaknesses)} مشاهده نیازمند حمایت ثبت شده است." if weaknesses else "هیچ زمینه‌ای ثبت نشده است.")
+
+        # ===== اصلاح (بازرسی یازدهم) =====
+        # پیش از این فقط «تعداد مشاهدات مثبت/منفی» نمایش داده می‌شد.
+        # حالا الگوی تکرارشوندهٔ رفتارها بر پایهٔ نوع رفتار (و نه شدت)
+        # ساخته می‌شود؛ یک مشاهدهٔ منفرد نتیجه‌گیری نمی‌سازد.
+        #
+        # (بازرسی دوازدهم) نام شایستگی‌ها با یک کوئری دسته‌ای خوانده
+        # می‌شود، نه یک کوئری برای هر شایستگی (رفع N+1؛ خروجی یکسان).
+        _comp_titles = self.competency_dal.get_titles_by_ids(
+            [o.competency_id for o in observations])
+        patterns = summarize_by_competency(
+            observations, lambda cid: _comp_titles.get(cid))
+
+        def _format(entries, behavior_field, empty_text):
+            if not entries:
+                return empty_text
+            parts = []
+            for entry in entries[:4]:
+                parts.append(f"{entry['competency']} "
+                             f"({entry[behavior_field]} مورد از {entry['count']} مشاهده)")
+            return " | ".join(parts)
+
+        strengths_text = _format(
+            patterns['strengths'], 'positive',
+            "الگوی تکرارشوندهٔ رفتار مثبت ثبت نشده است.")
+        needs_text = _format(
+            patterns['needs_attention'], 'negative',
+            "الگوی تکرارشوندهٔ رفتار منفی ثبت نشده است.")
+
+        self.strengths_label.setText(f"توانمندی‌ها (الگوی تکرارشوندهٔ رفتار مثبت): {strengths_text}")
+        self.weaknesses_label.setText(
+            f"زمینه‌های نیازمند توجه (الگوی تکرارشوندهٔ رفتار منفی): {needs_text}")
     
     def load_observations(self):
         """بارگذاری مشاهدات در جدول"""
@@ -944,16 +1152,18 @@ class StudentProfilePage(QWidget):
         
         observations = self.observation_dal.get_by_student_profile(self.profile_id)
         self.obs_table.setRowCount(len(observations))
-        
+
+        # (بازرسی دوازدهم) یک کوئری دسته‌ای به‌جای یک کوئری برای هر ردیف
+        _comp_titles = self.competency_dal.get_titles_by_ids(
+            [o.competency_id for o in observations])
+
         for row, obs in enumerate(observations):
             self.obs_table.setItem(row, 0, QTableWidgetItem(obs.observation_date or ""))
             self.obs_table.setItem(row, 1, QTableWidgetItem(obs.location or ""))
-            
+
             comp_name = "نامشخص"
             if obs.competency_id:
-                comp = self.competency_dal.get_by_id(obs.competency_id)
-                if comp:
-                    comp_name = comp.title
+                comp_name = _comp_titles.get(obs.competency_id, "نامشخص")
             self.obs_table.setItem(row, 2, QTableWidgetItem(comp_name))
             
             self.obs_table.setItem(row, 3, QTableWidgetItem(obs.behavior_type or "خنثی"))
@@ -972,16 +1182,18 @@ class StudentProfilePage(QWidget):
         
         interventions = self.intervention_dal.get_by_student_profile(self.profile_id)
         self.inter_table.setRowCount(len(interventions))
-        
+
+        # (بازرسی دوازدهم) یک کوئری دسته‌ای به‌جای یک کوئری برای هر ردیف
+        _staff_names = self.staff_dal.get_names_by_ids(
+            [i.staff_id for i in interventions])
+
         for row, inter in enumerate(interventions):
             self.inter_table.setItem(row, 0, QTableWidgetItem(inter.date or ""))
             self.inter_table.setItem(row, 1, QTableWidgetItem(inter.type_display))
-            
+
             staff_name = "نامشخص"
             if inter.staff_id:
-                staff = self.staff_dal.get_by_id(inter.staff_id)
-                if staff:
-                    staff_name = staff.full_name
+                staff_name = _staff_names.get(inter.staff_id, "نامشخص")
             self.inter_table.setItem(row, 2, QTableWidgetItem(staff_name))
             
             self.inter_table.setItem(row, 3, QTableWidgetItem(inter.status_display))
@@ -989,7 +1201,7 @@ class StudentProfilePage(QWidget):
             
             view_btn = QPushButton("👁️")
             view_btn.setFixedSize(30, 30)
-            view_btn.setStyleSheet("background-color: #F28C28; color: #F4C542; border: none; border-radius: 4px;")
+            view_btn.setStyleSheet("background-color: #F28C28; color: #111111; border: none; border-radius: 4px;")
             view_btn.clicked.connect(lambda checked, i=inter: self.view_intervention(i))
             self.inter_table.setCellWidget(row, 5, view_btn)
     
@@ -1000,15 +1212,17 @@ class StudentProfilePage(QWidget):
         
         followups = self.followup_dal.get_by_student_profile(self.profile_id)
         self.follow_table.setRowCount(len(followups))
-        
+
+        # (بازرسی دوازدهم) یک کوئری دسته‌ای به‌جای یک کوئری برای هر ردیف
+        _staff_names = self.staff_dal.get_names_by_ids(
+            [f.staff_id for f in followups])
+
         for row, follow in enumerate(followups):
             self.follow_table.setItem(row, 0, QTableWidgetItem(follow.date or ""))
-            
+
             staff_name = "نامشخص"
             if follow.staff_id:
-                staff = self.staff_dal.get_by_id(follow.staff_id)
-                if staff:
-                    staff_name = staff.full_name
+                staff_name = _staff_names.get(follow.staff_id, "نامشخص")
             self.follow_table.setItem(row, 1, QTableWidgetItem(staff_name))
             
             self.follow_table.setItem(row, 2, QTableWidgetItem(follow.status_display))
@@ -1017,7 +1231,7 @@ class StudentProfilePage(QWidget):
             
             view_btn = QPushButton("👁️")
             view_btn.setFixedSize(30, 30)
-            view_btn.setStyleSheet("background-color: #66BB6A; color: #F4C542; border: none; border-radius: 4px;")
+            view_btn.setStyleSheet("background-color: #66BB6A; color: #111111; border: none; border-radius: 4px;")
             view_btn.clicked.connect(lambda checked, f=follow: self.view_followup(f))
             self.follow_table.setCellWidget(row, 5, view_btn)
     
@@ -1045,13 +1259,38 @@ class StudentProfilePage(QWidget):
         overall = trend['overall_trend']
         self.trend_status_label.setText(f"{overall['icon']} {overall['message']}")
         self.trend_status_label.setStyleSheet(f"color: {overall.get('color', '#F4C542')}; font-weight: bold;")
+        # یادآوری محتوایی: تعداد مشاهدات، شاخص رشد نیست (بازرسی یازدهم)
+        # + مسیر تغییر بین بازه‌ها (بازرسی سیزدهم): جهت روند فقط از
+        #   ابتدا/انتها گرفته نمی‌شود؛ گام‌های میانی هم نشان داده می‌شوند.
+        note_lines = []
+        path_text = overall.get('path_text') or ''
+        if path_text:
+            note_lines.append(f"مسیر تغییر بین بازه‌ها: {path_text}")
+        direction = overall.get('direction') or {}
+        if direction.get('message'):
+            note_lines.append(direction['message'])
+        for caution in direction.get('caution_notes') or []:
+            note_lines.append(caution)
+        note = trend.get('volume_note')
+        if note:
+            note_lines.append(note)
+        if note_lines and hasattr(self, 'trend_note_label'):
+            self.trend_note_label.setText("\n".join(note_lines))
         
-        # نمایش شایستگی‌های برتر
+        # نمایش زمینه‌های پرتکرار (بر پایهٔ نوع رفتار ثبت‌شده)
         if trend['top_competencies']:
-            comp_text = " | ".join([f"{name} ({count})" for name, count in trend['top_competencies'][:5]])
-            self.trend_competencies_label.setText(f"شایستگی‌های برتر: {comp_text}")
+            # بازرسی یازدهم: خروجی (نام، تعداد، برچسب الگو) است
+            parts = []
+            for item in trend['top_competencies'][:5]:
+                name, count = item[0], item[1]
+                label = item[2] if len(item) > 2 else ''
+                parts.append(f"{name} ({count} مشاهده — {label})" if label
+                             else f"{name} ({count} مشاهده)")
+            self.trend_competencies_label.setText(
+                "زمینه‌های پرتکرار ثبت‌شده: " + " | ".join(parts))
         else:
-            self.trend_competencies_label.setText("شایستگی‌های برتر: ثبت نشده")
+            self.trend_competencies_label.setText(
+                "زمینه‌های پرتکرار ثبت‌شده: ثبت نشده")
         
         # به‌روزرسانی جدول روند
         self.load_trend_table(trend['trend_data'])
@@ -1098,6 +1337,8 @@ class StudentProfilePage(QWidget):
         self.pending_label.setText("پیگیری‌های باز: 0")
         self.strengths_label.setText("هیچ نقطه قوتی ثبت نشده است.")
         self.weaknesses_label.setText("هیچ زمینه‌ای ثبت نشده است.")
+        if hasattr(self, 'recommendation_widget'):
+            self.recommendation_widget.set_profile_id(None)
         self.obs_table.setRowCount(0)
         self.inter_table.setRowCount(0)
         self.follow_table.setRowCount(0)
@@ -1107,7 +1348,10 @@ class StudentProfilePage(QWidget):
         self.trend_positive_label.setText("مثبت: 0")
         self.trend_negative_label.setText("منفی: 0")
         self.trend_neutral_label.setText("خنثی: 0")
-        self.trend_competencies_label.setText("شایستگی‌های برتر: -")
+        self.trend_competencies_label.setText("زمینه‌های پرتکرار ثبت‌شده: -")
+        self.trend_note_label.setText("")
+        self.family_info_label.setText("اطلاعات زمینه‌ای خانواده ثبت نشده است.")
+        self.interview_table.setRowCount(0)
     
     def add_observation(self):
         if not self.student_id:
@@ -1117,8 +1361,33 @@ class StudentProfilePage(QWidget):
         form = ObservationForm(student_id=self.student_id, parent=self)
         if form.exec() == QDialog.DialogCode.Accepted:
             self.load_student_data()
-            QMessageBox.information(self, "موفقیت", "مشاهده با موفقیت ثبت شد.")
     
+    def on_intervention_requested(self, data=None):
+        """
+        ثبت مداخله از روی یک پیشنهاد (تب پیشنهادها) — BUG-NEW-04
+
+        فرم مداخله با نوع/شرح/هدفِ پیشنهاد پیش‌پر می‌شود و شناسهٔ پیشنهاد به
+        فرم داده می‌شود تا پس از ذخیره، پیشنهاد «اجراشده» و به مداخله پیوند
+        بخورد؛ سپس تب مداخلات و تب پیشنهادها تازه‌سازی می‌شوند.
+        """
+        if not self.student_id:
+            QMessageBox.warning(self, "توجه", "ابتدا یک دانش‌آموز را انتخاب کنید.")
+            return
+        data = data or {}
+        prefill = {
+            'type': data.get('suggested_type'),
+            'description': data.get('description') or data.get('title'),
+            'goal': data.get('goal') or data.get('title'),
+        }
+        form = InterventionForm(student_id=self.student_id, parent=self, prefill=prefill,
+                                recommendation_id=data.get('recommendation_id'))
+        result = form.exec()
+        if result == QDialog.DialogCode.Accepted or getattr(form, 'saved_intervention_id', None):
+            self.load_interventions()
+            self.load_timeline()
+            self.load_summary()
+            self.recommendation_widget.load_recommendations()
+
     def add_intervention(self):
         if not self.student_id:
             QMessageBox.warning(self, "توجه", "دانش‌آموزی انتخاب نشده است.")
@@ -1127,7 +1396,6 @@ class StudentProfilePage(QWidget):
         form = InterventionForm(student_id=self.student_id, parent=self)
         if form.exec() == QDialog.DialogCode.Accepted:
             self.load_student_data()
-            QMessageBox.information(self, "موفقیت", "مداخله با موفقیت ثبت شد.")
     
     def add_followup(self):
         if not self.profile_id:
@@ -1142,7 +1410,6 @@ class StudentProfilePage(QWidget):
         form = FollowUpForm(parent=self)
         if form.exec() == QDialog.DialogCode.Accepted:
             self.load_student_data()
-            QMessageBox.information(self, "موفقیت", "پیگیری با موفقیت ثبت شد.")
     
     def view_observation(self, obs):
         details = f"""
@@ -1181,9 +1448,21 @@ class StudentProfilePage(QWidget):
 """
         QMessageBox.information(self, "جزئیات پیگیری", details)
     
+    def open_attachments(self):
+        """مدیریت پیوست‌های دانش‌آموز (BUG-027 — نقطهٔ ورودی AttachmentDialog)"""
+        if not self.student_id:
+            QMessageBox.warning(self, "توجه", "ابتدا یک دانش‌آموز را انتخاب کنید.")
+            return
+        from views.dialogs.attachment_dialog import AttachmentDialog
+        dialog = AttachmentDialog("student", int(self.student_id), self)
+        dialog.exec()
+
     def generate_report(self):
+        """باز کردن گزارش کامل همین دانش‌آموز در صفحهٔ گزارش‌ها (بازرسی شانزدهم)"""
         if not self.profile_id:
             QMessageBox.warning(self, "توجه", "هیچ پرونده فعالی برای این دانش‌آموز وجود ندارد.")
             return
-        
-        QMessageBox.information(self, "گزارش", "برای مشاهده گزارش کامل، از منوی اصلی به بخش گزارش‌ها بروید.")
+        if not self.student_id:
+            QMessageBox.warning(self, "توجه", "دانش‌آموزی انتخاب نشده است.")
+            return
+        self.report_requested.emit(int(self.student_id))

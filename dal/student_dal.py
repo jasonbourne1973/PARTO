@@ -4,10 +4,14 @@
 """
 
 import sqlite3
-from datetime import datetime
 
 from database.connection import DatabaseConnection
 from models.student import Student
+from utils.batch_query import id_chunks, placeholders
+from utils.logger import get_logger
+from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class StudentDAL:
@@ -44,17 +48,17 @@ class StudentDAL:
                 student.is_active
             ))
 
-            conn.commit()
+            self.db.commit()
             student.id = cursor.lastrowid
             student.national_code = national_code
             return student
 
         except sqlite3.IntegrityError as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"خطا در ثبت دانش‌آموز: {e}")
 
-        except Exception:
-            conn.rollback()
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+            self.db.rollback()
             raise
 
     def get_by_id(self, student_id, include_deleted=False):
@@ -68,6 +72,27 @@ class StudentDAL:
         if row:
             return self._row_to_student(row)
         return None
+
+    def get_by_ids(self, student_ids, include_deleted=False):
+        """
+        دریافت چند دانش‌آموز با «یک» کوئری (بازرسی چهاردهم: رفع N+1)
+
+        معناشناسی دقیقاً مثل get_by_id است (پیش‌فرض: حذف‌شده‌ها
+        برنمی‌گردند؛ شناسهٔ ناموجود در خروجی نیست).
+
+        Returns:
+            dict: {student_id: Student}
+        """
+        result = {}
+        for chunk in id_chunks(student_ids):
+            query = f"SELECT * FROM students WHERE id IN ({placeholders(len(chunk))})"
+            if not include_deleted:
+                query += " AND is_deleted = 0"
+            cursor = self.db.execute_query(query, tuple(chunk))
+            for row in cursor.fetchall():
+                student = self._row_to_student(row)
+                result[student.id] = student
+        return result
 
     def get_all(self, limit=None, offset=None, include_deleted=False):
         """دریافت همه دانش‌آموزان - فقط رکوردهای موجود"""
@@ -141,16 +166,16 @@ class StudentDAL:
                 student.id
             ))
 
-            conn.commit()
+            self.db.commit()
             student.national_code = national_code
             return student
 
         except sqlite3.IntegrityError as e:
-            conn.rollback()
+            self.db.rollback()
             raise Exception(f"خطا در ویرایش دانش‌آموز: {e}")
 
-        except Exception:
-            conn.rollback()
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
+            self.db.rollback()
             raise
 
     def delete(self, student_id, user_id=None):
@@ -165,7 +190,7 @@ class StudentDAL:
         if not cursor.fetchone():
             return False
 
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE students SET
                 is_deleted = 1,
@@ -176,7 +201,7 @@ class StudentDAL:
             WHERE id = ? AND is_deleted = 0
         """, (now, user_id, student_id))
 
-        conn.commit()
+        self.db.commit()
         return True
 
     def restore(self, student_id, user_id=None):
@@ -201,7 +226,7 @@ class StudentDAL:
             WHERE id = ? AND is_deleted = 1
         """, (student_id,))
 
-        conn.commit()
+        self.db.commit()
         return True
 
     def get_deleted(self, limit=None):
@@ -276,8 +301,8 @@ class StudentDAL:
                 if student:
                     results.append(student)
             return results
-        except Exception as e:
-            print(f"خطا در جستجوی پیشرفته: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در جستجوی پیشرفته: {e}")
             return []
 
     def permanent_delete(self, student_id):
@@ -289,19 +314,22 @@ class StudentDAL:
             "DELETE FROM students WHERE id = ?",
             (student_id,)
         )
-        conn.commit()
+        self.db.commit()
         return True
 
     # ============================================================
     # متدهای تحلیلی برای داشبورد
     # ============================================================
 
-    def get_student_distribution_by_grade(self, academic_year_id=None):
+    def get_student_distribution_by_grade(self, academic_year_id=None, staff_id=None):
         """
         دریافت توزیع دانش‌آموزان بر اساس پایه
 
         Args:
             academic_year_id: شناسه سال تحصیلی (اختیاری)
+            staff_id: اگر داده شود، فقط دانش‌آموزانِ نسبت‌داده‌شده به همین
+                معلم (از طریق teacher_assignments) شمرده می‌شوند - فیلتر
+                انتخاب معلم در داشبورد.
 
         Returns:
             list: [
@@ -332,9 +360,21 @@ class StudentDAL:
                 query += " AND sap.academic_year_id = ?"
                 params.append(academic_year_id)
 
+            if staff_id:
+                query += """
+                AND EXISTS (
+                    SELECT 1 FROM teacher_assignments ta
+                    WHERE ta.student_id = s.id
+                    AND ta.staff_id = ?
+                    AND ta.is_deleted = 0
+                    AND ta.is_active = 1
+                )
+                """
+                params.append(staff_id)
+
             query += " GROUP BY sap.grade ORDER BY sap.grade"
 
-            cursor.execute(query, params if params else None)
+            cursor.execute(query, tuple(params))  # اصلاح: None می‌داد «parameters are of unsupported type»
             rows = cursor.fetchall()
 
             total = sum(row['count'] for row in rows) if rows else 0
@@ -354,8 +394,8 @@ class StudentDAL:
 
             return result
 
-        except Exception as e:
-            print(f"خطا در دریافت توزیع دانش‌آموزان: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت توزیع دانش‌آموزان: {e}")
             return []
 
     def get_student_count_by_status(self, academic_year_id=None):
@@ -395,7 +435,7 @@ class StudentDAL:
 
             query += " GROUP BY sap.status"
 
-            cursor.execute(query, params if params else None)
+            cursor.execute(query, tuple(params))  # اصلاح: None می‌داد «parameters are of unsupported type»
             rows = cursor.fetchall()
 
             result = {
@@ -426,16 +466,19 @@ class StudentDAL:
             result['total'] = total
             return result
 
-        except Exception as e:
-            print(f"خطا در دریافت تعداد دانش‌آموزان بر اساس وضعیت: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت تعداد دانش‌آموزان بر اساس وضعیت: {e}")
             return {'active': 0, 'inactive': 0, 'graduated': 0, 'transferred': 0, 'dropped': 0, 'total': 0}
 
-    def get_students_without_observations(self, academic_year_id=None):
+    def get_students_without_observations(self, academic_year_id=None, staff_id=None):
         """
         دریافت دانش‌آموزانی که هیچ مشاهده‌ای ندارند
 
         Args:
             academic_year_id: شناسه سال تحصیلی (اختیاری)
+            staff_id: اگر داده شود، فقط دانش‌آموزانی که «به همین معلم
+                نسبت داده شده‌اند» (از طریق teacher_assignments) و هنوز
+                مشاهده‌ای ندارند برمی‌گردند - فیلتر انتخاب معلم در داشبورد.
 
         Returns:
             list: لیست دانش‌آموزان بدون مشاهده
@@ -484,9 +527,22 @@ class StudentDAL:
                 query += " AND sap.academic_year_id = ?"
                 params.append(academic_year_id)
 
+            if staff_id:
+                # فقط دانش‌آموزانی که در سال جاری به این معلم نسبت داده شده‌اند
+                query += """
+                AND EXISTS (
+                    SELECT 1 FROM teacher_assignments ta
+                    WHERE ta.student_id = s.id
+                    AND ta.staff_id = ?
+                    AND ta.is_deleted = 0
+                    AND ta.is_active = 1
+                )
+                """
+                params.append(staff_id)
+
             query += " ORDER BY s.last_name, s.first_name"
 
-            cursor.execute(query, params if params else None)
+            cursor.execute(query, tuple(params))  # اصلاح: None می‌داد «parameters are of unsupported type»
             rows = cursor.fetchall()
 
             result = []
@@ -502,8 +558,8 @@ class StudentDAL:
 
             return result
 
-        except Exception as e:
-            print(f"خطا در دریافت دانش‌آموزان بدون مشاهده: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت دانش‌آموزان بدون مشاهده: {e}")
             return []
 
     def get_student_activity_summary(self, student_id, start_date=None, end_date=None):
@@ -621,8 +677,8 @@ class StudentDAL:
                 'last_observation_date': obs_row['last_date'] if obs_row else None
             }
 
-        except Exception as e:
-            print(f"خطا در دریافت خلاصه فعالیت‌های دانش‌آموز: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت خلاصه فعالیت‌های دانش‌آموز: {e}")
             return {
                 'observations_count': 0,
                 'interventions_count': 0,

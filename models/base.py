@@ -20,7 +20,7 @@ Audit Log که از to_dict استفاده می‌کرد، وضعیت فعال/�
 حالا propertyهای خواندنی هم به خروجی اضافه می‌شوند.
 """
 
-from datetime import datetime
+from utils.time_utils import utc_now_iso
 
 
 class BaseModel:
@@ -87,8 +87,12 @@ class BaseModel:
 
     @staticmethod
     def get_current_time():
-        """دریافت زمان فعلی به فرمت ISO"""
-        return datetime.now().isoformat()
+        """دریافت زمان فعلی (UTC) به فرمت ISO
+
+        بازرسی هشتم: قبلاً `datetime.now()` بدون ناحیهٔ زمانی بود،
+        در حالی که بقیهٔ برنامه UTC-aware کار می‌کند.
+        """
+        return utc_now_iso()
 
     def soft_delete(self, user_id=None):
         """

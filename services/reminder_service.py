@@ -2,18 +2,22 @@
 سرویس مدیریت یادآوری پیگیری‌ها
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import jdatetime
+
 from dal.followup_dal import FollowUpDAL
 from dal.intervention_dal import InterventionDAL
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.staff_dal import StaffDAL
-from datetime import datetime
-import jdatetime
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from utils.logger import get_logger
+from utils.time_utils import utc_now
+
+logger = get_logger(__name__)
 
 
 class ReminderService:
@@ -31,7 +35,7 @@ class ReminderService:
         try:
             return self.followup_dal.get_pending()
         except Exception as e:
-            print(f"خطا در دریافت پیگیری‌های در انتظار: {e}")
+            logger.error(f"خطا در دریافت پیگیری‌های در انتظار: {e}")
             return []
     
     def get_overdue_followups(self):
@@ -44,18 +48,18 @@ class ReminderService:
             try:
                 today = jdatetime.date.today()
                 today_str = f"{today.year}/{today.month:02d}/{today.day:02d}"
-            except:
-                today_str = datetime.now().strftime("%Y/%m/%d")
+            except Exception as _exc:
+                logger.debug(f"خطای مدیریت‌شده در get_overdue_followups (مسیر جایگزین): {_exc}")
+                today_str = utc_now().strftime("%Y/%m/%d")
             
             for followup in all_pending:
-                if followup.next_action_date:
-                    # مقایسه تاریخ‌ها
-                    if followup.next_action_date < today_str:
-                        overdue.append(followup)
+                # بازرسی دهم: شرط‌های تودرتو با «and» ادغام شدند
+                if followup.next_action_date and followup.next_action_date < today_str:
+                    overdue.append(followup)
             
             return overdue
         except Exception as e:
-            print(f"خطا در دریافت پیگیری‌های معوق: {e}")
+            logger.error(f"خطا در دریافت پیگیری‌های معوق: {e}")
             return []
     
     def get_followups_due_soon(self, days=3):
@@ -68,18 +72,18 @@ class ReminderService:
             try:
                 today = jdatetime.date.today()
                 today_str = f"{today.year}/{today.month:02d}/{today.day:02d}"
-            except:
-                today_str = datetime.now().strftime("%Y/%m/%d")
+            except Exception as _exc:
+                logger.debug(f"خطای مدیریت‌شده در get_followups_due_soon (مسیر جایگزین): {_exc}")
+                today_str = utc_now().strftime("%Y/%m/%d")
             
             for followup in all_pending:
-                if followup.next_action_date:
-                    # محاسبه تفاوت تاریخ‌ها (ساده)
-                    if followup.next_action_date > today_str:
-                        due_soon.append(followup)
+                # بازرسی دهم: شرط‌های تودرتو با «and» ادغام شدند
+                if followup.next_action_date and followup.next_action_date > today_str:
+                    due_soon.append(followup)
             
             return due_soon[:10]  # حداکثر 10 مورد
         except Exception as e:
-            print(f"خطا در دریافت پیگیری‌های نزدیک: {e}")
+            logger.error(f"خطا در دریافت پیگیری‌های نزدیک: {e}")
             return []
     
     def get_reminder_summary(self):
@@ -147,5 +151,5 @@ class ReminderService:
                 'is_overdue': False,
             }
         except Exception as e:
-            print(f"خطا در دریافت جزئیات پیگیری: {e}")
+            logger.error(f"خطا در دریافت جزئیات پیگیری: {e}")
             return None

@@ -2,42 +2,55 @@
 صفحه تولید و نمایش گزارش‌ها - نسخه نهایی با قابلیت ردیابی و انتخاب سال تحصیلی و معلم
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+import matplotlib
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QComboBox, QMessageBox, QTextEdit,
-    QGroupBox, QScrollArea, QSplitter, QFileDialog,
-    QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView,
-    QLineEdit, QCheckBox, QDateEdit
+    QComboBox,
+    QFileDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QFont
 
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.academic_year_dal import AcademicYearDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
 from dal.competency_dal import CompetencyDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
 from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
-from services.report_generator import ReportGenerator
 from services.case_timeline_service import CaseTimelineService
-from views.pages.teacher_report_page import TeacherReportPage
+from services.parent_report_service import ParentReportService
+from services.report_generator import ReportGenerator
 from views.pages.class_report_page import ClassReportPage
 from views.pages.teacher_performance_page import TeacherPerformancePage
-from utils.shamsi_date_input import ShamsiDateInput
+from views.pages.teacher_report_page import TeacherReportPage
 
-import matplotlib
 matplotlib.use('QtAgg')
+import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-import numpy as np
+
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class ReportsPage(QWidget):
@@ -55,6 +68,9 @@ class ReportsPage(QWidget):
         self.staff_dal = StaffDAL()
         self.assignment_dal = TeacherAssignmentDAL()
         self.report_generator = ReportGenerator()
+        # گزارش والدین: منبع واحد (همان تحلیل گزارش کامل + نمای والدین)
+        self.parent_report_service = ParentReportService(
+            report_generator=self.report_generator)
         self.timeline_service = CaseTimelineService()
         
         self.current_student_id = None
@@ -155,7 +171,7 @@ class ReportsPage(QWidget):
         self.year_combo = QComboBox()
         self.year_combo.setMinimumWidth(150)
         self.year_combo.addItem("همه سال‌ها", None)
-        self.year_combo.currentIndexChanged.connect(self.load_report)
+        self.year_combo.currentIndexChanged.connect(self.on_year_changed)
         toolbar.addWidget(self.year_combo)
         
         # ===== دکمه‌ها =====
@@ -163,7 +179,7 @@ class ReportsPage(QWidget):
         self.parent_btn.setStyleSheet("""
             QPushButton {
                 background-color: #F4D35E;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -178,7 +194,7 @@ class ReportsPage(QWidget):
         self.excel_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -211,7 +227,7 @@ class ReportsPage(QWidget):
         self.ai_export_btn.setStyleSheet("""
             QPushButton {
                 background-color: #66BB6A;
-                color: #F4C542;
+                color: #111111;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -227,7 +243,7 @@ class ReportsPage(QWidget):
         self.insufficient_data_label.setStyleSheet("""
             QLabel {
                 background-color: #C62828;
-                color: #C62828;
+                color: #FFFFFF;
                 padding: 10px;
                 border-radius: 5px;
                 font-weight: bold;
@@ -291,12 +307,24 @@ class ReportsPage(QWidget):
             for teacher in self.all_teachers:
                 self.teacher_combo.addItem(f"{teacher.full_name}", teacher.id)
         except Exception as e:
-            print(f"خطا در بارگذاری معلمان: {e}")
+            logger.error(f"خطا در بارگذاری معلمان: {e}")
     
     def on_teacher_changed(self, index):
         """وقتی معلم تغییر می‌کند، لیست دانش‌آموزان را به‌روز کن"""
         self.selected_teacher_id = self.teacher_combo.currentData()
         self.load_students_for_teacher()
+
+    def on_year_changed(self, index):
+        """با تغییر سال، دامنه دانش‌آموزان و سپس گزارش را تازه کن."""
+        selected_student_id = self.student_combo.currentData()
+        self.load_students_for_teacher()
+
+        if selected_student_id is not None:
+            idx = self.student_combo.findData(selected_student_id)
+            if idx >= 0:
+                self.student_combo.setCurrentIndex(idx)
+
+        self.load_report()
     
     def load_students_for_teacher(self):
         """بارگذاری دانش‌آموزان یک معلم خاص"""
@@ -308,21 +336,47 @@ class ReportsPage(QWidget):
                 year_id = self.year_combo.currentData()
                 assignments = self.assignment_dal.get_by_teacher(self.selected_teacher_id, year_id)
                 
+                # خوانش دسته‌ای دانش‌آموزان و پروندهٔ فعال‌شان (رفع N+1؛
+                # قبلاً برای هر تخصیص دو کوئری جدا زده می‌شد)
+                student_map = self.student_dal.get_by_ids(
+                    a.student_id for a in assignments)
+                if year_id:
+                    profile_map = {
+                        student_id: self.profile_dal.get_by_student_and_year(
+                            student_id, year_id
+                        )
+                        for student_id in student_map.keys()
+                    }
+                else:
+                    profile_map = self.profile_dal.get_active_by_students(
+                        student_map.keys()
+                    )
                 for assignment in assignments:
-                    student = self.student_dal.get_by_id(assignment.student_id)
+                    student = student_map.get(assignment.student_id)
                     if student:
-                        profile = self.profile_dal.get_active_by_student(student.id)
+                        profile = profile_map.get(student.id)
                         grade_text = profile.grade_display if profile else "نامشخص"
                         display_text = f"{student.full_name} - پایه {grade_text}"
                         self.student_combo.addItem(display_text, student.id)
             else:
-                # همه دانش‌آموزان
-                self.all_students = self.student_dal.get_all()
+                # همه دانش‌آموزان، اما در صورت انتخاب سال فقط کسانی که
+                # در همان سال پرونده دارند در دامنه گزارش قرار می‌گیرند.
+                year_id = self.year_combo.currentData()
+                all_students = self.student_dal.get_all()
+                if year_id:
+                    self.all_students = [
+                        student for student in all_students
+                        if self.profile_dal.get_by_student_and_year(
+                            student.id, year_id
+                        )
+                    ]
+                else:
+                    self.all_students = all_students
                 for student in self.all_students:
                     display_text = f"{student.full_name}"
                     self.student_combo.addItem(display_text, student.id)
         except Exception as e:
-            print(f"خطا در بارگذاری دانش‌آموزان معلم: {e}")
+            logger.error(f"خطا در بارگذاری دانش‌آموزان معلم: {e}")
     
     def load_academic_years(self):
         """بارگذاری سال‌های تحصیلی در کامبوباکس"""
@@ -342,8 +396,28 @@ class ReportsPage(QWidget):
                         self.year_combo.setCurrentIndex(i)
                         break
         except Exception as e:
-            print(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
+            logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
     
+    def select_student(self, student_id):
+        """
+        انتخاب یک دانش‌آموز در کامبو (و بارگذاری گزارش او) — بازرسی شانزدهم
+
+        Returns:
+            bool: True اگر دانش‌آموز در فهرست بود و انتخاب شد
+        """
+        idx = self.student_combo.findData(student_id)
+        if idx < 0:
+            # شاید فهرست به معلم خاصی محدود شده باشد؛ فهرست کامل بارگذاری می‌شود
+            self.load_students()
+            idx = self.student_combo.findData(student_id)
+        if idx < 0:
+            return False
+        if self.student_combo.currentIndex() == idx:
+            self.load_report()
+        else:
+            self.student_combo.setCurrentIndex(idx)
+        return True
+
     def load_students(self):
         """بارگذاری دانش‌آموزان در کامبوباکس"""
         try:
@@ -354,7 +428,7 @@ class ReportsPage(QWidget):
                 display_text = f"{student.full_name}"
                 self.student_combo.addItem(display_text, student.id)
         except Exception as e:
-            print(f"خطا در بارگذاری دانش‌آموزان: {e}")
+            logger.error(f"خطا در بارگذاری دانش‌آموزان: {e}")
     
     def search_student(self):
         """جستجوی دانش‌آموز و انتخاب در کامبوباکس"""
@@ -365,6 +439,17 @@ class ReportsPage(QWidget):
         
         try:
             results = self.student_dal.search(search_term)
+
+            # Search فقط داخل دامنه فعلی Teacher/Year مجاز است. لیست
+            # combo همین دامنه را نمایش می‌دهد، پس نتایج global را با
+            # شناسه‌های مجاز intersect می‌کنیم.
+            allowed_ids = {
+                self.student_combo.itemData(i)
+                for i in range(self.student_combo.count())
+                if self.student_combo.itemData(i) is not None
+            }
+            results = [student for student in results if student.id in allowed_ids]
+
             if not results:
                 QMessageBox.information(self, "نتیجه", "هیچ دانش‌آموزی یافت نشد.")
                 return
@@ -381,7 +466,7 @@ class ReportsPage(QWidget):
                 QMessageBox.information(self, "نتیجه جستجو", msg)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{e!s}")
     
     def clear_search(self):
         """پاک کردن جستجو و نمایش همه"""
@@ -395,7 +480,7 @@ class ReportsPage(QWidget):
         try:
             student = self.student_dal.get_by_id(self.current_student_id)
             return student.full_name if student else "نامشخص"
-        except:
+        except Exception:
             return "نامشخص"
     
     def load_report(self):
@@ -414,9 +499,9 @@ class ReportsPage(QWidget):
                 profile = self.profile_dal.get_by_student_and_year(student_id, year_id)
                 if not profile:
                     self.clear_report()
-                    self.summary_text.setText(f"⚠️ دانش‌آموز در سال تحصیلی انتخاب شده پرونده‌ای ندارد.")
+                    self.summary_text.setText("⚠️ دانش‌آموز در سال تحصیلی انتخاب شده پرونده‌ای ندارد.")
                     self.insufficient_data_label.setVisible(True)
-                    self.insufficient_data_label.setText(f"⚠️ پرونده‌ای برای سال تحصیلی انتخاب شده وجود ندارد.")
+                    self.insufficient_data_label.setText("⚠️ پرونده‌ای برای سال تحصیلی انتخاب شده وجود ندارد.")
                     return
             else:
                 profile = self.profile_dal.get_active_by_student(student_id)
@@ -448,7 +533,7 @@ class ReportsPage(QWidget):
                 self.insufficient_data_label.setVisible(False)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در تولید گزارش:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در تولید گزارش:\n{e!s}")
     
     def clear_report(self):
         """پاک کردن گزارش"""
@@ -530,26 +615,33 @@ class ReportsPage(QWidget):
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**⭐ نقاط قوت**
+**⭐ توانمندی‌ها (الگوی تکرارشوندهٔ رفتار مثبت)**
 """
+        # بازرسی یازدهم: معیار قوت/ضعف «نوع رفتار ثبت‌شده» است، نه شدت.
         if report['strengths']:
             for strength in report['strengths']:
-                text += f"• {strength['competency']} (میانگین شدت: {strength['avg_severity']})\n"
+                text += (f"• {strength['competency']} — "
+                         f"{strength['positive']} رفتار مثبت از "
+                         f"{strength['count']} مشاهدهٔ ثبت‌شده\n")
         else:
-            text += "• موردی یافت نشد.\n"
+            text += "• الگوی تکرارشوندهٔ رفتار مثبت ثبت نشده است.\n"
         
-        text += f"""
+        text += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**🔴 زمینه‌های نیازمند حمایت**
+**🔴 زمینه‌های نیازمند توجه (الگوی تکرارشوندهٔ رفتار منفی)**
 """
         if report['weaknesses']:
             for weakness in report['weaknesses']:
-                text += f"• {weakness['competency']} (میانگین شدت: {weakness['avg_severity']})\n"
+                text += (f"• {weakness['competency']} — "
+                         f"{weakness['negative']} رفتار منفی از "
+                         f"{weakness['count']} مشاهدهٔ ثبت‌شده\n")
         else:
-            text += "• موردی یافت نشد.\n"
+            text += "• الگوی تکرارشوندهٔ رفتار منفی ثبت نشده است.\n"
+        text += ("• توجه: این فهرست بر پایهٔ رفتارهای ثبت‌شده است و "
+                 "به‌معنای تشخیص یا برچسب نیست.\n")
         
-        text += f"""
+        text += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **💡 پیشنهادات**
@@ -559,31 +651,43 @@ class ReportsPage(QWidget):
         for rec in report['recommendations']['teacher']:
             text += f"• {rec}\n"
         
-        text += f"""
+        text += """
 **👨‍👩‍👦 به والدین:**
 """
         for rec in report['recommendations']['parents']:
             text += f"• {rec}\n"
         
-        text += f"""
+        text += """
 **🫂 به مشاور:**
 """
         for rec in report['recommendations']['counselor']:
             text += f"• {rec}\n"
         
         if report['trend_data']:
-            text += f"""
+            direction = self.report_generator.calculate_trend_direction(report['trend_data'])
+            text += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**📈 روند تغییرات**
+**📈 روند تغییر رفتار (بر پایهٔ ترکیب رفتارها)**
 """
             for item in report['trend_data']:
-                text += f"• {item['month']}: {item['count']} مشاهده (میانگین شدت: {item['avg_severity']})\n"
+                text += (f"• {item['month']}: {item['positive']} مثبت، "
+                         f"{item['negative']} منفی، {item['neutral']} خنثی "
+                         f"(سهم مثبت {item['positive_share']}٪) — "
+                         f"حجم ثبت: {item['count']} مشاهده\n")
+            text += f"• جهت تغییر: {direction['label']} — {direction['message']}\n"
+            # بازرسی سیزدهم: مسیر بین بازه‌ها هم نشان داده می‌شود تا روشن
+            # باشد نتیجه فقط از مقایسهٔ اولین و آخرین بازه گرفته نشده است.
+            if direction.get('path_text'):
+                text += f"• مسیر تغییر بین بازه‌ها: {direction['path_text']}\n"
+            for caution in direction.get('caution_notes') or []:
+                text += f"• ⚠️ {caution}\n"
+            text += f"• {direction['volume_note']}\n"
         else:
-            text += f"""
+            text += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**📈 روند تغییرات**
+**📈 روند تغییر رفتار**
 ⚠️ داده کافی برای تحلیل روند وجود ندارد (حداقل ۳ مشاهده در بازه‌های مختلف مورد نیاز است).
 """
         
@@ -592,19 +696,101 @@ class ReportsPage(QWidget):
             text += f"""
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**📊 مقایسه نیمسال‌ها**
-• نیمسال اول: {stats['first']['count']} مشاهده (میانگین شدت: {stats['first']['avg_severity']})
-• نیمسال دوم: {stats['second']['count']} مشاهده (میانگین شدت: {stats['second']['avg_severity']})
-• روند کلی: {stats['trend']}
+**📊 مقایسه نیمسال‌ها (بر پایهٔ ترکیب رفتارها)**
+• نیمسال اول: {stats['first']['positive']} مثبت، {stats['first']['negative']} منفی از {stats['first']['count']} مشاهده (سهم مثبت {stats['first'].get('positive_share', 0)}٪)
+• نیمسال دوم: {stats['second']['positive']} مثبت، {stats['second']['negative']} منفی از {stats['second']['count']} مشاهده (سهم مثبت {stats['second'].get('positive_share', 0)}٪)
+• جهت تغییر رفتار: {stats.get('trend', '-')}
+• {stats.get('volume_note', '')}
 """
         
+        # ===== اثربخشی مداخلات (اقدام ← پیگیری ← نتیجه) =====
+        effectiveness = report.get('intervention_effectiveness') or {}
+        if effectiveness.get('items'):
+            text += """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**🔗 اثربخشی مداخلات (اقدام ← پیگیری ← نتیجه)**
+"""
+            for item in effectiveness['items'][:10]:
+                text += f"• {item['type']} ({item['date'] or '-'}): {item['outcome']}\n"
+                if item.get('goal'):
+                    text += f"   هدف: {item['goal']}\n"
+                for follow in item['followups'][:2]:
+                    text += (f"   پیگیری {follow['date'] or ''} "
+                             f"({follow['method']}): {follow['result_label']}\n")
+            text += f"• {effectiveness['summary']}\n"
+
+        # ===== زمینهٔ خانوادگی (اطلاعات زمینه‌ای، نه قضاوت) =====
+        family = report.get('family_background') or {}
+        if family.get('contexts') or family.get('interviews'):
+            text += """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**👨‍👩‍👦 زمینهٔ خانوادگی (اطلاعات زمینه‌ای)
+"""
+            text += f"• {family.get('note', '')}\n"
+            for ctx in family['contexts'][:2]:
+                text += (f"• وضعیت سرپرست: {ctx['guardian_status']} | "
+                         f"حمایت والدین: {ctx['parental_support']} | "
+                         f"فضای مطالعه: {ctx['study_space']}\n")
+            for iv in family['interviews'][:3]:
+                text += (f"• گفت‌وگو {iv['date'] or ''} ({iv['method']}) — "
+                         f"{iv['topic'] or 'بدون موضوع'} | وضعیت: {iv['status']}\n")
+
+        # ===== لایه‌های اطلاعاتی (تفکیک مشاهده/غربالگری/تفسیر) =====
+        layers = report.get('information_layers') or {}
+        if layers:
+            text += """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**🧭 لایه‌های اطلاعاتی (مشاهده / غربالگری / تفسیر حرفه‌ای)**
+"""
+            text += f"• {layers.get('chain_note', '')}\n"
+            obs_layer = layers.get('observation', {})
+            text += f"• {obs_layer.get('title', '')}: {obs_layer.get('note', '')}\n"
+            scr = layers.get('screening', {})
+            if scr.get('items'):
+                for item in scr['items'][:3]:
+                    text += (f"• غربالگری: {item['tool']} — {item['date'] or ''} | "
+                             f"وضعیت: {item['status']} | {item['note']}\n")
+            else:
+                text += "• غربالگری: نتیجه‌ای ثبت نشده است.\n"
+            text += f"  {scr.get('note', '')}\n"
+            interp = layers.get('interpretation', {})
+            if interp.get('items'):
+                for item in interp['items'][:3]:
+                    text += (f"• تفسیر حرفه‌ای [{item['level']}]: {item['title']} "
+                             f"— {item['status']}\n")
+            else:
+                text += "• تفسیر حرفه‌ای: ثبت نشده است.\n"
+            text += f"  {interp.get('note', '')}\n"
+        
+        # ===== سابقهٔ رشد چندساله (بازرسی دوازدهم → تکمیل سیزدهم) =====
+        # گزارش معمول برنامه همان روایت منسجم PDF/Excel را با رندر مشترک
+        # نشان می‌دهد: مسیر سال‌به‌سال، الگوهای ادامه‌دار، زمینه‌های
+        # تغییریافته (با جهت)، مداخلات مؤثرتر بر اساس پیگیری و جمع‌بندی.
+        growth = report.get('growth_narrative') or {}
+        if growth.get('has_data'):
+            text += """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**🌱 سابقهٔ رشد و مسیر طی‌شده (چندساله — مقایسهٔ دانش‌آموز با خودش)**
+"""
+            for kind, line in self.report_generator.growth_narrative_lines(growth):
+                if kind == 'heading':
+                    text += f"\n**{line}**\n"
+                elif kind == 'bullet':
+                    text += f"• {line}\n"
+                else:
+                    text += f"{line}\n"
+
         text += f"""
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**📝 خلاصه**
+**📝 جمع‌بندی سالانهٔ رشد**
 {report['summary']}
 """
-        
+
         return text
     
     # ===== تب ردیابی =====
@@ -761,6 +947,9 @@ class ReportsPage(QWidget):
         """نمایش مشاهدات در جدول با شناسه"""
         self.obs_table.setRowCount(len(observations))
         
+        # عنوان شایستگی‌ها یک‌جا خوانده می‌شود (رفع N+1)
+        comp_titles = self.competency_dal.get_titles_by_ids(
+            o.competency_id for o in observations)
         for row, obs in enumerate(observations):
             id_item = QTableWidgetItem(str(obs.id))
             id_item.setForeground(QColor(52, 152, 219))
@@ -770,11 +959,7 @@ class ReportsPage(QWidget):
             self.obs_table.setItem(row, 1, QTableWidgetItem(obs.observation_date or ""))
             self.obs_table.setItem(row, 2, QTableWidgetItem(obs.location or ""))
             
-            comp_name = "نامشخص"
-            if obs.competency_id:
-                comp = self.competency_dal.get_by_id(obs.competency_id)
-                if comp:
-                    comp_name = comp.title
+            comp_name = comp_titles.get(obs.competency_id) or "نامشخص"
             self.obs_table.setItem(row, 3, QTableWidgetItem(comp_name))
             
             type_item = QTableWidgetItem(obs.behavior_type or "خنثی")
@@ -842,6 +1027,9 @@ class ReportsPage(QWidget):
         """نمایش مداخلات در جدول با شناسه"""
         self.inter_table.setRowCount(len(interventions))
         
+        # نام کادر یک‌جا خوانده می‌شود (رفع N+1)
+        staff_names = self.staff_dal.get_names_by_ids(
+            x.staff_id for x in interventions)
         for row, inter in enumerate(interventions):
             id_item = QTableWidgetItem(str(inter.id))
             id_item.setForeground(QColor(230, 126, 34))
@@ -851,11 +1039,7 @@ class ReportsPage(QWidget):
             self.inter_table.setItem(row, 1, QTableWidgetItem(inter.date or ""))
             self.inter_table.setItem(row, 2, QTableWidgetItem(inter.type_display))
             
-            staff_name = "نامشخص"
-            if inter.staff_id:
-                staff = self.staff_dal.get_by_id(inter.staff_id)
-                if staff:
-                    staff_name = staff.full_name
+            staff_name = staff_names.get(inter.staff_id) or "نامشخص"
             self.inter_table.setItem(row, 3, QTableWidgetItem(staff_name))
             
             self.inter_table.setItem(row, 4, QTableWidgetItem(inter.status_display))
@@ -914,6 +1098,9 @@ class ReportsPage(QWidget):
         """نمایش پیگیری‌ها در جدول با شناسه"""
         self.follow_table.setRowCount(len(followups))
         
+        # نام کادر یک‌جا خوانده می‌شود (رفع N+1)
+        staff_names = self.staff_dal.get_names_by_ids(
+            x.staff_id for x in followups)
         for row, follow in enumerate(followups):
             id_item = QTableWidgetItem(str(follow.id))
             id_item.setForeground(QColor(142, 68, 173))
@@ -922,11 +1109,7 @@ class ReportsPage(QWidget):
             
             self.follow_table.setItem(row, 1, QTableWidgetItem(follow.date or ""))
             
-            staff_name = "نامشخص"
-            if follow.staff_id:
-                staff = self.staff_dal.get_by_id(follow.staff_id)
-                if staff:
-                    staff_name = staff.full_name
+            staff_name = staff_names.get(follow.staff_id) or "نامشخص"
             self.follow_table.setItem(row, 2, QTableWidgetItem(staff_name))
             
             self.follow_table.setItem(row, 3, QTableWidgetItem(follow.status_display))
@@ -960,18 +1143,33 @@ class ReportsPage(QWidget):
             self.canvas.draw()
             return
         
+        # ===== اصلاح (بازرسی یازدهم) =====
+        # پیش از این، نمودار بر پایهٔ «میانگین شدت» کشیده می‌شد؛ اکنون
+        # ترکیب رفتارهای مثبت/منفی هر زمینه نمایش داده می‌شود. شدت در
+        # تحلیل نقش تصمیم‌گیر ندارد.
         stats = report['competency_stats']
-        items = sorted(stats.items(), key=lambda x: x[1]['avg_severity'], reverse=True)[:8]
+        items = sorted(stats.items(),
+                       key=lambda x: ((x[1].get('positive', 0) + x[1].get('negative', 0)),
+                                      x[1].get('count', 0)),
+                       reverse=True)[:8]
         
         names = [item[0][:12] for item in items]
-        values = [item[1]['avg_severity'] for item in items]
+        positive_values = [item[1].get('positive', 0) for item in items]
+        negative_values = [item[1].get('negative', 0) for item in items]
         
         if len(names) < 3:
             ax = self.figure.add_subplot(111)
-            ax.bar(names, values, color='#0B2E4F')
-            ax.set_ylabel('میانگین شدت')
-            ax.set_title('نمودار شایستگی‌ها', fontsize=14, fontweight='bold')
-            ax.set_ylim(0, 5)
+            positions = range(len(names))
+            ax.bar([p - 0.2 for p in positions], positive_values, width=0.4,
+                   color='#66BB6A', label='رفتار مثبت')
+            ax.bar([p + 0.2 for p in positions], negative_values, width=0.4,
+                   color='#C62828', label='رفتار منفی')
+            ax.set_xticks(list(positions))
+            ax.set_xticklabels(names)
+            ax.set_ylabel('تعداد رفتار ثبت‌شده')
+            ax.set_title('ترکیب رفتارهای ثبت‌شده به تفکیک زمینه', fontsize=13,
+                         fontweight='bold')
+            ax.legend()
             self.figure.tight_layout()
             self.canvas.draw()
             return
@@ -979,19 +1177,25 @@ class ReportsPage(QWidget):
         N = len(names)
         angles = [n / float(N) * 2 * np.pi for n in range(N)]
         angles += angles[:1]
-        values_plot = values + values[:1]
+        positive_plot = positive_values + positive_values[:1]
+        negative_plot = negative_values + negative_values[:1]
         
         ax = self.figure.add_subplot(111, projection='polar')
-        ax.plot(angles, values_plot, 'o-', linewidth=2, color='#0B2E4F')
-        ax.fill(angles, values_plot, alpha=0.25, color='#0B2E4F')
+        ax.plot(angles, positive_plot, 'o-', linewidth=2, color='#2E7D32',
+                label='رفتار مثبت')
+        ax.fill(angles, positive_plot, alpha=0.20, color='#2E7D32')
+        ax.plot(angles, negative_plot, 'o-', linewidth=2, color='#C62828',
+                label='رفتار منفی')
+        ax.fill(angles, negative_plot, alpha=0.20, color='#C62828')
         
         ax.set_xticks(angles[:-1])
         ax.set_xticklabels(names, size=8)
-        ax.set_ylim(0, 5)
-        ax.set_yticks([1, 2, 3, 4, 5])
-        ax.set_yticklabels(['۱', '۲', '۳', '۴', '۵'], size=8)
+        max_value = max(positive_values + negative_values + [1])
+        ax.set_ylim(0, max_value * 1.15)
         ax.grid(True, alpha=0.3)
-        ax.set_title('نمودار وضعیت شایستگی‌ها', size=14, fontweight='bold', pad=20)
+        ax.legend(loc='upper right', bbox_to_anchor=(1.2, 1.15), fontsize=8)
+        ax.set_title('ترکیب رفتارهای ثبت‌شده به تفکیک زمینه (بدون رتبه‌بندی)',
+                     size=12, fontweight='bold', pad=20)
         
         self.figure.tight_layout()
         self.canvas.draw()
@@ -1095,7 +1299,7 @@ class ReportsPage(QWidget):
         try:
             comp = self.competency_dal.get_by_id(competency_id)
             return comp.title if comp else "نامشخص"
-        except:
+        except Exception:
             return "نامشخص"
     
     def _get_staff_name(self, staff_id):
@@ -1105,7 +1309,7 @@ class ReportsPage(QWidget):
         try:
             staff = self.staff_dal.get_by_id(staff_id)
             return staff.full_name if staff else "نامشخص"
-        except:
+        except Exception:
             return "نامشخص"
     
     # ===== گزارش والدین =====
@@ -1116,7 +1320,10 @@ class ReportsPage(QWidget):
             return
         
         try:
-            parent_report = self.report_generator.generate_parent_report(self.current_profile_id)
+            # منبع واحد گزارش والدین (بازرسی پانزدهم): همان سرویسی که
+            # خروجی PDF والدین را می‌سازد؛ نه نسخهٔ جداگانه.
+            parent_report = self.parent_report_service.generate_parent_report_data(
+                self.current_profile_id)
             if not parent_report:
                 QMessageBox.warning(self, "توجه", "امکان تولید گزارش والدین وجود ندارد.")
                 return
@@ -1140,22 +1347,26 @@ class ReportsPage(QWidget):
 """
             if parent_report['strengths']:
                 for strength in parent_report['strengths']:
-                    text += f"• {strength['competency']} (میانگین شدت: {strength['avg_severity']})\n"
+                    text += (f"• {strength['competency']} — "
+                             f"{strength.get('positive', 0)} رفتار مثبت از "
+                             f"{strength.get('count', 0)} مشاهده\n")
             else:
-                text += "• موردی یافت نشد.\n"
+                text += "• الگوی تکرارشوندهٔ رفتار مثبت ثبت نشده است.\n"
             
-            text += f"""
+            text += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **🔴 زمینه‌های نیازمند حمایت**
 """
             if parent_report['weaknesses']:
                 for weakness in parent_report['weaknesses']:
-                    text += f"• {weakness['competency']} (میانگین شدت: {weakness['avg_severity']})\n"
+                    text += (f"• {weakness['competency']} — "
+                             f"{weakness.get('negative', 0)} رفتار منفی از "
+                             f"{weakness.get('count', 0)} مشاهده\n")
             else:
-                text += "• موردی یافت نشد.\n"
+                text += "• الگوی تکرارشوندهٔ رفتار منفی ثبت نشده است.\n"
             
-            text += f"""
+            text += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **💡 پیشنهاد برای والدین**
@@ -1163,19 +1374,26 @@ class ReportsPage(QWidget):
             for rec in parent_report['recommendations']['parents']:
                 text += f"• {rec}\n"
             
-            if parent_report['trend']:
-                text += f"""
+            trend = parent_report.get('trend') or {}
+            text += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **📈 روند کلی**
-• تعداد مشاهدات ثبت‌شده: {parent_report['observations_count']}
-• تعداد مداخلات: {parent_report['interventions_count']}
 """
+            if trend.get('has_data'):
+                text += f"• {trend['trend_icon']} {trend['trend_text']}\n"
+                text += f"• {trend['volume_note']}\n"
+            else:
+                text += f"• {trend.get('message', 'داده کافی برای تحلیل روند وجود ندارد.')}\n"
+            text += (f"• حجم ثبت و پایش: {parent_report['observations_count']} مشاهده، "
+                     f"{parent_report['interventions_count']} مداخله، "
+                     f"{parent_report.get('pending_count', 0)} پیگیری در انتظار\n")
+            text += f"\n{parent_report.get('privacy_note', '')}\n"
             
             QMessageBox.information(self, "گزارش والدین", text)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در تولید گزارش والدین:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در تولید گزارش والدین:\n{e!s}")
     
     # ===== خروجی Excel =====
     def export_excel(self):
@@ -1206,7 +1424,7 @@ class ReportsPage(QWidget):
                 QMessageBox.critical(self, "خطا", message)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در خروجی Excel:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در خروجی Excel:\n{e!s}")
 
     def export_pdf(self):
         """خروجی PDF کامل"""
@@ -1236,7 +1454,7 @@ class ReportsPage(QWidget):
                 QMessageBox.critical(self, "خطا", message)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در خروجی PDF:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در خروجی PDF:\n{e!s}")
 
     def export_for_ai(self):
         """خروجی داده برای هوش مصنوعی"""

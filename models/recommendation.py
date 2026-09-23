@@ -2,7 +2,10 @@
 مدل پیشنهادات - ذخیره پیشنهادات تولیدشده در دیتابیس
 """
 
+from typing import ClassVar
+
 from models.base import BaseModel
+from utils.time_utils import utc_now_iso
 
 
 class Recommendation(BaseModel):
@@ -24,7 +27,7 @@ class Recommendation(BaseModel):
     STATUS_COMPLETED = "completed"      # تکمیل شده
     STATUS_ARCHIVED = "archived"        # بایگانی شده
     
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (STATUS_PENDING, "در انتظار بررسی"),
         (STATUS_ACCEPTED, "پذیرفته شده"),
         (STATUS_REJECTED, "رد شده"),
@@ -91,6 +94,24 @@ class Recommendation(BaseModel):
         return priority_map.get(self.priority, self.priority)
     
     @property
+    def linked_intervention_id(self):
+        """شناسهٔ مداخله‌ای که بر اساس این پیشنهاد ثبت شده (یا None)"""
+        if isinstance(self.metadata, dict):
+            return self.metadata.get('intervention_id')
+        return None
+
+    @property
+    def priority_color(self):
+        """رنگ اولویت برای نمایش (بازرسی شانزدهم — ویجت پیشنهادها به آن نیاز داشت و مدل نداشت)"""
+        color_map = {
+            "critical": "#C62828",
+            "high": "#F28C28",
+            "medium": "#F4D35E",
+            "low": "#66BB6A",
+        }
+        return color_map.get(self.priority, "#D9C36A")
+
+    @property
     def category_display(self):
         """نمایش فارسی دسته‌بندی"""
         category_map = {
@@ -126,14 +147,12 @@ class Recommendation(BaseModel):
     def implement(self):
         """اجرای پیشنهاد"""
         self.status = self.STATUS_IMPLEMENTED
-        from datetime import datetime
-        self.implemented_at = datetime.now().isoformat()
+        self.implemented_at = utc_now_iso()
     
     def complete(self, feedback=None):
         """تکمیل پیشنهاد"""
         self.status = self.STATUS_COMPLETED
-        from datetime import datetime
-        self.completed_at = datetime.now().isoformat()
+        self.completed_at = utc_now_iso()
         if feedback:
             self.feedback = feedback
     
