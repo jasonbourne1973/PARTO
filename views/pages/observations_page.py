@@ -45,6 +45,7 @@ class ObservationsPage(QWidget):
         self.observation_service = ObservationService()
         self.student_dal = StudentDAL()
         self.profile_dal = StudentAcademicProfileDAL()
+        self.academic_year_dal = AcademicYearDAL()
         self.competency_dal = CompetencyDAL()
         self.staff_dal = StaffDAL()
         self.assignment_dal = TeacherAssignmentDAL()
