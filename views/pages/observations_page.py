@@ -35,9 +35,10 @@ from database.connection import DatabaseConnection
 from services.observation_service import ObservationService
 from utils.logger import get_logger
 from views.dialogs.observation_form import ObservationForm
+from views.pages.year_sync import YearAwarePage
 
 
-class ObservationsPage(QWidget):
+class ObservationsPage(YearAwarePage, QWidget):
     """صفحه مدیریت مشاهدات با نمایش ABC و StudentFile و فیلتر معلم و جستجوی پیشرفته"""
     
     def __init__(self, parent=None):
@@ -315,6 +316,12 @@ class ObservationsPage(QWidget):
         
         layout.addWidget(self.table)
     
+    def reload_for_year(self, year_id):
+        """بارگذاری دوبارهٔ فهرست فیلترها و مشاهدات سال اعلام‌شده"""
+        self.load_students_filter()
+        self.load_observations()
+        return True
+
     def load_teachers(self):
         """بارگذاری معلمان در کامبوباکس"""
         try:
@@ -383,7 +390,7 @@ class ObservationsPage(QWidget):
         severity_max = self.filter_severity_max.currentData()
         
         try:
-            active_year = self.academic_year_dal.get_active()
+            active_year = self.effective_year()
             year_id = active_year.id if active_year else None
             # سال فعال باید در خود query اعمال شود؛ فیلتر UI پایین فقط دفاع ثانویه است.
             # اگر جستجوی متنی وجود دارد
@@ -452,7 +459,7 @@ class ObservationsPage(QWidget):
     def load_observations(self):
         """بارگذاری مشاهدات با استفاده از سرویس"""
         try:
-            active_year = self.academic_year_dal.get_active()
+            active_year = self.effective_year()
             year_id = active_year.id if active_year else None
             observations = self.observation_service.get_all_observations(limit=None, include_staff_info=True, year_id=year_id)
             if active_year:

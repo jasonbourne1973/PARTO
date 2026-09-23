@@ -32,9 +32,10 @@ from dal.student_dal import StudentDAL
 from services.counseling_service import CounselingService
 from utils.logger import get_logger
 from views.dialogs.counseling_session_form import CounselingSessionForm
+from views.pages.year_sync import YearAwarePage
 
 
-class CounselingPage(QWidget):
+class CounselingPage(YearAwarePage, QWidget):
     """صفحه مدیریت جلسات مشاوره"""
     
     student_selected = Signal(int)
@@ -224,6 +225,13 @@ class CounselingPage(QWidget):
         
         layout.addWidget(splitter)
     
+    def reload_for_year(self, year_id):
+        """بارگذاری دوبارهٔ مشاوران، دانش‌آموزان و جلسات سال اعلام‌شده"""
+        self.load_counselors()
+        self.load_students()
+        self.load_sessions()
+        return True
+
     def load_counselors(self):
         """بارگذاری مشاوران"""
         try:
@@ -247,7 +255,7 @@ class CounselingPage(QWidget):
         """بارگذاری جلسات"""
         try:
             self.sessions = self.counseling_service.get_all_sessions()
-            active_year = self.academic_year_dal.get_active()
+            active_year = self.effective_year()
             if active_year:
                 profiles = self.profile_dal.get_by_ids([s.student_profile_id for s in self.sessions if s.student_profile_id])
                 valid_profile_ids = {pid for pid, p in profiles.items() if p and p.academic_year_id == active_year.id}

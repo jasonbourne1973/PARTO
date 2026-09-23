@@ -33,11 +33,12 @@ from utils.logger import get_logger
 from utils.time_utils import utc_now
 from views.dialogs.student_form import StudentForm
 from views.pages.student_profile_page import StudentProfilePage
+from views.pages.year_sync import YearAwarePage
 
 logger = get_logger(__name__)
 
 
-class StudentsPage(QWidget):
+class StudentsPage(YearAwarePage, QWidget):
     """صفحه مدیریت دانش‌آموزان با جستجوی سریع و پیشرفته و Pagination"""
     
     student_double_clicked = Signal(int)
@@ -350,6 +351,22 @@ class StudentsPage(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{e!s}")
     
+    def reload_for_year(self, year_id):
+        """
+        بارگذاری دوبارهٔ فهرست دانش‌آموزان برای سال اعلام‌شده
+
+        ستون «پایه/کلاس» از پروندهٔ سالانهٔ هر دانش‌آموز می‌آید؛ با تغییر
+        سال، همان پرونده‌های سال جدید خوانده می‌شوند. صفحهٔ «پرونده
+        دانش‌آموز» که داخل همین صفحه است هم انتخاب سال را می‌گیرد.
+        """
+        self.current_page = 0
+        self.load_students()
+        profile_page = getattr(self, "profile_page", None)
+        setter = getattr(profile_page, "set_active_year", None)
+        if callable(setter):
+            setter(year_id)
+        return True
+
     def update_pagination_controls(self):
         """به‌روزرسانی کنترل‌های Pagination"""
         self.page_label.setText(f"صفحه {self.current_page + 1} از {max(1, self.total_pages)}")

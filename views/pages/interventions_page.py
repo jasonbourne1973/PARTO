@@ -32,9 +32,10 @@ from dal.teacher_assignment_dal import TeacherAssignmentDAL
 from services.intervention_service import InterventionService
 from utils.logger import get_logger
 from views.dialogs.intervention_form import InterventionForm
+from views.pages.year_sync import YearAwarePage
 
 
-class InterventionsPage(QWidget):
+class InterventionsPage(YearAwarePage, QWidget):
     """صفحه مدیریت مداخلات با جستجوی پیشرفته"""
     
     def __init__(self, parent=None):
@@ -211,6 +212,12 @@ class InterventionsPage(QWidget):
         
         layout.addWidget(self.table)
     
+    def reload_for_year(self, year_id):
+        """بارگذاری دوبارهٔ فهرست فیلترها و مداخلات سال اعلام‌شده"""
+        self.load_students_filter()
+        self.load_interventions()
+        return True
+
     def load_teachers(self):
         """بارگذاری معلمان در کامبوباکس"""
         try:
@@ -259,7 +266,7 @@ class InterventionsPage(QWidget):
         status = self.status_filter_combo.currentData()
         
         try:
-            active_year = self.academic_year_dal.get_active()
+            active_year = self.effective_year()
             year_id = active_year.id if active_year else None
             if search_text:
                 if student_id:
@@ -288,7 +295,7 @@ class InterventionsPage(QWidget):
             if student_id and teacher_id:
                 interventions = [i for i in interventions if i.staff_id == teacher_id]
             
-            active_year = self.academic_year_dal.get_active()
+            active_year = self.effective_year()
             if active_year:
                 profiles = self.profile_dal.get_by_ids(i.student_profile_id for i in interventions)
                 interventions = [
@@ -313,10 +320,10 @@ class InterventionsPage(QWidget):
     def load_interventions(self):
         """بارگذاری مداخلات با استفاده از سرویس"""
         try:
-            active_year = self.academic_year_dal.get_active()
+            active_year = self.effective_year()
             year_id = active_year.id if active_year else None
             interventions = self.intervention_service.get_all_interventions(limit=None, include_staff_info=True, year_id=year_id)
-            active_year = self.academic_year_dal.get_active()
+            active_year = self.effective_year()
             if active_year:
                 profiles = self.profile_dal.get_by_ids(i.student_profile_id for i in interventions)
                 interventions = [

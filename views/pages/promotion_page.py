@@ -30,9 +30,10 @@ from dal.academic_year_dal import AcademicYearDAL
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.student_dal import StudentDAL
 from utils.time_utils import utc_now
+from views.pages.year_sync import YearAwarePage
 
 
-class PromotionPage(QWidget):
+class PromotionPage(YearAwarePage, QWidget):
     """صفحه مدیریت ارتقاء پایه دانش‌آموزان"""
     
     def __init__(self, parent=None, embedded=False):
@@ -305,6 +306,11 @@ class PromotionPage(QWidget):
         help_label.setWordWrap(True)
         layout.addWidget(help_label)
     
+    def reload_for_year(self, year_id):
+        """بارگذاری دوبارهٔ فهرست دانش‌آموزان برای سال اعلام‌شده"""
+        self.load_students()
+        return True
+
     def load_students(self):
         """بارگذاری لیست دانش‌آموزان"""
         try:

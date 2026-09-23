@@ -34,9 +34,10 @@ from models.individual_goal import IndividualGoal
 from services.goal_service import GoalService
 from utils.logger import get_logger
 from views.dialogs.goal_form import GoalForm
+from views.pages.year_sync import YearAwarePage
 
 
-class GoalsPage(QWidget):
+class GoalsPage(YearAwarePage, QWidget):
     """صفحه مدیریت اهداف فردی"""
     
     student_selected = Signal(int)
@@ -225,6 +226,12 @@ class GoalsPage(QWidget):
         
         layout.addWidget(splitter)
     
+    def reload_for_year(self, year_id):
+        """بارگذاری دوبارهٔ دانش‌آموزان و اهداف سال اعلام‌شده"""
+        self.load_students()
+        self.load_goals()
+        return True
+
     def load_students(self):
         """بارگذاری دانش‌آموزان"""
         try:
@@ -236,7 +243,7 @@ class GoalsPage(QWidget):
         """بارگذاری اهداف"""
         try:
             self.goals = self.goal_service.get_all_goals()
-            active_year = self.academic_year_dal.get_active()
+            active_year = self.effective_year()
             if active_year:
                 profiles = self.profile_dal.get_by_ids([g.student_profile_id for g in self.goals if g.student_profile_id])
                 valid_profile_ids = {pid for pid, p in profiles.items() if p and p.academic_year_id == active_year.id}

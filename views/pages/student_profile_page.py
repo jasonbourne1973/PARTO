@@ -45,12 +45,13 @@ from utils.logger import get_logger
 from views.dialogs.followup_form import FollowUpForm
 from views.dialogs.intervention_form import InterventionForm
 from views.dialogs.observation_form import ObservationForm
+from views.pages.year_sync import YearAwarePage
 from views.widgets.recommendation_widget import RecommendationWidget
 
 logger = get_logger(__name__)
 
 
-class StudentProfilePage(QWidget):
+class StudentProfilePage(YearAwarePage, QWidget):
     """صفحه مرکز پرونده دانش‌آموز با Timeline و جستجو و انتخاب سال"""
     
     # (بازرسی شانزدهم) درخواست گزارش کامل: پنجرهٔ اصلی صفحهٔ گزارش‌ها را با
@@ -442,6 +443,21 @@ class StudentProfilePage(QWidget):
         except Exception as e:
             logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
     
+    def reload_for_year(self, year_id):
+        """
+        همگام‌سازی پروندهٔ دانش‌آموز با سال اعلام‌شده
+
+        اگر دانش‌آموزی باز باشد، پروندهٔ همان سال خوانده می‌شود؛ اگر
+        پرونده‌ای برای آن سال نباشد، صفحه حالت خالی نشان می‌دهد و
+        دادهٔ سال دیگری به‌عنوان جایگزین نمی‌آید.
+        """
+        self.selected_year_id = year_id
+        if self.student_id:
+            self.load_student_data()
+        else:
+            self.load_student_list()
+        return True
+
     def on_year_changed(self, index):
         """وقتی سال تحصیلی تغییر می‌کند"""
         if index >= 0:

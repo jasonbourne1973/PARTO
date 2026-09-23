@@ -30,9 +30,10 @@ from models.extracurricular_activity import ExtracurricularActivity
 from services.extracurricular_service import ExtracurricularService
 from utils.logger import get_logger
 from views.dialogs.activity_form import ActivityForm
+from views.pages.year_sync import YearAwarePage
 
 
-class ActivitiesPage(QWidget):
+class ActivitiesPage(YearAwarePage, QWidget):
     """صفحه مدیریت فعالیت‌های فوق‌برنامه"""
     
     student_selected = Signal(int)
@@ -168,6 +169,12 @@ class ActivitiesPage(QWidget):
         
         layout.addWidget(self.table)
     
+    def reload_for_year(self, year_id):
+        """بارگذاری دوبارهٔ دانش‌آموزان و فعالیت‌های سال اعلام‌شده"""
+        self.load_students()
+        self.load_activities()
+        return True
+
     def load_students(self):
         """بارگذاری دانش‌آموزان"""
         try:
@@ -179,7 +186,7 @@ class ActivitiesPage(QWidget):
         """بارگذاری فعالیت‌ها"""
         try:
             self.activities = self.extracurricular_service.get_all_activities()
-            active_year = self.academic_year_dal.get_active()
+            active_year = self.effective_year()
             if active_year:
                 profiles = self.profile_dal.get_by_ids([a.student_profile_id for a in self.activities if a.student_profile_id])
                 valid_profile_ids = {pid for pid, p in profiles.items() if p and p.academic_year_id == active_year.id}

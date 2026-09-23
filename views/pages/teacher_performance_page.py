@@ -38,11 +38,12 @@ from matplotlib.figure import Figure
 
 from utils.behavior_analysis import classify_pattern, pattern_label
 from utils.logger import get_logger
+from views.pages.year_sync import YearAwarePage
 
 logger = get_logger(__name__)
 
 
-class TeacherPerformancePage(QWidget):
+class TeacherPerformancePage(YearAwarePage, QWidget):
     """
     صفحه گزارش عملکرد معلم
     
@@ -395,6 +396,19 @@ class TeacherPerformancePage(QWidget):
         
         return tab
     
+    def reload_for_year(self, year_id):
+        """
+        پاک‌کردن گزارش نمایش‌داده‌شده پس از تغییر سال
+
+        این صفحه گزارش را با دکمهٔ «تولید گزارش» می‌سازد؛ بعد از تغییر
+        سال، گزارش قبلی (سال قدیم) نباید روی صفحه بماند و کاربر باید
+        دوباره تولید کند.
+        """
+        self.load_teachers()
+        if hasattr(self, "report_table"):
+            self.report_table.setRowCount(0)
+        return True
+
     def load_teachers(self):
         """بارگذاری معلمان در کامبوباکس"""
         try:

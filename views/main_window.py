@@ -45,6 +45,7 @@ from views.pages.observations_page import ObservationsPage
 from views.pages.reports_page import ReportsPage
 from views.pages.settings_page import SettingsPage
 from views.pages.students_page import StudentsPage
+from views.pages.year_sync import select_year_in_combo
 from views.widgets.notification_widget import NotificationWidget
 
 logger = get_logger(__name__)
@@ -523,6 +524,10 @@ class MainWindow(QMainWindow):
         main_layout.setStretchFactor(menu_frame, 0)
         main_layout.setStretchFactor(self.content_frame, 1)
 
+        # تک‌منبع حقیقت «سال فعال»: هر تغییری که با set_active_year انجام
+        # شود، از همین سیگنال به همهٔ صفحه‌های وابسته به سال می‌رسد.
+        self.academic_year_changed.connect(self._sync_pages_for_year)
+
         self.load_academic_years()
         self.update_academic_year_display()
 
@@ -708,30 +713,167 @@ class MainWindow(QMainWindow):
     def load_academic_years(self):
         try:
             self.all_academic_years = self.academic_year_dal.get_all(include_archived=True)
-            self.year_combo.clear()
-            for year in self.all_academic_years:
-                display_text = f"{year.title} {'📦' if year.is_archived == 1 else ''}"
-                self.year_combo.addItem(display_text, year.id)
+            # پرکردن فهرست بدون فرستادن currentIndexChanged: وگرنه افزودن
+            # نخستین گزینه، on_year_changed را با سالی غیر از سال فعال صدا
+            # می‌زد و همان لحظهٔ باز شدن برنامه دیالوگ «تغییر سال فعال؟»
+            # ظاهر می‌شد.
+            self.year_combo.blockSignals(True)
+            try:
+                self.year_combo.clear()
+                for year in self.all_academic_years:
+                    display_text = f"{year.title} {'📦' if year.is_archived == 1 else ''}"
+                    self.year_combo.addItem(display_text, year.id)
 
-            active_year = self.academic_year_dal.get_active()
-            if active_year:
-                for i in range(self.year_combo.count()):
-                    if self.year_combo.itemData(i) == active_year.id:
-                        self.year_combo.setCurrentIndex(i)
-                        break
+                active_year = self.academic_year_dal.get_active()
+                if active_year:
+                    select_year_in_combo(self.year_combo, active_year.id)
+            finally:
+                self.year_combo.blockSignals(False)
         except Exception as e:
             logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
 
     def _select_year_in_combo(self, year_id):
         """انتخاب یک سال در کامبو بدون راه‌انداختن on_year_changed"""
-        self.year_combo.blockSignals(True)
+        select_year_in_combo(self.year_combo, year_id)
+
+    # ============================================================
+    # تک‌منبع حقیقت «سال تحصیلی فعال» (بازبینی نهایی — BUG-GUI-12 / NAV-04/05/06)
+    # ============================================================
+    def set_active_year(self, year_id, *, persist=True, announce=True):
+        """
+        تنها مسیر تغییر «سال تحصیلی فعال» در سامانه
+
+        Args:
+            year_id: شناسهٔ سال هدف
+            persist: ثبت به‌عنوان سال فعال در دیتابیس (پیش‌فرض: بله)
+            announce: فرستادن سیگنال `academic_year_changed` (پیش‌فرض: بله)
+
+        Returns:
+            tuple(bool, str): (موفق؟، پیام)
+
+        نکته: مسیر قدیمی، سیگنالی بدون گیرنده می‌فرستاد و بعد صفحه‌ها را با
+        بازتاب (`dir()` روی نام متدهای `load_*`) دوباره بارگذاری می‌کرد؛
+        یعنی هیچ صفحه‌ای «سال انتخاب‌شده» را نمی‌گرفت و هر صفحه جداگانه
+        سال فعال دیتابیس را حدس می‌زد. حالا صفحه‌ها صریح انتخاب سال را
+        می‌گیرند (`page.set_active_year(year_id)`) و فهرست صفحه‌های وابسته
+        به سال در `_year_aware_pages()` نگه داشته می‌شود.
+        """
+        if year_id is None:
+            return False, "سال تحصیلی انتخاب نشده است."
+
+        year = None
         try:
-            for i in range(self.year_combo.count()):
-                if self.year_combo.itemData(i) == year_id:
-                    self.year_combo.setCurrentIndex(i)
-                    break
-        finally:
-            self.year_combo.blockSignals(False)
+            year = self.academic_year_dal.get_by_id(year_id)
+        except Exception as e:
+            logger.error(f"خواندن سال {year_id} ممکن نشد: {e}")
+        if year is None:
+            year = next((y for y in self.all_academic_years if y.id == year_id), None)
+        if year is None:
+            return False, f"سال تحصیلی با شناسهٔ {year_id} یافت نشد."
+        if getattr(year, 'is_archived', 0) == 1:
+            return False, (
+                f"سال «{year.title}» بایگانی شده است و نمی‌تواند سال فعال شود؛ "
+                "ابتدا آن را در «ساختار آموزشی» از بایگانی خارج کنید."
+            )
+
+        if persist:
+            try:
+                self.academic_year_dal.set_active(year_id)
+            except Exception as e:
+                logger.error(f"ثبت سال فعال {year_id} ممکن نشد: {e}")
+                return False, f"ثبت سال فعال ممکن نشد: {e!s}"
+
+        # اگر این سال در کامبوی هدر نبود (سالی که پس از ساخت پنجره اضافه
+        # شده)، فهرست سال‌ها یک بار تازه می‌شود تا انتخاب در هدر هم دیده
+        # شود — کامبوی هدر هم بخشی از همین تک‌منبع حقیقت است.
+        if not select_year_in_combo(self.year_combo, year_id):
+            self.load_academic_years()
+            select_year_in_combo(self.year_combo, year_id)
+
+        self.year_label.setText(f"📅 {year.title}")
+        if announce:
+            # همگام‌سازی صفحه‌ها در گیرندهٔ همین سیگنال انجام می‌شود
+            # (`create_pages` سیگنال را به `_sync_pages_for_year` وصل می‌کند).
+            self.academic_year_changed.emit(year_id)
+        else:
+            self._sync_pages_for_year(year_id)
+
+        # گزارش همگام‌سازی توسط گیرندهٔ سیگنال (`_sync_pages_for_year`) روی
+        # self.last_year_sync گذاشته می‌شود تا دوباره‌کاری نشود.
+        synced, skipped = getattr(self, "last_year_sync", ([], []))
+        logger.info(
+            f"سال فعال به {year.title} (شناسه {year_id}) تغییر کرد"
+            + (f"؛ صفحه‌های همگام‌شده: {len(synced)}: {', '.join(synced)}" if synced else "")
+            + (f" | بدون همگام‌سازی: {', '.join(skipped)}" if skipped else "")
+        )
+        return True, f"سال فعال: {year.title}"
+
+    def _year_aware_pages(self):
+        """
+        فهرست صریح صفحه‌های وابسته به سال در همین پنجره
+
+        این فهرست جای اسکن بازتابی قبلی را گرفته است؛ افزودن صفحهٔ وابسته
+        به سال یعنی افزودن یک سطر این‌جا (و متد `reload_for_year` در خودِ
+        صفحه). صفحه‌هایی که به سال وابسته نیستند عمداً این‌جا نیستند:
+        صفحهٔ خوش‌آمد، پشتیبان‌گیری (فایل‌محور) و ابزارهای عمومی.
+        """
+        page_attrs = (
+            "dashboard_page", "students_page", "observations_page",
+            "interventions_page", "followups_page", "indicators_page",
+            "analysis_page", "reports_page", "academic_structure_page",
+            "counseling_page", "activities_page", "goals_page",
+            "settings_page",
+        )
+        pages = [(name, getattr(self, name, None)) for name in page_attrs]
+        return [(name, page) for name, page in pages if page is not None]
+
+    def _sync_pages_for_year(self, year_id):
+        """
+        اعلام صریح سال فعال به همهٔ صفحه‌های وابسته
+
+        Returns:
+            tuple(list[str], list[str]): (صفحه‌های همگام‌شده، صفحه‌های رد‌شده)
+        """
+        synced, skipped = [], []
+        self.last_year_sync = (synced, skipped)
+        for name, page in self._year_aware_pages():
+            setter = getattr(page, "set_active_year", None)
+            if not callable(setter):
+                # این حالت نباید رخ دهد؛ اگر رخ داد، جای «سکوت» در لاگ ثبت می‌شود
+                logger.warning(
+                    f"صفحهٔ {name} ({type(page).__name__}) متد set_active_year "
+                    "ندارد؛ با سال جدید همگام نشد."
+                )
+                skipped.append(name)
+                continue
+            try:
+                setter(year_id)
+                synced.append(name)
+            except Exception as e:
+                logger.error(
+                    f"همگام‌سازی صفحهٔ {name} با سال {year_id} ناموفق بود: {e}"
+                )
+                skipped.append(name)
+        return synced, skipped
+
+    def _reload_pages_for_year(self):
+        """
+        (منسوخ‌شده) بارگذاری دوبارهٔ صفحه‌ها با بازتاب
+
+        از بازبینی نهایی استفاده نمی‌شود: مسیر رسمی، صدا زدن صریح
+        `set_active_year` روی صفحه‌های وابسته به سال است
+        (`_sync_pages_for_year`). این متد فقط برای سازگاری با فراخوان‌های
+        قدیمی باقی مانده و همان کار را انجام می‌دهد.
+        """
+        self.logger.debug("_reload_pages_for_year منسوخ است؛ از set_active_year استفاده کنید.")
+        try:
+            active = self.academic_year_dal.get_active()
+        except Exception:
+            active = None
+        if active is None:
+            return 0
+        synced, _skipped = self._sync_pages_for_year(active.id)
+        return len(synced)
 
     def on_year_changed(self, index):
         """
@@ -790,55 +932,15 @@ class MainWindow(QMainWindow):
         if reply != QMessageBox.StandardButton.Yes:
             self._select_year_in_combo(active_id)
             return
+        # تنها مسیر تغییر سال: set_active_year (تک‌منبع حقیقت).
         self._year_switching = True
         try:
-            self.academic_year_dal.set_active(year_id)
-            self.year_label.setText(f"📅 {year.title if year else ''}")
-            self.academic_year_changed.emit(year_id)
-            self._reload_pages_for_year()
-        except Exception as e:
-            logger.error(f"تغییر سال فعال ممکن نشد: {e}")
-            QMessageBox.critical(self, "خطا", f"تغییر سال تحصیلی انجام نشد:\n{e!s}")
-            self._select_year_in_combo(active_id)
+            ok, message = self.set_active_year(year_id)
+            if not ok:
+                QMessageBox.critical(self, "خطا", f"تغییر سال تحصیلی انجام نشد:\n{message}")
+                self._select_year_in_combo(active_id)
         finally:
             self._year_switching = False
-
-    def _reload_pages_for_year(self):
-        """
-        بارگذاری دوبارهٔ همهٔ صفحه‌ها پس از تغییر سال فعال
-
-        هر متد بدون آرگومانِ «load_*» صفحه‌ها (و زیرصفحه‌های شناخته‌شده) صدا زده
-        می‌شود؛ شکست یک صفحه بقیه را متوقف نمی‌کند و در لاگ ثبت می‌شود.
-        """
-        import inspect
-
-        pages = [self.stacked_widget.widget(i) for i in range(self.stacked_widget.count())]
-        for extra in (getattr(getattr(self, 'students_page', None), 'profile_page', None),
-                      getattr(getattr(self, 'dashboard_page', None), 'analytics_dashboard_page', None)):
-            if extra is not None:
-                pages.append(extra)
-        reloaded = 0
-        for page in pages:
-            for name in sorted(dir(page)):
-                if not name.startswith('load_'):
-                    continue
-                method = getattr(page, name, None)
-                if not callable(method):
-                    continue
-                try:
-                    params = [p for p in inspect.signature(method).parameters.values()
-                              if p.default is inspect._empty and p.kind == p.POSITIONAL_OR_KEYWORD]
-                except (TypeError, ValueError):
-                    continue
-                if params:
-                    continue
-                try:
-                    method()
-                    reloaded += 1
-                except Exception as e:
-                    logger.warning(f"بارگذاری دوبارهٔ {type(page).__name__}.{name} پس از تغییر سال شکست خورد: {e}")
-        self.update_academic_year_display()
-        return reloaded
 
     def update_academic_year_display(self):
         try:

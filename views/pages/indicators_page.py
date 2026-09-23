@@ -32,11 +32,12 @@ from utils.behavior_analysis import (
     pattern_label,
 )
 from utils.logger import get_logger
+from views.pages.year_sync import YearAwarePage
 
 logger = get_logger(__name__)
 
 
-class IndicatorsPage(QWidget):
+class IndicatorsPage(YearAwarePage, QWidget):
     """صفحه نمایش شاخص‌های رشد با وضعیت "داده ناکافی" و جستجو و فیلتر معلم"""
     
     def __init__(self, parent=None):
@@ -246,6 +247,17 @@ class IndicatorsPage(QWidget):
         refresh_btn.clicked.connect(self.refresh_indicators)
         layout.addWidget(refresh_btn)
     
+    def reload_for_year(self, year_id):
+        """
+        بارگذاری دوبارهٔ فهرست دانش‌آموزان شاخص‌ها برای سال اعلام‌شده
+
+        کامبوی سال این صفحه پیش از این متد (در YearAwarePage) هماهنگ
+        شده است؛ اینجا فقط داده با همان سال خوانده می‌شود.
+        """
+        self.selected_teacher_id = self.teacher_combo.currentData()
+        self.load_students_for_teacher()
+        return True
+
     def load_teachers(self):
         """بارگذاری معلمان در کامبوباکس"""
         try:

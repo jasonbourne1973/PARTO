@@ -49,11 +49,12 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 from utils.logger import get_logger
+from views.pages.year_sync import YearAwarePage
 
 logger = get_logger(__name__)
 
 
-class ReportsPage(QWidget):
+class ReportsPage(YearAwarePage, QWidget):
     """صفحه تولید گزارش‌ها با قابلیت ردیابی و انتخاب سال تحصیلی و معلم"""
     
     def __init__(self, parent=None):
@@ -297,6 +298,23 @@ class ReportsPage(QWidget):
         layout.addWidget(self.tabs)
     
     # ===== بارگذاری معلمان =====
+    def reload_for_year(self, year_id):
+        """
+        همگام‌سازی گزارش‌ها و تب‌های جاسازی‌شده با سال اعلام‌شده
+
+        تب‌های «گزارش کلاس»، «گزارش معلم» و «عملکرد معلم» هر کدام
+        انتخاب سال را صریح می‌گیرند (به‌جای بارگذاری بازتابی).
+        """
+        self.load_teachers()
+        self.load_students_for_teacher()
+        for child_name in ("class_report_page", "teacher_report_page",
+                           "teacher_performance_page"):
+            child = getattr(self, child_name, None)
+            setter = getattr(child, "set_active_year", None)
+            if callable(setter):
+                setter(year_id)
+        return True
+
     def load_teachers(self):
         """بارگذاری معلمان در کامبوباکس"""
         try:

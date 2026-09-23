@@ -34,11 +34,12 @@ from models.staff import Staff
 from models.user import User
 from utils.logger import get_logger
 from utils.security import Permission, Security
+from views.pages.year_sync import YearAwarePage
 
 logger = get_logger(__name__)
 
 
-class SettingsPage(QWidget):
+class SettingsPage(YearAwarePage, QWidget):
     """صفحه تنظیمات برنامه با مدیریت کاربران"""
     
     def __init__(self, parent=None, permission_check=None, current_user_id=None):
@@ -265,6 +266,16 @@ class SettingsPage(QWidget):
         
         return tab
     
+    def reload_for_year(self, year_id):
+        """
+        تازه‌کردن فهرست سال‌های تحصیلی در تنظیمات
+
+        تب «سال تحصیلی» نشان سال فعال را نمایش می‌دهد؛ پس از تغییر سال
+        از هدر، همین فهرست باید دوباره خوانده شود.
+        """
+        self.load_academic_years()
+        return True
+
     def load_academic_years(self):
         """بارگذاری سال‌های تحصیلی در جدول"""
         try:

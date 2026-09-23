@@ -43,11 +43,12 @@ from utils.behavior_analysis import (
     shares,
 )
 from utils.logger import get_logger
+from views.pages.year_sync import YearAwarePage
 
 logger = get_logger(__name__)
 
 
-class AnalysisPage(QWidget):
+class AnalysisPage(YearAwarePage, QWidget):
     """صفحه تحلیل روند رشد با نمودارهای متعدد"""
     
     def __init__(self, parent=None):
@@ -311,6 +312,13 @@ class AnalysisPage(QWidget):
             # بالا می‌آید و کاربر خودش تاریخ را وارد می‌کند.
             logger.debug(f"تاریخ‌های پیش‌فرض تنظیم نشد: {e}")
     
+    def reload_for_year(self, year_id):
+        """بارگذاری دوبارهٔ تحلیل‌ها با سال اعلام‌شده"""
+        self.load_teachers()
+        self.load_students_for_teacher()
+        self.load_analysis()
+        return True
+
     def load_teachers(self):
         """بارگذاری معلمان در کامبوباکس"""
         try:

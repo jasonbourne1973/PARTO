@@ -2820,6 +2820,143 @@ except Exception as _restart_exc:
 check("M", "پایداری پس از راه‌اندازی دوباره: با بستن کامل اتصال‌ها و اتصال تازه، همان مقدارها از دیتابیس خوانده می‌شوند (داده در حافظه نیست)",
       _restart_ok, _restart_detail)
 
+# ============================================================
+print()
+print("=" * 76)
+print("بخش N: بازبینی نهایی — همگام‌سازی «سال تحصیلی فعال» (BUG-GUI-12 / NAV-04/05/06)")
+print("=" * 76)
+
+# --- N1: ایستا — تک‌مسیر بودن تغییر سال در کد
+_mw_src = read("views/main_window.py")
+_ys_src = read("views/pages/year_sync.py")
+_legacy_inspect = "import inspect" in _mw_src
+_page_missing_reload = []
+for _fname in ("dashboard_page", "students_page", "observations_page", "interventions_page",
+               "followups_page", "indicators_page", "analysis_page", "reports_page",
+               "academic_structure_page", "counseling_page", "activities_page", "goals_page",
+               "settings_page"):
+    _page_src = read(f"views/pages/{_fname}.py")
+    if "YearAwarePage" not in _page_src or "def reload_for_year" not in _page_src:
+        _page_missing_reload.append(_fname)
+check("N", "ایستا: هیچ اسکن بازتابی (inspect) در main_window نمانده؛ همهٔ صفحه‌های وابسته به سال از YearAwarePage ارث می‌برند و reload_for_year دارند؛ فهرست صفحه‌ها صریح است",
+      not _legacy_inspect
+      and "def set_active_year" in _mw_src
+      and "academic_year_changed.connect(self._sync_pages_for_year)" in _mw_src
+      and "page_attrs = (" in _mw_src
+      and "def effective_year" in _ys_src and "def select_year_in_combo" in _ys_src
+      and not _page_missing_reload,
+      f"inspect={_legacy_inspect} missing_reload={_page_missing_reload}")
+
+# --- N2: تبدیل مسیر واقعی — سال دوم ساخته می‌شود و با set_active_year فعال می‌شود
+_original_active = AcademicYearDAL().get_active()
+_year2 = AcademicYear()
+_year2.title = "1499-1500"
+_year2.start_date = "1499/07/01"
+_year2.end_date = "1500/06/30"
+_year2.is_active = 0
+_year2.is_archived = 0
+_year2 = AcademicYearDAL().create(_year2)
+
+_msgs_before_switch = len(ui_msgs)
+_switch_ok = False
+_switch_detail = ""
+_synced, _skipped = [], []
+_combo_state = {}
+_active_state = {}
+_nested_state = {}
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        _switch_ok, _switch_msg = win.set_active_year(_year2.id)
+    win.last_year_sync = ([], [])
+    # فهرست همگام‌شده باید از مسیر «سیگنال» پر شود؛ صفر ماندن یعنی سیگنال گیرنده ندارد
+    win.academic_year_changed.emit(_year2.id)
+    _synced_via_signal, _skipped_via_signal = win.last_year_sync
+    _synced, _skipped = getattr(win, "last_year_sync", ([], []))
+
+    _active_after = AcademicYearDAL().get_active()
+    _combo_state = {name: getattr(getattr(win, name), "year_combo", None) for name in
+                    ("indicators_page", "analysis_page", "reports_page", "academic_structure_page")}
+    _combo_state = {name: (combo.currentData() if combo is not None else "no-combo")
+                    for name, combo in _combo_state.items()}
+    _active_state = {name: getattr(getattr(win, name), "active_year_id", None) for name in
+                     ("dashboard_page", "students_page", "observations_page", "interventions_page",
+                      "followups_page", "indicators_page", "analysis_page", "reports_page",
+                      "academic_structure_page", "counseling_page", "activities_page", "goals_page",
+                      "settings_page")}
+    _nested_state = {
+        "profile": win.students_page.profile_page.selected_year_id,
+        "analytics": win.dashboard_page.analytics_dashboard_page.active_year_id,
+        "class_report": win.reports_page.class_report_page.active_year_id,
+        "teacher_report": win.reports_page.teacher_report_page.active_year_id,
+        "promotion": win.academic_structure_page.promotion_page.active_year_id,
+    }
+    _switch_detail = (f"ok={_switch_ok} msg={_switch_msg!r} active={_active_after.id if _active_after else None} "
+                      f"signal_synced={_synced_via_signal} combos={_combo_state} active_state={_active_state} nested={_nested_state} "
+                      f"errors={[m for m in ui_msgs[_msgs_before_switch:] if m[0] != 'info'][:2]}")
+    check("N", "تغییر سال با set_active_year: سال فعال دیتابیس عوض می‌شود، سیگنال academic_year_changed گیرندهٔ واقعی دارد و همهٔ ۱۳ صفحهٔ وابسته به سال (بدون استثنا و بدون پیام خطا) همگام می‌شوند",
+          _switch_ok
+          and _active_after is not None and _active_after.id == _year2.id
+          and win.year_combo.currentData() == _year2.id
+          and _year2.title in win.year_label.text()
+          and _synced_via_signal and not _skipped_via_signal
+          and len(_synced_via_signal) == 13
+          and all(value == _year2.id for value in _active_state.values())
+          and all(value == _year2.id for value in _combo_state.values())
+          and all(value == _year2.id for value in _nested_state.values())
+          and not [m for m in ui_msgs[_msgs_before_switch:] if m[0] != "info"],
+          _switch_detail)
+except Exception as _switch_exc:
+    check("N", "تغییر سال با set_active_year و همگام‌سازی همهٔ صفحه‌ها", False,
+          f"{type(_switch_exc).__name__}: {_switch_exc} {_switch_detail}")
+
+# --- N3: «بدون حدس زدن سال فعال»: اگر سال فعال دیتابیس عوض شود ولی سامانه
+#         انتخاب صریح داشته باشد، صفحه‌ها همان انتخاب صریح را می‌گیرند
+_guess_ok = False
+_guess_detail = ""
+try:
+    _dl_conn = dbc.DatabaseConnection().get_connection()
+    _dl_conn.execute("UPDATE academic_years SET is_active = 0 WHERE id = ?", (_year2.id,))
+    _dl_conn.execute("UPDATE academic_years SET is_active = 1 WHERE id = ?", (_original_active.id,))
+    _dl_conn.commit()
+    _explicit = win.observations_page.effective_year()
+    _no_explicit_page = win.indicators_page.effective_year()
+    _guess_ok = (_explicit is not None and _explicit.id == _year2.id
+                 and _no_explicit_page is not None and _no_explicit_page.id == _year2.id)
+    _guess_detail = (f"db_active={AcademicYearDAL().get_active().id} "
+                     f"observations_effective={getattr(_explicit, 'id', None)} "
+                     f"indicators_effective={getattr(_no_explicit_page, 'id', None)}")
+except Exception as _guess_exc:
+    _guess_detail = f"{type(_guess_exc).__name__}: {_guess_exc}"
+check("N", "بدون حدس زدن: اگر سال فعال دیتابیس بیرون از برنامه عوض شود، صفحه‌های وابسته به سال همچنان سال اعلام‌شدهٔ سامانه را می‌خوانند (نه سال فعال دیتابیس)",
+      _guess_ok, _guess_detail)
+
+# --- N4: سال بایگانی‌شده فعال نمی‌شود و برگشت به سال قبلی بی‌خطا انجام می‌شود
+_archive_ok = False
+_archive_detail = ""
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        AcademicYearDAL().set_active(_year2.id)
+    _mw_msgs = len(ui_msgs)
+    with contextlib.redirect_stdout(io.StringIO()):
+        _archived_ok, _archived_msg = win.set_active_year(
+            next(y.id for y in AcademicYearDAL().get_all(include_archived=True)
+                 if getattr(y, "is_archived", 0) == 1))
+    _still = AcademicYearDAL().get_active()
+    _archive_ok = (not _archived_ok and _still is not None and _still.id == _year2.id)
+    _archive_detail = f"ok={_archived_ok} msg={_archived_msg!r} active={_still.id if _still else None}"
+except Exception as _archive_exc:
+    _archive_detail = f"{type(_archive_exc).__name__}: {_archive_exc}"
+check("N", "سال بایگانی‌شده فعال نمی‌شود: set_active_year با False و پیام روشن برمی‌گردد و سال فعال دست‌نخورده می‌ماند",
+      _archive_ok, _archive_detail)
+
+# --- بازگرداندن وضعیت اولیه برای بررسی‌های بعدی (بدون اثر جانبی)
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        win.set_active_year(_original_active.id)
+        AcademicYearDAL().delete(_year2.id)
+except Exception as _restore_exc:  # pragma: no cover
+    print(f"   ⚠️ بازگردانی سال اولیه پس از بخش N ممکن نشد: {_restore_exc}")
+
 # --- I4: قیدهای CHECK در دیتابیس تازه: شدت خارج از ۱..۵ و نوع رفتار ناشناخته در سطح دیتابیس رد می‌شوند
 sev_err = _integrity("INSERT INTO observations (student_profile_id, staff_id, observation_date, description, behavior, behavior_type, severity) "
                      "VALUES (?, 1, '1405/01/01', 'x', 'y', 'مثبت', 9)", (form_pid,))

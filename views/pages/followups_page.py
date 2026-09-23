@@ -33,9 +33,10 @@ from dal.teacher_assignment_dal import TeacherAssignmentDAL
 from services.followup_service import FollowUpService
 from utils.logger import get_logger
 from views.dialogs.followup_form import FollowUpForm
+from views.pages.year_sync import YearAwarePage
 
 
-class FollowUpsPage(QWidget):
+class FollowUpsPage(YearAwarePage, QWidget):
     """صفحه مدیریت پیگیری‌ها با جستجوی پیشرفته"""
     
     def __init__(self, parent=None):
@@ -204,6 +205,11 @@ class FollowUpsPage(QWidget):
         
         layout.addWidget(self.table)
     
+    def reload_for_year(self, year_id):
+        """بارگذاری دوبارهٔ پیگیری‌ها برای سال اعلام‌شده"""
+        self.load_followups()
+        return True
+
     def load_teachers(self):
         """بارگذاری معلمان در کامبوباکس"""
         try:
@@ -228,7 +234,7 @@ class FollowUpsPage(QWidget):
         status = self.status_filter_combo.currentData()
         
         try:
-            active_year = self.academic_year_dal.get_active()
+            active_year = self.effective_year()
             year_id = active_year.id if active_year else None
             if search_text:
                 if teacher_id:
@@ -247,7 +253,7 @@ class FollowUpsPage(QWidget):
             if status is not None:
                 followups = [f for f in followups if f.status == status]
             
-            active_year = self.academic_year_dal.get_active()
+            active_year = self.effective_year()
             if active_year:
                 interventions = self.intervention_dal.get_by_ids(f.intervention_id for f in followups)
                 profiles = self.profile_dal.get_by_ids(
@@ -275,10 +281,10 @@ class FollowUpsPage(QWidget):
     def load_followups(self):
         """بارگذاری پیگیری‌ها با استفاده از سرویس"""
         try:
-            active_year = self.academic_year_dal.get_active()
+            active_year = self.effective_year()
             year_id = active_year.id if active_year else None
             followups = self.followup_service.get_all_followups(limit=None, year_id=year_id)
-            active_year = self.academic_year_dal.get_active()
+            active_year = self.effective_year()
             if active_year:
                 interventions = self.intervention_dal.get_by_ids(f.intervention_id for f in followups)
                 profiles = self.profile_dal.get_by_ids(

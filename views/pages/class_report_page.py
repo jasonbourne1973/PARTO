@@ -40,11 +40,12 @@ from matplotlib.figure import Figure
 
 from utils.behavior_analysis import classify_pattern, pattern_label
 from utils.logger import get_logger
+from views.pages.year_sync import YearAwarePage
 
 logger = get_logger(__name__)
 
 
-class ClassReportPage(QWidget):
+class ClassReportPage(YearAwarePage, QWidget):
     """صفحه گزارش کلاس - بدون رتبه‌بندی"""
     
     def __init__(self, parent=None):
@@ -425,6 +426,11 @@ class ClassReportPage(QWidget):
         
         return tab
     
+    def reload_for_year(self, year_id):
+        """بارگذاری دوبارهٔ کلاس‌ها/گزارش کلاس برای سال اعلام‌شده"""
+        self.load_classes()
+        return True
+
     def load_academic_years(self):
         """بارگذاری سال‌های تحصیلی در کامبوباکس"""
         try:

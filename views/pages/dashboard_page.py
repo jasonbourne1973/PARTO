@@ -40,8 +40,10 @@ import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
+from views.pages.year_sync import YearAwarePage
 
-class DashboardPage(QWidget):
+
+class DashboardPage(YearAwarePage, QWidget):
     """
     صفحه داشبورد مدیریتی - بدون مقایسه و رتبه‌بندی
     
@@ -568,6 +570,15 @@ class DashboardPage(QWidget):
                 font-size: 11px;
             }
         """
+
+    def reload_for_year(self, year_id):
+        """بارگذاری دوبارهٔ داشبورد و تب تحلیل آن برای سال اعلام‌شده"""
+        self.load_dashboard_data()
+        analytics = getattr(self, "analytics_dashboard_page", None)
+        setter = getattr(analytics, "set_active_year", None)
+        if callable(setter):
+            setter(year_id)
+        return True
 
     def load_teachers(self):
         """بارگذاری لیست معلمان"""

@@ -46,9 +46,10 @@ from models.class_model import ClassModel
 from utils.logger import get_logger
 from views.dialogs.assign_teacher_dialog import AssignTeacherDialog
 from views.pages.promotion_page import PromotionPage
+from views.pages.year_sync import YearAwarePage
 
 
-class AcademicStructurePage(QWidget):
+class AcademicStructurePage(YearAwarePage, QWidget):
     """
     صفحه یکپارچه مدیریت ساختار آموزشی شامل سه بخش:
     1. مدیریت کلاس‌ها
@@ -692,6 +693,20 @@ class AcademicStructurePage(QWidget):
     # متدهای بارگذاری داده
     # ============================================================
     
+    def reload_for_year(self, year_id):
+        """
+        بارگذاری دوبارهٔ ساختار آموزشی و تب ارتقاء پایه
+
+        کامبوی سال این صفحه پیش از این متد هماهنگ شده است؛ فهرست
+        سال‌ها هم تازه می‌شود تا نشان «سال فعال» درست بماند.
+        """
+        self.load_academic_years()
+        promotion = getattr(self, "promotion_page", None)
+        setter = getattr(promotion, "set_active_year", None)
+        if callable(setter):
+            setter(year_id)
+        return True
+
     def load_initial_data(self):
         """بارگذاری داده‌های اولیه"""
         self.load_academic_years()

@@ -33,11 +33,12 @@ from dal.staff_dal import StaffDAL
 from services.dashboard_service import DashboardService
 from utils.chart_helper import ChartHelper
 from utils.logger import get_logger
+from views.pages.year_sync import YearAwarePage
 
 matplotlib.use('QtAgg')
 
 
-class AnalyticsDashboardPage(QWidget):
+class AnalyticsDashboardPage(YearAwarePage, QWidget):
     """
     صفحه داشبورد تحلیلی - بدون مقایسه و رتبه‌بندی
     
@@ -557,6 +558,12 @@ class AnalyticsDashboardPage(QWidget):
         except Exception as e:
             self.logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
     
+    def reload_for_year(self, year_id):
+        """بارگذاری دوبارهٔ تحلیل‌ها با سال اعلام‌شده (نه سال حدسی)"""
+        self.current_year_id = year_id
+        self.load_dashboard_data()
+        return True
+
     def load_teachers(self):
         """بارگذاری معلمان"""
         try:
