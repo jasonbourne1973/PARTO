@@ -365,7 +365,7 @@ class InterventionService(BaseService):
         """
         try:
             # دریافت همه مداخلات
-            interventions = self.intervention_dal.get_all(limit)
+            interventions = self.intervention_dal.get_all(limit=limit, academic_year_id=year_id, staff_id=teacher_id)
             
             # فیلتر بر اساس معلم
             interventions = [inter for inter in interventions if inter.staff_id == teacher_id]
@@ -391,7 +391,7 @@ class InterventionService(BaseService):
             self.logger.error(f"خطا در دریافت مداخلات معلم: {e}")
             raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
-    def get_all_interventions(self, limit=None, include_staff_info=False):
+    def get_all_interventions(self, limit=None, include_staff_info=False, year_id=None):
         """
         دریافت همه مداخلات
         
@@ -403,7 +403,7 @@ class InterventionService(BaseService):
             list: لیست مداخلات
         """
         try:
-            interventions = self.intervention_dal.get_all(limit)
+            interventions = self.intervention_dal.get_all(limit=limit, academic_year_id=year_id)
             
             for inter in interventions:
                 self._enrich_intervention(inter, include_staff_info)
@@ -711,7 +711,7 @@ class InterventionService(BaseService):
             self.logger.debug(f"خطای مدیریت‌شده در validate_intervention (مسیر جایگزین): {e}")
             return False, [str(e)]
 
-    def search_interventions(self, search_term, limit=100):
+    def search_interventions(self, search_term, limit=100, year_id=None):
         """
         جستجوی مداخلات بر اساس متن
         
@@ -723,7 +723,7 @@ class InterventionService(BaseService):
             list: لیست مداخلات مطابق با جستجو
         """
         try:
-            interventions = self.intervention_dal.search(search_term, limit)
+            interventions = self.intervention_dal.search(search_term, limit, academic_year_id=year_id)
             for inter in interventions:
                 self._enrich_intervention(inter)
             return interventions
@@ -731,7 +731,7 @@ class InterventionService(BaseService):
             self.logger.error(f"خطا در جستجوی مداخلات: {e}")
             raise ServiceError(f"خطا در جستجو: {e!s}")
     
-    def search_interventions_by_student(self, student_id, search_term):
+    def search_interventions_by_student(self, student_id, search_term, year_id=None):
         """
         جستجوی مداخلات یک دانش‌آموز بر اساس متن
         
@@ -743,7 +743,7 @@ class InterventionService(BaseService):
             list: لیست مداخلات مطابق با جستجو
         """
         try:
-            interventions = self.intervention_dal.search_by_student(student_id, search_term)
+            interventions = self.intervention_dal.search_by_student(student_id, search_term, academic_year_id=year_id)
             for inter in interventions:
                 self._enrich_intervention(inter)
             return interventions
@@ -751,7 +751,7 @@ class InterventionService(BaseService):
             self.logger.error(f"خطا در جستجوی مداخلات دانش‌آموز: {e}")
             raise ServiceError(f"خطا در جستجو: {e!s}")
     
-    def search_interventions_by_teacher(self, teacher_id, search_term):
+    def search_interventions_by_teacher(self, teacher_id, search_term, year_id=None):
         """
         جستجوی مداخلات یک معلم بر اساس متن
         
@@ -763,7 +763,7 @@ class InterventionService(BaseService):
             list: لیست مداخلات مطابق با جستجو
         """
         try:
-            interventions = self.intervention_dal.search_by_teacher(teacher_id, search_term)
+            interventions = self.intervention_dal.search_by_teacher(teacher_id, search_term, academic_year_id=year_id)
             for inter in interventions:
                 self._enrich_intervention(inter)
             return interventions
