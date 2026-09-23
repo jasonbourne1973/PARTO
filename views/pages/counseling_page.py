@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from dal.staff_dal import StaffDAL
+undefined
 from dal.student_dal import StudentDAL
 from services.counseling_service import CounselingService
 from utils.logger import get_logger
@@ -44,6 +44,8 @@ class CounselingPage(QWidget):
         self.counseling_service = CounselingService()
         self.student_dal = StudentDAL()
         self.staff_dal = StaffDAL()
+        self.profile_dal = StudentAcademicProfileDAL()
+        self.academic_year_dal = AcademicYearDAL()
         self.logger = get_logger(self.__class__.__name__)
         
         self.sessions = []
@@ -244,6 +246,11 @@ class CounselingPage(QWidget):
         """بارگذاری جلسات"""
         try:
             self.sessions = self.counseling_service.get_all_sessions()
+            active_year = self.academic_year_dal.get_active()
+            if active_year:
+                profiles = self.profile_dal.get_by_ids([s.student_profile_id for s in self.sessions if s.student_profile_id])
+                valid_profile_ids = {pid for pid, p in profiles.items() if p and p.academic_year_id == active_year.id}
+                self.sessions = [s for s in self.sessions if s.student_profile_id in valid_profile_ids]
             self.display_sessions(self.sessions)
         except Exception as e:
             QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری جلسات:\n{e!s}")
