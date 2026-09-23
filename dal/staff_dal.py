@@ -354,8 +354,11 @@ class StaffDAL:
             staff.is_deleted = row['is_deleted']
             staff.deleted_at = row['deleted_at']
             staff.deleted_by = row['deleted_by']
-        except (IndexError, KeyError):
+        except (IndexError, KeyError) as column_error:
             # ردیف/کوئری بدون این ستون‌ها: مقادیر پیش‌فرض مدل (None)
             # حفظ می‌شود و بقیهٔ اطلاعات بارگذاری می‌شود.
-            pass
+            logger.debug(
+                f"ستون‌های حذف منطقی برای این ردیف کارکنان موجود نبود "
+                f"({column_error})؛ مقادیر پیش‌فرض مدل حفظ شد."
+            )
         return staff

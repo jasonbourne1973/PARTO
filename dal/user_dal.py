@@ -707,9 +707,12 @@ class UserDAL:
             try:
                 from utils.security import normalize_entity_type
                 entity_type = normalize_entity_type(entity_type)
-            except (ImportError, AttributeError):
+            except (ImportError, AttributeError) as normalize_error:
                 # نسخهٔ قدیمیِ security بدون این تابع → نام خام حفظ می‌شود
-                pass
+                logger.debug(
+                    f"normalize_entity_type در دسترس نبود "
+                    f"({normalize_error})؛ نام موجودیت خام ثبت می‌شود."
+                )
             # ===== اصلاح (بازرسی دوازدهم) =====
             # اگر تریگر همان جدول/تغییر فعال است، ثبت دستی انجام
             # نمی‌شود تا ردیف تکراری ساخته نشود. (نام کاربر در ردیف

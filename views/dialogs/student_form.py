@@ -292,7 +292,22 @@ class StudentForm(QDialog):
     
     @single_submit()
     def save_student(self):
-        """ذخیره دانش‌آموز در دیتابیس"""
+        """
+        ذخیره دانش‌آموز در دیتابیس — اتمیک
+
+        (دور هفدهم — بند ۱۲ مأموریت) نسخهٔ قبلی سه نوشتن جدا با commit
+        مستقل انجام می‌داد:
+
+            student_dal.create/update      → commit
+            profile_dal.create/update      → commit
+            family_dal.upsert_family_facts → commit
+
+        اگر مرحلهٔ ۲ یا ۳ شکست می‌خورد، مرحلهٔ ۱ نوشته و commit شده بود؛
+        یعنی دانش‌آموزی بدون پروندهٔ سالانه («یتیم») در دیتابیس می‌ماند
+        در حالی که فرم هیچ پیام موفقیّتی نشان نداده بود. حالا هر سه نوشتن
+        در یک تراکنش واقعی انجام می‌شود؛ شکست در هر مرحله کل کار را
+        برمی‌گرداند و هیچ رکورد نیمه‌ساخته‌ای نمی‌ماند.
+        """
         self.student.first_name = self.first_name_input.text().strip()
         self.student.last_name = self.last_name_input.text().strip()
         self.student.father_name = self.father_name_input.text().strip()
@@ -316,6 +331,11 @@ class StudentForm(QDialog):
             QMessageBox.warning(self, "خطا در اعتبارسنجی", "\n".join(errors))
             return
 
+        db = self.student_dal.db
+        # در حالت ایجاد، مدل تا پیش از موفقیت همهٔ مراحل جایگزین نمی‌شود تا
+        # پس از rollback، فرم با شناسهٔ رکوردی که وجود ندارد رها نشود.
+        previous_student = self.student
+
         try:
             self._ensure_active_year()
             active_year = getattr(self, "_active_year", None)
@@ -326,65 +346,80 @@ class StudentForm(QDialog):
                 QMessageBox.critical(self, "خطا", "سال تحصیلی فعالی وجود ندارد.")
                 return
 
-            # 1) ذخیره دانش‌آموز
-            if self.is_edit_mode:
-                self.student_dal.update(self.student)
-                message = "دانش‌آموز با موفقیت ویرایش شد"
-            else:
-                saved_student = self.student_dal.create(self.student)
-                if not saved_student or not saved_student.id:
-                    raise Exception("شناسه دانش‌آموز پس از ذخیره برنگشت")
-                self.student = saved_student
-                message = "دانش‌آموز با موفقیت ثبت شد"
+            # ===== تراکنش واقعی: دانش‌آموز + پروندهٔ سالانه + زمینهٔ خانوادگی =====
+            db.begin_transaction()
+            try:
+                # 1) ذخیره دانش‌آموز
+                if self.is_edit_mode:
+                    if not self.student_dal.update(self.student):
+                        raise Exception("به‌روزرسانی دانش‌آموز در دیتابیس انجام نشد.")
+                    message = "دانش‌آموز با موفقیت ویرایش شد"
+                else:
+                    saved_student = self.student_dal.create(previous_student)
+                    if not saved_student or not saved_student.id:
+                        raise Exception("شناسه دانش‌آموز پس از ذخیره برنگشت")
+                    self.student = saved_student
+                    message = "دانش‌آموز با موفقیت ثبت شد"
 
-            if not self.student.id:
-                raise Exception("student.id نامعتبر است")
+                if not self.student.id:
+                    raise Exception("student.id نامعتبر است")
 
-            # 2) ذخیره پرونده سالانه
-            grade = self.grade_combo.currentData()
-            class_name = self.class_input.text().strip()
+                # 2) ذخیره پرونده سالانه
+                grade = self.grade_combo.currentData()
+                class_name = self.class_input.text().strip()
 
-            existing_profile = self.profile_dal.get_by_student_and_year(
-                self.student.id,
-                active_year.id
-            )
+                existing_profile = self.profile_dal.get_by_student_and_year(
+                    self.student.id,
+                    active_year.id
+                )
 
-            if existing_profile:
-                existing_profile.grade = grade
-                existing_profile.class_name = class_name
-                existing_profile.status = "active"
-                self.profile_dal.update(existing_profile)
-                profile_id = existing_profile.id
-            else:
-                from models.student_academic_profile import StudentAcademicProfile
+                if existing_profile:
+                    existing_profile.grade = grade
+                    existing_profile.class_name = class_name
+                    existing_profile.status = "active"
+                    if not self.profile_dal.update(existing_profile):
+                        raise Exception("به‌روزرسانی پروندهٔ سالانه انجام نشد.")
+                    profile_id = existing_profile.id
+                else:
+                    from models.student_academic_profile import StudentAcademicProfile
 
-                new_profile = StudentAcademicProfile()
-                new_profile.student_id = self.student.id
-                new_profile.academic_year_id = active_year.id
-                new_profile.grade = grade
-                new_profile.class_name = class_name
-                new_profile.status = "active"
+                    new_profile = StudentAcademicProfile()
+                    new_profile.student_id = self.student.id
+                    new_profile.academic_year_id = active_year.id
+                    new_profile.grade = grade
+                    new_profile.class_name = class_name
+                    new_profile.status = "active"
 
-                logger.debug(f"DEBUG profile -> student_id={new_profile.student_id}, academic_year_id={new_profile.academic_year_id}")
+                    saved_profile = self.profile_dal.create(new_profile)
+                    profile_id = getattr(saved_profile, 'id', None) or new_profile.id
 
-                saved_profile = self.profile_dal.create(new_profile)
-                profile_id = getattr(saved_profile, 'id', None) or new_profile.id
+                if not profile_id:
+                    raise Exception("شناسهٔ پروندهٔ سالانه پس از ذخیره برنگشت")
 
-            if not profile_id:
-                raise Exception("شناسهٔ پروندهٔ سالانه پس از ذخیره برنگشت")
+                # 3) ذخیرهٔ اطلاعات خانوادگی در جای قانونی‌اش (family_contexts)
+                #    upsert تک‌ردیفی + بررسی rowcount + بازخوانی از دیتابیس.
+                saved_family = self.family_dal.upsert_family_facts(
+                    profile_id,
+                    living_status=family_inputs['living_status'],
+                    siblings_brothers=family_inputs['siblings_brothers'],
+                    siblings_sisters=family_inputs['siblings_sisters'],
+                )
+                self.existing_family = saved_family
 
-            # 3) ذخیرهٔ اطلاعات خانوادگی در جای قانونی‌اش (family_contexts)
-            #    upsert تک‌ردیفی + بررسی rowcount + بازخوانی از دیتابیس.
-            saved_family = self.family_dal.upsert_family_facts(
-                profile_id,
-                living_status=family_inputs['living_status'],
-                siblings_brothers=family_inputs['siblings_brothers'],
-                siblings_sisters=family_inputs['siblings_sisters'],
-            )
-            self.existing_family = saved_family
+                db.commit_transaction()
+            except Exception:
+                # هر شکستی داخل تراکنش، کل سه نوشتن را برمی‌گرداند
+                db.rollback_transaction()
+                if not self.is_edit_mode:
+                    self.student = previous_student
+                raise
 
             QMessageBox.information(self, "موفقیت", message)
             self.accept()
 
         except Exception as e:
+            # نه بی‌صدا و نه نیمه‌کاره: rollback + traceback کامل در لاگ
+            if db.in_transaction:
+                db.rollback_transaction()
+            logger.error(f"خطا در ذخیرهٔ دانش‌آموز: {e}", exc_info=True)
             QMessageBox.critical(self, "خطا", f"مشکل در ذخیره اطلاعات:\n{e!s}")

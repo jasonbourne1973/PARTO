@@ -242,7 +242,13 @@ class StudentAcademicProfileDAL:
         return [self._row_to_profile(row) for row in rows]
 
     def update(self, profile):
-        """به‌روزرسانی پرونده"""
+        """
+        به‌روزرسانی پرونده
+
+        (دور هفدهم — بند ۱۳ مأموریت) نتیجهٔ UPDATE بررسی می‌شود؛ اگر ردیفی
+        تغییر نکرده باشد (پرونده وجود ندارد یا حذف‌شده است) `None` برمی‌گردد
+        و در لاگ هشدار ثبت می‌شود تا «موفقیت صوری» باقی نماند.
+        """
         conn = self.db.get_connection()
         cursor = conn.cursor()
 
@@ -263,7 +269,14 @@ class StudentAcademicProfileDAL:
                 profile.id
             ))
 
+            affected = cursor.rowcount
             self.db.commit()
+            if affected == 0:
+                logger.warning(
+                    f"به‌روزرسانی پروندهٔ سالانه {profile.id} روی دیتابیس اثر "
+                    "نکرد (پرونده وجود ندارد یا حذف‌شده است)."
+                )
+                return None
             return profile
 
         except sqlite3.Error as e:

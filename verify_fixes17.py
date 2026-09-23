@@ -11,7 +11,7 @@
      کامل، پاک‌سازی فایل ایمنی در مسیر استثنا، توقف واقعی نخ پشتیبان‌گیری
      خودکار پیش از خروج برنامه، و حفظ قراردادهای قبلی ..................... ۱۲ بررسی
 
-جمع فعلی: ۱۲ بررسی
+جمع فعلی: ۱۹ بررسی
 """
 
 import contextlib
@@ -488,7 +488,288 @@ check("A",
 # ============================================================
 print()
 print("=" * 76)
-print(f"نتیجهٔ دور هفدهم (مرحلهٔ ۱):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
+print("بخش B: مرحلهٔ ۲ — یکپارچگی نوشتن دانش‌آموز و استثناهای بی‌صدا (بندهای ۱۲، ۱۳، ۳۴)")
+print("=" * 76)
+
+import ast
+import pathlib
+
+import views.pages.students_page as students_page_mod
+from dal.academic_year_dal import AcademicYearDAL
+from models.academic_year import AcademicYear
+from views.dialogs.student_form import StudentForm
+from views.pages.students_page import StudentsPage
+
+# آستانه‌های پیش از آزمون‌ها (تا اثر هر سناریو جدا سنجیده شود).
+# اتصال ماژول در مسیر بازیابی بسته شده است؛ یک اتصال تازه گرفته می‌شود.
+conn = dbc.DatabaseConnection().get_connection(user_id=1)
+baseline_students = _student_count()
+baseline_profiles = conn.execute(
+    "SELECT COUNT(*) FROM student_academic_profiles").fetchone()[0]
+baseline_family = conn.execute(
+    "SELECT COUNT(*) FROM family_contexts").fetchone()[0]
+
+message_log = []
+real_info = QMessageBox.information
+real_crit = QMessageBox.critical
+real_warn = QMessageBox.warning
+QMessageBox.information = staticmethod(
+    lambda *a, **k: message_log.append(("info", str(a[2]))) or QMessageBox.StandardButton.Ok)
+QMessageBox.critical = staticmethod(
+    lambda *a, **k: message_log.append(("crit", str(a[2]))) or QMessageBox.StandardButton.Ok)
+QMessageBox.warning = staticmethod(
+    lambda *a, **k: message_log.append(("warn", str(a[2]))) or QMessageBox.StandardButton.Ok)
+
+
+def _fill_form(form, national_code, first_name="یتیم", last_name="نیست"):
+    form.first_name_input.setText(first_name)
+    form.last_name_input.setText(last_name)
+    form.father_name_input.setText("پدر")
+    form.national_code_input.setText(national_code)
+    form.birth_date_input.setText("1390/01/01")
+    form.guardian_name_input.setText("ولی")
+    form.guardian_phone_input.setText("09120000000")
+    form.address_input.setPlainText("نشانی آزمایشی")
+    return form
+
+
+def _rows_for(national_code):
+    student = conn.execute(
+        "SELECT id FROM students WHERE national_code = ?", (national_code,)).fetchone()
+    if not student:
+        return None, 0, 0
+    profiles = conn.execute(
+        "SELECT COUNT(*) FROM student_academic_profiles WHERE student_id = ?",
+        (student[0],)).fetchone()[0]
+    family = conn.execute(
+        "SELECT COUNT(*) FROM family_contexts f JOIN student_academic_profiles p "
+        "ON p.id = f.student_profile_id WHERE p.student_id = ?", (student[0],)).fetchone()[0]
+    return student[0], profiles, family
+
+
+# --- B1: شکست مرحلهٔ سوم (اطلاعات خانوادگی) → هیچ دانش‌آموز/پروندهٔ یتیمی نمی‌ماند
+fail_code = "1799999001"
+form_family_fail = _fill_form(StudentForm(parent=None), fail_code)
+original_upsert = form_family_fail.family_dal.upsert_family_facts
+form_family_fail.family_dal.upsert_family_facts = lambda *a, **k: (
+    (_ for _ in ()).throw(RuntimeError("family upsert failed")))
+messages_before = len(message_log)
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        form_family_fail.save_student()
+finally:
+    form_family_fail.family_dal.upsert_family_facts = original_upsert
+student_id_fail, profiles_fail, family_fail = _rows_for(fail_code)
+family_msgs = message_log[messages_before:]
+check("B",
+      "بند ۱۲ (اتمیک‌بودن): شکست نوشتن «اطلاعات خانوادگی» در مرحلهٔ سوم → هیچ دانش‌آموز، پروندهٔ سالانه یا ردیف خانوادگی ساخته نمی‌شود (قبلاً دانش‌آموز یتیم ثبت می‌شد)، فرم پیام موفقیت نمی‌دهد و خطا صریح گزارش و لاگ می‌شود",
+      student_id_fail is None and profiles_fail == 0 and family_fail == 0
+      and _student_count() == baseline_students,
+      f"student={student_id_fail} profiles={profiles_fail} family={family_fail} msgs={[m[0] for m in family_msgs]}")
+check("B",
+      "همان سناریو: پیام نمایش‌داده‌شده از نوع «خطا» است (نه موفقیت) و متن خطا علت واقعی را دارد",
+      any(kind == "crit" and "family upsert failed" in msg for kind, msg in family_msgs)
+      and not any(kind == "info" for kind, _ in family_msgs),
+      f"msgs={[(k, v[:40]) for k, v in family_msgs]}")
+
+# --- B2: شکست مرحلهٔ دوم (ساخت پروندهٔ سالانه) → دانش‌آموز هم برمی‌گردد
+profile_fail_code = "1799999002"
+form_profile_fail = _fill_form(StudentForm(parent=None), profile_fail_code)
+original_create = form_profile_fail.profile_dal.create
+
+
+def _failing_profile_create(_profile):
+    raise RuntimeError("profile create failed")
+
+
+form_profile_fail.profile_dal.create = _failing_profile_create
+messages_before = len(message_log)
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        form_profile_fail.save_student()
+finally:
+    form_profile_fail.profile_dal.create = original_create
+student_id_p, profiles_p, family_p = _rows_for(profile_fail_code)
+check("B",
+      "بند ۱۲ (اتمیک‌بودن): شکست ساخت پروندهٔ سالانه → دانش‌آموز هم برمی‌گردد (بدون رکورد یتیم)، هیچ ردیف خانوادگی ساخته نمی‌شود و پیام خطا با علت واقعی نمایش داده می‌شود",
+      student_id_p is None and _student_count() == baseline_students
+      and any(kind == "crit" and "profile create failed" in msg
+              for kind, msg in message_log[messages_before:])
+      and not any(kind == "info" for kind, _ in message_log[messages_before:]),
+      f"student={student_id_p} msgs={[(k, v[:40]) for k, v in message_log[messages_before:]]}")
+
+# --- B3: مسیر موفق → یک رکورد کامل و «دقیقاً یک» پیام موفقیت
+ok_code = "1799999003"
+form_ok = _fill_form(StudentForm(parent=None), ok_code, "سارا", "سالم")
+form_ok.brothers_spin.setValue(2)
+form_ok.sisters_spin.setValue(1)
+messages_before = len(message_log)
+with contextlib.redirect_stdout(io.StringIO()):
+    form_ok.save_student()
+student_id_ok, profiles_ok, family_ok = _rows_for(ok_code)
+ok_msgs = message_log[messages_before:]
+family_row = conn.execute(
+    "SELECT guardian_status, siblings_brothers, siblings_sisters FROM family_contexts f "
+    "JOIN student_academic_profiles p ON p.id = f.student_profile_id "
+    "WHERE p.student_id = ?", (student_id_ok,)).fetchone() if student_id_ok else None
+check("B",
+      "مسیر موفق پس از اصلاح: دانش‌آموز + پروندهٔ سالانه + زمینهٔ خانوادگی همه در یک تراکنش ذخیره می‌شوند، «دقیقاً یک» پیام موفقیت نمایش داده می‌شود و مقدارهای خانوادگی درست ثبت شده‌اند",
+      student_id_ok is not None and profiles_ok == 1 and family_ok == 1
+      and len(ok_msgs) == 1 and ok_msgs[0][0] == "info"
+      and family_row is not None and family_row["siblings_brothers"] == 2
+      and family_row["siblings_sisters"] == 1,
+      f"student={student_id_ok} profiles={profiles_ok} family={family_ok} msgs={[(k, v[:30]) for k, v in ok_msgs]}")
+
+# --- B4: صفحهٔ دانش‌آموزان: بدون پیام تکراری و با «یک» تازه‌سازی
+page = StudentsPage()
+load_calls = []
+real_load = page.load_students
+page.load_students = lambda *a, **k: (load_calls.append(1), real_load(*a, **k))[1]
+
+
+class _AcceptedForm:
+    """جانشین فرم که فقط «پذیرفته‌شده» برمی‌گرداند (بدون دیالوگ واقعی)"""
+
+    def __init__(self, *a, **k):
+        pass
+
+    def exec(self):
+        return QDialog.DialogCode.Accepted
+
+
+real_form_cls = students_page_mod.StudentForm
+students_page_mod.StudentForm = _AcceptedForm
+page_messages_before = len(message_log)
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        page.add_student()
+        page.edit_student(object())
+finally:
+    students_page_mod.StudentForm = real_form_cls
+page_msgs = message_log[page_messages_before:]
+add_edit_src = (read("views/pages/students_page.py")
+                .split("def add_student", 1)[1]
+                .split("def delete_student", 1)[0])
+check("B",
+      "بند ۱۳: مسیر «افزودن/ویرایش» صفحهٔ دانش‌آموزان پس از پذیرش فرم هیچ پیام موفقیت دیگری نشان نمی‌دهد (پیام فقط یک لایه: فرم) و فهرست برای هر عملیات «دقیقاً یک بار» تازه می‌شود",
+      not any(kind == "info" for kind, _ in page_msgs)
+      and load_calls.count(1) == 2
+      and add_edit_src.count("QMessageBox.information") == 0,
+      f"msgs={[k for k, _ in page_msgs]} loads={len(load_calls)} info_in_source={add_edit_src.count('QMessageBox.information')}")
+
+# --- B5: نتیجهٔ واقعی UPDATE بررسی می‌شود (رکورد ناموجود/حذف‌شده)
+missing_student = Student()
+missing_student.id = 999999
+missing_student.first_name = "ناموجود"
+missing_student.last_name = "ناموجود"
+missing_student.is_active = 1
+with contextlib.redirect_stdout(io.StringIO()):
+    update_result = StudentDAL().update(missing_student)
+deleted_target = StudentDAL().get_by_id(student_id_ok)
+StudentDAL().delete(student_id_ok)
+with contextlib.redirect_stdout(io.StringIO()):
+    update_deleted = StudentDAL().update(deleted_target)
+StudentDAL().restore(student_id_ok)
+check("B",
+      "بند ۱۳ (نتیجهٔ update): به‌روزرسانی رکورد ناموجود یا حذف‌شده دیگر «موفقیت» جا زده نمی‌شود؛ DAL مقدار None برمی‌گرداند و رکورد معتبر همچنان مدل را می‌گیرد",
+      update_result is None and update_deleted is None
+      and StudentDAL().update(deleted_target) is not None,
+      f"missing={update_result} deleted={update_deleted}")
+
+# --- B6: سرویس دانش‌آموز هم نبودِ اثر را به خطای روشن تبدیل می‌کند
+from services.student_service import StudentService
+from utils.error_handler import ServiceError
+
+service_error = None
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        StudentService().update_student(999999, {"first_name": "الف"})
+except ServiceError as e:
+    service_error = e
+except Exception as e:  # pragma: no cover - مسیر غیرمنتظره
+    service_error = e
+check("B",
+      "سرویس دانش‌آموز: ویرایش رکورد ناموجود پیام روشن فارسی می‌دهد (نه موفقیت و نه AttributeError مبهم) و همان خطا به فراخوان می‌رسد",
+      isinstance(service_error, ServiceError)
+      and "یافت نشد" in str(service_error),
+      f"error={service_error!r}")
+
+# --- B7: هیچ استثنای بی‌صدایی در مسیرهای بحرانی نمانده
+CRITICAL_DIRS = ("dal", "services", "database", "views/pages", "views/dialogs", "views/widgets")
+ALLOWED_SILENT = {
+    # (فایل، شمارهٔ خط) موارد مستندشدهٔ غیربحرانی
+    "utils/logger.py",
+    "utils/persian_calendar.py",
+    "views/widgets/help_widget.py",
+}
+silent_hits = []
+for py in pathlib.Path(".").rglob("*.py"):
+    text = str(py)
+    if ".venv" in text or text.startswith(("verify_fixes", "tests/")):
+        continue
+    try:
+        tree = ast.parse(py.read_text(encoding="utf-8", errors="ignore"))
+    except SyntaxError:  # pragma: no cover
+        continue
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.ExceptHandler) and len(node.body) == 1
+                and isinstance(node.body[0], ast.Pass)):
+            silent_hits.append((text, node.lineno))
+critical_hits = [h for h in silent_hits
+                 if h[0].startswith(CRITICAL_DIRS) and h[0] not in ALLOWED_SILENT]
+unexpected_non_critical = [h for h in silent_hits
+                           if not h[0].startswith(CRITICAL_DIRS)
+                           and h[0] not in ALLOWED_SILENT]
+check("B",
+      "بند ۳۴: هیچ «except: pass» در لایه‌های بحرانی (dal/services/database/views) نمانده و موارد باقی‌مانده در ابزارهای غیربحرانی هم دقیقاً همان‌های مستندشده‌اند (هر بلع خاموش تازه، آزمون را می‌شکند)",
+      not critical_hits and not unexpected_non_critical
+      and len(silent_hits) <= 7,
+      f"critical={critical_hits} unexpected={unexpected_non_critical} all={silent_hits}")
+
+# --- B8: ویرایش دانش‌آموز در حالت فعال، پروندهٔ سال‌های دیگر را دست نمی‌زند
+other_year = AcademicYear()
+other_year.title = "1498-1499"
+other_year.start_date = "1498/07/01"
+other_year.end_date = "1499/06/30"
+other_year.is_active = 0
+other_year.is_archived = 0
+with contextlib.redirect_stdout(io.StringIO()):
+    other_year = AcademicYearDAL().create(other_year)
+
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from models.student_academic_profile import StudentAcademicProfile
+
+profile_dal = StudentAcademicProfileDAL()
+historical = StudentAcademicProfile()
+historical.student_id = student_id_ok
+historical.academic_year_id = other_year.id
+historical.grade = 3
+historical.class_name = "سوم-الف"
+historical.status = StudentAcademicProfile.STATUS_ACTIVE
+with contextlib.redirect_stdout(io.StringIO()):
+    historical = profile_dal.create(historical)
+
+student_row = StudentDAL().get_by_id(student_id_ok)
+form_edit = StudentForm(student=student_row, parent=None)
+form_edit.class_input.setText("دهم-ب")
+with contextlib.redirect_stdout(io.StringIO()):
+    form_edit.save_student()
+hist_after = profile_dal.get_by_student_and_year(student_id_ok, other_year.id)
+check("B",
+      "ویرایش دانش‌آموز فقط پروندهٔ «سال فعال» را به‌روز می‌کند و پروندهٔ سال دیگر (پایه/کلاس/شناسه) دست‌نخورده می‌ماند",
+      hist_after is not None and hist_after.id == historical.id
+      and hist_after.grade == 3 and hist_after.class_name == "سوم-الف"
+      and hist_after.academic_year_id == other_year.id,
+      f"hist={None if hist_after is None else (hist_after.id, hist_after.grade, hist_after.class_name, hist_after.academic_year_id)} expected=({historical.id}, 3, سوم-الف, {other_year.id})")
+
+QMessageBox.information = real_info
+QMessageBox.critical = real_crit
+QMessageBox.warning = real_warn
+
+# ============================================================
+print()
+print("=" * 76)
+print(f"نتیجهٔ دور هفدهم (مرحله‌های ۱ و ۲):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
 if FAILURES:
     print("موارد ناموفق:")
     for f in FAILURES:

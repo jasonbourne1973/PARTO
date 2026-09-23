@@ -221,7 +221,14 @@ class StudentService(BaseService):
             self._validate_birth_date(student.birth_date)
             
             # 5. ذخیره در دیتابیس
+            # (دور هفدهم) اگر DAL نتیجهٔ «هیچ ردیفی تغییر نکرد» بدهد،
+            # نباید موفقیت اعلام شود؛ پیام روشن داده می‌شود.
             updated_student = self.student_dal.update(student)
+            if updated_student is None:
+                raise ServiceError(
+                    f"ویرایش دانش‌آموز با شناسه {student_id} انجام نشد؛ "
+                    "رکورد تغییر نکرد (احتمالاً در همین فاصله حذف شده است)."
+                )
             
             # 6. ثبت Audit Log
             self.log_audit(

@@ -137,7 +137,15 @@ class StudentDAL:
         return [self._row_to_student(row) for row in rows]
 
     def update(self, student):
-        """به‌روزرسانی دانش‌آموز - فقط رکوردهای موجود"""
+        """
+        به‌روزرسانی دانش‌آموز - فقط رکوردهای موجود
+
+        (دور هفدهم — بند ۱۳ مأموریت) نتیجهٔ UPDATE واقعاً بررسی می‌شود:
+        پیش از این، اگر رکورد وجود نداشت یا حذف‌شده بود، این متد مثل
+        «موفقیت» رفتار می‌کرد و مدل را برمی‌گرداند (هیچ ردیفی تغییر نکرده
+        بود). حالا در آن حالت `None` برمی‌گردد و در لاگ هم هشدار ثبت
+        می‌شود تا لایهٔ بالا بتواند نبودِ اثر را تشخیص دهد.
+        """
         conn = self.db.get_connection()
         cursor = conn.cursor()
 
@@ -166,7 +174,14 @@ class StudentDAL:
                 student.id
             ))
 
+            affected = cursor.rowcount
             self.db.commit()
+            if affected == 0:
+                logger.warning(
+                    f"به‌روزرسانی دانش‌آموز {student.id} روی دیتابیس اثر نکرد "
+                    "(رکورد وجود ندارد یا حذف‌شده است)."
+                )
+                return None
             student.national_code = national_code
             return student
 

@@ -541,9 +541,13 @@ class ObservationDAL:
                         f"{parts[0]}/{parts[1]}/W{week:02d}",
                         f"هفته {week} {parts[1]}"
                     )
-                except (ValueError, IndexError):
-                    # روز غیرعددی/ناقص → بازگشت به کلید ماهانه
-                    pass
+                except (ValueError, IndexError) as week_error:
+                    # روز غیرعددی/ناقص → بازگشت به کلید ماهانه (رفتار
+                    # قبلی حفظ شده؛ فقط دیگر بی‌صدا نیست).
+                    logger.debug(
+                        f"کلید هفته برای «{date_str}» ساخته نشد "
+                        f"({week_error})؛ کلید ماهانه استفاده می‌شود."
+                    )
             return date_str[:7], date_str[:7]
 
         # daily

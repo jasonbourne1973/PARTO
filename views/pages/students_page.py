@@ -519,22 +519,33 @@ class StudentsPage(YearAwarePage, QWidget):
         self.student_double_clicked.emit(student.id)
     
     def add_student(self):
-        """افزودن دانش‌آموز جدید - باز کردن فرم ثبت"""
+        """
+        افزودن دانش‌آموز جدید - باز کردن فرم ثبت
+
+        (دور هفدهم — بند ۱۳ مأموریت) پیام موفقیت فقط در «یک» لایه نمایش
+        داده می‌شود: خودِ فرم پس از ذخیرهٔ موفق پیام می‌دهد. قبلاً همین
+        پیام این‌جا هم دوباره نشان داده می‌شد و کاربر برای یک ذخیره دو
+        پیام می‌دید. این‌جا فقط فهرست یک‌بار تازه می‌شود.
+        """
         try:
             form = StudentForm(parent=self)
             result = form.exec()
             if result == QDialog.DialogCode.Accepted:
                 self.load_students()
-                QMessageBox.information(self, "موفقیت", "دانش‌آموز با موفقیت ثبت شد")
         except Exception as e:
+            logger.error(f"خطا در باز کردن فرم دانش‌آموز: {e}", exc_info=True)
             QMessageBox.critical(self, "خطا", f"مشکل در باز کردن فرم:\n{e!s}")
     
     def edit_student(self, student):
-        """ویرایش دانش‌آموز"""
+        """
+        ویرایش دانش‌آموز
+
+        مثل «افزودن»، پیام موفقیت فقط از سمت فرم می‌آید و این‌جا تنها
+        فهرست یک‌بار تازه می‌شود (بدون پیام تکراری).
+        """
         form = StudentForm(student=student, parent=self)
         if form.exec() == QDialog.DialogCode.Accepted:
             self.load_students()
-            QMessageBox.information(self, "موفقیت", "دانش‌آموز با موفقیت ویرایش شد")
     
     def delete_student(self, student):
         """حذف دانش‌آموز"""
@@ -558,6 +569,8 @@ class StudentsPage(YearAwarePage, QWidget):
                         self, "خطا", "دانش‌آموز مورد نظر حذف نشد."
                     )
             except Exception as e:
+                # خطای حذف نباید بی‌صدا بماند: پیام کاربر + traceback در لاگ
+                logger.error(f"خطا در حذف دانش‌آموز {student.id}: {e}", exc_info=True)
                 QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
     # ===== متدهای جدید برای Excel =====
