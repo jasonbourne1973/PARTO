@@ -61,7 +61,9 @@ class GoalService(BaseService):
             goal.target_date = self.clean_date(data.get('target_date'))
             goal.start_date = self.clean_date(data.get('start_date'))
             goal.end_date = self.clean_date(data.get('end_date'))
-            goal.progress_percent = 0
+            goal.progress_percent = max(0, min(100, data.get('progress_percent', 0) or 0))
+            goal.progress_notes = data.get('progress_notes')
+            goal.result = data.get('result')
             goal.status = data.get('status', IndividualGoal.STATUS_DRAFT)
             
             errors = goal.validate()
@@ -96,6 +98,14 @@ class GoalService(BaseService):
                 data.get('target_date'), goal.target_date)
             goal.start_date = self.clean_date(data.get('start_date'), goal.start_date)
             goal.end_date = self.clean_date(data.get('end_date'), goal.end_date)
+            if 'progress_percent' in data:
+                goal.progress_percent = max(
+                    0, min(100, data.get('progress_percent') or 0)
+                )
+            if 'progress_notes' in data:
+                goal.progress_notes = data.get('progress_notes')
+            if 'result' in data:
+                goal.result = data.get('result')
             goal.status = data.get('status', goal.status)
             
             errors = goal.validate()
