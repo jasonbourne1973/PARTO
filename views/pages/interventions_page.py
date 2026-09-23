@@ -424,8 +424,15 @@ class InterventionsPage(QWidget):
         )
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                self.intervention_service.delete_intervention(intervention.id)
+                deleted = self.intervention_service.delete_intervention(
+                    intervention.id
+                )
                 self.filter_interventions()
-                QMessageBox.information(self, "موفقیت", "مداخله با موفقیت حذف شد")
+                if deleted:
+                    QMessageBox.information(
+                        self, "موفقیت", "مداخله با موفقیت حذف شد"
+                    )
+                else:
+                    QMessageBox.warning(self, "خطا", "مداخله حذف نشد.")
             except Exception as e:
                 QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
