@@ -85,7 +85,16 @@ class GoalService(BaseService):
             
             self._validate_goal_data(data, is_update=True)
             
-            goal.student_profile_id = data.get('student_profile_id', goal.student_profile_id)
+            requested_profile_id = data.get('student_profile_id')
+            if requested_profile_id:
+                requested_profile = self.profile_dal.get_by_id(requested_profile_id)
+                current_profile = self.profile_dal.get_by_id(goal.student_profile_id)
+                if (requested_profile and current_profile
+                        and requested_profile.student_id == current_profile.student_id):
+                    # ویرایش همان دانش‌آموز: پرونده تاریخی رکورد حفظ می‌شود.
+                    goal.student_profile_id = current_profile.id
+                else:
+                    goal.student_profile_id = requested_profile_id
             goal.assigned_to = data.get('assigned_to', goal.assigned_to)
             goal.related_competency_id = data.get('related_competency_id', goal.related_competency_id)
             goal.related_intervention_id = data.get('related_intervention_id', goal.related_intervention_id)
