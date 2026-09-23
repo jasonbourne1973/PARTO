@@ -1811,3 +1811,46 @@ ruff check .                              # All checks passed
 UI ثبت غربالگری (Screening) — قابلیت جدید؛ نمایش اطلاعات مدرسه در گزارش‌ها؛
 جابه‌جایی `utils/excel_importer.py` به `services/`؛ CHECK برای دیتابیس‌های
 موجود (نیازمند بازسازی جدول)؛ کلاس‌های خطای بی‌استفاده در `utils/error_handler.py`.
+
+---
+
+# بخش ۱۳ — بازبینی نهایی روی آخرین نسخهٔ تغییرات (مرحله‌های ۱ و ۲)
+
+این بخش از مستند، ثبتِ «بازبینی نهایی» روی آخرین نسخه است؛ بخش‌های
+قبلی دست‌نخورده مانده‌اند تا تاریخچهٔ داوری‌ها محفوظ بماند.
+
+## مرحله ۱ — رگرسیون P0: importهای گم‌شده (BROKEN → FIXED)
+
+| مورد | توضیح |
+|---|---|
+| فایل‌ها | `views/pages/activities_page.py`، `counseling_page.py`، `goals_page.py` |
+| ریشهٔ خطا | در آخرین نسخه، بلوک import با یک توکن نامعتبر `undefined` جایگزین شده بود و `StaffDAL`/`AcademicYearDAL` (و در مشاوره/اهداف `StudentAcademicProfileDAL`) دیگر import نمی‌شدند |
+| اثر واقعی | سه صفحه هنگام import با `NameError: name 'undefined' is not defined` می‌مردند؛ ساخت `MainWindow` شکست می‌خورد و `verify_fixes16.py` در خط ۹۷۶ سقوط می‌کرد (بخش‌های D تا L اصلاً اجرا نمی‌شدند) |
+| شاهد | هر سه صفحه و `MainWindow` دوباره import و ساخته می‌شوند؛ `verify_fixes16.py` کامل اجرا می‌شود |
+
+## مرحله ۲ — سه بررسی سرخ باقی‌مانده + دروازهٔ lint
+
+| # | بررسی | ریشهٔ خطا | اصلاح | شاهد |
+|---|---|---|---|---|
+| ۲-۱ | `[B]` شکست کپی پیوست‌ها در بازیابی | `utils/backup.py` در این حالت کل بازیابی دیتابیس را برمی‌گرداند و `success=False` می‌داد؛ خلافِ قرارداد مستندشده در BUG-014 و آزمون B8 | **تصمیم طراحی:** دیتابیس (بخش اصلی) بازیابی می‌شود و شکست پیوست‌ها صریح گزارش می‌شود: `attachments_restored=False` + پیام آغازشده با ⚠️ + نام پشتیبان `pre_restore` برای بازگشت. پوشهٔ پیوست‌های قبلی دست‌نخورده می‌ماند (بدون ازدست‌رفتن فایل) | `verify16 B8` + `B7` |
+| ۲-۲ | `[F]` `conn.commit()` خام در `dal/` | `dal/attachment_dal.permanent_delete` مستقیماً روی اتصال `commit()` می‌زد و تراکنش سرویس را می‌شکست | `self.db.commit()` (داخل تراکنش بی‌اثر، بیرون از آن commit واقعی)؛ در مسیر «ردیف پیدا نشد» به‌جای rollback کورکورانه، فقط تراکنش ضمنیِ sqlite بسته می‌شود (`if not self.db.in_transaction`) | `verify16 F1` (`raw_commits=0`) |
+| ۲-۳ | `[F]` exceptهای بی‌صدا | `dal/attachment_dal.py:176` (`except ValueError` بدون گزارش) و `:217` (`except Exception: pass`) | اولی با `logger.debug` + توضیح، دومی با `logger.warning` و نوع استثنای باریک (`sqlite3.Error`) طبق سیاست «مرز خطا» در `dal/` | `verify16 F5` + `verify9` |
+| ۲-۴ | پاک‌سازی فایل ایمنی | فایل `partow.db.restore_safety` در مسیرهای نیمه‌موفق/استثنا روی دیسک می‌ماند | پاک‌سازی در `finally` با گارد «اگر دیتابیس فعال وجود دارد» (وگرنه تنها نسخهٔ سالم همان فایل است)؛ نسخهٔ قبل از عملیات در پشتیبان `pre_restore` محفوظ است | `verify16 B7/B8` |
+| ۲-۵ | خطای واقعی `F821` | `dal/observation_dal.get_grouped_by_class` پارامتر `academic_year_id` را در امضا نداشت ولی در بدنه استفاده می‌کرد → هر فراخوانی `NameError` | پارامتر صریح `academic_year_id=None` هم‌شکل با `get_grouped_by_grade` | `ruff check .` |
+| ۲-۶ | دروازهٔ lint | ۱۵ خطای lint (از جمله `F401`، `I001`، `SIM118`، `RUF005`، `F821`) روی درخت کاری بود؛ `ruff` هم در `requirements.txt` نبود و `verify_fixes8/10` با «No such file or directory: ruff» رد می‌شدند | رفع همهٔ خطاها (بدون تغییر رفتار) + افزودن `ruff` به `requirements.txt` | `verify8` ۶۲/۰، `verify10` ۳۷/۰، `verify9` ۶/۰ |
+
+### نتیجهٔ باتری پس از مرحلهٔ ۲
+
+| مجموعه | نتیجه |
+|---|---|
+| `pytest -q tests` | ۲۶ passed |
+| `verify_fixes.py` … `verify_fixes4` | ۱۷ / ۳۲ / ۵۰ / سبز |
+| **`verify_fixes5`** | ۲۴ / ۱ — تنها ایراد، **خطای خودِ ابزار**: بازسازی کوئری پویا در `dal/followup_dal.py` توسط AST (پارامترها به‌جای `?`)؛ همان کوئری روی دیتابیس واقعی `EXPLAIN QUERY PLAN` را سبز می‌دهد |
+| `verify_fixes6` … `verify_fixes13` | همه سبز (۸: ۶۲/۰، ۹: ۶/۰، ۱۰: ۳۷/۰) |
+| **`verify_fixes14`** | ۴۵ / ۱ — N+1 واقعی در `StudentProfilePage.load_student_list` (۵۰۰ کوئری پرونده برای ۵۰۰ دانش‌آموز)؛ در مرحله‌های بعدی رفع می‌شود |
+| `verify_fixes15` | سبز |
+| **`verify_fixes16`** | **۹۳ / ۹۳** |
+
+> در مورد بازیابی: کلید `rollback_error` از دیکشنری نتیجهٔ `restore_backup`
+> حذف شد چون این مسیر دیگر وجود ندارد؛ هیچ مصرف‌کننده‌ای (UI/سرویس/آزمون)
+> به آن وابسته نبود.

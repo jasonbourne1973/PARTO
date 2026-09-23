@@ -2,7 +2,7 @@
 صفحه تنظیمات برنامه - نسخه کامل با مدیریت کاربران
 """
 
-from PySide6.QtCore import QSettings, QTimer, Qt
+from PySide6.QtCore import QSettings, Qt, QTimer
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QComboBox,

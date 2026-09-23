@@ -611,15 +611,18 @@ try:
 finally:
     shutil.copytree = real_copytree
 count_partial = conn.execute("SELECT COUNT(*) FROM students WHERE is_deleted = 0").fetchone()[0]
-check("B", "اگر کپی پیوست‌ها شکست بخورد: دیتابیس بازیابی شده، پوشهٔ پیوست‌های قبلی دست‌نخورده برگشته (نه پاک‌شده)، نتیجه صریحاً attachments_restored=False با ⚠️، بدون پوشهٔ ایمنی/موقت",
+check("B", "اگر کپی پیوست‌ها شکست بخورد: دیتابیس بازیابی شده، پوشهٔ پیوست‌های قبلی دست‌نخورده برگشته (نه پاک‌شده)، نتیجه صریحاً attachments_restored=False با ⚠️، نام پشتیبان pre_restore در پیام، بدون فایل/پوشهٔ ایمنی و موقت",
       res_partial["success"] and count_partial == count_before
       and res_partial.get("attachments_restored") is False
       and "copy interrupted" in str(res_partial.get("attachments_error"))
       and res_partial["message"].startswith("⚠️")
+      and os.path.basename(str(res_partial.get("pre_restore_file") or "?")) in res_partial["message"]
       and os.path.exists(os.path.join(ATT_DIR, "current_only.txt"))
       and not os.path.exists(ATT_DIR + ".restore_safety")
+      and not os.path.exists(TEST_DB + ".restore_safety")
       and not os.path.exists(os.path.join(BK_DIR, "temp_restore")),
-      f"count={count_partial} msg={str(res_partial.get('message'))[:90]}")
+      f"count={count_partial} msg={str(res_partial.get('message'))[:90]} "
+      f"safety={os.path.exists(TEST_DB + '.restore_safety')}")
 
 # --- B9: انتقال پشتیبان‌های پوشهٔ قدیمی (views/backups) بدون بازنویسی
 legacy_dir = os.path.join(TMP, "views", "backups")

@@ -316,8 +316,18 @@ class ObservationDAL:
     # متدهای گروهی برای گزارش کلاس (ادامه از بخش قبلی)
     # ============================================================
     
-    def get_grouped_by_class(self, class_name, start_date=None, end_date=None):
-        """دریافت مشاهدات گروه‌بندی شده بر اساس نوع رفتار برای یک کلاس"""
+    def get_grouped_by_class(self, class_name, academic_year_id=None,
+                             start_date=None, end_date=None):
+        """
+        دریافت مشاهدات گروه‌بندی شده بر اساس نوع رفتار برای یک کلاس
+
+        ``academic_year_id`` هم مثل ``get_grouped_by_grade`` یک پارامتر
+        صریح است. نسخهٔ قبلی این پارامتر را در امضا نداشت ولی در بدنه
+        از آن استفاده می‌کرد؛ یعنی هر فراخوانی این متد با
+        ``NameError: name 'academic_year_id' is not defined`` شکست
+        می‌خورد (خطای واقعی، نه سبک‌نگاری). حالا فیلتر سال هم واقعاً
+        کار می‌کند — و بدون آن، رفتار قبلی (همهٔ سال‌ها) حفظ می‌شود.
+        """
         try:
             conn = self.db.get_connection()
             cursor = conn.cursor()

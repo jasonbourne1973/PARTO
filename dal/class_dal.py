@@ -255,7 +255,8 @@ class ClassDAL:
                 AND sap.class_name = ?
                 AND o.is_deleted = 0
             """
-            obs_params = list(student_ids) + [
+            obs_params = [
+                *student_ids,
                 class_obj.academic_year_id,
                 class_obj.name,
             ]
@@ -362,7 +363,8 @@ class ClassDAL:
                 AND o.competency_id IS NOT NULL
                 AND o.is_deleted = 0
             """
-            obs_params = list(student_ids) + [
+            obs_params = [
+                *student_ids,
                 class_obj.academic_year_id,
                 class_obj.name,
             ]

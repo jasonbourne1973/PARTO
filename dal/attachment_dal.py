@@ -3,6 +3,7 @@
 """
 
 import os
+import sqlite3
 
 from config.settings import ATTACHMENTS_DIR
 from database.connection import DatabaseConnection
@@ -173,7 +174,15 @@ class AttachmentDAL:
                 real_file = os.path.realpath(file_path)
                 try:
                     inside_root = os.path.commonpath([attachments_root, real_file]) == attachments_root
-                except ValueError:
+                except ValueError as path_error:
+                    # مسیرهای روی درایوهای متفاوت (ویندوز) یا مسیر نسبی در
+                    # برابر مسیر مطلق: commonpath مقدار برنمی‌گرداند. در این
+                    # حالت مسیر «بیرون از پوشهٔ پیوست‌ها» فرض می‌شود تا حذف
+                    # فیزیکی روی فایل ناشناس انجام نشود.
+                    self.logger.debug(
+                        f"مسیر پیوست با پوشهٔ پیوست‌ها قابل مقایسه نبود "
+                        f"({path_error})؛ فایل حذف نمی‌شود."
+                    )
                     inside_root = False
                 if not inside_root or os.path.islink(file_path):
                     return False
@@ -191,11 +200,21 @@ class AttachmentDAL:
 
             cursor.execute("DELETE FROM attachments WHERE id = ?", (attachment_id,))
             if cursor.rowcount != 1:
-                conn.rollback()
+                # صفر ردیف یعنی هیچ‌چیز حذف نشده؛ پس کاری برای برگرداندن
+                # نیست و نباید تراکنش در جریان (سرویس فراخوان) هم به‌خاطر
+                # یک «پیدا نشد» برگردانده شود. فقط فایل قرنطینه‌شده برمی‌گردد.
+                #
+                # اگر تراکنشی از سرویس باز نباشد، تراکنش ضمنیِ sqlite که با
+                # همین DELETE باز شده بسته می‌شود تا «cannot start a
+                # transaction within a transaction» رخ ندهد.
+                if not self.db.in_transaction:
+                    self.db.rollback()
                 if quarantine_path and os.path.exists(quarantine_path):
                     os.replace(quarantine_path, file_path)
                 return False
-            conn.commit()
+            # commit فقط از لایهٔ سرویس یا از مسیر بدون تراکنش انجام می‌شود؛
+            # self.db.commit() داخل تراکنش بی‌اثر است (قرارداد connection.py).
+            self.db.commit()
 
             # بعد از commit، حذف نهایی دیگر نباید روی DB اثر بگذارد.
             if quarantine_path and os.path.exists(quarantine_path):
@@ -213,9 +232,15 @@ class AttachmentDAL:
             return True
         except Exception as e:
             try:
-                conn.rollback()
-            except Exception:
-                pass
+                self.db.rollback()
+            except sqlite3.Error as rollback_error:
+                # شکست rollback نباید مسیر گزارش خطای اصلی را عوض کند،
+                # ولی بی‌صدا هم نمی‌ماند (فایل قرنطینه هنوز برمی‌گردد).
+                # نوع استثنا باریک است تا سیاست «مرز خطا» در dal حفظ شود.
+                self.logger.warning(
+                    f"rollback حذف دائمی پیوست {attachment_id} ناموفق بود: "
+                    f"{rollback_error}"
+                )
             if quarantine_path and os.path.exists(quarantine_path):
                 try:
                     os.replace(quarantine_path, file_path)

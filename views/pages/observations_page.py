@@ -25,10 +25,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from dal.academic_year_dal import AcademicYearDAL
 from dal.competency_dal import CompetencyDAL
 from dal.staff_dal import StaffDAL
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.academic_year_dal import AcademicYearDAL
 from dal.student_dal import StudentDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
 from database.connection import DatabaseConnection

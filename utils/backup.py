@@ -536,6 +536,11 @@ class BackupManager:
         Returns:
             dict: نتیجه عملیات
         """
+        # در همهٔ مسیرهای خروج (موفق/نیمه‌موفق/استثنا) وضعیت این دو
+        # متغیر لازم است؛ پیش از try مقداردهی می‌شوند تا finally هم
+        # وقتی خطا پیش از ساخته‌شدنشان رخ دهد، خطای NameError ندهد.
+        safety_copy = None
+        pre_restore_file = None
         try:
             if not os.path.exists(backup_file):
                 return {
@@ -594,6 +599,7 @@ class BackupManager:
             self._cleanup_pre_restore_files()
 
             pre_restore = self.create_backup("pre_restore", user_id, user_name)
+            pre_restore_file = pre_restore.get('file')
             if not pre_restore['success']:
                 return {
                     'success': False,
@@ -690,9 +696,11 @@ class BackupManager:
                                    f"پشتیبانِ وضعیت قبلی هم در این فایل هست: "
                                    f"{pre_restore.get('file')}"
                     }
-                # فایل safety_copy عمداً تا پایان بازیابی پیوست‌ها نگه داشته می‌شود.
-                # اگر جایگزینی پیوست‌ها شکست بخورد، می‌توانیم دیتابیس را هم
-                # به وضعیت قبلی برگردانیم و از وضعیت نیمه‌کاره جلوگیری کنیم.
+                # فایل safety_copy تا پایان بازیابی پیوست‌ها نگه داشته
+                # می‌شود؛ اگر خودِ جایگزینی دیتابیس نیمه‌کاره بماند، همین
+                # فایل نسخهٔ قبلی را برمی‌گرداند. در پایانِ عملیات (هر
+                # مسیری که باشد) این فایل پاک می‌شود و نسخهٔ قبلی دیتابیس
+                # در پشتیبان pre_restore محفوظ می‌ماند.
             
             # بازیابی فایل‌های پیوست
             # (بازرسی شانزدهم) نسخهٔ قبلی اول پوشهٔ پیوست‌های فعلی را پاک
@@ -711,50 +719,38 @@ class BackupManager:
             # ثبت در لاگ
             self._log_backup_operation('restore', os.path.basename(backup_file), user_id, user_name)
 
-            message = (
-                f"✅ بازیابی با موفقیت از {os.path.basename(backup_file)} "
-                f"انجام شد.\n({detail})\n\n"
-                "برای اطمینان، برنامه را یک بار ببندید و دوباره باز کنید "
-                "تا همهٔ صفحه‌ها دادهٔ بازیابی‌شده را نشان دهند."
-            )
             if attachments_restored is False:
-                # Restore باید اتمیک از نظر «دیتابیس + پیوست‌ها» باشد:
-                # اگر DB جدید نصب شده ولی پیوست‌ها قابل بازیابی نیستند،
-                # DB قبلی را هم برمی‌گردانیم تا برنامه وارد وضعیت
-                # ناسازگار «DB جدید + فایل‌های قدیمی» نشود.
-                rollback_error = None
-                from database.connection import DB_THREAD_LOCK
-                with DB_THREAD_LOCK:
-                    try:
-                        if os.path.exists(safety_copy):
-                            self._quiesce_database()
-                            self._remove_quietly(self.db_path)
-                            os.replace(safety_copy, self.db_path)
-                            self._remove_journal_files()
-                        else:
-                            rollback_error = "فایل safety برای بازگردانی دیتابیس موجود نیست."
-                    except Exception as rollback_exc:
-                        rollback_error = str(rollback_exc)
-                message = (
-                    f"❌ بازیابی کامل انجام نشد. پیوست‌ها قابل بازیابی نبودند: "
-                    f"{attachments_error}"
-                )
-                if rollback_error:
-                    message += (
-                        f"\n⚠️ بازگردانی دیتابیس قبلی نیز ناموفق بود: {rollback_error}"
-                    )
-                else:
-                    message += "\nدیتابیس و پیوست‌ها به وضعیت قبل از Restore بازگردانده شدند."
+                # ===== تصمیم طراحی (بازبینی نهایی — قرارداد بازیابی) =====
+                # قرارداد مستندشده در docs/tech_audit_16_fa.md (BUG-014) و
+                # آزمون B8 در verify_fixes16.py: بخش اصلی بازیابی (دیتابیس)
+                # از پشتیبان نصب می‌شود و شکست پیوست‌ها به‌صورت صریح
+                # (attachments_restored=False + پیام آغازشده با ⚠️) گزارش
+                # می‌شود. پوشهٔ پیوست‌های قبلی هم — به لطف
+                # _swap_attachments_dir — دست‌نخورده برمی‌گردد، پس خطای کپی
+                # هرگز به ازدست‌رفتن فایل‌ها منجر نمی‌شود.
+                #
+                # نسخهٔ پیشین در این حالت کل بازیابی دیتابیس را هم برمی‌گرداند
+                # و success=False می‌داد؛ یعنی رفتار با همین قرارداد و آزمون
+                # نمی‌خواند. برای بازگشت کامل، کاربر همان پشتیبان pre_restore
+                # را دارد (نامش در پیام می‌آید) و فایل ایمنی هم پاک می‌شود.
                 return {
-                    'success': False,
-                    'message': message,
+                    'success': True,
+                    'message': (
+                        f"⚠️ بازیابی دیتابیس از "
+                        f"{os.path.basename(backup_file)} انجام شد، اما "
+                        f"پیوست‌ها بازیابی نشدند.\n"
+                        f"علت: {attachments_error}\n\n"
+                        "پیوست‌های فعلی دست‌نخورده باقی مانده‌اند. برای "
+                        "بازگشت به وضعیت قبل از این بازیابی، پشتیبان "
+                        f"«{os.path.basename(pre_restore_file or '')}» را "
+                        "بازیابی کنید."
+                    ),
                     'pre_restore_file': pre_restore.get('file'),
                     'checksum': checksum,
                     'journal_removed': journal_removed,
                     'detail': detail,
                     'attachments_restored': False,
                     'attachments_error': attachments_error,
-                    'rollback_error': rollback_error,
                 }
 
             # فقط پس از موفقیت DB و پیوست‌ها، فایل safety حذف می‌شود.
@@ -778,13 +774,26 @@ class BackupManager:
 
         except Exception as e:
             self.logger.error(f"خطا در بازیابی: {e}", exc_info=True)
+            backup_hint = ""
+            if pre_restore_file and os.path.exists(pre_restore_file):
+                backup_hint = (
+                    "\nپشتیبان وضعیت قبل از این عملیات همچنان موجود است: "
+                    f"{os.path.basename(pre_restore_file)}"
+                )
             return {
                 'success': False,
-                'message': f"❌ خطا در بازیابی: {e!s}"
+                'message': f"❌ خطا در بازیابی: {e!s}{backup_hint}"
             }
         finally:
             # پوشهٔ استخراج موقت در هر حالت (موفق/ناموفق/استثنا) پاک می‌شود
             shutil.rmtree(os.path.join(self.backup_dir, "temp_restore"), ignore_errors=True)
+            # فایل ایمنی دیتابیس (نسخهٔ قبل از بازیابی) هم در همهٔ مسیرها پاک
+            # می‌شود تا باقی‌ماندهٔ بی‌سروصدا روی دیسک نماند؛ ولی اگر دیتابیس
+            # فعال وجود نداشته باشد، هرگز حذف نمی‌شود چون در آن حالت همین
+            # فایل، تنها نسخهٔ سالم دیتابیس است. نسخهٔ قبل از عملیات هم در
+            # پشتیبان pre_restore (در پوشهٔ پشتیبان‌ها) محفوظ می‌ماند.
+            if safety_copy and os.path.exists(safety_copy) and os.path.exists(self.db_path):
+                self._remove_quietly(safety_copy)
 
     def _swap_attachments_dir(self, new_attachments_dir):
         """

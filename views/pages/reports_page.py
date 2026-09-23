@@ -345,7 +345,7 @@ class ReportsPage(QWidget):
                         student_id: self.profile_dal.get_by_student_and_year(
                             student_id, year_id
                         )
-                        for student_id in student_map.keys()
+                        for student_id in student_map
                     }
                 else:
                     profile_map = self.profile_dal.get_active_by_students(

@@ -380,9 +380,15 @@ class BackupPage(QWidget):
         """پایان عملیات Backup"""
         self.progress_bar.setVisible(False)
         self.set_buttons_enabled(True)
-        
+
         if success:
-            QMessageBox.information(self, "موفقیت", message)
+            # پیام ⚠️ یعنی عملیات کامل نشده (مثلاً: دیتابیس بازیابی شد ولی
+            # پیوست‌ها نه). چنین نتیجه‌ای نباید مثل «موفقیت کامل» نمایش داده
+            # شود؛ با آیکن هشدار و همان متن صریح نشان داده می‌شود.
+            if str(message).lstrip().startswith("⚠️"):
+                QMessageBox.warning(self, "هشدار", message)
+            else:
+                QMessageBox.information(self, "موفقیت", message)
             self.load_backups()
         else:
             QMessageBox.critical(self, "خطا", message)
