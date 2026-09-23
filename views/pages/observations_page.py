@@ -583,9 +583,14 @@ class ObservationsPage(QWidget):
         )
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                self.observation_service.delete_observation(obs.id)
+                deleted = self.observation_service.delete_observation(obs.id)
                 self.filter_observations()
-                QMessageBox.information(self, "موفقیت", "مشاهده با موفقیت حذف شد")
+                if deleted:
+                    QMessageBox.information(
+                        self, "موفقیت", "مشاهده با موفقیت حذف شد"
+                    )
+                else:
+                    QMessageBox.warning(self, "خطا", "مشاهده حذف نشد.")
             except Exception as e:
                 QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
