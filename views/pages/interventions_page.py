@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 
 from dal.staff_dal import StaffDAL
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.academic_year_dal import AcademicYearDAL
 from dal.student_dal import StudentDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
 from services.intervention_service import InterventionService
