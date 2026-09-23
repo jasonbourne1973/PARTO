@@ -27,7 +27,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-undefined
+from dal.academic_year_dal import AcademicYearDAL
+from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.student_dal import StudentDAL
 from models.individual_goal import IndividualGoal
 from services.goal_service import GoalService
