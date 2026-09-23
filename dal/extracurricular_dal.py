@@ -246,8 +246,9 @@ class ExtracurricularDAL:
             WHERE id = ? AND is_deleted = 1
         """, (activity_id,))
         
+        updated = cursor.rowcount > 0
         self.db.commit()
-        return True
+        return updated
     
     def get_activity_stats(self, profile_id):
         """دریافت آمار فعالیت‌های یک دانش‌آموز"""
