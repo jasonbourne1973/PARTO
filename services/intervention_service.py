@@ -169,9 +169,15 @@ class InterventionService(BaseService):
             # 4. به‌روزرسانی فیلدها
             student_id = data.get('student_id')
             if student_id:
-                profile = self._get_or_create_profile(student_id)
-                if profile:
-                    intervention.student_profile_id = profile.id
+                # در ویرایش، اگر دانش‌آموز عوض نشده باشد پرونده تاریخی رکورد
+                # باید حفظ شود؛ سال فعال نباید رکورد قدیمی را جابه‌جا کند.
+                current_profile = self.profile_dal.get_by_id(intervention.student_profile_id)
+                if current_profile and current_profile.student_id == student_id:
+                    intervention.student_profile_id = current_profile.id
+                else:
+                    profile = self._get_or_create_profile(student_id)
+                    if profile:
+                        intervention.student_profile_id = profile.id
             
             intervention.staff_id = data.get('staff_id', intervention.staff_id)
             intervention.observation_id = data.get('observation_id', intervention.observation_id)
