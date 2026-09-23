@@ -321,6 +321,10 @@ class ObservationDAL:
                 AND o.is_deleted = 0
             """
             params = [class_name]
+
+            if academic_year_id:
+                query += " AND sap.academic_year_id = ?"
+                params.append(academic_year_id)
             
             if start_date:
                 query += " AND o.observation_date >= ?"
@@ -400,8 +404,11 @@ class ObservationDAL:
             logger.error(f"خطا در دریافت مشاهدات گروهی پایه: {e}")
             return {'positive': 0, 'negative': 0, 'neutral': 0, 'total': 0, 'observations': []}
     
-    def get_trend_by_class(self, class_name, period='monthly', start_date=None, end_date=None):
-        """دریافت روند مشاهدات یک کلاس"""
+    def get_trend_by_class(
+        self, class_name, period='monthly', start_date=None, end_date=None,
+        academic_year_id=None
+    ):
+        """دریافت روند مشاهدات یک کلاس، با امکان محدودسازی به سال تحصیلی."""
         try:
             conn = self.db.get_connection()
             cursor = conn.cursor()
