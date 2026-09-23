@@ -455,9 +455,17 @@ class StudentProfilePage(QWidget):
             self.all_students = self.student_dal.get_all()
             self.student_select_combo.clear()
             self.student_select_combo.addItem("انتخاب دانش‌آموز...", None)
-            # پروندهٔ فعال دانش‌آموزان یک‌جا خوانده می‌شود (رفع N+1)
-            profile_map = self.profile_dal.get_active_by_students(
-                s.id for s in self.all_students)
+            if self.selected_year_id:
+                profile_map = {
+                    student.id: self.profile_dal.get_by_student_and_year(
+                        student.id, self.selected_year_id
+                    )
+                    for student in self.all_students
+                }
+            else:
+                profile_map = self.profile_dal.get_active_by_students(
+                    s.id for s in self.all_students
+                )
             for student in self.all_students:
                 profile = profile_map.get(student.id)
                 grade_text = profile.grade_display if profile else "نامشخص"
@@ -975,9 +983,11 @@ class StudentProfilePage(QWidget):
             
             # دریافت پرونده بر اساس سال انتخاب شده
             if self.selected_year_id:
-                self.profile = self.profile_dal.get_by_student_and_year(self.student_id, self.selected_year_id)
-                if not self.profile:
-                    self.profile = self.profile_dal.get_active_by_student(self.student_id)
+                # انتخاب سال صریح است؛ در صورت نبود پرونده همان سال، داده
+                # سال دیگری نباید به‌عنوان جایگزین نمایش داده شود.
+                self.profile = self.profile_dal.get_by_student_and_year(
+                    self.student_id, self.selected_year_id
+                )
             else:
                 self.profile = self.profile_dal.get_active_by_student(self.student_id)
             
