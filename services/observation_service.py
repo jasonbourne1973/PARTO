@@ -374,9 +374,9 @@ class ObservationService(BaseService):
         """
         try:
             # دریافت همه مشاهدات
-            observations = self.observation_dal.get_all(limit)
+            observations = self.observation_dal.get_all(limit=limit, academic_year_id=year_id, staff_id=teacher_id)
             
-            # فیلتر بر اساس معلم
+            # سال و معلم در SQL اعمال شده‌اند؛ این مرحله فقط برای سازگاری داده‌های قدیمی نگه داشته می‌شود.
             observations = [obs for obs in observations if obs.staff_id == teacher_id]
             
             # فیلتر بر اساس سال (اگر مشخص شده باشد)
@@ -400,7 +400,7 @@ class ObservationService(BaseService):
             self.logger.error(f"خطا در دریافت مشاهدات معلم: {e}")
             raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
     
-    def get_all_observations(self, limit=None, include_staff_info=False):
+    def get_all_observations(self, limit=None, include_staff_info=False, year_id=None):
         """
         دریافت همه مشاهدات
         
@@ -412,7 +412,7 @@ class ObservationService(BaseService):
             list: لیست مشاهدات
         """
         try:
-            observations = self.observation_dal.get_all(limit)
+            observations = self.observation_dal.get_all(limit=limit, academic_year_id=year_id)
             
             for obs in observations:
                 self._enrich_observation(obs, include_staff_info)
@@ -660,7 +660,7 @@ class ObservationService(BaseService):
             self.logger.debug(f"خطای مدیریت‌شده در validate_observation (مسیر جایگزین): {e}")
             return False, [str(e)]
 
-    def search_observations(self, search_term, limit=100):
+    def search_observations(self, search_term, limit=100, year_id=None):
         """
         جستجوی مشاهدات بر اساس متن
         
@@ -672,7 +672,7 @@ class ObservationService(BaseService):
             list: لیست مشاهدات مطابق با جستجو
         """
         try:
-            observations = self.observation_dal.search(search_term, limit)
+            observations = self.observation_dal.search(search_term, limit, academic_year_id=year_id)
             for obs in observations:
                 self._enrich_observation(obs)
             return observations
@@ -680,7 +680,7 @@ class ObservationService(BaseService):
             self.logger.error(f"خطا در جستجوی مشاهدات: {e}")
             raise ServiceError(f"خطا در جستجو: {e!s}")
     
-    def search_observations_by_student(self, student_id, search_term):
+    def search_observations_by_student(self, student_id, search_term, year_id=None):
         """
         جستجوی مشاهدات یک دانش‌آموز بر اساس متن
         
@@ -692,7 +692,7 @@ class ObservationService(BaseService):
             list: لیست مشاهدات مطابق با جستجو
         """
         try:
-            observations = self.observation_dal.search_by_student(student_id, search_term)
+            observations = self.observation_dal.search_by_student(student_id, search_term, academic_year_id=year_id)
             for obs in observations:
                 self._enrich_observation(obs)
             return observations
@@ -700,7 +700,7 @@ class ObservationService(BaseService):
             self.logger.error(f"خطا در جستجوی مشاهدات دانش‌آموز: {e}")
             raise ServiceError(f"خطا در جستجو: {e!s}")
     
-    def search_observations_by_teacher(self, teacher_id, search_term):
+    def search_observations_by_teacher(self, teacher_id, search_term, year_id=None):
         """
         جستجوی مشاهدات یک معلم بر اساس متن
         
@@ -712,7 +712,7 @@ class ObservationService(BaseService):
             list: لیست مشاهدات مطابق با جستجو
         """
         try:
-            observations = self.observation_dal.search_by_teacher(teacher_id, search_term)
+            observations = self.observation_dal.search_by_teacher(teacher_id, search_term, academic_year_id=year_id)
             for obs in observations:
                 self._enrich_observation(obs)
             return observations
