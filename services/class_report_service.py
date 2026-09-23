@@ -91,7 +91,11 @@ class ClassReportService(BaseService):
             
             # دریافت روند
             trend_data = self.observation_dal.get_trend_by_class(
-                class_obj.name, 'monthly', start_date, end_date
+                class_obj.name,
+                'monthly',
+                start_date,
+                end_date,
+                academic_year_id=class_obj.academic_year_id,
             )
             
             # دریافت آمار مداخلات و پیگیری‌ها
