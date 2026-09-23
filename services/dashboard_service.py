@@ -67,6 +67,25 @@ class DashboardService(BaseService):
                 filtered.append(record)
         return filtered
 
+    def _filter_followups_by_year(self, followups, year_id):
+        """فیلتر پیگیری‌ها از مسیر پیگیری ← مداخله ← پرونده ← سال."""
+        intervention_map = self.intervention_dal.get_by_ids(
+            f.intervention_id for f in followups
+        )
+        profile_map = self.profile_dal.get_by_ids(
+            intervention.student_profile_id
+            for intervention in intervention_map.values()
+        )
+        filtered = []
+        for followup in followups:
+            intervention = intervention_map.get(followup.intervention_id)
+            if not intervention:
+                continue
+            profile = profile_map.get(intervention.student_profile_id)
+            if profile and profile.academic_year_id == year_id:
+                filtered.append(followup)
+        return filtered
+
     def get_dashboard_data(self, teacher_id=None, year_id=None):
         """
         دریافت کامل داده‌های داشبورد - بدون مقایسه و رتبه‌بندی
@@ -84,15 +103,20 @@ class DashboardService(BaseService):
                 year = self.academic_year_dal.get_by_id(year_id)
             else:
                 year = self.academic_year_dal.get_active()
+            effective_year_id = year.id if year else None
             
             # ===== ۱. آمار کلی (فقط تعداد) =====
-            stats = self._get_general_stats(teacher_id, year_id)
+            stats = self._get_general_stats(teacher_id, effective_year_id)
             
             # ===== ۲. شاخص‌های مدیریتی (بدون مقایسه) =====
-            management_indicators = self._get_management_indicators(teacher_id, year_id)
+            management_indicators = self._get_management_indicators(
+                teacher_id, effective_year_id
+            )
             
             # ===== ۳. روند ثبت مشاهدات (بر اساس خود دانش‌آموزان) =====
-            trend_data = self._get_observation_trend(teacher_id, year_id)
+            trend_data = self._get_observation_trend(
+                teacher_id, effective_year_id
+            )
             
             # ===== ۴. وضعیت سال تحصیلی =====
             year_status = self._get_year_status(year)
@@ -100,7 +124,9 @@ class DashboardService(BaseService):
             # ===== ۵. آمار معلم (اگر انتخاب شده باشد) =====
             teacher_stats = None
             if teacher_id:
-                teacher_stats = self._get_teacher_stats(teacher_id, year_id)
+                teacher_stats = self._get_teacher_stats(
+                    teacher_id, effective_year_id
+                )
             
             # ===== ۶. یادآوری‌های پیگیری (بدون رتبه‌بندی) =====
             reminders = self._get_reminders(teacher_id)
@@ -109,7 +135,9 @@ class DashboardService(BaseService):
             recent_activities = self._get_recent_activities()
             
             # ===== ۸. داده‌های تحلیلی جدید =====
-            analytics_data = self._get_analytics_data(teacher_id, year_id)
+            analytics_data = self._get_analytics_data(
+                teacher_id, effective_year_id
+            )
             
             return {
                 'general_stats': stats,
@@ -245,6 +273,8 @@ class DashboardService(BaseService):
                     observations = self._filter_by_year(observations, year_id)
             else:
                 observations = self.observation_dal.get_all()
+                if year_id:
+                    observations = self._filter_by_year(observations, year_id)
             
             if teacher_id:
                 interventions = self.intervention_dal.get_all()
@@ -253,12 +283,16 @@ class DashboardService(BaseService):
                     interventions = self._filter_by_year(interventions, year_id)
             else:
                 interventions = self.intervention_dal.get_all()
+                if year_id:
+                    interventions = self._filter_by_year(interventions, year_id)
             
             if teacher_id:
                 followups = self.followup_dal.get_all()
                 followups = [f for f in followups if f.staff_id == teacher_id]
             else:
                 followups = self.followup_dal.get_all()
+            if year_id:
+                followups = self._filter_followups_by_year(followups, year_id)
             
             positive = sum(1 for o in observations if o.behavior_type == "مثبت")
             negative = sum(1 for o in observations if o.behavior_type == "منفی")
@@ -266,11 +300,24 @@ class DashboardService(BaseService):
             
             pending = sum(1 for f in followups if f.status == "pending")
             
-            # پروندهٔ فعال دانش‌آموزان یک‌جا خوانده می‌شود (رفع N+1)
-            active_profile_map = self.profile_dal.get_active_by_students(
-                s.id for s in students if s)
-            active_profiles = sum(
-                1 for s in students if s and active_profile_map.get(s.id))
+            if year_id:
+                active_profiles = sum(
+                    1
+                    for student in students
+                    if student
+                    and self.profile_dal.get_by_student_and_year(
+                        student.id, year_id
+                    )
+                )
+            else:
+                active_profile_map = self.profile_dal.get_active_by_students(
+                    s.id for s in students if s
+                )
+                active_profiles = sum(
+                    1
+                    for student in students
+                    if student and active_profile_map.get(student.id)
+                )
             
             return {
                 'students_count': len(students),
@@ -367,6 +414,8 @@ class DashboardService(BaseService):
                     observations = self._filter_by_year(observations, year_id)
             else:
                 observations = self.observation_dal.get_all()
+                if year_id:
+                    observations = self._filter_by_year(observations, year_id)
             
             for obs in observations:
                 if obs.observation_date and len(obs.observation_date) >= 7:
