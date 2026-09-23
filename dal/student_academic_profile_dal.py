@@ -497,23 +497,30 @@ class StudentAcademicProfileDAL:
     # متدهای چندساله برای گزارش روند
     # ============================================================
 
-    def get_all_profiles_for_student(self, student_id):
+    def get_all_profiles_for_student(self, student_id, include_deleted=False):
         """
         دریافت تمام پرونده‌های یک دانش‌آموز در طول سال‌های مختلف
 
         Args:
             student_id: شناسه دانش‌آموز
+            include_deleted: (دور هفدهم) اگر True باشد پرونده‌های حذف‌شده هم
+                برمی‌گردند؛ برای سنجش «پروندهٔ تاریخی تغییر نکرد» در مسیر
+                بازیابی لازم است. پیش‌فرض مثل قبل است تا رفتار بقیهٔ
+                فراخوان‌ها عوض نشود.
 
         Returns:
             list: لیست پرونده‌ها به ترتیب سال
         """
-        cursor = self.db.execute_query("""
+        query = """
             SELECT sap.*, ay.title as academic_year_title, ay.start_date, ay.end_date
             FROM student_academic_profiles sap
             JOIN academic_years ay ON sap.academic_year_id = ay.id
-            WHERE sap.student_id = ? AND sap.is_deleted = 0
-            ORDER BY ay.start_date ASC
-        """, (student_id,))
+            WHERE sap.student_id = ?
+        """
+        if not include_deleted:
+            query += " AND sap.is_deleted = 0"
+        query += " ORDER BY ay.start_date ASC"
+        cursor = self.db.execute_query(query, (student_id,))
         rows = cursor.fetchall()
 
         profiles = []

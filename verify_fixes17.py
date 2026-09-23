@@ -4,14 +4,25 @@
 هر بررسی «کارکردی با پیش/پس‌شرط» است: وضعیت دیتابیس/فایل پیش و پس از
 عملیات مقایسه می‌شود، نه فقط «استثنا نداد».
 
-مرحلهٔ ۱ — مرحلهٔ P0: داده و صداقت پشتیبان/بازیابی (بند ۱۰ مأموریت):
+مرحلهٔ ۱ — P0: داده و صداقت پشتیبان/بازیابی (بند ۱۰ مأموریت):
   A) شکست checksum = شکست بازیابی با پیش/پس‌شرط، وضعیت صریح پشتیبان بدون
      فایل کناری (legacy) با هشدار دیده‌شدنی، حساب‌داری واقعی پیوست‌ها در
      متادیتا (موردانتظار طبق DB / بسته‌بندی‌شده / گم‌شده)، پشتیبان ناقص ≠
      کامل، پاک‌سازی فایل ایمنی در مسیر استثنا، توقف واقعی نخ پشتیبان‌گیری
      خودکار پیش از خروج برنامه، و حفظ قراردادهای قبلی ..................... ۱۲ بررسی
 
-جمع فعلی: ۱۹ بررسی
+مرحلهٔ ۲ — P1: یکپارچگی نوشتن دانش‌آموز و استثناهای بی‌صدا (بندهای ۱۲، ۱۳، ۳۴):
+  B) تراکنش واقعی برای student+profile+family، پیام موفقیت فقط یک لایه،
+     بررسی نتیجهٔ واقعی update، و نبود «except: pass» در لایه‌های بحرانی ... ۹ بررسی
+
+مرحلهٔ ۳ — P1: مسیرهای بازیابی (service + UI) و آزمون‌های یکپارچه (بندهای ۳، ۳۸، ۳۹):
+  C) چک‌باکس «نمایش حذف‌شده‌ها» + دکمهٔ ↩️ در چهار صفحهٔ دانش‌آموز/فعالیت/
+     هدف/مشاوره با عبور از لایهٔ سرویس، بررسی نتیجهٔ واقعی بازیابی، حفظ
+     پروندهٔ تاریخی در زنجیرهٔ حذف→بازیابی→تغییر سال→ویرایش
+     (IT-RESTORE-YEAR-01)، جدایی دادهٔ سال‌ها (IT-YEAR-CRUD-01) و
+     بازگرداندن کاربر در صفحهٔ تنظیمات (RESTORE-02) ...................... ۱۱ بررسی
+
+جمع فعلی: ۳۲ بررسی
 """
 
 import contextlib
@@ -769,7 +780,448 @@ QMessageBox.warning = real_warn
 # ============================================================
 print()
 print("=" * 76)
-print(f"نتیجهٔ دور هفدهم (مرحله‌های ۱ و ۲):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
+print("بخش C: مرحلهٔ ۳ — مسیر بازیابی service+UI و آزمون‌های یکپارچه (بندهای ۳، ۳۸، ۳۹)")
+print("=" * 76)
+
+import re
+
+from PySide6.QtWidgets import QPushButton
+
+from dal.counseling_session_dal import CounselingSessionDAL
+from dal.extracurricular_dal import ExtracurricularDAL
+from dal.goal_dal import GoalDAL
+from dal.staff_dal import StaffDAL
+from dal.user_dal import UserDAL
+from models.staff import Staff
+from models.user import User
+from services.counseling_service import CounselingService
+from services.extracurricular_service import ExtracurricularService
+from services.goal_service import GoalService
+from views.pages.activities_page import ActivitiesPage
+from views.pages.counseling_page import CounselingPage
+from views.pages.goals_page import GoalsPage
+from views.pages.settings_page import SettingsPage as SettingsPageForUsers
+
+# در این بخش «تأیید» همهٔ پرسش‌ها Yes است و متن‌ها ثبت می‌شوند تا هم مسیر
+# تأییدیهٔ واقعی طی شود و هم بتوان بررسی کرد که تأییدیه پرسیده شده است.
+question_log = []
+real_question = QMessageBox.question
+# پیام‌های سه‌گانه هم دوباره جایگزین می‌شوند تا هیچ دیالوگ مدالی اجرای
+# بررسی‌ها را قفل نکند؛ متن‌ها در message_log می‌مانند و در همان بررسی
+# به‌عنوان شاهد سنجیده می‌شوند.
+real_info_c = QMessageBox.information
+real_crit_c = QMessageBox.critical
+real_warn_c = QMessageBox.warning
+QMessageBox.question = staticmethod(
+    lambda *a, **k: question_log.append(str(a[2])) or QMessageBox.StandardButton.Yes)
+QMessageBox.information = staticmethod(
+    lambda *a, **k: message_log.append(("info", str(a[2]))) or QMessageBox.StandardButton.Ok)
+QMessageBox.critical = staticmethod(
+    lambda *a, **k: message_log.append(("crit", str(a[2]))) or QMessageBox.StandardButton.Ok)
+QMessageBox.warning = staticmethod(
+    lambda *a, **k: message_log.append(("warn", str(a[2]))) or QMessageBox.StandardButton.Ok)
+message_log.clear()
+
+
+def _cell_buttons(page, row, column):
+    """دکمه‌های همان سلول جدول (مسیر واقعی UI، نه فراخوانی مستقیم متد)"""
+    holder = page.table.cellWidget(row, column)
+    return list(holder.findChildren(QPushButton)) if holder is not None else []
+
+
+def _click_restore(page, row, column):
+    """کلیک روی دکمهٔ ↩️ همان ردیف؛ برمی‌گرداند دکمهٔ کلیک‌شده یا None"""
+    button = next((b for b in _cell_buttons(page, row, column)
+                   if b.text() == "↩️"), None)
+    if button is not None:
+        button.click()
+    return button
+
+
+def _row_of(page, items, entity_id):
+    """شمارهٔ ردیف رکورد بر اساس فهرست نمایش‌داده‌شدهٔ همان صفحه"""
+    for idx, item in enumerate(items):
+        if getattr(item, "id", None) == entity_id:
+            return idx
+    return None
+
+
+def _fresh_conn():
+    """اتصال تازه (بازیابی، اتصال‌ها را بسته/تازه می‌کند)"""
+    return dbc.DatabaseConnection().get_connection(user_id=1)
+
+
+def _db_flag(table, entity_id):
+    row = _fresh_conn().execute(
+        f"SELECT is_deleted FROM {table} WHERE id = ?", (entity_id,)).fetchone()
+    return None if row is None else row[0]
+
+
+def _profiles_of(student_id):
+    rows = _fresh_conn().execute(
+        "SELECT id, academic_year_id, grade, class_name FROM student_academic_profiles "
+        "WHERE student_id = ? ORDER BY id", (student_id,)).fetchall()
+    return [tuple(r) for r in rows]
+
+
+def _year_profile_count(year_id):
+    return _fresh_conn().execute(
+        "SELECT COUNT(*) FROM student_academic_profiles WHERE academic_year_id = ?",
+        (year_id,)).fetchone()[0]
+
+
+# --- C1: هر چهار صفحه مسیر بازیابی دارند و از «سرویس» رد می‌شوند، نه DAL
+RESTORE_PAGES = ("students_page", "activities_page", "goals_page", "counseling_page")
+page_wiring = {}
+for page_name in RESTORE_PAGES:
+    src = read(f"views/pages/{page_name}.py")
+    page_wiring[page_name] = {
+        "checkbox": "make_show_deleted_checkbox" in src,
+        "button": src.count("make_restore_button(") == 1,
+        "guarded": "if self.showing_deleted:" in src,
+        "via_service": bool(re.search(r"_service\.restore_\w+\(", src)),
+        "no_dal_direct": not re.search(r"_dal\.restore\(", src),
+        "confirm": "ask_restore_confirmation" in src,
+        "failure": "report_restore_failure" in src,
+    }
+check("C",
+      "BUG-RESTORE-01/05/06/07: هر چهار صفحهٔ دانش‌آموز/فعالیت/هدف/مشاوره چک‌باکس «نمایش حذف‌شده‌ها»، دکمهٔ ↩️ (فقط در حالت حذف‌شده)، تأییدیه و گزارش خطای واقعی دارند و بازیابی را از «سرویس» می‌گیرند؛ هیچ صفحه‌ای مستقیم به DAL.restore نمی‌زند",
+      all(all(w.values()) for w in page_wiring.values()),
+      str({k: v for k, v in page_wiring.items() if not all(v.values())}))
+
+# --- C2: صفحهٔ دانش‌آموزان — فهرست حذف‌شده‌ها و ↩️ واقعی
+spage = StudentsPage()
+profiles_before = _profiles_of(student_id_ok)
+with contextlib.redirect_stdout(io.StringIO()):
+    StudentDAL().delete(student_id_ok, 1)
+
+spage.show_deleted_check.setChecked(True)
+deleted_ids = [s.id for s in spage.all_students]
+row = _row_of(spage, spage.students, student_id_ok)
+name_cell = spage.table.item(row, 2).text() if row is not None else None
+row_labels = [b.text() for b in _cell_buttons(spage, row, 6)] if row is not None else []
+check("C",
+      "صفحهٔ دانش‌آموزان: تیک «نمایش حذف‌شده‌ها» فقط رکوردهای واقعاً حذف‌شده (طبق دیتابیس) را می‌آورد، ردیف با برچسب «(حذف‌شده)» دیده می‌شود و به‌جای ویرایش/حذف فقط دکمهٔ ↩️ دارد",
+      spage.showing_deleted
+      and student_id_ok in deleted_ids
+      and all(_db_flag("students", i) == 1 for i in deleted_ids)
+      and row is not None and bool(name_cell) and name_cell.endswith("(حذف‌شده)")
+      and row_labels == ["↩️"],
+      f"deleted={len(deleted_ids)} row={row} name={name_cell} buttons={row_labels}")
+
+messages_before = len(message_log)
+clicked = _click_restore(spage, row, 6) if row is not None else None
+app.processEvents()
+restore_msgs = message_log[messages_before:]
+profiles_after = _profiles_of(student_id_ok)
+check("C",
+      "بازیابی از دکمهٔ ↩️ صفحهٔ دانش‌آموزان واقعاً در دیتابیس اثر می‌کند (is_deleted=0)، تأییدیه پرسیده می‌شود، «دقیقاً یک» پیام موفقیت می‌آید، فهرست حذف‌شده‌ها کوچک می‌شود و پروندهٔ سال‌های دیگر (شناسه/سال/پایه/کلاس) دست‌نخورده می‌ماند",
+      clicked is not None and _db_flag("students", student_id_ok) == 0
+      and question_log and "بازیابی شود" in question_log[-1]
+      and len([m for m in restore_msgs if m[0] == "info"]) == 1
+      and not [m for m in restore_msgs if m[0] == "crit"]
+      and profiles_after == profiles_before
+      and student_id_ok not in [s.id for s in spage.all_students],
+      f"btn={None if clicked is None else clicked.text()} flag={_db_flag('students', student_id_ok)} "
+      f"msgs={[k for k, _ in restore_msgs]} before={len(profiles_before)} after={len(profiles_after)}")
+
+# --- C3: جست‌وجو در حالت حذف‌شده‌ها همان فهرست را فیلتر می‌کند (نه فهرست فعال)
+with contextlib.redirect_stdout(io.StringIO()):
+    victim_a = StudentService().create_student({
+        "first_name": "یکتاآزمون", "last_name": "الف", "national_code": "1799999701",
+        "grade": 1}, user_id=1)
+    victim_b = StudentService().create_student({
+        "first_name": "دیگرآزمون", "last_name": "بهرام", "national_code": "1799999702",
+        "grade": 2}, user_id=1)
+    StudentService().delete_student(victim_a.id, user_id=1)
+    StudentService().delete_student(victim_b.id, user_id=1)
+
+spage.search_input.setText("یکتاآزمون")
+spage.search_students()
+search_ids = [s.id for s in spage.all_students]
+spage.search_input.clear()
+spage.load_students()
+all_deleted_ids = [s.id for s in spage.all_students]
+spage.search_input.setText("سارا")
+spage.search_students()
+active_looking_ids = [s.id for s in spage.all_students]
+spage.search_input.clear()
+spage.load_students()
+active_ids = {s.id for s in StudentDAL().get_all()}
+check("C",
+      "جست‌وجو در حالت «نمایش حذف‌شده‌ها» روی همان فهرست حذف‌شده انجام می‌شود (فهرست فعال جای آن را نمی‌گیرد)، دانش‌آموز فعالِ هم‌نام وارد مسیر بازیابی نمی‌شود و پاک‌کردن جست‌وجو فهرست کامل حذف‌شده‌ها را برمی‌گرداند",
+      search_ids == [victim_a.id]
+      and victim_a.id in all_deleted_ids and victim_b.id in all_deleted_ids
+      and not (set(all_deleted_ids) & active_ids)
+      and student_id_ok not in active_looking_ids
+      and not (set(active_looking_ids) & active_ids),
+      f"search={search_ids} named_active={active_looking_ids} deleted={len(all_deleted_ids)} "
+      f"overlap={sorted(set(all_deleted_ids) & active_ids)}")
+
+# --- C4..C6: مسیر بازیابی فعالیت/هدف/مشاوره در صفحه‌های واقعی
+active_year = AcademicYearDAL().get_active()
+current_profile = profile_dal.get_by_student_and_year(student_id_ok, active_year.id)
+if current_profile is None:  # pragma: no cover - پیش‌شرط آزمون
+    current_profile = profile_dal.get_by_student_and_year(student_id_ok, other_year.id)
+profile_id_c = current_profile.id
+
+staff_c = Staff()
+staff_c.full_name = "مشاور آزمون بازیابی"
+staff_c.role = "مشاور"
+with contextlib.redirect_stdout(io.StringIO()):
+    staff_c = StaffDAL().create(staff_c)
+
+with contextlib.redirect_stdout(io.StringIO()):
+    activity = ExtracurricularService().create_activity({
+        "student_profile_id": profile_id_c,
+        "title": "المپیاد آزمایشی",
+        "type": "scientific",
+        "start_date": "1404/01/05",
+        "status": "planned",
+    }, user_id=1)
+    ExtracurricularService().delete_activity(activity.id, user_id=1)
+activity_page = ActivitiesPage()
+activity_page.show_deleted_check.setChecked(True)
+activity_row = _row_of(activity_page, activity_page.visible_activities, activity.id)
+activity_label = (activity_page.table.item(activity_row, 2).text()
+                  if activity_row is not None else None)
+before_msgs = len(message_log)
+activity_btn = _click_restore(activity_page, activity_row, 7) \
+    if activity_row is not None else None
+app.processEvents()
+activity_msgs = message_log[before_msgs:]
+stored_activity = ExtracurricularDAL().get_by_id(activity.id, include_deleted=True)
+check("C",
+      "BUG-RESTORE-05: صفحهٔ فعالیت‌ها رکورد حذف‌شده را با برچسب «(حذف‌شده)» نشان می‌دهد و کلیک ↩️ آن را واقعاً بازیابی می‌کند (پروندهٔ سالانهٔ فعالیت همان می‌ماند)",
+      activity_row is not None and bool(activity_label)
+      and activity_label.endswith("(حذف‌شده)")
+      and activity_btn is not None and stored_activity is not None
+      and getattr(stored_activity, "is_deleted", 1) == 0
+      and stored_activity.student_profile_id == profile_id_c
+      and len([m for m in activity_msgs if m[0] == "info"]) == 1
+      and not [m for m in activity_msgs if m[0] == "crit"],
+      f"row={activity_row} label={activity_label} btn={None if activity_btn is None else activity_btn.text()} "
+      f"flag={getattr(stored_activity, 'is_deleted', None)} "
+      f"profile={getattr(stored_activity, 'student_profile_id', None)} "
+      f"msgs={[k for k, _ in activity_msgs]}")
+
+with contextlib.redirect_stdout(io.StringIO()):
+    goal = GoalService().create_goal({
+        "student_profile_id": profile_id_c,
+        "title": "هدف آزمایشی بازیابی",
+        "domain": "educational",
+        "priority": "low",
+        "start_date": "1404/01/05",
+    }, user_id=1)
+    GoalService().delete_goal(goal.id, user_id=1)
+goal_page = GoalsPage()
+goal_page.show_deleted_check.setChecked(True)
+goal_row = _row_of(goal_page, goal_page.visible_goals, goal.id)
+goal_label = goal_page.table.item(goal_row, 2).text() if goal_row is not None else None
+before_msgs = len(message_log)
+goal_btn = _click_restore(goal_page, goal_row, 6) if goal_row is not None else None
+app.processEvents()
+goal_msgs = message_log[before_msgs:]
+stored_goal = GoalDAL().get_by_id(goal.id, include_deleted=True)
+check("C",
+      "BUG-RESTORE-06: صفحهٔ اهداف همان قرارداد را اجرا می‌کند — هدف حذف‌شده دیده می‌شود، ↩️ واقعاً بازیابی می‌کند و پروندهٔ سالانهٔ هدف تغییر نمی‌کند",
+      goal_row is not None and bool(goal_label) and goal_label.endswith("(حذف‌شده)")
+      and goal_btn is not None and stored_goal is not None
+      and getattr(stored_goal, "is_deleted", 1) == 0
+      and stored_goal.student_profile_id == profile_id_c
+      and len([m for m in goal_msgs if m[0] == "info"]) == 1
+      and not [m for m in goal_msgs if m[0] == "crit"],
+      f"row={goal_row} label={goal_label} btn={None if goal_btn is None else goal_btn.text()} "
+      f"flag={getattr(stored_goal, 'is_deleted', None)} msgs={[k for k, _ in goal_msgs]}")
+
+with contextlib.redirect_stdout(io.StringIO()):
+    session = CounselingService().create_session({
+        "student_profile_id": profile_id_c,
+        "counselor_id": staff_c.id,
+        "session_date": "1404/01/06",
+        "type": "individual",
+        "topic": "جلسهٔ آزمایشی بازیابی",
+    }, user_id=1)
+    CounselingService().delete_session(session.id, user_id=1)
+counsel_page = CounselingPage()
+counsel_page.show_deleted_check.setChecked(True)
+session_row = _row_of(counsel_page, counsel_page.visible_sessions, session.id)
+session_label = (counsel_page.table.item(session_row, 2).text()
+                 if session_row is not None else None)
+before_msgs = len(message_log)
+session_btn = _click_restore(counsel_page, session_row, 6) \
+    if session_row is not None else None
+app.processEvents()
+session_msgs = message_log[before_msgs:]
+stored_session = CounselingSessionDAL().get_by_id(session.id, include_deleted=True)
+check("C",
+      "BUG-RESTORE-07: صفحهٔ مشاوره همان قرارداد را اجرا می‌کند — جلسهٔ حذف‌شده دیده می‌شود، ↩️ واقعاً بازیابی می‌کند و پروندهٔ سالانهٔ جلسه تغییر نمی‌کند",
+      session_row is not None and bool(session_label)
+      and session_label.endswith("(حذف‌شده)")
+      and session_btn is not None and stored_session is not None
+      and getattr(stored_session, "is_deleted", 1) == 0
+      and stored_session.student_profile_id == profile_id_c
+      and len([m for m in session_msgs if m[0] == "info"]) == 1
+      and not [m for m in session_msgs if m[0] == "crit"],
+      f"row={session_row} label={session_label} btn={None if session_btn is None else session_btn.text()} "
+      f"flag={getattr(stored_session, 'is_deleted', None)} msgs={[k for k, _ in session_msgs]}")
+
+# --- C7: IT-RESTORE-YEAR-01 با فرم و صفحهٔ واقعی: حذف → بازیابی → تغییر سال → ویرایش
+year_1403 = AcademicYearDAL().get_active()
+it_code = "1799999710"
+it_form = _fill_form(StudentForm(parent=None), it_code, "نیلوفر", "یکپارچه")
+grade_index_3 = next((i for i in range(it_form.grade_combo.count())
+                      if it_form.grade_combo.itemData(i) == 3), None)
+if grade_index_3 is not None:
+    it_form.grade_combo.setCurrentIndex(grade_index_3)
+it_form.class_input.setText("سوم-الف")
+with contextlib.redirect_stdout(io.StringIO()):
+    it_form.save_student()
+it_student_id = _rows_for(it_code)[0]
+it_profile_1403 = profile_dal.get_by_student_and_year(it_student_id, year_1403.id)
+
+it_victim = StudentDAL().get_by_id(it_student_id)
+with contextlib.redirect_stdout(io.StringIO()):
+    spage.delete_student(it_victim)
+if not spage.show_deleted_check.isChecked():
+    spage.show_deleted_check.setChecked(True)
+it_row = _row_of(spage, spage.students, it_student_id)
+it_btn = _click_restore(spage, it_row, 6) if it_row is not None else None
+app.processEvents()
+
+year_1404 = AcademicYear()
+year_1404.title = "1502-1503"
+year_1404.start_date = "1502/07/01"
+year_1404.end_date = "1503/06/30"
+year_1404.is_active = 0
+year_1404.is_archived = 0
+with contextlib.redirect_stdout(io.StringIO()):
+    year_1404 = AcademicYearDAL().create(year_1404)
+AcademicYearDAL().set_active(year_1404.id)
+
+it_edit = StudentForm(student=StudentDAL().get_by_id(it_student_id), parent=None)
+grade_index_4 = next((i for i in range(it_edit.grade_combo.count())
+                      if it_edit.grade_combo.itemData(i) == 4), None)
+if grade_index_4 is not None:
+    it_edit.grade_combo.setCurrentIndex(grade_index_4)
+it_edit.class_input.setText("چهارم-ب")
+with contextlib.redirect_stdout(io.StringIO()):
+    it_edit.save_student()
+
+it_old_after = profile_dal.get_by_student_and_year(it_student_id, year_1403.id)
+it_new_after = profile_dal.get_by_student_and_year(it_student_id, year_1404.id)
+it_profiles = _profiles_of(it_student_id)
+check("C",
+      "§۳۸ (IT-RESTORE-YEAR-01): حذف از صفحه، بازیابی با ↩️، تغییر سال فعال و ویرایش با فرم واقعی — پروندهٔ ۱۴۰۳ (شناسه/سال/پایه/کلاس) دست‌نخورده می‌ماند، پروندهٔ ۱۴۰۴ ساخته می‌شود و رکورد تاریخی به سال جدید منتقل نمی‌شود",
+      it_btn is not None and _db_flag("students", it_student_id) == 0
+      and it_profile_1403 is not None and it_old_after is not None
+      and it_old_after.id == it_profile_1403.id
+      and it_old_after.academic_year_id == year_1403.id
+      and it_old_after.grade == 3 and it_old_after.class_name == "سوم-الف"
+      and it_new_after is not None and it_new_after.academic_year_id == year_1404.id
+      and it_new_after.grade == 4 and it_new_after.class_name == "چهارم-ب"
+      and len(it_profiles) == 2,
+      f"btn={None if it_btn is None else it_btn.text()} profiles={it_profiles} "
+      f"old={(None if it_old_after is None else (it_old_after.id, it_old_after.grade, it_old_after.class_name))} "
+      f"new={(None if it_new_after is None else (it_new_after.id, it_new_after.grade, it_new_after.class_name))}")
+
+# --- C8: IT-YEAR-CRUD-01 — جدایی کامل دادهٔ سال‌ها در حذف/بازیابی/ویرایش
+sara_before = _profiles_of(student_id_ok)
+counts_before = {y: _year_profile_count(y) for y in (year_1403.id, year_1404.id)}
+
+with contextlib.redirect_stdout(io.StringIO()):
+    StudentService().delete_student(it_student_id, user_id=1)
+    StudentService().restore_student(it_student_id, user_id=1)
+it_profiles_after_cycle = _profiles_of(it_student_id)
+
+sara_edit = StudentForm(student=StudentDAL().get_by_id(student_id_ok), parent=None)
+grade_index_5 = next((i for i in range(sara_edit.grade_combo.count())
+                      if sara_edit.grade_combo.itemData(i) == 5), None)
+if grade_index_5 is not None:
+    sara_edit.grade_combo.setCurrentIndex(grade_index_5)
+sara_edit.class_input.setText("پنجم-الف")
+with contextlib.redirect_stdout(io.StringIO()):
+    sara_edit.save_student()
+sara_after = _profiles_of(student_id_ok)
+sara_1403_after = [p for p in sara_after if p[1] == year_1403.id]
+sara_1403_before = [p for p in sara_before if p[1] == year_1403.id]
+check("C",
+      "§۳۹ (IT-YEAR-CRUD-01): دو دانش‌آموز در دو سال — چرخهٔ حذف/بازیابی یکی و ویرایش دیگری، دادهٔ سال‌های دیگر را تغییر نمی‌دهد؛ پروندهٔ ۱۴۰۳ هر دو دانش‌آموز دست‌نخورده می‌ماند و پروندهٔ تازه فقط در سال فعال ساخته می‌شود",
+      it_profiles_after_cycle == it_profiles
+      and sara_1403_after == sara_1403_before
+      and len(sara_after) == len(sara_before) + 1
+      and any(p[1] == year_1404.id and p[2] == 5 and p[3] == "پنجم-الف"
+              for p in sara_after)
+      and _year_profile_count(year_1404.id) == counts_before[year_1404.id] + 1
+      and _db_flag("students", it_student_id) == 0,
+      f"it_profiles={it_profiles_after_cycle} sara_before={sara_before} sara_after={sara_after} "
+      f"counts_before={counts_before} now={_year_profile_count(year_1404.id)}")
+
+# --- C9: BUG-RESTORE-02 — بازگرداندن کاربر در صفحهٔ تنظیمات (آزمون یکپارچه)
+restore_user = User()
+restore_user.staff_id = staff_c.id
+restore_user.username = "restore_check_user"
+restore_user.role = "teacher"
+restore_user.is_active = 1
+with contextlib.redirect_stdout(io.StringIO()):
+    restore_user = UserDAL().create(restore_user, raw_password="Test@12345",
+                                    user_id_actor=1)
+with contextlib.redirect_stdout(io.StringIO()):
+    deleted_user_ok = UserDAL().delete(restore_user.id, user_id_actor=1)
+
+settings_page_users = SettingsPageForUsers()
+before_msgs = len(message_log)
+with contextlib.redirect_stdout(io.StringIO()):
+    settings_page_users.restore_user({"id": restore_user.id,
+                                      "username": restore_user.username})
+app.processEvents()
+user_msgs = message_log[before_msgs:]
+with contextlib.redirect_stdout(io.StringIO()):
+    settings_page_users.restore_user({"id": 987654, "username": "کاربرناموجود"})
+app.processEvents()
+missing_msgs = message_log[before_msgs + len(user_msgs):]
+restored_row = _fresh_conn().execute(
+    "SELECT is_deleted, is_active, must_change_password FROM users WHERE id = ?",
+    (restore_user.id,)).fetchone()
+with contextlib.redirect_stdout(io.StringIO()):
+    settings_page_users.shutdown_backup_workers()
+check("C",
+      "BUG-RESTORE-02: بازگرداندن کاربر از صفحهٔ تنظیمات واقعاً کار می‌کند (is_deleted=0، حساب فعال، اجبار تغییر رمز) و پیام موفقیت فقط در همین حالت می‌آید؛ شناسهٔ ناموجود پیام «یافت نشد» می‌گیرد و موفقیت جا زده نمی‌شود",
+      deleted_user_ok and restored_row is not None
+      and tuple(restored_row) == (0, 1, 1)
+      and len([m for m in user_msgs if m[0] == "info"]) == 1
+      and not [m for m in user_msgs if m[0] == "crit"]
+      and not [m for m in missing_msgs if m[0] == "info"]
+      and [m for m in missing_msgs if m[0] == "warn"],
+      f"row={None if restored_row is None else tuple(restored_row)} "
+      f"ok_msgs={[k for k, _ in user_msgs]} missing_msgs={[k for k, _ in missing_msgs]}")
+
+# --- C10: capabilityهای باقی‌ماندهٔ بازیابی، عمداً در سطح backend (مستندشده)
+backend_only = {}
+for module_name in ("observation_dal", "intervention_dal", "followup_dal"):
+    dal_src = read(f"dal/{module_name}.py")
+    service_src = read(f"services/{module_name.replace('_dal', '_service')}.py")
+    backend_only[module_name] = ("def restore(" in dal_src
+                                 and "def restore_" not in service_src)
+page_has_deleted_view = {
+    page_name: ("make_show_deleted_checkbox" in read(f"views/pages/{page_name}.py")
+                or "make_restore_button" in read(f"views/pages/{page_name}.py"))
+    for page_name in ("observations_page", "interventions_page", "followups_page")
+}
+check("C",
+      "بند ۰-۶: وضعیت «DAL.restore بدون مسیر سرویس/UI» برای مشاهدات/مداخلات/پیگیری‌ها صریح و محدود است — هیچ صفحه‌ای کنترل بازیابی نیمه‌کاره (بدون backend) ندارد و این سه مورد به‌عنوان capability داخلی مستند می‌شوند",
+      all(backend_only.values()) and not any(page_has_deleted_view.values()),
+      f"backend_only={backend_only} pages={page_has_deleted_view}")
+
+QMessageBox.question = real_question
+QMessageBox.information = real_info_c
+QMessageBox.critical = real_crit_c
+QMessageBox.warning = real_warn_c
+
+# ============================================================
+print()
+print("=" * 76)
+print(f"نتیجهٔ دور هفدهم (مرحله‌های ۱، ۲ و ۳):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
 if FAILURES:
     print("موارد ناموفق:")
     for f in FAILURES:

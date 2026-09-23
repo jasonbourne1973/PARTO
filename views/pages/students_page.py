@@ -29,11 +29,20 @@ from PySide6.QtWidgets import (
 from dal.academic_year_dal import AcademicYearDAL
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.student_dal import StudentDAL
+from services.student_service import StudentService
 from utils.logger import get_logger
 from utils.time_utils import utc_now
 from views.dialogs.student_form import StudentForm
 from views.pages.student_profile_page import StudentProfilePage
 from views.pages.year_sync import YearAwarePage
+from views.widgets.deleted_records import (
+    ask_restore_confirmation,
+    current_user_id,
+    deleted_label,
+    make_restore_button,
+    make_show_deleted_checkbox,
+    report_restore_failure,
+)
 
 logger = get_logger(__name__)
 
@@ -49,9 +58,12 @@ class StudentsPage(YearAwarePage, QWidget):
         self.student_dal = StudentDAL()
         self.profile_dal = StudentAcademicProfileDAL()
         self.academic_year_dal = AcademicYearDAL()
+        # مسیر بازیابی باید از لایهٔ سرویس بگذرد (بررسی نتیجهٔ واقعی + Audit)
+        self.student_service = StudentService()
         
         self.students = []
         self.all_students = []
+        self.showing_deleted = False
         self.current_page = 0
         self.page_size = 20
         self.total_pages = 1
@@ -216,7 +228,14 @@ class StudentsPage(YearAwarePage, QWidget):
         """)
         self.sample_btn.clicked.connect(self.download_sample_excel)
         toolbar.addWidget(self.sample_btn)
-        
+
+        # (دور هفدهم — BUG-RESTORE-01) مسیر واقعی بازیابی دانش‌آموز:
+        # DAL.restore وجود داشت ولی هیچ راهی در UI به آن نمی‌رسید.
+        self.show_deleted_check = make_show_deleted_checkbox(
+            self, "on_show_deleted_toggled",
+            "دانش‌آموزان حذف‌شده را نشان می‌دهد تا با ↩️ بازیابی شوند.")
+        toolbar.addWidget(self.show_deleted_check)
+
         layout.addLayout(toolbar)
         
         # ===== جدول =====
@@ -332,11 +351,21 @@ class StudentsPage(YearAwarePage, QWidget):
         self.profile_page.set_student_id(student_id)
         self.tabs.setCurrentIndex(1)
     
+    def on_show_deleted_toggled(self, checked):
+        """تغییر حالت نمایش حذف‌شده‌ها → بازگشت به صفحهٔ اول و بارگذاری دوباره"""
+        self.showing_deleted = bool(checked)
+        self.current_page = 0
+        self.load_students()
+
     def load_students(self):
-        """بارگذاری لیست دانش‌آموزان با Pagination"""
+        """بارگذاری لیست دانش‌آموزان با Pagination (یا فهرست حذف‌شده‌ها)"""
         try:
             self.page_size = int(self.page_size_combo.currentText())
-            self.all_students = self.student_dal.get_all()
+            if self.showing_deleted:
+                # مسیر بازیابی: فقط رکوردهای حذف‌شده، از لایهٔ سرویس
+                self.all_students = self.student_service.get_deleted_students()
+            else:
+                self.all_students = self.student_dal.get_all()
             self.total_pages = (len(self.all_students) + self.page_size - 1) // self.page_size
             self.current_page = min(self.current_page, self.total_pages - 1)
             if self.current_page < 0:
@@ -400,17 +429,20 @@ class StudentsPage(YearAwarePage, QWidget):
         return {'grade': '-', 'class': '-'}
     
     def display_students(self, students):
-        """نمایش دانش‌آموزان در جدول"""
+        """نمایش دانش‌آموزان در جدول (حالت حذف‌شده: فقط بازیابی)"""
         self.table.setRowCount(len(students))
         
         for row, student in enumerate(students):
-            info = self.get_student_info(student.id)
+            info = self.get_student_info(student.id) if not self.showing_deleted else None
             
             self.table.setItem(row, 0, QTableWidgetItem(str(row + 1)))
             self.table.setItem(row, 1, QTableWidgetItem(student.first_name or ""))
-            self.table.setItem(row, 2, QTableWidgetItem(student.last_name or ""))
-            self.table.setItem(row, 3, QTableWidgetItem(info['grade']))
-            self.table.setItem(row, 4, QTableWidgetItem(info['class']))
+            last_name = student.last_name or ""
+            if self.showing_deleted:
+                last_name = deleted_label(last_name)
+            self.table.setItem(row, 2, QTableWidgetItem(last_name))
+            self.table.setItem(row, 3, QTableWidgetItem(info['grade'] if info else '-'))
+            self.table.setItem(row, 4, QTableWidgetItem(info['class'] if info else '-'))
             self.table.setItem(row, 5, QTableWidgetItem(student.national_code or ""))
             
             # دکمه‌های عملیات
@@ -418,7 +450,15 @@ class StudentsPage(YearAwarePage, QWidget):
             btn_layout = QHBoxLayout()
             btn_layout.setContentsMargins(2, 2, 2, 2)
             btn_layout.setSpacing(2)
-            
+
+            if self.showing_deleted:
+                # رکورد حذف‌شده فقط یک کار منطقی دارد: بازیابی
+                btn_layout.addWidget(make_restore_button(student, self.restore_student))
+                btn_widget.setLayout(btn_layout)
+                self.table.setCellWidget(row, 6, btn_widget)
+                self.table.setRowHeight(row, 40)
+                continue
+
             edit_btn = QPushButton("✏️")
             edit_btn.setFixedSize(30, 30)
             edit_btn.setStyleSheet("""
@@ -483,7 +523,17 @@ class StudentsPage(YearAwarePage, QWidget):
             return
         
         try:
-            self.all_students = self.student_dal.search(search_term)
+            if self.showing_deleted:
+                # در حالت نمایش حذف‌شده‌ها، جست‌وجو روی همان فهرست حذف‌شده
+                # انجام می‌شود (وگرنه فهرستِ فعال جای حالت بازیابی را می‌گرفت).
+                needle = search_term.casefold()
+                self.all_students = [
+                    s for s in self.student_service.get_deleted_students()
+                    if needle in (f"{s.first_name or ''} {s.last_name or ''}").casefold()
+                    or needle in (s.national_code or '').casefold()
+                ]
+            else:
+                self.all_students = self.student_dal.search(search_term)
             self.total_pages = (len(self.all_students) + self.page_size - 1) // self.page_size
             self.current_page = 0
             
@@ -573,6 +623,35 @@ class StudentsPage(YearAwarePage, QWidget):
                 logger.error(f"خطا در حذف دانش‌آموز {student.id}: {e}", exc_info=True)
                 QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")
     
+    def restore_student(self, student):
+        """
+        بازیابی دانش‌آموز حذف‌شده (دور هفدهم — BUG-RESTORE-01)
+
+        مسیر کامل: UI → StudentService.restore_student → StudentDAL.restore
+        موفقیت فقط بعد از نتیجهٔ واقعی سرویس اعلام می‌شود؛ پروندهٔ سالانه و
+        سال تحصیلی رکورد دست‌نخورده می‌ماند.
+        """
+        full_name = f"{student.first_name or ''} {student.last_name or ''}".strip()
+        if not ask_restore_confirmation(
+                self, f"آیا دانش‌آموز «{full_name}» بازیابی شود؟"):
+            return
+
+        try:
+            restored = self.student_service.restore_student(
+                student.id, user_id=current_user_id())
+        except Exception as e:
+            report_restore_failure(self, e)
+            return
+
+        self.load_students()
+        if restored is not None:
+            QMessageBox.information(
+                self, "موفقیت",
+                f"دانش‌آموز «{full_name}» بازیابی شد. برای دیدنش تیک "
+                "«نمایش حذف‌شده‌ها» را بردارید.")
+        else:  # pragma: no cover - سرویس در نبود اثر خطا می‌دهد
+            QMessageBox.warning(self, "توجه", "بازیابی انجام نشد.")
+
     # ===== متدهای جدید برای Excel =====
     
     def export_to_excel(self):

@@ -287,6 +287,81 @@ class StudentService(BaseService):
         
         return self.execute_in_transaction(_delete)
     
+    def restore_student(self, student_id, user_id=None, ip_address=None):
+        """
+        بازیابی دانش‌آموز حذف‌شده (دور هفدهم — BUG-RESTORE-01)
+
+        قاعده‌ها (بند ۹ و ۱۰ مأموریت):
+          • نتیجهٔ واقعی DAL بررسی می‌شود؛ «موفقیت» فقط وقتی اعلام می‌شود که
+            ردیف واقعاً از حالت حذف‌شده برگشته باشد.
+          • پروندهٔ سالانهٔ تاریخی و «سال تحصیلی» رکورد دست‌نخورده می‌ماند؛
+            بازیابی فقط پرچم حذف خودِ دانش‌آموز را برمی‌گرداند و هیچ پروندهٔ
+            سالانهٔ تازه نمی‌سازد.
+
+        Args:
+            student_id: شناسه دانش‌آموز حذف‌شده
+            user_id: شناسه کاربر بازیابی‌کننده (برای Audit)
+            ip_address: آدرس IP کاربر
+
+        Returns:
+            Student: دانش‌آموز بازیابی‌شده
+
+        Raises:
+            ServiceError: اگر رکوردی برای بازیابی نباشد یا بازیابی اثر نکند.
+        """
+        def _restore():
+            # 1. رکورد باید واقعاً حذف‌شده باشد
+            deleted = self.student_dal.get_by_id(student_id, include_deleted=True)
+            if deleted is None:
+                raise ServiceError(f"دانش‌آموز با شناسه {student_id} یافت نشد.")
+            if not getattr(deleted, 'is_deleted', 0):
+                raise ServiceError("این دانش‌آموز حذف نشده است؛ بازیابی لازم نیست.")
+
+            profiles_before = self.profile_dal.get_all_profiles_for_student(
+                student_id, include_deleted=True)
+
+            # 2. بازیابی منطقی + بررسی نتیجهٔ واقعی
+            restored = self.student_dal.restore(student_id, user_id)
+            if not restored:
+                raise ServiceError(
+                    f"بازیابی دانش‌آموز با شناسه {student_id} روی دیتابیس اثر نکرد.")
+
+            # 3. بازخوانی از دیتابیس: تنها شاهد «بازیابی‌شدن»
+            student = self.student_dal.get_by_id(student_id)
+            if student is None or getattr(student, 'is_deleted', 0):
+                raise ServiceError(
+                    "دانش‌آموز پس از بازیابی از دیتابیس خوانده نشد؛ عملیات کامل نشد.")
+
+            # 4. پرونده‌های تاریخی نباید تغییر کرده باشند
+            profiles_after = self.profile_dal.get_all_profiles_for_student(
+                student_id, include_deleted=True)
+            if (len(profiles_before) != len(profiles_after)
+                    or {p.id for p in profiles_before} != {p.id for p in profiles_after}):
+                raise ServiceError(
+                    "پرونده‌های سالانه در جریان بازیابی تغییر کردند؛ عملیات متوقف شد.")
+
+            # 5. ثبت Audit Log
+            self.log_audit(
+                user_id=user_id,
+                action='restore',
+                entity_type='student',
+                entity_id=student_id,
+                new_value={'student_id': student_id, 'name': student.full_name},
+                ip_address=ip_address
+            )
+            self.logger.info(f"دانش‌آموز {student.full_name} با ID {student_id} بازیابی شد.")
+            return student
+
+        return self.execute_in_transaction(_restore)
+
+    def get_deleted_students(self):
+        """لیست دانش‌آموزان حذف‌شده (برای مسیر بازیابی در UI)"""
+        try:
+            return self.student_dal.get_deleted()
+        except Exception as e:
+            self.logger.error(f"خطا در دریافت دانش‌آموزان حذف‌شده: {e}", exc_info=True)
+            raise ServiceError(f"خطا در دریافت فهرست حذف‌شده‌ها: {e!s}")
+
     def get_student(self, student_id):
         """دریافت دانش‌آموز با شناسه"""
         try:

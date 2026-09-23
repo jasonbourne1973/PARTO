@@ -213,6 +213,64 @@ class ExtracurricularService(BaseService):
             self.logger.info(f"فعالیت {activity_id} حذف شد")
         return result
     
+    def restore_activity(self, activity_id, user_id=None):
+        """
+        بازیابی فعالیت حذف‌شده (دور هفدهم — BUG-RESTORE-05)
+
+        قرارداد (هم‌شکل با سایر موجودیت‌ها):
+          • رکورد باید واقعاً حذف‌شده باشد، وگرنه خطای روشن.
+          • نتیجهٔ واقعی DAL بررسی می‌شود؛ success فقط پس از بازخوانی موفق.
+          • پروندهٔ سالانهٔ رکورد (student_profile_id) هرگز تغییر نمی‌کند،
+            پس رکورد تاریخی به سال فعال منتقل نمی‌شود.
+
+        Returns:
+            ExtracurricularActivity: فعالیت بازیابی‌شده
+
+        Raises:
+            ServiceError: اگر رکوردی برای بازیابی نباشد یا بازیابی اثر نکند.
+        """
+        def _restore():
+            existing = self.activity_dal.get_by_id(activity_id, include_deleted=True)
+            if existing is None:
+                raise ServiceError(f"فعالیت با شناسه {activity_id} یافت نشد.")
+            if not getattr(existing, 'is_deleted', 0):
+                raise ServiceError("این فعالیت حذف نشده است؛ بازیابی لازم نیست.")
+
+            profile_before = existing.student_profile_id
+
+            if not self.activity_dal.restore(activity_id):
+                raise ServiceError(
+                    f"بازیابی فعالیت با شناسه {activity_id} روی دیتابیس اثر نکرد.")
+
+            restored = self.activity_dal.get_by_id(activity_id)
+            if restored is None or getattr(restored, 'is_deleted', 0):
+                raise ServiceError(
+                    "فعالیت پس از بازیابی از دیتابیس خوانده نشد؛ عملیات کامل نشد.")
+            if restored.student_profile_id != profile_before:
+                raise ServiceError(
+                    "پروندهٔ سالانهٔ فعالیت در جریان بازیابی تغییر کرد؛ عملیات متوقف شد.")
+
+            self.log_audit(
+                user_id=user_id,
+                action='restore',
+                entity_type='extracurricular_activity',
+                entity_id=activity_id,
+                new_value={'activity_id': activity_id,
+                           'student_profile_id': restored.student_profile_id},
+            )
+            self.logger.info(f"فعالیت {activity_id} بازیابی شد")
+            return restored
+
+        return self.execute_in_transaction(_restore)
+
+    def get_deleted_activities(self):
+        """فهرست فعالیت‌های حذف‌شده (برای مسیر بازیابی در UI)"""
+        try:
+            return self.activity_dal.get_deleted()
+        except Exception as e:
+            self.logger.error(f"خطا در دریافت فعالیت‌های حذف‌شده: {e}", exc_info=True)
+            raise ServiceError(f"خطا در دریافت فهرست حذف‌شده‌ها: {e!s}")
+
     def get_activity_stats(self, profile_id):
         """دریافت آمار فعالیت‌های یک دانش‌آموز"""
         stats = self.activity_dal.get_activity_stats(profile_id)

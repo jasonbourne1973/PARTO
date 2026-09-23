@@ -35,10 +35,10 @@
 | بند | عنوان | وضعیت | شاهد/یادداشت |
 |---|---|---|---|
 | ۲ | BUG-GUI-02 اطلاعات خانوادگی دانش‌آموز | ✅ | مرحلهٔ ۳ دور قبل: `family_contexts` مرجع قانونی؛ `tests/test_dal.py::TestFamilyContextDAL` + `verify_fixes16 §M` |
-| ۳ | BUG-RESTORE-01 مسیر UI بازیابی دانش‌آموز | 🔴 | `dal/student_dal.restore` هست؛ `StudentService` متد restore **ندارد** و `views/pages/students_page.py` هیچ مسیر بازیابی/نمایش حذف‌شده‌ها ندارد |
-| ۳ | BUG-RESTORE-02 مسیر UI بازیابی کاربر | 🟡 | `views/pages/settings_page.py::restore_user` + `UserDAL.restore` موجود است؛ آزمون یکپارچه ندارد |
-| ۳ | BUG-RESTORE-04/10 حفظ پروندهٔ تاریخی در restore+year+edit | 🟡 | کد مسیرها profile-aware است؛ آزمون یکپارچهٔ IT-RESTORE-YEAR-01 وجود ندارد |
-| ۴ | BUG-RESTORE-05/06/07 بازیابی فعالیت/هدف/مشاوره | 🔴 | `restore()` فقط در DAL است (`dal/extracurricular_dal.py:236`, `dal/goal_dal.py:290`, `dal/counseling_session_dal.py:292`)، هیچ متد service و هیچ مسیر UI وجود ندارد. قرارداد `rowcount > 0` برقرار است و باید بماند |
+| ۳ | BUG-RESTORE-01 مسیر UI بازیابی دانش‌آموز | ✅ | مرحلهٔ ۳ دور جاری: `StudentService.restore_student`/`get_deleted_students` + چک‌باکس «نمایش حذف‌شده‌ها» و دکمهٔ ↩️ در همان صفحهٔ دانش‌آموزان؛ `verify_fixes17 §C` + `tests/test_restore_integration.py` |
+| ۳ | BUG-RESTORE-02 مسیر UI بازیابی کاربر | ✅ | مرحلهٔ ۳: آزمون یکپارچهٔ واقعی در `verify_fixes17 §C` (بازگرداندن + وضعیت صریح حساب + حالت «یافت نشد») |
+| ۳ | BUG-RESTORE-04/10 حفظ پروندهٔ تاریخی در restore+year+edit | ✅ | مرحلهٔ ۳: `IT-RESTORE-YEAR-01` دو بار (pytest بدون Qt + `verify_fixes17 §C` با فرم/صفحهٔ واقعی) |
+| ۴ | BUG-RESTORE-05/06/07 بازیابی فعالیت/هدف/مشاوره | ✅ | مرحلهٔ ۳ دور جاری: سه متد سرویس (`restore_activity`/`restore_goal`/`restore_session`) + `get_deleted_*` متناظر و چک‌باکس/دکمهٔ ↩️ در سه صفحهٔ فعالیت‌ها/اهداف/مشاوره؛ قرارداد `rowcount > 0` در `DAL.restore` دست‌نخورده ماند — شاهد: `verify_fixes17 §C` + `tests/test_restore_integration.py` |
 | ۵ | BUG-GUI-12 / NAV-04/05/06 همگام‌سازی سال | ✅ | مرحلهٔ ۴ دور قبل: `views/pages/year_sync.py` + `MainWindow.set_active_year`؛ `tests/test_year_sync.py` + `verify16 §N` |
 | ۶ | BUG-GUI-13 هندلر کامبوی سال در شاخص‌ها | 🔴 | `views/pages/indicators_page.py:106` سیگنال سال را به `on_teacher_changed` می‌دهد؛ این هندلر فقط فهرست دانش‌آموزان را می‌سازد و **پنل شاخص‌های انتخاب‌شدهٔ قبلی را پاک/تازه نمی‌کند** (نمایش کهنه). تحلیل و گزارش‌ها هندلر اختصاصی دارند |
 | ۷ | BUG-GUI-07/08 جداسازی پایه/پروندهٔ تاریخی | 🔴 | در `indicators_page.load_students_for_teacher` و `analysis_page` فهرست دانش‌آموزان با `profile_dal.get_active_by_students` ساخته می‌شود؛ یعنی **پایهٔ نمایش‌داده‌شده از پروندهٔ فعال می‌آید حتی وقتی سال انتخاب‌شده چیز دیگری است** (نشتی بین سال‌ها). خواندن شاخص‌ها/تحلیل خود درست است |
@@ -78,8 +78,8 @@
 | ۳۵ | ممیزی SQL | ✅ | `verify16 §F` (پارامتری‌بودن، بدون رشته‌چسبانی، نبود LIMIT نادرست) |
 | ۳۶ | ایمنی پیوست | ✅ | `verify16 §E` (`.part`، `os.replace`، پیوند نمادین، پیمایش مسیر، قرنطینه پیش از حذف) |
 | ۳۷ | ایمنی پشتیبان | ✅ | `verify16 §B` (Online Backup API، integrity، ZIP traversal، فایل ایمنی) |
-| ۳۸ | IT-RESTORE-YEAR-01 | 🔴 | آزمون یکپارچهٔ «حذف → بازیابی → تغییر سال → ویرایش» وجود ندارد |
-| ۳۹ | IT-YEAR-CRUD-01 | 🔴 | آزمون یکپارچهٔ «A در ۱۴۰۳، B در ۱۴۰۴، حذف/بازیابی/ویرایش» وجود ندارد |
+| ۳۸ | IT-RESTORE-YEAR-01 | ✅ | مرحلهٔ ۳: `tests/test_restore_integration.py::TestRestoreYearIntegration` + `verify_fixes17 §C` (با فرم/صفحهٔ واقعی) |
+| ۳۹ | IT-YEAR-CRUD-01 | ✅ | مرحلهٔ ۳: `tests/test_restore_integration.py::TestYearCrudIntegration` + `verify_fixes17 §C` |
 | ۴۰ | ماتریس GUI | 🖥 | چک‌لیست در `docs/gui_test_checklist_fa.md`؛ در این محیط همه به‌صورت offscreen + صدا زدن handler اجرا می‌شود، کلیک واقعی نه |
 | ۴۱ | معیار پذیرش | 🟡 | پس از پایان مرحله‌ها در بخش نهایی گزارش می‌شود |
 | ۴۲ | فهرست «دوباره حل نکن» | ✅ | هیچ‌کدام از آن موارد در این دور بازطراحی نمی‌شود؛ فقط آزمون رگرسیون تقویت می‌شود |
@@ -89,9 +89,9 @@
 
 | وضعیت | تعداد بند |
 |---|---|
-| ✅ انجام‌شده و آزمون‌شده | ۲۵ (پس از مرحله‌های ۱ و ۲) |
-| 🟡 انجام‌شده با پوشش ناقص | ۹ |
-| 🔴 باقی‌مانده (نیاز به کد) | ۹ |
+| ✅ انجام‌شده و آزمون‌شده | ۳۱ (پس از مرحله‌های ۱، ۲ و ۳) |
+| 🟡 انجام‌شده با پوشش ناقص | ۷ |
+| 🔴 باقی‌مانده (نیاز به کد) | ۵ |
 | ⚪ تصمیم طراحی لازم | ۱ |
 | 🖥 فقط GUI واقعی | ۱ |
 
@@ -246,3 +246,98 @@ LD_LIBRARY_PATH=/home/user/qtstub/lib QT_QPA_PLATFORM=offscreen \
 
 **آنچه هنوز GUI واقعی می‌خواهد:** کلیک واقعی «ذخیره» در فرم modal، دیالوگ
 خطا/موفقیت واقعی → `NOT_TESTED - GUI EXECUTION REQUIRED`.
+
+---
+
+# بخش ۵ — مرحلهٔ ۳ (P1): مسیرهای بازیابی (service + UI) و آزمون‌های یکپارچه
+
+## ۵-۱. موارد این مرحله
+
+| مورد | وضعیت پیش از اصلاح | اصلاح |
+|---|---|---|
+| بند ۳ — BUG-RESTORE-01 (بازیابی دانش‌آموز) | `StudentDAL.restore` و `StudentDAL.get_deleted` وجود داشت، ولی `StudentService` هیچ متد بازیابی نداشت و صفحهٔ دانش‌آموزان هیچ مسیر «نمایش حذف‌شده‌ها/بازیابی» نداشت. یعنی «حذف منطقی» که قرار بود برگشت‌پذیر باشد، عملاً برگشت‌ناپذیر بود | `StudentService.restore_student` + `get_deleted_students`؛ در صفحهٔ **موجود** دانش‌آموزان: چک‌باکس «نمایش حذف‌شده‌ها» (بدون صفحهٔ موازی) و دکمهٔ ↩️ روی ردیف حذف‌شده |
+| بند ۴ — BUG-RESTORE-05/06/07 (فعالیت/هدف/مشاوره) | `restore()` فقط در DAL بود (`extracurricular_dal.py:236`, `goal_dal.py:290`, `counseling_session_dal.py:292`)؛ نه متد سرویس، نه مسیر UI — یعنی capability بدون مسیر استفاده | سه متد سرویس (`restore_activity`, `restore_goal`, `restore_session`) + `get_deleted_*` متناظر، و همان الگوی چک‌باکس/دکمهٔ ↩️ در سه صفحهٔ فعالیت‌ها/اهداف/مشاوره |
+| بند ۳ — BUG-RESTORE-02 (بازیابی کاربر) | مسیر UI در `views/pages/settings_page.py::restore_user` و `UserDAL.restore` موجود بود، ولی آزمون یکپارچه نداشت (یعنی «کار می‌کند» فقط ادعا بود) | آزمون یکپارچهٔ واقعی: ساخت کاربر، حذف، بازگرداندن از همان متد صفحه، بررسی `is_deleted=0 / is_active=1 / must_change_password=1` و پیام‌ها؛ به‌علاوهٔ حالت «شناسهٔ ناموجود» که باید پیام «یافت نشد» بدهد و موفقیت جا نزند |
+| بند ۳ و ۲۲ — BUG-RESTORE-04/10، §۳۸، §۳۹ | کد مسیرها profile-aware بود (ویرایش/بازیابی پروندهٔ تاریخی را جابه‌جا نمی‌کرد)، ولی هیچ آزمونی زنجیرهٔ «حذف → بازیابی → تغییر سال → ویرایش» را قفل نمی‌کرد | دو آزمون یکپارچه: `IT-RESTORE-YEAR-01` و `IT-YEAR-CRUD-01`، هر یک **دو بار**: یک‌بار در `tests/test_restore_integration.py` (سطح سرویس/DAL، بدون Qt) و یک‌بار در `verify_fixes17.py §C` با فرم و صفحهٔ واقعی Qt |
+
+**قاعده‌های ثابت‌شدهٔ مشترک بازیابی (در هر چهار سرویس یکسان):** رکورد باید
+واقعاً حذف‌شده باشد (وگرنه `ServiceError` با پیام روشن) → نتیجهٔ واقعی
+`DAL.restore` بررسی می‌شود → رکورد از دیتابیس **بازخوانی** می‌شود و فقط آن
+شاهد موفقیت است → پروندهٔ سالانهٔ رکورد (و برای دانش‌آموز، همهٔ پرونده‌های
+سال‌های دیگر) بازبینی و دست‌نخوردگی‌اش تأیید می‌شود → `Audit` ثبت می‌شود.
+از سمت UI هم: تأییدیه گرفته می‌شود، خطا با `report_restore_failure`
+(پیام کاربر + `logger.error(exc_info=True)`) گزارش می‌شود و «موفقیت» فقط پس
+از اثر واقعی در دیتابیس اعلام می‌شود.
+
+## ۵-۲. تغییرات کد
+
+| فایل | تغییر |
+|---|---|
+| `views/widgets/deleted_records.py` (جدید) | اجزای مشترک چهار صفحه: `make_show_deleted_checkbox`, `make_restore_button`, `ask_restore_confirmation`, `report_restore_failure`, `deleted_label`, `current_user_id` — یک‌دستی قرارداد پیام/تأییدیه به‌جای تکرار در هر صفحه |
+| `services/student_service.py` | `restore_student(student_id, user_id, ip_address)` (گارد «حذف نشده»، بررسی اثر DAL، بازخوانی، تأیید دست‌نخوردگی همهٔ پرونده‌های تاریخی، Audit) + `get_deleted_students()` |
+| `services/extracurricular_service.py`, `services/goal_service.py`, `services/counseling_service.py` | `restore_activity` / `restore_goal` / `restore_session` با همان قرارداد + `get_deleted_activities/get_deleted_goals/get_deleted_sessions` |
+| `dal/student_dal.py`, `dal/extracurricular_dal.py`, `dal/goal_dal.py`, `dal/counseling_session_dal.py` | `get_deleted()` برای فهرست بازیابی؛ قرارداد موجود `rowcount > 0` در `restore()` دست‌نخورده ماند |
+| `dal/student_academic_profile_dal.py` | `get_all_profiles_for_student(..., include_deleted=…)` تا سرویس بتواند پرونده‌های تاریخی (حتی حذف‌شده) را پیش و پس از بازیابی مقایسه کند |
+| `views/pages/students_page.py` | چک‌باکس «نمایش حذف‌شده‌ها» در نوار ابزار، حالت `showing_deleted`، نمایش «(حذف‌شده)»، ستون‌های پایه/کلاس `-` در این حالت (پروندهٔ فعال جست‌وجو نمی‌شود)، دکمهٔ ↩️ تنها در همین حالت، و `restore_student` با تأییدیه/پیام/تازه‌سازی؛ جست‌وجو هم در همین حالت روی فهرست حذف‌شده‌ها انجام می‌شود |
+| `views/pages/activities_page.py`, `views/pages/goals_page.py`, `views/pages/counseling_page.py` | همان الگو؛ در حالت حذف‌شده فیلتر «سال جاری» اعمال **نمی‌شود** (رکورد حذف‌شده به سال تاریخی خودش تعلق دارد و بازیابی هم سالش را حفظ می‌کند) |
+| `tests/test_restore_integration.py` (جدید) | ۹ آزمون یکپارچه: `IT-RESTORE-YEAR-01`، `IT-YEAR-CRUD-01`، قرارداد سرویس دانش‌آموز (حذف‌نشده/ناموجود/فهرست/Audit/پرونده‌های چندساله) و قرارداد مشترک فعالیت/هدف/مشاوره |
+| `verify_fixes17.py` | بخش C (۱۱ بررسی): سیم‌کشی چهار صفحه + کلیک واقعی ↩️ + آزمون‌های یکپارچه با فرم/صفحهٔ واقعی + بازگرداندن کاربر در تنظیمات + بررسی نبود مسیر نیمه‌کاره |
+
+## ۵-۳. شواهد آزمون (اجرا شده در همین محیط)
+
+```bash
+LD_LIBRARY_PATH=/home/user/qtstub/lib QT_QPA_PLATFORM=offscreen \
+    .venv/bin/python verify_fixes17.py     # ۳۲ موفق / ۰ ناموفق (A: ۱۲، B: ۹، C: ۱۱)
+    .venv/bin/python verify_fixes16.py     # ۱۰۱ موفق / ۰ ناموفق (بدون رگرسیون)
+.venv/bin/python -m pytest -q tests        # ۶۹ passed (۹ آزمون یکپارچهٔ تازه)
+.venv/bin/ruff check .                     # All checks passed
+```
+
+یازده بررسی بخش C با اجرای واقعی UI (نه فقط خواندن سورس): چک‌باکس تیک
+می‌خورد، دکمهٔ ↩️ همان ردیف **کلیک** می‌شود، اثرش در دیتابیس و در پرونده‌های
+سالانه بازخوانی می‌شود، و پیام‌ها/تأییدیه‌ها از همان مسیر `QMessageBox`
+سنجیده می‌شوند.
+
+### اثبات معکوس (اجرای واقعی با کد قبلی)
+
+۱) با برگرداندن لایهٔ سرویس/DAL این مرحله (`git stash push` روی ۸ فایل)،
+هر ۹ آزمون یکپارچهٔ تازه سرخ می‌شوند:
+
+```text
+$ .venv/bin/python -m pytest -q tests/test_restore_integration.py
+9 failed in 1.14s        ← «بازیابی» اصلاً وجود نداشت (AttributeError روی restore_student/…)
+```
+
+۲) با خنثی‌کردن موقت مسیر UI (دکمهٔ ↩️/چک‌باکس در چهار صفحه)، ۸ بررسی از ۱۱
+بررسی بخش C سرخ می‌شوند — یعنی بررسی‌ها به سیم‌کشی واقعی صفحه‌ها حساس‌اند، نه
+به وجود نام تابع:
+
+```text
+$ LD_LIBRARY_PATH=… QT_QPA_PLATFORM=offscreen .venv/bin/python verify_fixes17.py
+❌ [C] × ۸         ← نمایش حذف‌شده‌ها/کلیک ↩️/IT-RESTORE-YEAR-01/IT-YEAR-CRUD-01 سرخ
+```
+
+**پوشش بندهای مأموریت در این مرحله:** بند ۳ ✅ (RESTORE-01/02/04/05/06/07/10)
+· بند ۴ ✅ (بررسی نتیجهٔ واقعی و بازخوانی) · بند ۹ ✅ (حفظ پروندهٔ تاریخی) ·
+بند ۲۲ ✅ · §۳۸ ✅ (`IT-RESTORE-YEAR-01`) · §۳۹ ✅ (`IT-YEAR-CRUD-01`) ·
+بند ۰-۵/۰-۶ ✅ (هیچ کنترل تزئینی و هیچ مسیر UI بدون backend ساخته نشد).
+
+## ۵-۴. محدودیت صریح (بند ۰-۶) — capabilityهای بازیابیِ داخلی
+
+`ObservationDAL.restore`, `InterventionDAL.restore` و `FollowUpDAL.restore`
+همچنان در سطح DAL می‌مانند و برای آن‌ها مسیر سرویس/UI ساخته **نشد**؛
+بررسی C10 در `verify_fixes17.py` همین وضعیت را قفل می‌کند: هیچ‌کدام از سه
+صفحهٔ مشاهدات/مداخلات/پیگیری‌ها کنترل بازیابی نیمه‌کاره (بدون backend) ندارند.
+
+دلیل: بند ۰-۱ مأموریت («قابلیت تازه اضافه نکن») — ساخت صفحهٔ بازیابی برای
+این سه مورد، قابلیت تازه است، نه اصلاح نقص موجود؛ ضمن آن‌که در سند بازبینی
+هم به‌عنوان مورد باقی‌مانده ثبت نشده بود. این‌ها به‌عنوان **capability داخلی
+مستندشده** باقی می‌مانند؛ اگر محصول مسیر بازیابی برایشان بخواهد، تصمیم و
+دامنهٔ آن باید جدا اعلام شود.
+
+## ۵-۵. آنچه همچنان آزمون واقعی GUI لازم دارد
+
+کلیک ماوس، دیالوگ modal واقعی، `QFileDialog` و رفتار ارتفاع/اسکرول جدول در
+نمایشگر واقعی همچنان `NOT_TESTED - GUI EXECUTION REQUIRED` است؛ آنچه این
+مرحله اثبات می‌کند «اجرای واقعی همان کد صفحه‌ها و همین مسیر handlerها در
+حالت offscreen» است.

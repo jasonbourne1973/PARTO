@@ -219,6 +219,55 @@ class CounselingService(BaseService):
             self.logger.info(f"جلسه مشاوره {session_id} حذف شد")
         return result
     
+    def restore_session(self, session_id, user_id=None):
+        """
+        بازیابی جلسهٔ مشاورهٔ حذف‌شده (دور هفدهم — BUG-RESTORE-07)
+
+        همان قرارداد سایر موجودیت‌ها: بررسی واقعی نتیجهٔ DAL، بازخوانی پس از
+        بازیابی، و دست‌نخوردن پروندهٔ سالانهٔ رکورد.
+        """
+        def _restore():
+            existing = self.session_dal.get_by_id(session_id, include_deleted=True)
+            if existing is None:
+                raise ServiceError(f"جلسهٔ مشاوره با شناسه {session_id} یافت نشد.")
+            if not getattr(existing, 'is_deleted', 0):
+                raise ServiceError("این جلسه حذف نشده است؛ بازیابی لازم نیست.")
+
+            profile_before = existing.student_profile_id
+
+            if not self.session_dal.restore(session_id):
+                raise ServiceError(
+                    f"بازیابی جلسهٔ مشاوره با شناسه {session_id} روی دیتابیس اثر نکرد.")
+
+            restored = self.session_dal.get_by_id(session_id)
+            if restored is None or getattr(restored, 'is_deleted', 0):
+                raise ServiceError(
+                    "جلسه پس از بازیابی از دیتابیس خوانده نشد؛ عملیات کامل نشد.")
+            if restored.student_profile_id != profile_before:
+                raise ServiceError(
+                    "پروندهٔ سالانهٔ جلسه در جریان بازیابی تغییر کرد؛ عملیات متوقف شد.")
+
+            self.log_audit(
+                user_id=user_id,
+                action='restore',
+                entity_type='counseling_session',
+                entity_id=session_id,
+                new_value={'session_id': session_id,
+                           'student_profile_id': restored.student_profile_id},
+            )
+            self.logger.info(f"جلسه مشاوره {session_id} بازیابی شد")
+            return restored
+
+        return self.execute_in_transaction(_restore)
+
+    def get_deleted_sessions(self):
+        """فهرست جلسات حذف‌شده (برای مسیر بازیابی در UI)"""
+        try:
+            return self.session_dal.get_deleted()
+        except Exception as e:
+            self.logger.error(f"خطا در دریافت جلسات حذف‌شده: {e}", exc_info=True)
+            raise ServiceError(f"خطا در دریافت فهرست حذف‌شده‌ها: {e!s}")
+
     def get_session_stats(self, profile_id):
         """دریافت آمار جلسات یک دانش‌آموز"""
         # ===== اصلاح (بازرسی دوم) =====

@@ -35,6 +35,14 @@ from services.goal_service import GoalService
 from utils.logger import get_logger
 from views.dialogs.goal_form import GoalForm
 from views.pages.year_sync import YearAwarePage
+from views.widgets.deleted_records import (
+    ask_restore_confirmation,
+    current_user_id,
+    deleted_label,
+    make_restore_button,
+    make_show_deleted_checkbox,
+    report_restore_failure,
+)
 
 
 class GoalsPage(YearAwarePage, QWidget):
@@ -53,6 +61,7 @@ class GoalsPage(YearAwarePage, QWidget):
         self.logger = get_logger(self.__class__.__name__)
         
         self.goals = []
+        self.showing_deleted = False
         self.visible_goals = []
         self.all_students = []
         
@@ -110,6 +119,14 @@ class GoalsPage(YearAwarePage, QWidget):
         toolbar.addWidget(self.add_btn)
         
         layout.addLayout(toolbar)
+
+        # (دور هفدهم — BUG-RESTORE-06) مسیر واقعی بازیابی:
+        # DAL.restore وجود داشت ولی هیچ راهی در UI به آن نمی‌رسید.
+        self.show_deleted_check = make_show_deleted_checkbox(
+            self, "on_show_deleted_toggled",
+            "رکوردهای حذف‌شده را نشان می‌دهد تا با ↩️ بازیابی شوند.")
+        toolbar.addWidget(self.show_deleted_check)
+
         
         # ===== بخش اصلی: Splitter =====
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -242,6 +259,12 @@ class GoalsPage(YearAwarePage, QWidget):
     def load_goals(self):
         """بارگذاری اهداف"""
         try:
+            if self.showing_deleted:
+                # فهرست حذف‌شده‌ها با فیلتر «سال جاری» نمی‌آید؛ رکورد حذف‌شده
+                # به سالِ تاریخی خودش تعلق دارد و بازیابی سالش را حفظ می‌کند.
+                self.goals = self.goal_service.get_deleted_goals()
+                self.display_goals(self.goals)
+                return
             self.goals = self.goal_service.get_all_goals()
             active_year = self.effective_year()
             if active_year:
@@ -278,7 +301,10 @@ class GoalsPage(YearAwarePage, QWidget):
             student_name = getattr(goal, 'student_name', 'نامشخص')
             self.table.setItem(row, 1, QTableWidgetItem(student_name))
             
-            self.table.setItem(row, 2, QTableWidgetItem(goal.title or ""))
+            title_item = goal.title or '(بدون عنوان)'
+            if self.showing_deleted:
+                title_item = deleted_label(title_item)
+            self.table.setItem(row, 2, QTableWidgetItem(title_item))
             
             domain_item = QTableWidgetItem(goal.domain_display)
             self.table.setItem(row, 3, domain_item)
@@ -320,10 +346,20 @@ class GoalsPage(YearAwarePage, QWidget):
                 status_item.setBackground(QColor(255, 255, 200))
             self.table.setItem(row, 5, status_item)
             
-            # دکمه‌ها
+            # دکمه‌های عملیات
             btn_widget = QWidget()
             btn_layout = QHBoxLayout()
             btn_layout.setContentsMargins(2, 2, 2, 2)
+
+            if self.showing_deleted:
+                # (دور هفدهم) رکورد حذف‌شده فقط یک کار منطقی دارد: بازیابی
+                btn_layout.addWidget(
+                    make_restore_button(goal, self.restore_goal))
+                btn_widget.setLayout(btn_layout)
+                self.table.setCellWidget(row, 6, btn_widget)
+                self.table.setRowHeight(row, 45)
+                continue
+
             
             view_btn = QPushButton("👁️")
             view_btn.setFixedSize(30, 30)
@@ -414,6 +450,39 @@ class GoalsPage(YearAwarePage, QWidget):
 """
         self.details_text.setPlainText(details)
         self.details_text.verticalScrollBar().setValue(0)
+
+    def on_show_deleted_toggled(self, checked):
+        """تغییر حالت نمایش حذف‌شده‌ها → بارگذاری دوباره"""
+        self.showing_deleted = bool(checked)
+        self.load_goals()
+
+    def restore_goal(self, goal):
+        """
+        بازیابی هدف حذف‌شده (دور هفدهم)
+
+        مسیر کامل: UI → goal_service.restore_goal → DAL.restore؛
+        موفقیت فقط بعد از نتیجهٔ واقعی سرویس اعلام می‌شود و سال/پروندهٔ
+        تاریخی رکورد دست‌نخورده می‌ماند.
+        """
+        label = goal.title or '(بدون عنوان)'
+        if not ask_restore_confirmation(
+                self, f"آیا هدف «{label}» بازیابی شود؟"):
+            return
+
+        try:
+            restored = self.goal_service.restore_goal(
+                goal.id, user_id=current_user_id())
+        except Exception as e:
+            report_restore_failure(self, e)
+            return
+
+        self.load_goals()
+        if restored is not None:
+            QMessageBox.information(
+                self, "موفقیت",
+                "هدف بازیابی شد. برای دیدنش تیک «نمایش حذف‌شده‌ها» را بردارید.")
+        else:  # pragma: no cover - سرویس در نبود اثر خطا می‌دهد
+            QMessageBox.warning(self, "توجه", "بازیابی انجام نشد.")
 
     def delete_goal(self, goal):
         """حذف هدف"""

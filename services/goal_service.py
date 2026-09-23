@@ -237,6 +237,55 @@ class GoalService(BaseService):
             self.logger.info(f"هدف {goal_id} حذف شد")
         return result
     
+    def restore_goal(self, goal_id, user_id=None):
+        """
+        بازیابی هدف حذف‌شده (دور هفدهم — BUG-RESTORE-06)
+
+        همان قرارداد فعالیت/دانش‌آموز: بررسی واقعی نتیجهٔ DAL، بازخوانی پس از
+        بازیابی، و دست‌نخوردن پروندهٔ سالانهٔ رکورد.
+        """
+        def _restore():
+            existing = self.goal_dal.get_by_id(goal_id, include_deleted=True)
+            if existing is None:
+                raise ServiceError(f"هدف با شناسه {goal_id} یافت نشد.")
+            if not getattr(existing, 'is_deleted', 0):
+                raise ServiceError("این هدف حذف نشده است؛ بازیابی لازم نیست.")
+
+            profile_before = existing.student_profile_id
+
+            if not self.goal_dal.restore(goal_id):
+                raise ServiceError(
+                    f"بازیابی هدف با شناسه {goal_id} روی دیتابیس اثر نکرد.")
+
+            restored = self.goal_dal.get_by_id(goal_id)
+            if restored is None or getattr(restored, 'is_deleted', 0):
+                raise ServiceError(
+                    "هدف پس از بازیابی از دیتابیس خوانده نشد؛ عملیات کامل نشد.")
+            if restored.student_profile_id != profile_before:
+                raise ServiceError(
+                    "پروندهٔ سالانهٔ هدف در جریان بازیابی تغییر کرد؛ عملیات متوقف شد.")
+
+            self.log_audit(
+                user_id=user_id,
+                action='restore',
+                entity_type='individual_goal',
+                entity_id=goal_id,
+                new_value={'goal_id': goal_id,
+                           'student_profile_id': restored.student_profile_id},
+            )
+            self.logger.info(f"هدف {goal_id} بازیابی شد")
+            return restored
+
+        return self.execute_in_transaction(_restore)
+
+    def get_deleted_goals(self):
+        """فهرست اهداف حذف‌شده (برای مسیر بازیابی در UI)"""
+        try:
+            return self.goal_dal.get_deleted()
+        except Exception as e:
+            self.logger.error(f"خطا در دریافت اهداف حذف‌شده: {e}", exc_info=True)
+            raise ServiceError(f"خطا در دریافت فهرست حذف‌شده‌ها: {e!s}")
+
     def get_goal_stats(self, profile_id):
         """دریافت آمار اهداف یک دانش‌آموز"""
         stats = self.goal_dal.get_goal_stats(profile_id)

@@ -305,7 +305,23 @@ class CounselingSessionDAL:
         updated = cursor.rowcount > 0
         self.db.commit()
         return updated
-    
+
+    def get_deleted(self, limit=None):
+        """
+        فهرست جلسات مشاورهٔ حذف‌شده (دور هفدهم — BUG-RESTORE-07)
+
+        لازم برای مسیر بازیابی در UI؛ فقط رکوردهای `is_deleted = 1`.
+        """
+        query = ("SELECT * FROM counseling_sessions "
+                 "WHERE is_deleted = 1 ORDER BY deleted_at DESC")
+        params = []
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+
+        cursor = self.db.execute_query(query, tuple(params) if params else None)
+        return [self._row_to_session(row) for row in cursor.fetchall()]
+
     def get_session_stats(self, profile_id):
         """دریافت آمار جلسات یک دانش‌آموز"""
         sessions = self.get_by_student_profile(profile_id)
