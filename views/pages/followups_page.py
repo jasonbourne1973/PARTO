@@ -228,18 +228,20 @@ class FollowUpsPage(QWidget):
         status = self.status_filter_combo.currentData()
         
         try:
+            active_year = self.academic_year_dal.get_active()
+            year_id = active_year.id if active_year else None
             if search_text:
                 if teacher_id:
                     followups = self.followup_service.search_followups_by_teacher(
-                        teacher_id, search_text
+                        teacher_id, search_text, year_id=year_id
                     )
                 else:
-                    followups = self.followup_service.search_followups(search_text)
+                    followups = self.followup_service.search_followups(search_text, limit=None, year_id=year_id)
             else:
                 if teacher_id:
-                    followups = self.followup_service.get_followups_by_teacher(teacher_id)
+                    followups = self.followup_service.get_followups_by_teacher(teacher_id, year_id=year_id)
                 else:
-                    followups = self.followup_service.get_all_followups()
+                    followups = self.followup_service.get_all_followups(limit=None, year_id=year_id)
             
             # فیلتر وضعیت
             if status is not None:
@@ -267,12 +269,15 @@ class FollowUpsPage(QWidget):
         """پاک کردن جستجو"""
         self.search_input.clear()
         self.status_filter_combo.setCurrentIndex(0)
+        self.teacher_combo.setCurrentIndex(0)
         self.load_followups()
     
     def load_followups(self):
         """بارگذاری پیگیری‌ها با استفاده از سرویس"""
         try:
-            followups = self.followup_service.get_all_followups(limit=100)
+            followups = active_year = self.academic_year_dal.get_active()
+            year_id = active_year.id if active_year else None
+            followups = self.followup_service.get_all_followups(limit=None, year_id=year_id)
             active_year = self.academic_year_dal.get_active()
             if active_year:
                 interventions = self.intervention_dal.get_by_ids(f.intervention_id for f in followups)
