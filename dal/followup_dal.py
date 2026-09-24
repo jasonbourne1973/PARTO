@@ -8,6 +8,7 @@ import sqlite3
 from database.connection import DatabaseConnection
 from models.followup import FollowUp
 from utils.logger import get_logger
+from utils.security import AccessControl, Permission
 from utils.time_utils import utc_now_iso
 
 logger = get_logger(__name__)
@@ -181,6 +182,9 @@ class FollowUpDAL:
     
     def delete(self, followup_id, user_id=None):
         """حذف منطقی پیگیری - فقط رکوردهای موجود"""
+        # مرز مجوز backend (BUG-NAV-03): حذف پیگیری = DELETE_FOLLOWUP
+        AccessControl.require_permission(
+            Permission.DELETE_FOLLOWUP.value, action="followup_dal.delete")
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
@@ -207,6 +211,9 @@ class FollowUpDAL:
     
     def restore(self, followup_id, user_id=None):
         """بازیابی پیگیری حذف شده - فقط رکوردهای حذف شده"""
+        # مرز مجوز backend (BUG-NAV-03): بازیابی = همان مجوز حذف
+        AccessControl.require_permission(
+            Permission.DELETE_FOLLOWUP.value, action="followup_dal.restore")
         conn = self.db.get_connection()
         cursor = conn.cursor()
         

@@ -7,6 +7,7 @@ import sqlite3
 from database.connection import DatabaseConnection
 from models.class_model import ClassModel
 from utils.logger import get_logger
+from utils.security import AccessControl, Permission
 
 logger = get_logger(__name__)
 
@@ -141,6 +142,9 @@ class ClassDAL:
     
     def delete(self, class_id):
         """حذف منطقی کلاس"""
+        # مرز مجوز backend (BUG-NAV-03): دامنهٔ تنظیمات → EDIT_SETTINGS
+        AccessControl.require_permission(
+            Permission.EDIT_SETTINGS.value, action="ClassDAL.delete")
         conn = self.db.get_connection()
         cursor = conn.cursor()
         

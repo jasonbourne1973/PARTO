@@ -6,6 +6,7 @@ import sqlite3
 
 from database.connection import DatabaseConnection
 from models.academic_year import AcademicYear
+from utils.security import AccessControl, Permission
 
 
 class AcademicYearDAL:
@@ -16,6 +17,10 @@ class AcademicYearDAL:
 
     def create(self, year):
         """ایجاد سال تحصیلی جدید"""
+        # مرز مجوز backend (BUG-NAV-03): مدیریت سال تحصیلی = MANAGE_ACADEMIC_YEARS
+        AccessControl.require_permission(
+            Permission.MANAGE_ACADEMIC_YEARS.value,
+            action="AcademicYearDAL.create")
         conn = self.db.get_connection()
         cursor = conn.cursor()
 
@@ -119,6 +124,10 @@ class AcademicYearDAL:
 
     def update(self, year):
         """به‌روزرسانی سال تحصیلی"""
+        # مرز مجوز backend (BUG-NAV-03): MANAGE_ACADEMIC_YEARS
+        AccessControl.require_permission(
+            Permission.MANAGE_ACADEMIC_YEARS.value,
+            action="AcademicYearDAL.update")
         conn = self.db.get_connection()
         cursor = conn.cursor()
 
@@ -153,6 +162,10 @@ class AcademicYearDAL:
 
     def delete(self, year_id):
         """حذف منطقی سال تحصیلی"""
+        # مرز مجوز backend (BUG-NAV-03): MANAGE_ACADEMIC_YEARS
+        AccessControl.require_permission(
+            Permission.MANAGE_ACADEMIC_YEARS.value,
+            action="AcademicYearDAL.delete")
         conn = self.db.get_connection()
         cursor = conn.cursor()
 
@@ -175,6 +188,12 @@ class AcademicYearDAL:
 
     def set_active(self, year_id):
         """تنظیم یک سال به عنوان سال فعال"""
+        # مرز مجوز backend (BUG-NAV-03): تغییر سال فعال = MANAGE_ACADEMIC_YEARS
+        # (همان سیاستی که UI در main_window.py بررسی می‌کند؛ حالا backend
+        # هم مستقل از UI اجرایش می‌کند)
+        AccessControl.require_permission(
+            Permission.MANAGE_ACADEMIC_YEARS.value,
+            action="AcademicYearDAL.set_active")
         conn = self.db.get_connection()
         cursor = conn.cursor()
 

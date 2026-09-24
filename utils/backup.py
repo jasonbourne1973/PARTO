@@ -15,6 +15,7 @@ from pathlib import Path
 
 from config.settings import APP_VERSION
 from utils.logger import get_logger
+from utils.security import AccessControl, Permission
 from utils.time_utils import utc_now, utc_now_iso
 
 logger = get_logger(__name__)
@@ -200,6 +201,9 @@ class BackupManager:
         Returns:
             dict: اطلاعات Backup ایجاد شده
         """
+        # مرز مجوز backend (BUG-NAV-03): ساخت پشتیبان = CREATE_BACKUP
+        AccessControl.require_permission(
+            Permission.CREATE_BACKUP.value, action="BackupManager.create_backup")
         tmp_db_snapshot = None
         tmp_zip = None
         try:
@@ -593,6 +597,10 @@ class BackupManager:
         Returns:
             dict: نتیجه عملیات
         """
+        # مرز مجوز backend (BUG-NAV-03): بازیابی پشتیبان = RESTORE_BACKUP
+        # (خطرناک‌ترین عملیات برنامه: کل دیتابیس را جایگزین می‌کند)
+        AccessControl.require_permission(
+            Permission.RESTORE_BACKUP.value, action="BackupManager.restore_backup")
         # در همهٔ مسیرهای خروج (موفق/نیمه‌موفق/استثنا) وضعیت این دو
         # متغیر لازم است؛ پیش از try مقداردهی می‌شوند تا finally هم
         # وقتی خطا پیش از ساخته‌شدنشان رخ دهد، خطای NameError ندهد.
@@ -1017,6 +1025,9 @@ class BackupManager:
         Returns:
             (bool, str)
         """
+        # مرز مجوز backend (BUG-NAV-03): حذف پشتیبان = DELETE_BACKUP
+        AccessControl.require_permission(
+            Permission.DELETE_BACKUP.value, action="BackupManager.delete_backup")
         real_path, error = self._resolve_backup_path(backup_file)
         if error:
             self.logger.warning(f"حذف پشتیبان رد شد ({backup_file}): {error}")

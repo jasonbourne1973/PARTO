@@ -9,6 +9,7 @@ from database.connection import DatabaseConnection
 from models.student import Student
 from utils.batch_query import id_chunks, placeholders
 from utils.logger import get_logger
+from utils.security import AccessControl, Permission
 from utils.time_utils import utc_now_iso
 
 logger = get_logger(__name__)
@@ -195,6 +196,10 @@ class StudentDAL:
 
     def delete(self, student_id, user_id=None):
         """حذف منطقی دانش‌آموز - فقط رکوردهای موجود"""
+        # مرز مجوز backend (BUG-NAV-03): حذف دانش‌آموز = DELETE_STUDENT
+        # (نگاشت «بازیابی» هم به همین مجوز؛ مستند در docs/design_decisions_fa.md)
+        AccessControl.require_permission(
+            Permission.DELETE_STUDENT.value, action="StudentDAL.delete")
         conn = self.db.get_connection()
         cursor = conn.cursor()
 
@@ -221,6 +226,9 @@ class StudentDAL:
 
     def restore(self, student_id, user_id=None):
         """بازیابی دانش‌آموز حذف شده - فقط رکوردهای حذف شده"""
+        # مرز مجوز backend (BUG-NAV-03): بازیابی = همان مجوز حذف
+        AccessControl.require_permission(
+            Permission.DELETE_STUDENT.value, action="StudentDAL.restore")
         conn = self.db.get_connection()
         cursor = conn.cursor()
 

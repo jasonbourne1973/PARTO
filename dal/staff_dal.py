@@ -8,6 +8,7 @@ from database.connection import DatabaseConnection
 from models.staff import Staff
 from utils.batch_query import id_chunks, placeholders
 from utils.logger import get_logger
+from utils.security import AccessControl, Permission
 from utils.time_utils import utc_now_iso
 
 logger = get_logger(__name__)
@@ -154,6 +155,9 @@ class StaffDAL:
         """
         حذف منطقی عضو کادر
 
+        مرز مجوز backend (BUG-NAV-03): حذف عضو کادر در دامنهٔ تنظیمات
+        است → EDIT_SETTINGS (نگاشت مستندشده در docs/design_decisions_fa.md)
+
         ===== 🔴 اصلاح بحرانی (بازرسی سوم) =====
         نسخهٔ قبلی این بود:
 
@@ -203,6 +207,9 @@ class StaffDAL:
         می‌مانند. is_active=0 گذاشته می‌شود تا ورود آن کاربر هم بسته
         شود (login_dialog مقدار s.is_active را چک می‌کند).
         """
+        # مرز مجوز backend (BUG-NAV-03): دامنهٔ تنظیمات → EDIT_SETTINGS
+        AccessControl.require_permission(
+            Permission.EDIT_SETTINGS.value, action="StaffDAL.delete")
         conn = self.db.get_connection()
         cursor = conn.cursor()
 
@@ -240,12 +247,16 @@ class StaffDAL:
         """
         بازگرداندن عضو کادر حذف‌شده (تا پیش از این اصلاً وجود نداشت)
 
+        مرز مجوز backend (BUG-NAV-03): بازیابی = همان مجوز حذف (EDIT_SETTINGS)
+
         توجه: is_active عمداً ۱ نمی‌شود. بازگرداندن فقط رکورد و
         دسترسی به سابقه را برمی‌گرداند؛ فعال‌سازی مجدد یک تصمیم
         جداگانه است و باید با update() انجام شود تا کاربر آگاهانه
         آن را انجام دهد (وگرنه یک حساب غیرفعال ناگهان می‌توانست وارد
         برنامه شود).
         """
+        AccessControl.require_permission(
+            Permission.EDIT_SETTINGS.value, action="StaffDAL.restore")
         conn = self.db.get_connection()
         cursor = conn.cursor()
 

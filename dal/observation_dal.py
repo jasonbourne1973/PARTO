@@ -15,6 +15,7 @@ from utils.behavior_analysis import (
     shares,
 )
 from utils.logger import get_logger
+from utils.security import AccessControl, Permission
 from utils.time_utils import utc_now_iso
 
 logger = get_logger(__name__)
@@ -241,6 +242,9 @@ class ObservationDAL:
     def delete(self, observation_id, user_id=None):
         """حذف منطقی مشاهده - فقط رکوردهای موجود"""
         conn = self.db.get_connection()
+        # مرز مجوز backend (BUG-NAV-03): حذف مشاهده = DELETE_OBSERVATION
+        AccessControl.require_permission(
+            Permission.DELETE_OBSERVATION.value, action="observation_dal.delete")
         cursor = conn.cursor()
         
         cursor.execute(
@@ -266,6 +270,9 @@ class ObservationDAL:
     def restore(self, observation_id, user_id=None):
         """بازیابی مشاهده حذف شده - فقط رکوردهای حذف شده"""
         conn = self.db.get_connection()
+        # مرز مجوز backend (BUG-NAV-03): بازیابی = همان مجوز حذف
+        AccessControl.require_permission(
+            Permission.DELETE_OBSERVATION.value, action="observation_dal.restore")
         cursor = conn.cursor()
         
         cursor.execute(

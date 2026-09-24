@@ -31,6 +31,7 @@ from dal.student_dal import StudentDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
 from services.intervention_service import InterventionService
 from utils.logger import get_logger
+from utils.security import AccessControl, Permission
 from views.dialogs.intervention_form import InterventionForm
 from views.pages.year_sync import YearAwarePage
 
@@ -380,11 +381,12 @@ class InterventionsPage(YearAwarePage, QWidget):
             view_btn.clicked.connect(lambda checked, i=intervention: self.view_intervention(i))
             btn_layout.addWidget(view_btn)
             
-            delete_btn = QPushButton("🗑️")
-            delete_btn.setFixedSize(30, 30)
-            delete_btn.setStyleSheet("background-color: #C62828; color: #F4C542; border: none; border-radius: 4px;")
-            delete_btn.clicked.connect(lambda checked, i=intervention: self.delete_intervention(i))
-            btn_layout.addWidget(delete_btn)
+            if AccessControl.has_permission(Permission.DELETE_INTERVENTION.value):
+                delete_btn = QPushButton("🗑️")
+                delete_btn.setFixedSize(30, 30)
+                delete_btn.setStyleSheet("background-color: #C62828; color: #F4C542; border: none; border-radius: 4px;")
+                delete_btn.clicked.connect(lambda checked, i=intervention: self.delete_intervention(i))
+                btn_layout.addWidget(delete_btn)
             
             btn_widget.setLayout(btn_layout)
             self.table.setCellWidget(row, 7, btn_widget)

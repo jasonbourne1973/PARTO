@@ -34,6 +34,7 @@ from dal.teacher_assignment_dal import TeacherAssignmentDAL
 from database.connection import DatabaseConnection
 from services.observation_service import ObservationService
 from utils.logger import get_logger
+from utils.security import AccessControl, Permission
 from views.dialogs.observation_form import ObservationForm
 from views.pages.year_sync import YearAwarePage
 
@@ -549,11 +550,12 @@ class ObservationsPage(YearAwarePage, QWidget):
             view_btn.clicked.connect(lambda checked, o=obs: self.view_observation(o))
             btn_layout.addWidget(view_btn)
             
-            delete_btn = QPushButton("🗑️")
-            delete_btn.setFixedSize(30, 30)
-            delete_btn.setStyleSheet("background-color: #C62828; color: #F4C542; border: none; border-radius: 4px;")
-            delete_btn.clicked.connect(lambda checked, o=obs: self.delete_observation(o))
-            btn_layout.addWidget(delete_btn)
+            if AccessControl.has_permission(Permission.DELETE_OBSERVATION.value):
+                delete_btn = QPushButton("🗑️")
+                delete_btn.setFixedSize(30, 30)
+                delete_btn.setStyleSheet("background-color: #C62828; color: #F4C542; border: none; border-radius: 4px;")
+                delete_btn.clicked.connect(lambda checked, o=obs: self.delete_observation(o))
+                btn_layout.addWidget(delete_btn)
             
             btn_widget.setLayout(btn_layout)
             self.table.setCellWidget(row, 7, btn_widget)

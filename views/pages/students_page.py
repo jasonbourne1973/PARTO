@@ -31,6 +31,7 @@ from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.student_dal import StudentDAL
 from services.student_service import StudentService
 from utils.logger import get_logger
+from utils.security import AccessControl, Permission
 from utils.time_utils import utc_now
 from views.dialogs.student_form import StudentForm
 from views.pages.student_profile_page import StudentProfilePage
@@ -452,8 +453,11 @@ class StudentsPage(YearAwarePage, QWidget):
             btn_layout.setSpacing(2)
 
             if self.showing_deleted:
-                # رکورد حذف‌شده فقط یک کار منطقی دارد: بازیابی
-                btn_layout.addWidget(make_restore_button(student, self.restore_student))
+                # رکورد حذف‌شده فقط یک کار منطقی دارد: بازیابی؛ ولی فقط
+                # برای کسی که مجوز حذف/بازیابی دارد (UI↔backend هماهنگ)
+                if AccessControl.has_permission(Permission.DELETE_STUDENT.value):
+                    btn_layout.addWidget(
+                        make_restore_button(student, self.restore_student))
                 btn_widget.setLayout(btn_layout)
                 self.table.setCellWidget(row, 6, btn_widget)
                 self.table.setRowHeight(row, 40)
@@ -476,22 +480,24 @@ class StudentsPage(YearAwarePage, QWidget):
             edit_btn.clicked.connect(lambda checked, s=student: self.edit_student(s))
             btn_layout.addWidget(edit_btn)
             
-            delete_btn = QPushButton("🗑️")
-            delete_btn.setFixedSize(30, 30)
-            delete_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #C62828;
-                    color: #F4C542;
-                    border: none;
-                    border-radius: 4px;
-                    font-size: 14px;
-                }
-                QPushButton:hover {
-                    background-color: #9E1B1B;
-                }
-            """)
-            delete_btn.clicked.connect(lambda checked, s=student: self.delete_student(s))
-            btn_layout.addWidget(delete_btn)
+            if AccessControl.has_permission(Permission.DELETE_STUDENT.value):
+                delete_btn = QPushButton("🗑️")
+                delete_btn.setFixedSize(30, 30)
+                delete_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #C62828;
+                        color: #F4C542;
+                        border: none;
+                        border-radius: 4px;
+                        font-size: 14px;
+                    }
+                    QPushButton:hover {
+                        background-color: #9E1B1B;
+                    }
+                """)
+                delete_btn.clicked.connect(
+                    lambda checked, s=student: self.delete_student(s))
+                btn_layout.addWidget(delete_btn)
             
             profile_btn = QPushButton("👤")
             profile_btn.setFixedSize(30, 30)

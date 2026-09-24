@@ -269,6 +269,196 @@ def get_role_permissions(role):
     return list(FALLBACK_ROLE_PERMISSIONS)
 
 
+class PermissionDeniedError(Exception):
+    """
+    خطای «اجازهٔ انجام این عملیات را ندارید» — مرز مجوز backend
+
+    پرتاب می‌شود وقتی کاربر واردشده مجوز لازم برای یک عملیات حساس را
+    ندارد (BUG-NAV-03). عمداً از Exception ارث می‌برد نه PermissionError؛
+    چون PermissionError زیرکلاس OSError است و بلوک‌های except OSError
+    مسیرهای فایل را می‌تواند گمراه کند.
+    """
+
+    def __init__(self, permission, staff_id=None, action=None):
+        self.permission = permission
+        self.staff_id = staff_id
+        self.action = action
+        super().__init__(
+            f"اجازهٔ انجام این عملیات را ندارید (مجوز لازم: {permission})"
+        )
+
+
+class AccessControl:
+    """
+    مرز مجوز عملیات حساس در backend — تک‌مرجع بررسی دسترسی (BUG-NAV-03)
+
+    ===== چرا لازم شد =====
+    پیش از این، enforce مجوز فقط در UI بود (پنهان‌کردن منو/دکمه).
+    یعنی فراخوانی مستقیم سرویس/DAL از داخل برنامه عملاً همه‌چیز را
+    می‌داد: معلم می‌توانست کاربر بسازد، پشتیبان را بازیابی کند یا سال
+    فعال را عوض کند. طبق مأموریت (بند ۹) این مرز باید در backend هم
+    بررسی شود، بدون تکرار منطق مجوز در هر DAL — همهٔ بررسی‌ها از همین
+    کلاس و از همان منبعِ `get_role_permissions` عبور می‌کنند.
+
+    ===== قرارداد نشست =====
+    - «بدون نشست» (هیچ‌کس وارد نشده): بافت سیستمی/اسکریپتی — seed،
+      migration، اسکریپت‌های راستی‌آزمایی و تست. در برنامهٔ واقعی هیچ
+      مسیر UI بدون ورود به این متدها نمی‌رسد (لاگین مودال پیش از ساخت
+      صفحه‌ها انجام می‌شود)، پس اجازه داده می‌شود و در لاگ debug ثبت
+      می‌گردد. سخت‌گیریِ بیشتر فقط بافت اسکریپت را می‌شکند، نه مهاجمی
+      را می‌گیرد (هر کس که بتواند پردازش داخلی را صدا بزند، دسترسی
+      مستقیم SQL هم دارد).
+    - «با نشست»: نقش کاربر هر بار از دیتابیس خوانده می‌شود (نه کش) تا
+      غیرفعال‌سازی/حذف حساب یا تغییر نقش، بلافاصله اثر کند.
+    """
+
+    #: شناسهٔ staff کاربر واردشده (همان لنگرگاهی که DatabaseConnection
+    #: برای Audit Log نگه می‌دارد؛ در on_login_successful پر می‌شود)
+    _session_staff_id = None
+
+    @classmethod
+    def login(cls, staff_id, role):
+        """ثبت نشست کاربر واردشده (از MainWindow.on_login_successful)"""
+        cls._session_staff_id = staff_id
+        logger.debug(f"نشست مجوز backend برای staff_id={staff_id} ثبت شد.")
+
+    @classmethod
+    def logout(cls):
+        """پاک‌کردن نشست (مسیر خروج/خروج خودکار)"""
+        cls._session_staff_id = None
+
+    @classmethod
+    def has_session(cls):
+        """آیا کاربری وارد شده است؟"""
+        return cls._session_staff_id is not None
+
+    @classmethod
+    def _resolve_current_role(cls):
+        """
+        خواندن تازهٔ نقش کاربر نشست از دیتابیس
+
+        Returns:
+            str | None: نقش؛ None یعنی «نشست نامعتبر» (حساب حذف/غیرفعال
+            شده یا خطای خواندن) → همهٔ مجوزها رد می‌شوند.
+        """
+        if cls._session_staff_id is None:
+            return None
+        try:
+            from database.connection import DatabaseConnection
+            conn = DatabaseConnection().get_connection()
+            row = conn.execute(
+                """
+                SELECT u.role, u.is_active
+                FROM users u
+                WHERE u.staff_id = ? AND u.is_deleted = 0
+                ORDER BY u.is_active DESC, u.id
+                LIMIT 1
+                """,
+                (cls._session_staff_id,),
+            ).fetchone()
+        except Exception as e:
+            # خواندن نقش شکست خورد → fail-closed (نه fail-open)
+            logger.error(
+                f"خواندن نقش کاربر نشست (staff_id={cls._session_staff_id}) "
+                f"شکست خورد؛ همهٔ عملیات حساس رد می‌شود: {e}"
+            )
+            return None
+
+        if row is None or not row["is_active"]:
+            # حساب حذف یا غیرفعال شده → نشست بلافاصله بی‌اعتبار است
+            return None
+        return row["role"]
+
+    @classmethod
+    def has_permission(cls, permission):
+        """
+        آیا کاربر جاری مجوز داده‌شده را دارد؟
+
+        Args:
+            permission: مقدار Permission.*.value (رشته)
+
+        Returns:
+            bool — بدون نشست → True (بافت سیستمی؛ مستندشده در docstring)
+        """
+        if not cls.has_session():
+            logger.debug(
+                f"بررسی مجوز «{permission}» بدون نشست (بافت سیستمی) → مجاز"
+            )
+            return True
+        role = cls._resolve_current_role()
+        if role is None:
+            return False
+        return permission in get_role_permissions(role)
+
+    @classmethod
+    def current_staff_id(cls):
+        """شناسهٔ staff کاربر نشست (برای ثبت Audit رد مجوز)"""
+        return cls._session_staff_id
+
+    @classmethod
+    def require_permission(cls, permission, action=None):
+        """
+        اجرای عملیات حساس فقط با مجوز؛ وگرنه PermissionDeniedError
+
+        Args:
+            permission: مقدار Permission.*.value
+            action: توضیح عملیات برای لاگ/Audit (اختیاری)
+
+        Raises:
+            PermissionDeniedError: اگر کاربر نشست‌دار مجوز نداشته باشد
+        """
+        if cls.has_permission(permission):
+            return True
+
+        staff_id = cls._session_staff_id
+        logger.warning(
+            f"🚫 رد مجوز backend: staff_id={staff_id} "
+            f"اجازهٔ «{permission}» را برای «{action or permission}» ندارد."
+        )
+        # ثبت رد مجوز در Audit Log (best-effort؛ شکست آن هرگز خودِ ردِ
+        # مجوز را بی‌اثر نمی‌کند و پیام جدیدی تولید نمی‌کند)
+        try:
+            import json as _json
+
+            from database.connection import DatabaseConnection
+
+            AuditLogger(DatabaseConnection()).log(
+                staff_id,
+                "permission_denied",
+                "permission",
+                new_value=_json.dumps(
+                    {"permission": permission, "action": action or permission},
+                    ensure_ascii=False,
+                ),
+            )
+        except Exception as e:
+            logger.debug(f"ثبت Audit برای رد مجوز انجام نشد: {e}")
+
+        raise PermissionDeniedError(permission, staff_id=staff_id, action=action)
+
+
+def permission_required(permission):
+    """
+    دکوراتور مرز مجوز برای عملیات حساس DAL/سرویس (BUG-NAV-03)
+
+    منطق بررسی فقط یک‌جاست (AccessControl.require_permission)؛ در هر
+    DAL فقط «یک خط اعمال» می‌شود تا منطق مجوز تکراری نشود.
+    """
+    import functools
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            AccessControl.require_permission(
+                permission, action=func.__qualname__
+            )
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
 class Security:
     """کلاس ابزارهای امنیتی - با PBKDF2-HMAC-SHA256 برای هش کردن رمز عبور"""
     

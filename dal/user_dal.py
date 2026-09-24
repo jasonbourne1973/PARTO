@@ -24,7 +24,11 @@ from typing import ClassVar
 from database.connection import DatabaseConnection
 from models.user import User
 from utils.logger import get_logger
-from utils.security import Security
+from utils.security import (
+    AccessControl,
+    Permission,
+    Security,
+)
 from utils.time_utils import utc_now_iso
 
 logger = get_logger(__name__)
@@ -61,6 +65,9 @@ class UserDAL:
             ValueError: خطای اعتبارسنجی
             Exception: نام کاربری تکراری یا عضو کادر نامعتبر
         """
+        # مرز مجوز backend (BUG-NAV-03): ساخت کاربر = MANAGE_USERS
+        AccessControl.require_permission(
+            Permission.MANAGE_USERS.value, action="UserDAL.create")
         conn = self.db.get_connection()
         cursor = conn.cursor()
 
@@ -370,8 +377,24 @@ class UserDAL:
 
     def update(self, user):
         """به‌روزرسانی اطلاعات کاربر (بدون رمز عبور)"""
+        # مرز مجوز backend (BUG-NAV-03): ویرایش کاربر = MANAGE_USERS؛
+        # اگر نقش هم عوض شود، MANAGE_ROLES هم لازم است (جداسازی دو
+        # مجوز طبق همان سیاست اعلام‌شده در Permission/ROLE_PERMISSIONS).
+        AccessControl.require_permission(
+            Permission.MANAGE_USERS.value, action="UserDAL.update")
         conn = self.db.get_connection()
         cursor = conn.cursor()
+
+        old_role_row = cursor.execute(
+            "SELECT role FROM users WHERE id = ? AND is_deleted = 0",
+            (user.id,)).fetchone()
+        if old_role_row is not None:
+            old_role = (old_role_row["role"] or "").strip().lower()
+            new_role = (user.role or "").strip().lower()
+            if old_role != new_role:
+                AccessControl.require_permission(
+                    Permission.MANAGE_ROLES.value,
+                    action="UserDAL.update(role_change)")
 
         user.username = User.normalize_username(user.username)
 
@@ -421,11 +444,29 @@ class UserDAL:
         Returns:
             bool
         """
+        # مرز مجوز backend (BUG-NAV-03): تغییر رمز «خودِ کاربر» همیشه
+        # مجاز است (وگرنه تغییر رمز در ورودِ اول می‌شکند)؛ تغییر رمز
+        # کاربر دیگری = MANAGE_USERS.
         conn = self.db.get_connection()
+        if AccessControl.has_session():
+            try:
+                own_row = conn.execute(
+                    "SELECT id FROM users WHERE staff_id = ? "
+                    "AND is_deleted = 0 ORDER BY is_active DESC, id LIMIT 1",
+                    (AccessControl.current_staff_id(),),
+                ).fetchone()
+            except sqlite3.Error as e:
+                # خواندن «کاربرِ همان نشست» ممکن نشد → سخت‌گیرانه: با
+                # MANAGE_USERS بررسی می‌شود؛ لاگ برای ردیابی علت
+                logger.debug(f"خواندن users.id نشست جاری شکست خورد: {e}")
+                own_row = None
+            if own_row is None or own_row["id"] != user_id:
+                AccessControl.require_permission(
+                    Permission.MANAGE_USERS.value,
+                    action="UserDAL.update_password")
         cursor = conn.cursor()
 
         password_hash = Security.hash_password(new_raw_password)
-
         cursor.execute("""
             UPDATE users SET
                 password_hash = ?,
@@ -458,6 +499,9 @@ class UserDAL:
         Returns:
             str or None: رمز خام جدید (None اگر کاربر پیدا نشد)
         """
+        # مرز مجوز backend (BUG-NAV-03): ریست رمز دیگران = MANAGE_USERS
+        AccessControl.require_permission(
+            Permission.MANAGE_USERS.value, action="UserDAL.reset_password")
         import secrets
         import string
 
@@ -496,6 +540,9 @@ class UserDAL:
 
     def set_active(self, user_id, is_active, user_id_actor=None):
         """فعال یا غیرفعال کردن کاربر"""
+        # مرز مجوز backend (BUG-NAV-03): فعال/غیرفعال‌سازی = MANAGE_USERS
+        AccessControl.require_permission(
+            Permission.MANAGE_USERS.value, action="UserDAL.set_active")
         conn = self.db.get_connection()
         cursor = conn.cursor()
 
@@ -518,6 +565,9 @@ class UserDAL:
 
     def set_role(self, user_id, new_role, user_id_actor=None):
         """تغییر نقش کاربر"""
+        # مرز مجوز backend (BUG-NAV-03): تغییر نقش = MANAGE_ROLES
+        AccessControl.require_permission(
+            Permission.MANAGE_ROLES.value, action="UserDAL.set_role")
         from models.enums import UserRole
 
         valid_roles = [role.value for role in UserRole]
@@ -551,6 +601,9 @@ class UserDAL:
 
     def delete(self, user_id, user_id_actor=None):
         """حذف منطقی کاربر"""
+        # مرز مجوز backend (BUG-NAV-03): حذف کاربر = MANAGE_USERS
+        AccessControl.require_permission(
+            Permission.MANAGE_USERS.value, action="UserDAL.delete")
         conn = self.db.get_connection()
         cursor = conn.cursor()
 
@@ -581,6 +634,9 @@ class UserDAL:
         پرچم must_change_password هم ست می‌شود چون ممکن است مدت زیادی
         از حذف گذشته باشد.
         """
+        # مرز مجوز backend (BUG-NAV-03): بازیابی کاربر = MANAGE_USERS
+        AccessControl.require_permission(
+            Permission.MANAGE_USERS.value, action="UserDAL.restore")
         conn = self.db.get_connection()
         cursor = conn.cursor()
 

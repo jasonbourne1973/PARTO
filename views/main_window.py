@@ -107,6 +107,10 @@ class MainWindow(QMainWindow):
         self.current_user_role = role
         self._permissions = None      # کش مجوزها با نقش جدید ساخته می‌شود
         self.db.set_current_user(user_id)
+        # نشست مرز مجوز backend (BUG-NAV-03): از این لحظه همهٔ عملیات
+        # حساس DAL/سرویس نقش همین کاربر را از AccessControl می‌پرسند.
+        from utils.security import AccessControl
+        AccessControl.login(user_id, role)
         self.logger.info(f"کاربر {username} با نقش {role} وارد شد.")
 
     def has_permission(self, permission):
@@ -1006,6 +1010,12 @@ class MainWindow(QMainWindow):
                 self.logger.debug(
                     f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
                 )
+            finally:
+                # نشست مرز مجوز backend هم باید بسته شود (BUG-NAV-03)؛
+                # البته این فرایند بلافاصله ری‌استارت می‌شود، ولی اگر
+                # مسیر دیگری به close برسد، نشست بی‌اعتبار شده باشد.
+                from utils.security import AccessControl
+                AccessControl.logout()
 
             self.close()
             import subprocess

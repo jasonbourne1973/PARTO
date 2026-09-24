@@ -9,6 +9,7 @@ from database.connection import DatabaseConnection
 from models.intervention import Intervention
 from utils.batch_query import id_chunks, placeholders
 from utils.logger import get_logger
+from utils.security import AccessControl, Permission
 from utils.time_utils import utc_now_iso
 
 logger = get_logger(__name__)
@@ -225,6 +226,9 @@ class InterventionDAL:
     
     def delete(self, intervention_id, user_id=None):
         """حذف منطقی مداخله - فقط رکوردهای موجود"""
+        # مرز مجوز backend (BUG-NAV-03): حذف مداخله = DELETE_INTERVENTION
+        AccessControl.require_permission(
+            Permission.DELETE_INTERVENTION.value, action="intervention_dal.delete")
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
@@ -250,6 +254,9 @@ class InterventionDAL:
     
     def restore(self, intervention_id, user_id=None):
         """بازیابی مداخله حذف شده - فقط رکوردهای حذف شده"""
+        # مرز مجوز backend (BUG-NAV-03): بازیابی = همان مجوز حذف
+        AccessControl.require_permission(
+            Permission.DELETE_INTERVENTION.value, action="intervention_dal.restore")
         conn = self.db.get_connection()
         cursor = conn.cursor()
         

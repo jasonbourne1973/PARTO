@@ -32,6 +32,7 @@ from dal.student_dal import StudentDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
 from services.followup_service import FollowUpService
 from utils.logger import get_logger
+from utils.security import AccessControl, Permission
 from views.dialogs.followup_form import FollowUpForm
 from views.pages.year_sync import YearAwarePage
 
@@ -345,11 +346,12 @@ class FollowUpsPage(YearAwarePage, QWidget):
             view_btn.clicked.connect(lambda checked, f=followup: self.view_followup(f))
             btn_layout.addWidget(view_btn)
             
-            delete_btn = QPushButton("🗑️")
-            delete_btn.setFixedSize(30, 30)
-            delete_btn.setStyleSheet("background-color: #C62828; color: #F4C542; border: none; border-radius: 4px;")
-            delete_btn.clicked.connect(lambda checked, f=followup: self.delete_followup(f))
-            btn_layout.addWidget(delete_btn)
+            if AccessControl.has_permission(Permission.DELETE_FOLLOWUP.value):
+                delete_btn = QPushButton("🗑️")
+                delete_btn.setFixedSize(30, 30)
+                delete_btn.setStyleSheet("background-color: #C62828; color: #F4C542; border: none; border-radius: 4px;")
+                delete_btn.clicked.connect(lambda checked, f=followup: self.delete_followup(f))
+                btn_layout.addWidget(delete_btn)
             
             btn_widget.setLayout(btn_layout)
             self.table.setCellWidget(row, 7, btn_widget)
