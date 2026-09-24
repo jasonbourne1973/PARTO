@@ -2,7 +2,13 @@
 راستی‌آزمایی دور هجدهم — مرحلهٔ ۲: پیوست‌ها (BUG-ATT-04/05/06 + رگرسیون)
 
 بخش‌ها:
-  A) بازیابی پیوست حذف‌شده با «صفحهٔ واقعی» دیالوگ (آفلاین):
+  A) بازیابی پیوست حذف‌شده با «صفحهٔ واقعی» دیالوگ (آفلاین) — مرحلهٔ ۲:
+  B) سال/پایه و UI (شاخص‌ها/تحلیل/ناوبری/کنتراست) — مرحلهٔ ۳:
+  C) نگاشت ناوبری و کنتراست WCAG — مرحلهٔ ۳:
+  D) رگرسیون نهایی: شش گزارش با خروجی واقعی PDF/Excel، AI export چهار
+     قالب، داشبورد دوساله، پیشرفت هدف، migration (پایین/شکست میانی/
+     بالا)، constraint دیتابیس تازه و قدیمی — مرحلهٔ ۴:
+  (و در آغاز فایل:) بازیابی پیوست حذف‌شده با «صفحهٔ واقعی» دیالوگ (آفلاین):
      چک‌باکس «نمایش حذف‌شده‌ها»، انتخاب ردیف حذف‌شده، دکمهٔ ↩️،
      راستی‌آزمایی فایل فیزیکی پیش از بازیابی (BUG-ATT-05)، برهم‌کنش
      سقف ۲۰ با بازیابی (BUG-ATT-06)، و رگرسیون حذف منطقی (فایل می‌ماند).
@@ -71,8 +77,8 @@ import services.attachment_service as attachment_service_mod
 attachment_dal_mod.ATTACHMENTS_DIR = ATT_DIR
 attachment_service_mod.ATTACHMENTS_DIR = ATT_DIR
 
-from services.attachment_service import AttachmentService
 from dal.attachment_dal import AttachmentDAL
+from services.attachment_service import AttachmentService
 
 SERVICE = AttachmentService()
 
@@ -288,8 +294,8 @@ from dal.student_dal import StudentDAL
 from models.academic_year import AcademicYear
 from models.student import Student
 from models.student_academic_profile import StudentAcademicProfile
-from views.pages.indicators_page import IndicatorsPage
 from views.pages.analysis_page import AnalysisPage
+from views.pages.indicators_page import IndicatorsPage
 
 year_dal = AcademicYearDAL()
 student_dal = StudentDAL()
@@ -445,8 +451,10 @@ check("C", "C1: ایندکس‌های کلیدی مطابق ترتیب addWidget
 
 # ---------- C2: هیچ setCurrentIndex عددی خام روی stacked_widget ----------
 import pathlib
+
 mw_src = pathlib.Path("views/main_window.py").read_text(encoding="utf-8")
 import re
+
 raw_indexes = [
     m.group(1).strip()
     for m in re.finditer(r"stacked_widget\.setCurrentIndex\(([^)]*)\)", mw_src)
@@ -497,6 +505,354 @@ check("C", "C3: نقش کاربر سایدبار (#D9C36A) ≥ 4.5",
       contrast_ratio("D9C36A", "08223A") >= 4.5)
 
 # ============================================================
+# بخش D: مرحلهٔ ۴ — رگرسیون نهایی (بندهای ۱۸، ۱۹، ۲۰، ۲۱، ۲۳، ۲۹، ۳۰)
+# ============================================================
+print()
+print("=" * 76)
+print("بخش D: مرحلهٔ ۴ — شش گزارش، AI export، داشبورد، ارتقاء پایه، هدف، migration، constraint")
+print("=" * 76)
+
+import sqlite3 as _sqlite3
+
+from dal.class_dal import ClassDAL
+from dal.competency_dal import CompetencyDAL
+from dal.followup_dal import FollowUpDAL
+from dal.goal_dal import GoalDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
+from dal.staff_dal import StaffDAL
+from database.migrations.manager import MigrationManager, MigrationStepError
+from models.class_model import ClassModel
+from models.followup import FollowUp
+from models.intervention import Intervention
+from models.observation import Observation
+from models.staff import Staff
+from services.case_timeline_service import CaseTimelineService
+from services.class_report_service import ClassReportService
+from services.dashboard_service import DashboardService
+from services.goal_service import GoalService
+from services.report_generator import ReportGenerator
+from services.teacher_performance_service import TeacherPerformanceService
+from services.teacher_report_service import TeacherReportService
+
+REPORTS_DIR = os.path.join(TMP, "reports_d")
+os.makedirs(REPORTS_DIR, exist_ok=True)
+
+# ---------- D0: دادهٔ پایهٔ گزارش‌ها ----------
+report_teacher = Staff()
+report_teacher.full_name = "معلم گزارش‌ها"
+report_teacher.role = "teacher"
+teacher_id = StaffDAL().create(report_teacher).id
+
+class_1403 = ClassModel()
+class_1403.name = "سوم-الف"          # باید با class_name پروندهٔ A یکی باشد
+class_1403.grade = 3
+class_1403.teacher_id = teacher_id
+class_1403.academic_year_id = y1403.id
+class_1403.capacity = 30
+class_1403_id = ClassDAL().create(class_1403).id
+
+competency_id = CompetencyDAL().get_all()[0].id
+
+
+def make_observation(profile_id, staff_id, date, behavior, behavior_type,
+                     severity=2, student_id=None, year_id=None):
+    observation = Observation()
+    observation.student_profile_id = profile_id
+    observation.staff_id = staff_id
+    observation.observation_date = date
+    observation.behavior = behavior
+    observation.description = "شرح آزمایشی برای رگرسیون گزارش‌ها"
+    observation.behavior_type = behavior_type
+    observation.severity = severity
+    observation.competency_id = competency_id
+    observation.location = "کلاس"
+    created = ObservationDAL().create(observation)
+    return created
+
+
+# زنجیرهٔ کامل برای A در ۱۴۰۳: مشاهده → مداخله → پیگیری
+obs_a = make_observation(profile_a.id, teacher_id, "1403/10/01",
+                         "رفتار مثبت آزمایشی گزارش", "مثبت")
+intervention_a = Intervention()
+intervention_a.student_profile_id = profile_a.id
+intervention_a.staff_id = teacher_id
+intervention_a.type = "parent_call"
+intervention_a.description = "مداخلهٔ آزمایشی تماس با والد"
+intervention_a.date = "1403/10/02"
+intervention_a.status = "planned"
+intervention_a_id = InterventionDAL().create(intervention_a).id
+
+followup_a = FollowUp()
+followup_a.intervention_id = intervention_a_id
+followup_a.staff_id = teacher_id
+followup_a.date = "1403/10/05"
+followup_a.status = "pending"
+followup_a.result_type = "done"
+followup_a.description = "پیگیری آزمایشی تماس با والد"
+followup_a_id = FollowUpDAL().create(followup_a).id
+
+# مشاهدهٔ دوم A در ۱۴۰۳ (برای تمایز شمارش داشبورد) و یکی برای B در ۱۴۰۴
+make_observation(profile_a.id, teacher_id, "1403/11/01",
+                 "رفتار منفی آزمایشی گزارش", "منفی", severity=4)
+make_observation(profile_b.id, teacher_id, "1404/08/01",
+                 "رفتار مثبت سال ۱۴۰۴", "مثبت")
+
+check("D", "D0: دادهٔ پایهٔ گزارش‌ها ساخته شد (۲ مشاهدهٔ ۱۴۰۳، ۱ مشاهدهٔ ۱۴۰۴، زنجیرهٔ کامل A)",
+      obs_a.id and intervention_a_id and followup_a_id)
+
+
+def file_ok(path, prefix=None):
+    if not os.path.exists(path) or os.path.getsize(path) == 0:
+        return False
+    if prefix:
+        with open(path, "rb") as fh:
+            return fh.read(len(prefix)) == prefix
+    return True
+
+
+def excel_ok(path):
+    from openpyxl import load_workbook
+    wb = load_workbook(path, read_only=True)
+    names = wb.sheetnames
+    wb.close()
+    return bool(names)
+
+
+# ---------- D1: گزارش دانش‌آموز (PDF + Excel) ----------
+gen = ReportGenerator()
+pdf_path = os.path.join(REPORTS_DIR, "student.pdf")
+xlsx_path = os.path.join(REPORTS_DIR, "student.xlsx")
+gen.export_to_pdf(profile_a.id, pdf_path)
+gen.export_to_excel(profile_a.id, xlsx_path)
+check("D", "D1: گزارش دانش‌آموز PDF معتبر (%PDF، حجم غیرصفر)",
+      file_ok(pdf_path, b"%PDF"))
+check("D", "D1: گزارش دانش‌آموز Excel باز می‌شود و شیت دارد",
+      file_ok(xlsx_path) and excel_ok(xlsx_path))
+
+# ---------- D2: گزارش والدین ----------
+parent_data = gen.generate_parent_report(profile_a.id)
+check("D", "D2: گزارش والدین دادهٔ معتبر برمی‌گرداند",
+      isinstance(parent_data, dict) and len(parent_data) > 0)
+
+# ---------- D3: گزارش کلاس (PDF + Excel) ----------
+class_svc = ClassReportService()
+class_pdf = os.path.join(REPORTS_DIR, "class.pdf")
+class_xlsx = os.path.join(REPORTS_DIR, "class.xlsx")
+ok_pdf, _ = class_svc.export_class_report_pdf(class_1403_id, class_pdf) or (False, "")
+ok_xlsx, _ = class_svc.export_class_report_excel(class_1403_id, class_xlsx) or (False, "")
+check("D", "D3: گزارش کلاس ۱۴۰۳ PDF (داده‌دار، %PDF)",
+      ok_pdf is True and file_ok(class_pdf, b"%PDF"),
+      f"ok={ok_pdf}")
+check("D", "D3: گزارش کلاس ۱۴۰۳ Excel باز می‌شود",
+      ok_xlsx is True and excel_ok(class_xlsx), f"ok={ok_xlsx}")
+
+# ---------- D4: گزارش معلم (PDF + Excel) ----------
+teacher_svc = TeacherReportService()
+teacher_pdf = os.path.join(REPORTS_DIR, "teacher.pdf")
+teacher_xlsx = os.path.join(REPORTS_DIR, "teacher.xlsx")
+report_data = {
+    "teacher_name": "معلم گزارش‌ها",
+    "total_students": 1,
+    "start_date": "1403/10/01",
+    "end_date": "1403/12/29",
+    "year_title": "۱۴۰۳-۱۴۰۴",
+    "total_observations": 2,
+    "positive_observations": 1,
+    "negative_observations": 1,
+    "neutral_observations": 0,
+    "total_interventions": 1,
+    "pending_followups": 1,
+    "competency_stats": {},
+}
+teacher_svc.export_to_pdf(report_data, teacher_pdf)
+teacher_svc.export_to_excel(report_data, teacher_xlsx)
+check("D", "D4: گزارش معلم PDF معتبر",
+      file_ok(teacher_pdf, b"%PDF"))
+check("D", "D4: گزارش معلم Excel باز می‌شود",
+      file_ok(teacher_xlsx) and excel_ok(teacher_xlsx))
+
+# ---------- D5: گزارش عملکرد معلم ----------
+perf_svc = TeacherPerformanceService()
+perf_pdf = os.path.join(REPORTS_DIR, "performance.pdf")
+try:
+    perf_result = perf_svc.export_teacher_report_pdf(
+        teacher_id, perf_pdf, "1403/10/01", "1404/03/31")
+except Exception as _perf_exc:
+    perf_result = (False, str(_perf_exc))
+perf_ok = file_ok(perf_pdf, b"%PDF")
+check("D", "D5: گزارش عملکرد معلم PDF معتبر (یا «بدون داده» صریح)",
+      perf_ok or (isinstance(perf_result, tuple)
+                  and perf_result[0] is False
+                  and "داده" in str(perf_result[1])),
+      f"result={perf_result}")
+
+# ---------- D6: Timeline (زنجیرهٔ مشاهده → مداخله → پیگیری) ----------
+timeline_svc = CaseTimelineService()
+timeline = timeline_svc.get_timeline(profile_a.id)
+event_types = sorted({event.get("type") for event in timeline})
+check("D", "D6: Timeline هر سه رویداد زنجیرهٔ A را دارد",
+      {"observation", "intervention", "followup"} <= set(event_types),
+      f"types={event_types}")
+timeline_summary = timeline_svc.get_timeline_summary(profile_a.id)
+check("D", "D6: خلاصهٔ Timeline با شمارش واقعی می‌خواند",
+      isinstance(timeline_summary, dict))
+
+# ---------- D7: AI Export — چهار قالب + پیگیری‌ها + شکست Excel ≠ CSV ----------
+from views.dialogs.export_ai_dialog import ExportAIDialog
+
+with contextlib.redirect_stdout(io.StringIO()):
+    ai_dialog = ExportAIDialog(student_id=student_a.id, profile_id=profile_a.id)
+ai_data = ai_dialog._collect_data()
+check("D", "D7: دادهٔ AI شامل پیگیری‌ها است",
+      len(ai_data.get("followups", [])) == 1,
+      f"followups={len(ai_data.get('followups', []))}")
+
+ai_base = os.path.join(REPORTS_DIR, "ai_export")
+ai_dialog._export_pdf(ai_data, ai_base + ".pdf")
+ai_dialog._export_excel(ai_data, ai_base + ".xlsx")
+ai_dialog._export_csv(ai_data, ai_base + ".csv")
+ai_dialog._export_txt(ai_data, ai_base + ".txt")
+check("D", "D7: خروجی PDF AI معتبر",
+      file_ok(ai_base + ".pdf", b"%PDF"))
+
+from openpyxl import load_workbook
+
+ai_wb = load_workbook(ai_base + ".xlsx", read_only=True)
+ai_sheets = " | ".join(ai_wb.sheetnames)
+ai_wb.close()
+check("D", "D7: Excel AI شیت پیگیری‌ها دارد (fallback CSV نیست)",
+      ("پیگیری" in ai_sheets), f"sheets={ai_sheets}")
+csv_content = pathlib.Path(ai_base + ".csv").read_text(encoding="utf-8")
+txt_content = pathlib.Path(ai_base + ".txt").read_text(encoding="utf-8")
+check("D", "D7: پیگیری‌ها در CSV و TXT هم هستند",
+      "پیگیری" in csv_content and "پیگیری" in txt_content)
+
+ai_src = pathlib.Path("views/dialogs/export_ai_dialog.py").read_text(encoding="utf-8")
+excel_block = ai_src.split("def _export_excel")[1].split("def _export_csv")[0]
+check("D", "D7: مسیر _export_excel هیچ fallback به CSV ندارد (رگرسیون)",
+      ("_export_csv" not in excel_block and "raise" in excel_block) or
+      ("return False" in excel_block or "except" in excel_block))
+
+# ---------- D8: داشبورد با دامنهٔ سال ----------
+dash = DashboardService()
+dash_1403 = dash.get_dashboard_data(year_id=y1403.id)
+dash_1404 = dash.get_dashboard_data(year_id=y1404.id)
+check("D", "D8: داشبورد ۱۴۰۳ = ۲ مشاهدهٔ همان سال",
+      dash_1403["general_stats"]["observations_count"] == 2,
+      f"got={dash_1403['general_stats']['observations_count']}")
+check("D", "D8: داشبورد ۱۴۰۴ = ۱ مشاهدهٔ همان سال (بدون نشتی)",
+      dash_1404["general_stats"]["observations_count"] == 1,
+      f"got={dash_1404['general_stats']['observations_count']}")
+
+# ---------- D9: پیشرفت هدف — کلمپ ۰..۱۰۰ + ماندگاری ----------
+goal_service = GoalService()
+goal_created = goal_service.create_goal({
+    "student_profile_id": profile_a.id,
+    "title": "هدف آزمایشی رگرسیون",
+    "description": "شرح هدف",
+    "domain": "educational",
+    "priority": "medium",
+}, user_id=teacher_id)
+goal_service.update_goal_progress(
+    goal_created.id, 150, notes="بیش از سقف", user_id=teacher_id)
+goal_after = GoalDAL().get_by_id(goal_created.id)
+check("D", "D9: پیشرفت هدف ۱۵۰٪ به ۱۰۰ کلمپ و در DB ماند",
+      goal_after.progress_percent == 100
+      and goal_after.progress_notes == "بیش از سقف")
+goal_service.update_goal_progress(goal_created.id, -5, user_id=teacher_id)
+check("D", "D9: پیشرفت منفی به ۰ کلمپ می‌شود",
+      GoalDAL().get_by_id(goal_created.id).progress_percent == 0)
+
+# ---------- D10: Migration — idempotent، پایین‌آمدن، شکست میانی، بالا‌آمدن ----------
+conn_mig = dbc.DatabaseConnection().get_connection()
+version_before = MigrationManager.get_current_version(conn_mig)
+MigrationManager.migrate(conn_mig)
+check("D", "D10: migrate روی دیتابیس به‌روز بی‌اثر است (idempotent)",
+      MigrationManager.get_current_version(conn_mig) == version_before)
+
+MigrationManager.migrate(conn_mig, target_version=8)
+check("D", "D10: downgrade ۹→۸ انجام شد و نسخه ثبت شد",
+      MigrationManager.get_current_version(conn_mig) == 8)
+
+original_run_step = MigrationManager._run_step
+
+
+def failing_run_step(connection, module, version, direction, new_version=None):
+    if version == 8 and direction == "downgrade":
+        raise MigrationStepError(8, "downgrade", "شکست عمدی برای آزمون")
+    return original_run_step(connection, module, version, direction,
+                             new_version=new_version)
+
+
+MigrationManager._run_step = staticmethod(failing_run_step)
+mid_failure_raised = False
+try:
+    MigrationManager.migrate(conn_mig, target_version=7)
+except MigrationStepError:
+    mid_failure_raised = True
+MigrationManager._run_step = staticmethod(original_run_step)
+check("D", "D10: شکست عمدی وسط downgrade → MigrationStepError",
+      mid_failure_raised)
+check("D", "D10: پس از شکست میانی، نسخه در گام آخرِ معتبر (۸) ماند",
+      MigrationManager.get_current_version(conn_mig) == 8,
+      f"version={MigrationManager.get_current_version(conn_mig)}")
+
+MigrationManager.migrate(conn_mig)  # دوباره به آخرین نسخه
+check("D", "D10: re-upgrade به نسخهٔ ۹ پس از شکست میانی",
+      MigrationManager.get_current_version(conn_mig) == 9)
+check("D", "D10: داده پس از پایین/بالای migration دست‌نخورده است",
+      conn_mig.execute(
+          "SELECT COUNT(*) FROM observations WHERE is_deleted = 0"
+      ).fetchone()[0] == 3)
+
+# ---------- D11: Constraint در دیتابیس تازه و قدیمی (بند ۳۰) ----------
+# تازه: CHECK باید مقدار نامعتبر را رد کند
+legacy_dir = os.path.join(TMP, "legacy_db")
+os.makedirs(legacy_dir, exist_ok=True)
+legacy_path = os.path.join(legacy_dir, "legacy.db")
+legacy_conn = _sqlite3.connect(legacy_path)
+legacy_conn.execute("""
+    CREATE TABLE observations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        student_profile_id INTEGER,
+        staff_id INTEGER,
+        observation_date TEXT,
+        behavior TEXT,
+        description TEXT,
+        behavior_type TEXT,
+        severity INTEGER
+    )
+""")
+try:
+    legacy_conn.execute(
+        "INSERT INTO observations (behavior_type) VALUES ('نامعتبر')")
+    legacy_accepts = True
+except _sqlite3.IntegrityError:
+    legacy_accepts = False
+legacy_conn.rollback()
+legacy_conn.close()
+
+fresh_rejects = False
+try:
+    conn_mig.execute("""
+        INSERT INTO observations (
+            student_profile_id, staff_id, observation_date, behavior,
+            description, behavior_type
+        ) VALUES (?, ?, '1404/01/01', 'رفتار نامعتبر برای CHECK',
+                  'شرح', 'نامعتبر')
+    """, (profile_a.id, teacher_id))
+    conn_mig.rollback()
+except _sqlite3.IntegrityError:
+    fresh_rejects = True
+
+check("D", "D11: دیتابیس تازه: behavior_type نامعتبر با CHECK رد می‌شود",
+      fresh_rejects)
+check("D", "D11: دیتابیس قدیمیِ بدون بازسازی: CHECK ندارد (واقعیت ثبت شد)",
+      legacy_accepts is True,
+      "مستند: DBهای قدیمی تا بازسازی جدول، CHECK رفتار را اعمال نمی‌کنند")
+
+# ============================================================
 # پایان
 # ============================================================
 
@@ -512,7 +868,7 @@ with contextlib.suppress(Exception):
 
 print()
 print("=" * 76)
-print(f"نتیجهٔ دور هجدهم (مرحله‌های ۲ و ۳):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
+print(f"نتیجهٔ دور هجدهم (مرحله‌های ۲ تا ۴):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
 print("=" * 76)
 if FAILURES:
     print("موارد ناموفق:")

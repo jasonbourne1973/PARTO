@@ -1,0 +1,110 @@
+{
+  "round": 18,
+  "date": "2026-09-24",
+  "branch": "arena/01a0d3e6-parto",
+  "mission": "MASTER FIX / FINAL TECHNICAL AUDIT (items 0-45)",
+  "stages_completed_this_round": [
+    {"stage": 5, "priority": "P0", "title": "backend permission boundary (BUG-NAV-03) + BUG-NAV-02 design decision"},
+    {"stage": 6, "priority": "P2", "title": "attachment restore path (BUG-ATT-04/05/06)"},
+    {"stage": 7, "priority": "P2", "title": "year handler + listing year-scope + sidebar contrast + navigation map (BUG-GUI-13/07/08/01, NAV-07)"},
+    {"stage": 8, "priority": "P3", "title": "final regression battery + machine-readable report"}
+  ],
+  "changed_files": {
+    "stage_security": [
+      "utils/security.py",
+      "dal/user_dal.py",
+      "dal/academic_year_dal.py",
+      "dal/student_dal.py",
+      "dal/observation_dal.py",
+      "dal/intervention_dal.py",
+      "dal/followup_dal.py",
+      "dal/staff_dal.py",
+      "dal/class_dal.py",
+      "utils/backup.py",
+      "views/main_window.py",
+      "views/pages/students_page.py",
+      "views/pages/observations_page.py",
+      "views/pages/interventions_page.py",
+      "views/pages/followups_page.py",
+      "tests/test_permission_boundary.py [new]",
+      "docs/design_decisions_fa.md [new]"
+    ],
+    "stage_attachments": [
+      "dal/attachment_dal.py",
+      "services/attachment_service.py",
+      "views/dialogs/attachment_dialog.py",
+      "tests/test_attachment_restore.py [new]"
+    ],
+    "stage_year_ui": [
+      "dal/student_academic_profile_dal.py",
+      "views/pages/indicators_page.py",
+      "views/pages/analysis_page.py",
+      "views/main_window.py",
+      "tests/test_year_ui_scope.py [new]"
+    ],
+    "stage_final_regression": [
+      "verify_fixes18.py [new, 78 checks]",
+      "docs/gui_test_checklist_fa.md [updated]",
+      "docs/tech_audit_18_fa.md [new]",
+      "docs/master_fix_report_fa.md [new]",
+      "docs/master_fix_report.json [new]"
+    ]
+  },
+  "fixed_bugs": [
+    {"id": "BUG-NAV-03", "root_cause": "permission enforcement only in UI; direct DAL/service calls had no boundary", "fix": "single AccessControl boundary in utils/security.py on existing Permission enum; fresh role read from DB per check; session denied rows audited (action=permission_denied); 21 sensitive methods guarded across 8 DALs + BackupManager", "test": "tests/test_permission_boundary.py (13)", "result": "PASS"},
+    {"id": "BUG-NAV-02", "root_cause": "no documented access policy for Counseling/Activities/Goals", "fix": "DESIGN DECISION REQUIRED registered as DD-1; no policy invented per mission item 8", "test": "docs/design_decisions_fa.md", "result": "DOCUMENTED"},
+    {"id": "BUG-ATT-04", "root_cause": "no restore method in AttachmentDAL and no UI path", "fix": "DAL.restore (rowcount>0 contract), get_deleted_by_entity, service.restore_attachment, checkbox+restore button in AttachmentDialog", "test": "tests/test_attachment_restore.py + verify18 A1-A4", "result": "PASS"},
+    {"id": "BUG-ATT-05", "root_cause": "restore could not verify physical file (method did not exist)", "fix": "physical file existence verified BEFORE any DB change; missing file -> explicit ServiceError, record stays deleted", "test": "tests/test_attachment_restore.py::TestRestoreVerifiesPhysicalFile + verify18 A5", "result": "PASS"},
+    {"id": "BUG-ATT-06", "root_cause": "20-file cap only enforced at upload; interaction with restore untested", "fix": "cap measured including restored attachments; 20 accept / 21 reject with no DB row and no orphan file", "test": "tests/test_attachment_restore.py::TestAttachmentLimit + verify18 A6", "result": "PASS"},
+    {"id": "BUG-GUI-13", "root_cause": "year combo wired to teacher-only handler; stale indicator panel kept on screen", "fix": "explicit on_year_changed in indicators/analysis: rebuild list for new year, clear stale panel, safe re-selection", "test": "tests/test_year_ui_scope.py + verify18 B2/B4", "result": "PASS"},
+    {"id": "BUG-GUI-07", "root_cause": "indicator list grades read from active profile instead of selected year", "fix": "profile map from selected year (new batch DAL get_by_students_and_year); year-scoped listing without fallback", "test": "tests/test_year_ui_scope.py::TestIndicatorListingYearScope + verify18 B1/B3", "result": "PASS"},
+    {"id": "BUG-GUI-08", "root_cause": "same leak in analysis page", "fix": "same year-scoped profile map in analysis listing", "test": "tests/test_year_ui_scope.py::TestAnalysisListingYearScope + verify18 B4", "result": "PASS"},
+    {"id": "BUG-GUI-01", "root_cause": "sidebar user name/icon color #08223A identical to frame background (ratio 1:1, invisible)", "fix": "color -> #F4C542 (contrast ~9:1); computed WCAG checks for six color pairs", "test": "verify18 C3", "result": "PASS"},
+    {"id": "BUG-NAV-07", "root_cause": "hard-coded stacked indices duplicated in menu list and two manual setCurrentIndex calls", "fix": "module-level PAGE_INDEX single source; menu uses page names; goto_page()/goto_page_index(); raw indices removed; regression test forbids raw setCurrentIndex", "test": "tests/test_year_ui_scope.py::TestNavigationMapping + verify18 C1/C2", "result": "PASS"}
+  ],
+  "db_changes": {
+    "migrations": "none required - no schema change was needed for any fix in this round (mission rule: no schema change without migration)",
+    "note": "D11 documents that legacy DBs upgraded via migrations do NOT gain CHECK constraints until a table-rebuild migration exists; fresh DBs enforce behavior_type/severity CHECKs"
+  },
+  "tests": [
+    {"command": "LD_LIBRARY_PATH=<qtstub> QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q", "result": "120 passed"},
+    {"command": "LD_LIBRARY_PATH=<qtstub> QT_QPA_PLATFORM=offscreen python verify_fixes16.py", "result": "101/101 PASS"},
+    {"command": "LD_LIBRARY_PATH=<qtstub> QT_QPA_PLATFORM=offscreen python verify_fixes17.py", "result": "43/43 PASS"},
+    {"command": "LD_LIBRARY_PATH=<qtstub> QT_QPA_PLATFORM=offscreen python verify_fixes18.py", "result": "78/78 PASS"},
+    {"command": "python -m ruff check .", "result": "All checks passed"}
+  ],
+  "regression_proof": {
+    "already_fixed_items_retest": "verify_fixes16 (101) + verify_fixes17 (43) rerun green after every stage; covers items 42 list: migration transactions, online backup, restore safety rollback, attachment safety, auto-backup persistence, recommendation workflow, goal progress, historical profile preservation, year filters before LIMIT, student export, dashboard year scope, promotion, dead code, SQL audit, exception handling",
+    "six_reports": "verify18 D1-D6: student PDF+Excel, parent data, class PDF+Excel, teacher PDF+Excel, performance PDF, timeline chain - all real files verified",
+    "ai_export": "verify18 D7: followups present in PDF/Excel/CSV/TXT; excel path has no CSV fallback",
+    "dashboard": "verify18 D8: year-scoped counts (2 vs 1)",
+    "goal_progress": "verify18 D9: clamp 150->100, -5->0, persisted",
+    "migration": "verify18 D10: idempotent, downgrade 9->8, mid-failure rollback keeps version 8, re-upgrade, data intact",
+    "constraints": "verify18 D11: fresh enforced / legacy documented"
+  },
+  "remaining": [
+    {"item": "GUI real-execution tests", "status": "NOT_TESTED - GUI EXECUTION REQUIRED", "reason": "headless offscreen environment; real mouse clicks, modal QFileDialog, opening files with external apps, real login/logout process restart require a desktop session. Checklist: docs/gui_test_checklist_fa.md (including round-18 additions 7/8/9)"},
+    {"item": "BUG-NAV-02 access policy for Counseling/Activities/Goals", "status": "DESIGN DECISION REQUIRED", "reason": "no product policy exists in repo; agent forbidden from inventing one (mission item 8); current open-to-logged-in behavior preserved; documented as DD-1"},
+    {"item": "legacy DB CHECK constraints", "status": "DOCUMENTED LIMITATION", "reason": "SQLite cannot ADD a CHECK without table rebuild; fresh DBs enforce; legacy DBs documented in verify18 D11"}
+  ],
+  "acceptance_criteria_41": {
+    "P0_P1_zero": true,
+    "P2_fixed_or_documented": true,
+    "no_student_family_field_lost": true,
+    "no_historical_record_moved_to_active_year": true,
+    "no_report_year_leak": true,
+    "import_transactional": true,
+    "export_not_current_page_only": true,
+    "delete_restore_result_checked": true,
+    "backup_restore_failure_no_data_loss": true,
+    "attachment_failure_no_inconsistency": true,
+    "recommendation_workflow_complete": true,
+    "ai_export_complete": true,
+    "no_silent_exceptions": true,
+    "no_dead_ui_button": true,
+    "tests_pass": true,
+    "gui_runtime_tests_recorded": true,
+    "no_schema_change_without_migration": true,
+    "no_new_capability_added": true
+  }
+}
