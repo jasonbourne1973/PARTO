@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """مدیریت چهار تم رابط کاربری PARTOW.
 
 این فایل فقط ظاهر برنامه را مدیریت می‌کند و به مدل، DAL، سرویس یا دیتابیس
@@ -10,7 +9,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Dict, Optional
+from typing import ClassVar, Optional
 
 from PySide6.QtCore import QEvent, QObject, QSettings
 from PySide6.QtWidgets import QApplication, QWidget
@@ -19,11 +18,11 @@ from PySide6.QtWidgets import QApplication, QWidget
 class _ThemeEventFilter(QObject):
     """اعمال تم به دیالوگ‌ها و ویجت‌هایی که بعداً ساخته می‌شوند."""
 
-    def __init__(self, manager: "ThemeManager"):
+    def __init__(self, manager: ThemeManager):
         super().__init__()
         self.manager = manager
 
-    def eventFilter(self, watched, event):  # noqa: N802 - نام Qt
+    def eventFilter(self, watched, event):
         if event.type() == QEvent.Type.Show and isinstance(watched, QWidget):
             self.manager.apply_to_tree(watched)
         return False
@@ -52,7 +51,7 @@ class ThemeManager:
         "#111111",  # متن مشکی
     )
 
-    THEMES: Dict[str, Dict[str, str]] = {
+    THEMES: ClassVar[dict[str, dict[str, str]]] = {
         "royal": {
             "title": "آبی سلطنتی و طلایی",
             "#0B2E4F": "#0B2E4F",

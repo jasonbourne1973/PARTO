@@ -2,22 +2,22 @@
 سرویس جستجوی پیشرفته - جستجوی ترکیبی با چندین معیار و ذخیره فیلترها
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
 from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
 from dal.saved_filter_dal import SavedFilterDAL
 from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from models.saved_filter import SavedFilter
-from utils.logger import get_logger
+from services.base_service import BaseService
 from utils.error_handler import ServiceError, ValidationError
+from utils.logger import get_logger
 
 
 class AdvancedSearchService(BaseService):
@@ -121,14 +121,14 @@ class AdvancedSearchService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در جستجوی دانش‌آموزان: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")
     
     def _has_observation(self, student_id, academic_year_id=None):
         """بررسی وجود مشاهده برای دانش‌آموز"""
         try:
             observations = self.observation_dal.get_by_student(student_id, academic_year_id)
             return len(observations) > 0
-        except:
+        except Exception:
             return False
     
     def _has_intervention(self, student_id, academic_year_id=None):
@@ -136,7 +136,7 @@ class AdvancedSearchService(BaseService):
         try:
             interventions = self.intervention_dal.get_by_student(student_id, academic_year_id)
             return len(interventions) > 0
-        except:
+        except Exception:
             return False
     
     def _get_student_status(self, student_id, academic_year_id=None):
@@ -230,7 +230,7 @@ class AdvancedSearchService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در جستجوی مشاهدات: {e}")
-            raise ServiceError(f"خطا در جستجو: {str(e)}")
+            raise ServiceError(f"خطا در جستجو: {e!s}")
     
     # ============================================================
     # مدیریت فیلترهای ذخیره‌شده
@@ -278,7 +278,7 @@ class AdvancedSearchService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در ذخیره فیلتر: {e}")
-            raise ServiceError(f"خطا در ذخیره فیلتر: {str(e)}")
+            raise ServiceError(f"خطا در ذخیره فیلتر: {e!s}")
     
     def get_user_filters(self, user_id, filter_type=None):
         """دریافت فیلترهای یک کاربر"""
@@ -331,7 +331,7 @@ class AdvancedSearchService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در اعمال فیلتر: {e}")
-            raise ServiceError(f"خطا در اعمال فیلتر: {str(e)}")
+            raise ServiceError(f"خطا در اعمال فیلتر: {e!s}")
     
     def delete_filter(self, filter_id, user_id=None):
         """حذف فیلتر"""
@@ -348,7 +348,7 @@ class AdvancedSearchService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در حذف فیلتر: {e}")
-            raise ServiceError(f"خطا در حذف فیلتر: {str(e)}")
+            raise ServiceError(f"خطا در حذف فیلتر: {e!s}")
     
     def update_filter(self, filter_id, data, user_id=None):
         """به‌روزرسانی فیلتر"""
@@ -378,7 +378,7 @@ class AdvancedSearchService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در به‌روزرسانی فیلتر: {e}")
-            raise ServiceError(f"خطا در به‌روزرسانی فیلتر: {str(e)}")
+            raise ServiceError(f"خطا در به‌روزرسانی فیلتر: {e!s}")
     
     def get_filter_suggestions(self, filter_type, user_id=None):
         """

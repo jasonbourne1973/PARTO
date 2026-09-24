@@ -2,20 +2,27 @@
 فرم ثبت و ویرایش مداخله - نسخه با پشتیبانی از سیستم راهنما
 """
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QLineEdit, QComboBox, QPushButton,
-    QTextEdit, QMessageBox, QWidget, QScrollArea,
-    QGroupBox
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal
 
-from services.intervention_service import InterventionService
-from dal.student_dal import StudentDAL
 from dal.staff_dal import StaffDAL
-from utils.shamsi_date_input import ShamsiDateInput
+from dal.student_dal import StudentDAL
+from services.intervention_service import InterventionService
 from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
+from utils.shamsi_date_input import ShamsiDateInput
 from utils.tooltip_manager import TooltipManager
 from views.widgets.help_widget import HelpWidget
 
@@ -296,7 +303,7 @@ class InterventionForm(QDialog):
             for student in students:
                 self.student_combo.addItem(student.full_name, student.id)
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{e!s}")
 
     def load_staff(self):
         try:
@@ -400,7 +407,7 @@ class InterventionForm(QDialog):
                 self.status_combo.setCurrentIndex(status_index)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{e!s}")
     
     def save_intervention(self):
         """ذخیره مداخله با استفاده از سرویس"""
@@ -456,4 +463,4 @@ class InterventionForm(QDialog):
             QMessageBox.critical(self, "خطا", str(e))
         except Exception as e:
             self.logger.error(f"خطا در ذخیره مداخله: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{e!s}")

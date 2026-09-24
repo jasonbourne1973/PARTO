@@ -2,24 +2,34 @@
 صفحه مدیریت ارتقاء پایه دانش‌آموزان - نسخه اصلاح‌شده با جستجو
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QLabel, QHeaderView,
-    QMessageBox, QComboBox, QGroupBox, QLineEdit
-)
+
+import jdatetime
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QComboBox,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 from dal.academic_year_dal import AcademicYearDAL
-from datetime import datetime
-import jdatetime
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from utils.time_utils import utc_now
 
 
 class PromotionPage(QWidget):
@@ -76,8 +86,8 @@ class PromotionPage(QWidget):
         try:
             jalali_now = jdatetime.datetime.now()
             current_jalali_year = jalali_now.year
-        except:
-            current_jalali_year = datetime.now().year - 621
+        except Exception:
+            current_jalali_year = utc_now().year - 621
         
         for year in range(current_jalali_year - 2, current_jalali_year + 5):
             self.year_input.addItem(f"{year}-{year+1}")
@@ -305,7 +315,7 @@ class PromotionPage(QWidget):
             self.result_count_label.setText(f"تعداد کل: {len(self.students)}")
             self.display_students(self.students)
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{e!s}")
     
     def search_students(self):
         """جستجوی دانش‌آموزان"""
@@ -330,7 +340,7 @@ class PromotionPage(QWidget):
             self.display_students(results)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{e!s}")
     
     def clear_search(self):
         """پاک کردن جستجو و نمایش همه دانش‌آموزان"""
@@ -647,11 +657,11 @@ class PromotionPage(QWidget):
                     if self._promote_one_student(student, active_year):
                         success_count += 1
                 except Exception as e:
-                    errors.append(f"{student.full_name}: {str(e)}")
+                    errors.append(f"{student.full_name}: {e!s}")
             
             msg = f"✅ {success_count} دانش‌آموز با موفقیت ارتقاء یافتند.\nسال تحصیلی جدید: {next_year}"
             if errors:
-                msg += f"\n\n⚠️ خطاها:\n" + "\n".join(errors[:5])
+                msg += "\n\n⚠️ خطاها:\n" + "\n".join(errors[:5])
                 if len(errors) > 5:
                     msg += f"\nو {len(errors)-5} خطای دیگر..."
             
@@ -659,7 +669,7 @@ class PromotionPage(QWidget):
             self.load_students()
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در ارتقاء:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ارتقاء:\n{e!s}")
     
     def promote_selected_students(self):
         """ارتقاء دانش‌آموزان انتخاب شده"""
@@ -691,11 +701,11 @@ class PromotionPage(QWidget):
                     if self._promote_one_student(student, active_year):
                         success_count += 1
                 except Exception as e:
-                    errors.append(f"{student.full_name}: {str(e)}")
+                    errors.append(f"{student.full_name}: {e!s}")
             
             msg = f"✅ {success_count} دانش‌آموز با موفقیت ارتقاء یافتند.\nسال تحصیلی جدید: {next_year}"
             if errors:
-                msg += f"\n\n⚠️ خطاها:\n" + "\n".join(errors[:5])
+                msg += "\n\n⚠️ خطاها:\n" + "\n".join(errors[:5])
                 if len(errors) > 5:
                     msg += f"\nو {len(errors)-5} خطای دیگر..."
             
@@ -704,7 +714,7 @@ class PromotionPage(QWidget):
             self.load_students()
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در ارتقاء:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ارتقاء:\n{e!s}")
     
     def repeat_grade_students(self):
         """تکرار پایه دانش‌آموزان انتخاب شده"""
@@ -740,7 +750,9 @@ class PromotionPage(QWidget):
                         self.profile_dal.update(profile)
                         success_count += 1
                     else:
-                        from models.student_academic_profile import StudentAcademicProfile
+                        from models.student_academic_profile import (
+                            StudentAcademicProfile,
+                        )
                         new_profile = StudentAcademicProfile()
                         new_profile.student_id = student.id
                         new_profile.academic_year_id = active_year.id
@@ -750,11 +762,11 @@ class PromotionPage(QWidget):
                         self.profile_dal.create(new_profile)
                         success_count += 1
                 except Exception as e:
-                    errors.append(f"{student.full_name}: {str(e)}")
+                    errors.append(f"{student.full_name}: {e!s}")
             
             msg = f"✅ {success_count} دانش‌آموز با موفقیت تکرار پایه شدند.\nسال تحصیلی آن‌ها به {next_year} تغییر یافت."
             if errors:
-                msg += f"\n\n⚠️ خطاها:\n" + "\n".join(errors[:5])
+                msg += "\n\n⚠️ خطاها:\n" + "\n".join(errors[:5])
                 if len(errors) > 5:
                     msg += f"\nو {len(errors)-5} خطای دیگر..."
             
@@ -763,4 +775,4 @@ class PromotionPage(QWidget):
             self.load_students()
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در تکرار پایه:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در تکرار پایه:\n{e!s}")

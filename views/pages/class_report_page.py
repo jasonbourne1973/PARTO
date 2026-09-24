@@ -3,32 +3,45 @@
 نمایش وضعیت کلی کلاس بر اساس داده‌های ثبت‌شده
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+import matplotlib
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QComboBox, QMessageBox, QTextEdit,
-    QGroupBox, QScrollArea, QSplitter, QFileDialog,
-    QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView,
-    QLineEdit, QProgressBar, QFrame
+    QComboBox,
+    QFileDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QScrollArea,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, QThread
-from PySide6.QtGui import QColor, QFont
 
-from services.class_report_service import ClassReportService
-from dal.class_dal import ClassDAL
 from dal.academic_year_dal import AcademicYearDAL
+from dal.class_dal import ClassDAL
 from dal.staff_dal import StaffDAL
+from services.class_report_service import ClassReportService
 from utils.shamsi_date_input import ShamsiDateInput
 
-import matplotlib
 matplotlib.use('QtAgg')
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-import numpy as np
+
+from utils.behavior_analysis import classify_pattern, pattern_label
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class ClassReportPage(QWidget):
@@ -239,8 +252,10 @@ class ClassReportPage(QWidget):
                 start_month += 12
                 start_year -= 1
             self.start_date.set_date(f"{start_year:04d}/{start_month:02d}/{today.day:02d}")
-        except:
-            pass
+        except (ImportError, ValueError, AttributeError, TypeError) as e:
+            # نبود jdatetime یا تاریخ نامعتبر: صفحه بدون تاریخ پیش‌فرض
+            # بالا می‌آید و کاربر خودش تاریخ را وارد می‌کند.
+            logger.debug(f"تاریخ‌های پیش‌فرض تنظیم نشد: {e}")
     
     def create_summary_tab(self):
         """ایجاد تب خلاصه"""
@@ -428,7 +443,7 @@ class ClassReportPage(QWidget):
                         self.year_combo.setCurrentIndex(i)
                         break
         except Exception as e:
-            print(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
+            logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
     
     def load_classes(self):
         """بارگذاری کلاس‌ها در کامبوباکس"""
@@ -443,7 +458,7 @@ class ClassReportPage(QWidget):
                 display_text = f"{class_obj.display_name}"
                 self.class_combo.addItem(display_text, class_obj.id)
         except Exception as e:
-            print(f"خطا در بارگذاری کلاس‌ها: {e}")
+            logger.error(f"خطا در بارگذاری کلاس‌ها: {e}")
     
     def on_year_changed(self, index):
         """وقتی سال تحصیلی تغییر می‌کند"""
@@ -506,7 +521,7 @@ class ClassReportPage(QWidget):
             QMessageBox.information(self, "موفقیت", "گزارش با موفقیت تولید شد.")
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در تولید گزارش:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در تولید گزارش:\n{e!s}")
         
         finally:
             self.progress_bar.setVisible(False)
@@ -570,33 +585,37 @@ class ClassReportPage(QWidget):
         comp_stats = data.get('competency_stats', {})
         self.competency_table.setRowCount(len(comp_stats))
         
-        row = 0
-        for name, stats in comp_stats.items():
+        # بازرسی دهم: به‌جای شمارندهٔ دستی، enumerate
+        for row, (name, stats) in enumerate(comp_stats.items()):
             self.competency_table.setItem(row, 0, QTableWidgetItem(name))
             self.competency_table.setItem(row, 1, QTableWidgetItem(str(stats.get('count', 0))))
             self.competency_table.setItem(row, 2, QTableWidgetItem(str(stats.get('avg_severity', 0))))
             self.competency_table.setItem(row, 3, QTableWidgetItem(str(stats.get('positive', 0))))
             self.competency_table.setItem(row, 4, QTableWidgetItem(str(stats.get('negative', 0))))
             
-            avg = stats.get('avg_severity', 0)
-            if avg >= 3.5:
-                status = "✅ عالی"
+            # بازرسی یازدهم: وضعیت بر پایهٔ الگوی رفتار (نه میانگین شدت)
+            kind = classify_pattern(
+                stats.get('positive', 0), stats.get('negative', 0),
+                max(stats.get('count', 0) - stats.get('positive', 0)
+                    - stats.get('negative', 0), 0),
+                stats.get('count', 0))
+            if kind == 'strength':
+                status = "✅ " + pattern_label(kind)
                 color = QColor(0, 128, 0)
-            elif avg >= 2.5:
-                status = "🟡 خوب"
-                color = QColor(255, 165, 0)
-            elif avg >= 1.5:
-                status = "🟠 متوسط"
+            elif kind == 'needs_attention':
+                status = "🔴 " + pattern_label(kind)
+                color = QColor(255, 0, 0)
+            elif kind == 'mixed':
+                status = "🟠 " + pattern_label(kind)
                 color = QColor(255, 140, 0)
             else:
-                status = "🔴 نیاز به توجه"
-                color = QColor(255, 0, 0)
+                status = "⬜ " + pattern_label(kind)
+                color = QColor(158, 158, 158)
             
             item = QTableWidgetItem(status)
             item.setForeground(color)
             self.competency_table.setItem(row, 5, item)
             self.competency_table.setRowHeight(row, 30)
-            row += 1
     
     def display_students(self, data):
         """نمایش لیست دانش‌آموزان"""
@@ -649,35 +668,33 @@ class ClassReportPage(QWidget):
             ax1.text(0.5, 0.5, 'داده‌ای وجود ندارد', ha='center', va='center', fontsize=12)
             ax1.axis('off')
         
-        # ===== نمودار ۲: شایستگی‌های برتر =====
+        # ===== نمودار ۲: ترکیب رفتارها به تفکیک زمینه =====
         comp_stats = data.get('competency_stats', {})
         if comp_stats:
-            # مرتب‌سازی بر اساس میانگین شدت
+            # مرتب‌سازی بر پایهٔ تعداد رفتارهای جهت‌دار (نه میانگین شدت)
             sorted_items = sorted(
                 comp_stats.items(),
-                key=lambda x: x[1].get('avg_severity', 0),
+                key=lambda x: (x[1].get('positive', 0) + x[1].get('negative', 0),
+                               x[1].get('count', 0)),
                 reverse=True
             )[:8]
             
             names = [item[0][:15] for item in sorted_items]
-            values = [item[1].get('avg_severity', 0) for item in sorted_items]
+            positions = range(len(names))
+            positive_values = [item[1].get('positive', 0) for item in sorted_items]
+            negative_values = [item[1].get('negative', 0) for item in sorted_items]
             
-            bars = ax2.bar(names, values, color='#0B2E4F')
+            ax2.bar([p - 0.2 for p in positions], positive_values, width=0.4,
+                    color='#66BB6A', label='رفتار مثبت')
+            ax2.bar([p + 0.2 for p in positions], negative_values, width=0.4,
+                    color='#C62828', label='رفتار منفی')
+            ax2.set_xticks(list(positions))
+            ax2.set_xticklabels(names)
             
-            # رنگ‌بندی
-            for bar, val in zip(bars, values):
-                if val >= 3.5:
-                    bar.set_color('#66BB6A')
-                elif val >= 2.5:
-                    bar.set_color('#F4D35E')
-                elif val >= 1.5:
-                    bar.set_color('#F28C28')
-                else:
-                    bar.set_color('#C62828')
-            
-            ax2.set_ylabel('میانگین شدت', fontsize=10)
-            ax2.set_title('شایستگی‌های برتر', fontsize=12, fontweight='bold')
-            ax2.set_ylim(0, 5)
+            ax2.set_ylabel('تعداد رفتار ثبت‌شده', fontsize=10)
+            ax2.set_title('ترکیب رفتارهای ثبت‌شده به تفکیک زمینه', fontsize=12,
+                          fontweight='bold')
+            ax2.legend(fontsize=8)
             ax2.tick_params(axis='x', rotation=30)
         else:
             ax2.text(0.5, 0.5, 'داده‌ای وجود ندارد', ha='center', va='center', fontsize=12)
@@ -763,7 +780,7 @@ class ClassReportPage(QWidget):
                 QMessageBox.critical(self, "خطا", message)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در خروجی PDF:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در خروجی PDF:\n{e!s}")
     
     def export_excel(self):
         """خروجی Excel"""
@@ -796,4 +813,4 @@ class ClassReportPage(QWidget):
                 QMessageBox.critical(self, "خطا", message)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در خروجی Excel:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در خروجی Excel:\n{e!s}")

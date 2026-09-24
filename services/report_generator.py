@@ -2,31 +2,52 @@
 سرویس تولید گزارش‌های دانش‌آموزی - نسخه اصلاح شده با PDF بدون Emoji
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
 from dal.academic_year_dal import AcademicYearDAL
 from dal.competency_dal import CompetencyDAL
+from dal.family_context_dal import FamilyContextDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
+from dal.parent_interview_dal import ParentInterviewDAL
+from dal.professional_interpretation_dal import ProfessionalInterpretationDAL
+from dal.screening_dal import ScreeningDAL
+from dal.screening_result_dal import ScreeningResultDAL
 from dal.staff_dal import StaffDAL
-from services.case_timeline_service import CaseTimelineService
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from database.connection import DatabaseConnection
+from services.case_timeline_service import CaseTimelineService
+from utils.behavior_analysis import (
+    PATTERN_MIXED,
+    PATTERN_NEEDS_ATTENTION,
+    PATTERN_STRENGTH,
+    classify_pattern,
+    count_behaviors,
+    growth_direction,
+    observations_volume_note,
+    pattern_label,
+    shares,
+    summarize_by_competency,
+)
+from utils.logger import get_logger
 from utils.persian_pdf import PersianPDF
+from utils.time_utils import utc_now
+
+logger = get_logger(__name__)
 
 try:
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
     OPENPYXL_AVAILABLE = True
 except ImportError:
     OPENPYXL_AVAILABLE = False
-    print("⚠️ کتابخانه openpyxl نصب نیست. برای نصب: pip install openpyxl")
+    logger.warning("⚠️ کتابخانه openpyxl نصب نیست. برای نصب: pip install openpyxl")
 
 
 class ReportGenerator:
@@ -41,8 +62,15 @@ class ReportGenerator:
         self.academic_year_dal = AcademicYearDAL()
         self.competency_dal = CompetencyDAL()
         self.staff_dal = StaffDAL()
+        # لایه‌های اطلاعاتی جدا از مشاهدهٔ رفتاری (بازرسی یازدهم)
+        self.family_dal = FamilyContextDAL()
+        self.parent_interview_dal = ParentInterviewDAL()
+        self.screening_dal = ScreeningDAL()
+        self.screening_result_dal = ScreeningResultDAL()
+        self.interpretation_dal = ProfessionalInterpretationDAL()
         self.timeline_service = CaseTimelineService()
         self.db = DatabaseConnection()
+        self.logger = get_logger(self.__class__.__name__)
     
     def generate_student_report(self, profile_id):
         """
@@ -63,7 +91,6 @@ class ReportGenerator:
         
         # دریافت داده‌ها با استفاده از Timeline Service
         timeline = self.timeline_service.get_timeline(profile_id)
-        summary = self.timeline_service.get_timeline_summary(profile_id)
         
         observations = self.observation_dal.get_by_student_profile(profile_id)
         interventions = self.intervention_dal.get_by_student_profile(profile_id)
@@ -75,12 +102,37 @@ class ReportGenerator:
         
         # تحلیل شایستگی‌ها
         competency_stats = self.calculate_competency_stats(observations)
-        strengths, weaknesses = self.analyze_strengths_weaknesses(competency_stats)
-        recommendations = self.generate_recommendations(competency_stats, observations, interventions)
+        # الگوهای رفتاری: قوت/ضعف بر اساس «نوع رفتار ثبت‌شده» (بازرسی یازدهم)
+        # (بازرسی دوازدهم) نام‌ها با یک کوئری دسته‌ای؛ summarize هم دیکشنری
+        # می‌پذیرد، پس خروجی دقیقاً یکسان است.
+        _comp_titles = self.competency_dal.get_titles_by_ids(
+            [o.competency_id for o in observations])
+        behavior_patterns = summarize_by_competency(
+            observations, _comp_titles, min_count=2)
+        strengths = behavior_patterns['strengths']
+        weaknesses = behavior_patterns['needs_attention']
+        recommendations = self.generate_recommendations(
+            competency_stats, observations, interventions)
         
-        # روند و آمار نیمسال
+        # روند و آمار نیمسال (ترکیب رفتارها، نه تعداد مشاهدات)
         trend_data = self.calculate_trend(observations)
         semester_stats = self.calculate_semester_stats(observations)
+        # اثربخشی مداخلات: مداخله ← پیگیری ← نتیجه
+        intervention_effectiveness = self.build_intervention_effectiveness(
+            interventions, all_followups)
+        # تفکیک لایه‌های اطلاعاتی: مشاهده / غربالگری / تفسیر حرفه‌ای
+        information_layers = self.build_information_layers(profile_id, observations)
+        # زمینهٔ خانوادگی: اطلاعات زمینه‌ای، نه قضاوت
+        family_background = self.build_family_background(profile_id)
+        # روایت چندسالهٔ رشد (بازرسی دوازدهم): گزارش معمول هم باید مسیر
+        # رشد را نشان بدهد، نه فقط خروجی PDF. خطا در ساخت آن نباید گزارش
+        # سالانه را بشکند.
+        try:
+            growth_narrative = self.generate_growth_narrative(student.id)
+        except Exception as e:
+            self.logger.warning(f"ساخت روایت رشد چندساله ممکن نشد: {e}")
+            growth_narrative = {'has_data': False, 'years': [],
+                                'narrative': '', 'synthesis': {}}
         
         # داده‌های ردیابی
         traceability = self._build_traceability(observations, interventions, all_followups)
@@ -93,12 +145,20 @@ class ReportGenerator:
             'interventions_count': len(interventions),
             'followups_count': len(all_followups),
             'competency_stats': competency_stats,
+            'behavior_patterns': behavior_patterns,
             'strengths': strengths,
             'weaknesses': weaknesses,
             'recommendations': recommendations,
             'trend_data': trend_data,
             'semester_stats': semester_stats,
-            'summary': self.generate_summary(observations, interventions, all_followups, competency_stats),
+            'intervention_effectiveness': intervention_effectiveness,
+            'information_layers': information_layers,
+            'family_background': family_background,
+            'growth_narrative': growth_narrative,
+            'summary': self.generate_summary(
+                observations, interventions, all_followups, competency_stats,
+                behavior_patterns=behavior_patterns,
+            ),
             'observations': observations,
             'interventions': interventions,
             'followups': all_followups,
@@ -122,19 +182,41 @@ class ReportGenerator:
         
         student = full_report['student']
         
+        # بازرسی یازدهم: گزارش والدین هم رشدمحور است و فقط «فهرست مشکل»
+        # نیست؛ توانمندی‌ها در کنار زمینه‌های نیازمند توجه می‌آید.
+        strengths = full_report['strengths'][:5]
+        needs = full_report['weaknesses'][:5]
+        effectiveness = full_report.get('intervention_effectiveness', {})
+        direction = self.calculate_trend_direction(full_report.get('trend_data'))
+
+        balance = ('در این گزارش، توانمندی‌ها و زمینه‌های نیازمند توجه در '
+                   'کنار هم آمده‌اند؛ تمرکز گزارش فقط بر مشکل نیست.')
+
         parent_report = {
             'student_name': student.full_name,
             'grade': full_report['profile'].grade_display,
             'class': full_report['profile'].class_name or 'نامشخص',
             'observations_count': full_report['observations_count'],
             'interventions_count': full_report['interventions_count'],
-            'strengths': full_report['strengths'][:5],
-            'weaknesses': full_report['weaknesses'][:5],
+            'strengths': strengths,
+            'weaknesses': needs,
+            'intervention_effectiveness': effectiveness,
+            'trend_direction': direction,
+            'balance_note': balance,
             'recommendations': {
                 'parents': full_report['recommendations'].get('parents', ['نظری ثبت نشده است.'])
             },
             'trend': full_report.get('trend_data', None),
-            'summary': f"دانش‌آموز {student.full_name} در پایه {full_report['profile'].grade_display} دارای {full_report['observations_count']} مشاهده ثبت‌شده و {full_report['interventions_count']} مداخله است."
+            'summary': (
+                f"در پروندهٔ {student.full_name} (پایهٔ "
+                f"{full_report['profile'].grade_display}) "
+                f"{full_report['observations_count']} مشاهدهٔ رفتاری و "
+                f"{full_report['interventions_count']} مداخله ثبت شده است. "
+                f"توانمندی‌های مشاهده‌شده: {len(strengths)} زمینه؛ "
+                f"زمینه‌های نیازمند توجه: {len(needs)} زمینه. "
+                f"جهت تغییر رفتار: {direction['label']}. "
+                "این گزارش، تشخیص روان‌شناختی نیست."
+            )
         }
         
         return parent_report
@@ -147,13 +229,18 @@ class ReportGenerator:
         """محاسبه آمار شایستگی‌ها بر اساس مشاهدات"""
         if not observations:
             return {}
-        
+
+        # (بازرسی دوازدهم) عنوان‌ها با یک کوئری دسته‌ای، نه یکی برای هر
+        # مشاهده (رفع N+1؛ خروجی یکسان).
+        _titles = self.competency_dal.get_titles_by_ids(
+            [o.competency_id for o in observations])
+
         stats = {}
         for obs in observations:
             if obs.competency_id:
-                competency = self.competency_dal.get_by_id(obs.competency_id)
-                if competency:
-                    key = competency.title
+                title = _titles.get(obs.competency_id)
+                if title:
+                    key = title
                     if key not in stats:
                         stats[key] = {
                             'count': 0,
@@ -180,96 +267,183 @@ class ReportGenerator:
         
         return stats
     
-    def analyze_strengths_weaknesses(self, competency_stats):
-        """تحلیل نقاط قوت و زمینه‌های نیازمند حمایت"""
-        strengths = []
-        weaknesses = []
-        
-        for competency, stats in competency_stats.items():
-            avg = stats['avg_severity']
-            count = stats['count']
-            
-            if count >= 2 and avg >= 3.5:
-                strengths.append({
-                    'competency': competency,
-                    'avg_severity': avg,
-                    'count': count,
-                    'competency_id': stats.get('competency_id'),
-                    'observation_ids': stats.get('observation_ids', [])
-                })
-            elif count >= 2 and avg <= 2.0:
-                weaknesses.append({
-                    'competency': competency,
-                    'avg_severity': avg,
-                    'count': count,
-                    'competency_id': stats.get('competency_id'),
-                    'observation_ids': stats.get('observation_ids', [])
-                })
-        
-        strengths.sort(key=lambda x: x['avg_severity'], reverse=True)
-        weaknesses.sort(key=lambda x: x['avg_severity'])
-        
+    def analyze_strengths_weaknesses(self, competency_stats, observations=None):
+        """
+        تحلیل توانمندی‌ها و زمینه‌های نیازمند توجه — **بر پایهٔ نوع رفتار**
+
+        بازرسی یازدهم: پیش از این، قوت/ضعف با «میانگین شدت» تعیین می‌شد.
+        این منطق محتوایی نادرست بود؛ چون شدت به‌تنهایی نمی‌گوید یک رفتار
+        مثبت است یا منفی. اکنون:
+
+          • نقطهٔ قوت  = الگوی تکرارشوندهٔ رفتارهای مثبت یک شایستگی
+          • نیازمند توجه = الگوی تکرارشوندهٔ رفتارهای منفی یک شایستگی
+          • رفتار خنثی به‌خودی‌خود نه قوت است نه ضعف
+          • یک مشاهدهٔ منفرد مبنای نتیجه‌گیری نیست (حداقل ۲ مشاهده)
+          • شدت فقط به‌عنوان «اطلاع اطلاعاتی» در خروجی می‌ماند
+
+        Args:
+            competency_stats: آمار شایستگی‌ها (شامل positive/negative)
+            observations: در صورت وجود، الگوها از خود مشاهدات ساخته می‌شوند
+
+        Returns:
+            tuple: (strengths, weaknesses) — هر آیتم قابل ردیابی به
+            شناسهٔ مشاهدات ثبت‌شده است.
+        """
+        if observations:
+            _titles = self.competency_dal.get_titles_by_ids(
+                [o.competency_id for o in observations])
+            summary = summarize_by_competency(
+                observations, _titles, min_count=2)
+            return summary['strengths'], summary['needs_attention']
+
+        # مسیر پشتیبان: اگر مشاهدات در دست نبود، از آمار شایستگی‌ها
+        strengths, weaknesses = [], []
+        for competency, stats in (competency_stats or {}).items():
+            positive = stats.get('positive', 0) or 0
+            negative = stats.get('negative', 0) or 0
+            total = stats.get('count', 0) or 0
+            kind = classify_pattern(positive, negative,
+                                    max(total - positive - negative, 0), total)
+            entry = {
+                'competency': competency,
+                'pattern': kind,
+                'pattern_label': pattern_label(kind),
+                'positive': positive,
+                'negative': negative,
+                'neutral': max(total - positive - negative, 0),
+                'count': total,
+                'positive_share': shares({'positive': positive, 'negative': negative,
+                                          'neutral': max(total - positive - negative, 0),
+                                          'total': total})['positive'],
+                'negative_share': shares({'positive': positive, 'negative': negative,
+                                          'neutral': max(total - positive - negative, 0),
+                                          'total': total})['negative'],
+                'avg_severity': stats.get('avg_severity', 0),
+                'severity_is_auxiliary': True,
+                'competency_id': stats.get('competency_id'),
+                'observation_ids': stats.get('observation_ids', []),
+                'examples': [],
+            }
+            if kind == PATTERN_STRENGTH:
+                strengths.append(entry)
+            elif kind == PATTERN_NEEDS_ATTENTION:
+                weaknesses.append(entry)
+
+        strengths.sort(key=lambda x: (x['positive'], x['count']), reverse=True)
+        weaknesses.sort(key=lambda x: (x['negative'], x['count']), reverse=True)
         return strengths, weaknesses
+
+    def _competency_name(self, competency_id):
+        """نام شایستگی از شناسه (برای گزارش‌های الگومحور)."""
+        comp = self.competency_dal.get_by_id(competency_id)
+        return comp.title if comp else None
     
     def generate_recommendations(self, competency_stats, observations, interventions):
-        """تولید پیشنهادات بر اساس آمار شایستگی‌ها و مداخلات"""
+        """
+        تولید پیشنهادهای محتاطانه و قابل ردیابی
+
+        بازرسی یازدهم: پیشنهادها از «دادهٔ ثبت‌شده ← الگوی مشاهده‌شده ←
+        پیشنهاد برای بررسی/اقدام» ساخته می‌شوند؛ نه «تشخیص قطعی ← دستور».
+        هر پیشنهاد به شناسهٔ مشاهدات مرتبط اشاره می‌کند و هیچ‌گاه
+        برچسب روان‌شناختی به دانش‌آموز نمی‌زند.
+        """
         recommendations = {'teacher': [], 'parents': [], 'counselor': []}
-        
-        for competency, stats in competency_stats.items():
-            avg = stats['avg_severity']
-            count = stats['count']
-            
-            has_intervention = False
-            for inter in interventions:
-                if inter.observation_id in stats.get('observation_ids', []):
-                    has_intervention = True
-                    break
-            
-            if count >= 2 and avg <= 2.0:
-                if not has_intervention:
-                    recommendations['teacher'].append(
-                        f"در شاخص '{competency}' نیاز به تمرین و توجه بیشتر است "
-                        f"(تعداد: {count} مشاهده). پیشنهاد می‌شود یک مداخله هدفمند ثبت شود."
-                    )
-                else:
-                    recommendations['teacher'].append(
-                        f"در شاخص '{competency}' نیاز به ادامه حمایت است "
-                        f"(تعداد: {count} مشاهده). اثر مداخلات ثبت‌شده بررسی شود."
-                    )
-                recommendations['counselor'].append(
-                    f"در شاخص '{competency}' ممکن است نیاز به بررسی و حمایت عاطفی باشد."
-                )
-            elif count >= 2 and avg >= 3.5:
-                recommendations['parents'].append(
-                    f"در شاخص '{competency}' عملکرد خوبی دارد (میانگین {avg}). به تقویت ادامه دهید."
-                )
-            elif count == 0:
+        _titles = self.competency_dal.get_titles_by_ids(
+            [o.competency_id for o in (observations or [])])
+        patterns = summarize_by_competency(observations or [],
+                                           _titles, min_count=2) \
+            if observations else {'strengths': [], 'needs_attention': [], 'mixed': []}
+
+        def _ids_text(entry, limit=6):
+            ids = [str(i) for i in entry.get('observation_ids', []) if i is not None]
+            return ", ".join(ids[:limit]) if ids else "-"
+
+        def _has_intervention(entry):
+            obs_ids = set(entry.get('observation_ids', []))
+            return any(getattr(inter, 'observation_id', None) in obs_ids
+                       for inter in (interventions or []))
+
+        # ۱) الگوهای تکرارشوندهٔ رفتار منفی → بررسی و اقدام
+        for entry in patterns['needs_attention']:
+            name = entry['competency']
+            trace = _ids_text(entry)
+            if _has_intervention(entry):
                 recommendations['teacher'].append(
-                    f"هیچ مشاهده‌ای برای شاخص '{competency}' ثبت نشده است. "
-                    f"برای تحلیل دقیق‌تر، ثبت مشاهدات بیشتر توصیه می‌شود."
+                    f"در زمینهٔ «{name}» الگوی تکرارشوندهٔ رفتار منفی مشاهده شده "
+                    f"({entry['negative']} مورد از {entry['count']} مشاهدهٔ ثبت‌شده؛ "
+                    f"شناسهٔ مشاهدات: {trace}). یک مداخله ثبت شده است؛ "
+                    "بررسی اثر آن در پیگیری بعدی پیشنهاد می‌شود."
                 )
-        
+            else:
+                recommendations['teacher'].append(
+                    f"در زمینهٔ «{name}» الگوی تکرارشوندهٔ رفتار منفی مشاهده شده "
+                    f"({entry['negative']} مورد از {entry['count']} مشاهدهٔ ثبت‌شده؛ "
+                    f"شناسهٔ مشاهدات: {trace}). پیشنهاد می‌شود ابتدا با ثبت "
+                    "مشاهدهٔ بیشتر، الگو را تأیید و سپس مداخلهٔ هدفمند ثبت کنید."
+                )
+            recommendations['counselor'].append(
+                f"در زمینهٔ «{name}» الگوی تکرارشوندهٔ رفتار منفی ثبت شده است "
+                f"(شناسهٔ مشاهدات: {trace}). بررسی و گفت‌وگوی حمایتی پیشنهاد "
+                "می‌شود؛ این یک پیشنهاد بررسی است، نه تشخیص."
+            )
+
+        # ۲) الگوهای تکرارشوندهٔ رفتار مثبت → تقویت
+        for entry in patterns['strengths']:
+            name = entry['competency']
+            recommendations['parents'].append(
+                f"در زمینهٔ «{name}» الگوی تکرارشوندهٔ رفتار مثبت مشاهده شده است "
+                f"({entry['positive']} مورد از {entry['count']} مشاهدهٔ ثبت‌شده؛ "
+                f"شناسهٔ مشاهدات: {_ids_text(entry)}). تقویت و تشویق این رفتار "
+                "پیشنهاد می‌شود."
+            )
+
+        # ۳) زمینه‌های ترکیبی/دادهٔ ناکافی → ثبت مشاهدهٔ بیشتر
+        for entry in patterns['mixed']:
+            recommendations['teacher'].append(
+                f"در زمینهٔ «{entry['competency']}» رفتارهای ثبت‌شده ترکیبی است "
+                f"({entry['positive']} مثبت و {entry['negative']} منفی از "
+                f"{entry['count']} مشاهده). برای جمع‌بندی دقیق‌تر، ثبت مشاهدهٔ "
+                "بیشتر پیشنهاد می‌شود."
+            )
+
+        # ۴) شایستگی‌های بدون مشاهده
+        for competency, stats in (competency_stats or {}).items():
+            if (stats.get('count', 0) or 0) == 0:
+                recommendations['teacher'].append(
+                    f"برای زمینهٔ «{competency}» هیچ مشاهده‌ای ثبت نشده است. "
+                    "ثبت مشاهده، مبنای هر تحلیل بعدی است."
+                )
+
         if not recommendations['teacher']:
             recommendations['teacher'].append(
-                "وضعیت عمومی مطلوب است یا داده کافی برای تحلیل وجود ندارد. "
-                "ثبت مشاهدات بیشتر به تحلیل دقیق‌تر کمک می‌کند."
+                "برای این پرونده الگوی تکرارشونده‌ای ثبت نشده است یا داده کافی "
+                "نیست. ثبت مشاهدهٔ بیشتر به تحلیل دقیق‌تر کمک می‌کند."
             )
         if not recommendations['parents']:
             recommendations['parents'].append(
-                "وضعیت عمومی مطلوب است. به حمایت‌های فعلی ادامه دهید."
+                "برای این پرونده الگوی تکرارشوندهٔ رفتار مثبت ثبت نشده است. "
+                "ثبت مشاهده‌های مثبت، تصویر کامل‌تری از توانمندی‌ها می‌دهد."
             )
         if not recommendations['counselor']:
             recommendations['counselor'].append(
-                "وضعیت عمومی مطلوب است. نیاز به مداخله خاصی نیست."
+                "بر پایهٔ داده‌های ثبت‌شده، الگوی نیازمند بررسی ویژه‌ای مشاهده "
+                "نشده است."
             )
-        
+
         return recommendations
-    
+
     def calculate_trend(self, observations):
-        """محاسبه روند تغییرات در طول زمان"""
+        """
+        محاسبهٔ روند تغییرات بر پایهٔ **ترکیب رفتارها** در طول زمان
+
+        بازرسی یازدهم: تعداد مشاهدات ثبت‌شده در یک ماه، شاخص رشد دانش‌آموز
+        نیست (کم شدن ثبت ≠ بهبود؛ زیاد شدن ثبت ≠ بدتر شدن). پس هر بازه با
+        سهم رفتارهای مثبت/منفی توصیف می‌شود و «جهت تغییر» از همین سهم‌ها
+        به دست می‌آید. تعداد مشاهدات فقط «حجم ثبت و پایش» است.
+        """
         if len(observations) < 3:
             return None
-        
+
         monthly_data = {}
         for obs in observations:
             if obs.observation_date and len(obs.observation_date) >= 7:
@@ -277,29 +451,52 @@ class ReportGenerator:
                 if month_key not in monthly_data:
                     monthly_data[month_key] = {
                         'count': 0,
+                        'positive': 0,
+                        'negative': 0,
+                        'neutral': 0,
                         'total_severity': 0,
                         'observation_ids': []
                     }
-                monthly_data[month_key]['count'] += 1
-                monthly_data[month_key]['total_severity'] += obs.severity or 1
-                monthly_data[month_key]['observation_ids'].append(obs.id)
-        
+                bucket = monthly_data[month_key]
+                bucket['count'] += 1
+                bucket['total_severity'] += obs.severity or 1
+                bucket['observation_ids'].append(obs.id)
+                if obs.behavior_type == "مثبت":
+                    bucket['positive'] += 1
+                elif obs.behavior_type == "منفی":
+                    bucket['negative'] += 1
+                else:
+                    bucket['neutral'] += 1
+
         months = sorted(monthly_data.keys())
         if len(months) < 2:
             return None
-        
+
         trend_data = []
         for month in months:
             data = monthly_data[month]
-            avg_severity = round(data['total_severity'] / data['count'], 1) if data['count'] > 0 else 0
+            count = data['count']
+            share = shares({'positive': data['positive'], 'negative': data['negative'],
+                            'neutral': data['neutral'], 'total': count})
             trend_data.append({
                 'month': month,
-                'count': data['count'],
-                'avg_severity': avg_severity,
-                'observation_ids': data['observation_ids']
+                'label': month,
+                'count': count,                       # حجم ثبت و پایش
+                'positive': data['positive'],
+                'negative': data['negative'],
+                'neutral': data['neutral'],
+                'positive_share': share['positive'],
+                'negative_share': share['negative'],
+                # شدت: فقط اطلاعات تکمیلی
+                'avg_severity': round(data['total_severity'] / count, 1) if count else 0,
+                'severity_is_auxiliary': True,
+                'observation_ids': data['observation_ids'],
             })
-        
         return trend_data
+
+    def calculate_trend_direction(self, trend_data):
+        """جهت تغییر رفتار در طول زمان (فقط از ترکیب رفتارها)."""
+        return growth_direction(trend_data or [])
     
     def calculate_semester_stats(self, observations):
         """محاسبه آمار نیمسال اول و دوم"""
@@ -334,13 +531,38 @@ class ReportGenerator:
             }
         }
         
+        # بازرسی یازدهم: مقایسهٔ نیمسال‌ها بر پایهٔ «ترکیب رفتارها» است،
+        # نه میانگین شدت. شدت تنها به‌عنوان اطلاعات تکمیلی گزارش می‌شود.
+        for key in ('first', 'second'):
+            share = shares({'positive': stats[key]['positive'],
+                            'negative': stats[key]['negative'],
+                            'neutral': stats[key]['count'] - stats[key]['positive']
+                                       - stats[key]['negative'],
+                            'total': stats[key]['count']})
+            stats[key]['positive_share'] = share['positive']
+            stats[key]['negative_share'] = share['negative']
+
+        direction = growth_direction([
+            {'label': 'نیمسال اول', 'positive': stats['first']['positive'],
+             'negative': stats['first']['negative'],
+             'neutral': max(stats['first']['count'] - stats['first']['positive']
+                            - stats['first']['negative'], 0),
+             'total': stats['first']['count']},
+            {'label': 'نیمسال دوم', 'positive': stats['second']['positive'],
+             'negative': stats['second']['negative'],
+             'neutral': max(stats['second']['count'] - stats['second']['positive']
+                            - stats['second']['negative'], 0),
+             'total': stats['second']['count']},
+        ])
+        stats['direction'] = direction
+        stats['trend'] = direction['label']
+        stats['trend_note'] = direction['message']
+        stats['volume_note'] = direction['volume_note']
+
         if stats['first']['count'] > 0 and stats['second']['count'] > 0:
-            if stats['second']['avg_severity'] > stats['first']['avg_severity']:
-                stats['trend'] = "افزایش"
-            elif stats['second']['avg_severity'] < stats['first']['avg_severity']:
-                stats['trend'] = "کاهش"
-            else:
-                stats['trend'] = "ثابت"
+            # اختلاف شدت فقط برای اطلاع (تکمیلی)
+            stats['severity_change'] = round(
+                stats['second']['avg_severity'] - stats['first']['avg_severity'], 1)
         elif stats['first']['count'] > 0 and stats['second']['count'] == 0:
             stats['trend'] = "داده ناکافی در نیمسال دوم"
         elif stats['first']['count'] == 0 and stats['second']['count'] > 0:
@@ -350,41 +572,443 @@ class ReportGenerator:
         
         return stats
     
-    def generate_summary(self, observations, interventions, followups, competency_stats):
-        """تولید خلاصه گزارش با تأکید بر داده‌های واقعی"""
+    def generate_summary(self, observations, interventions, followups,
+                         competency_stats, behavior_patterns=None):
+        """
+        جمع‌بندی سالانهٔ رشد (بازرسی یازدهم)
+
+        بر پایهٔ اطلاعات موجود نشان می‌دهد: توانمندی‌ها، زمینه‌های نیازمند
+        توجه، اقدامات انجام‌شده، نتیجهٔ پیگیری‌ها و روند کلی تغییر رفتار
+        در همان سال. تصویر دانش‌آموز فقط «مجموعه‌ای از مشکلات» نیست.
+        """
+        counts = count_behaviors(observations)
         if not observations:
-            return "هنوز مشاهده‌ای برای این پرونده ثبت نشده است. برای تحلیل دقیق‌تر، ثبت مشاهدات توصیه می‌شود."
-        
-        total_obs = len(observations)
-        total_inter = len(interventions)
-        total_follow = len(followups)
-        
-        positive = sum(1 for obs in observations if obs.behavior_type == "مثبت")
-        negative = sum(1 for obs in observations if obs.behavior_type == "منفی")
-        neutral = total_obs - positive - negative
-        
-        top_competencies = sorted(competency_stats.items(), key=lambda x: x[1]['avg_severity'], reverse=True)[:3]
-        top_list = ", ".join([f"{c[0]} ({c[1]['avg_severity']})" for c in top_competencies]) if top_competencies else "ثبت نشده"
-        
+            return ("هنوز مشاهده‌ای برای این پرونده ثبت نشده است. "
+                    "ثبت مشاهده، مبنای تحلیل رشد است.")
+
+        if behavior_patterns is None:
+            _titles = self.competency_dal.get_titles_by_ids(
+                [o.competency_id for o in observations])
+            patterns = summarize_by_competency(
+                observations, _titles, min_count=2)
+        else:
+            patterns = behavior_patterns
+        share = shares(counts)
+
+        strengths = "؛ ".join(
+            f"{e['competency']} ({e['positive']} رفتار مثبت از {e['count']} مشاهده)"
+            for e in patterns['strengths'][:3]) or "الگوی تکرارشوندهٔ رفتار مثبت ثبت نشده است"
+        needs = "؛ ".join(
+            f"{e['competency']} ({e['negative']} رفتار منفی از {e['count']} مشاهده)"
+            for e in patterns['needs_attention'][:3]) or "الگوی تکرارشوندهٔ رفتار منفی ثبت نشده است"
+
+        # نتیجهٔ پیگیری‌ها (مداخله ← پیگیری ← نتیجه)
+        effectiveness = self.build_intervention_effectiveness(interventions, followups)
+        outcomes = effectiveness['outcome_counts']
+        outcome_text = (
+            f"بهبود مشاهده‌شده: {outcomes.get('improved', 0)}؛ "
+            f"بدون تغییر قابل مشاهده: {outcomes.get('no_change', 0)}؛ "
+            f"تداوم وضعیت: {outcomes.get('continued', 0)}؛ "
+            f"نیازمند پیگیری بیشتر: {outcomes.get('needs_more', 0)}؛ "
+            f"بدون پیگیری ثبت‌شده: {outcomes.get('no_followup', 0)}"
+        )
+
+        direction = growth_direction([
+            {'label': p['month'], 'positive': p['positive'], 'negative': p['negative'],
+             'neutral': p['neutral'], 'total': p['count']}
+            for p in (self.calculate_trend(observations) or [])
+        ])
+
         summary = f"""
-خلاصه گزارش پرونده سالانه:
+جمع‌بندی سالانهٔ رشد دانش‌آموز:
 
-تعداد کل مشاهدات: {total_obs}
-• مثبت: {positive} مورد
-• منفی: {negative} مورد
-• خنثی: {neutral} مورد
+۱) توانمندی‌ها (الگوی رفتار مثبت): {strengths}
+۲) زمینه‌های نیازمند توجه (الگوی رفتار منفی): {needs}
+۳) ترکیب رفتارهای ثبت‌شده: {counts['positive']} مثبت، {counts['negative']} منفی و {counts['neutral']} خنثی
+   از مجموع {counts['total']} مشاهده (سهم مثبت {share['positive']}٪، سهم منفی {share['negative']}٪)
+۴) اقدامات و نتایج: {len(interventions)} مداخله و {len(followups)} پیگیری ثبت شده است.
+   نتیجهٔ پیگیری‌ها → {outcome_text}
+۵) روند تغییر رفتار در سال: {direction['label']} — {direction['message']}
 
-تعداد مداخلات: {total_inter}
-تعداد پیگیری‌ها: {total_follow}
-
-شایستگی‌های برتر: {top_list}
-
-💡 این گزارش بر اساس داده‌های ثبت‌شده در پرونده سالانه تهیه شده است.
-   کاهش تعداد مشاهدات الزاماً به معنای بهبود نیست و ممکن است به دلیل کاهش ثبت باشد.
-   این گزارش هیچ‌گونه تشخیص روان‌شناختی یا تحلیل شخصیتی ارائه نمی‌دهد.
+یادداشت‌های محتوایی:
+• {observations_volume_note(counts)}
+• {direction['volume_note']}
+• این جمع‌بندی بر پایهٔ رفتارهای ثبت‌شده است و هیچ تشخیص روان‌شناختی
+  یا برچسب قطعی دربارهٔ دانش‌آموز ارائه نمی‌کند.
+• مقایسه فقط با خود دانش‌آموز در طول زمان انجام می‌شود، نه با دیگران.
 """
         return summary
-    
+
+    def build_intervention_effectiveness(self, interventions, followups):
+        """
+        اتصال «مشکل/نیاز مشاهده‌شده ← مداخله ← پیگیری ← نتیجه»
+
+        Returns:
+            dict: {'items': [...], 'outcome_counts': {...}, 'summary': str}
+        """
+        by_intervention = {}
+        for follow in followups or []:
+            inter_id = getattr(follow, 'intervention_id', None)
+            by_intervention.setdefault(inter_id, []).append(follow)
+
+        items = []
+        outcome_counts = {'improved': 0, 'no_change': 0, 'continued': 0,
+                          'new_status': 0, 'insufficient': 0, 'needs_more': 0,
+                          'no_followup': 0}
+
+        for inter in interventions or []:
+            related = sorted(by_intervention.get(inter.id, []),
+                             key=lambda f: f.date or '')
+            followup_items = []
+            for follow in related:
+                key = getattr(follow, 'result_type', None) or 'insufficient'
+                outcome_counts[key if key in outcome_counts else 'insufficient'] += 1
+                followup_items.append({
+                    'date': follow.date,
+                    'method': follow.method or 'پیگیری',
+                    'status': follow.status_display,
+                    'result_type': key,
+                    'result_label': follow.result_type_display,
+                    'result_description': follow.result_description or '',
+                    'observation_ids': [follow.id] if follow.id else [],
+                })
+            if not related:
+                outcome_counts['no_followup'] += 1
+            items.append({
+                'intervention_id': inter.id,
+                'type': inter.type_display,
+                'date': inter.date,
+                'goal': inter.goal or '',
+                'description': inter.description or '',
+                'status': inter.status_display,
+                'observation_id': inter.observation_id,
+                'followups': followup_items,
+                'outcome': (followup_items[-1]['result_label'] if followup_items
+                            else 'پیگیری ثبت نشده است'),
+                'outcome_known': bool(followup_items),
+            })
+
+        known = sum(1 for i in items if i['outcome_known'])
+        summary = (f"از {len(items)} مداخلهٔ ثبت‌شده، برای {known} مورد نتیجهٔ "
+                   "پیگیری ثبت شده است.")
+        return {'items': items, 'outcome_counts': outcome_counts, 'summary': summary}
+
+    def build_information_layers(self, profile_id, observations):
+        """
+        تفکیک سه لایهٔ اطلاعاتی (بازرسی یازدهم)
+
+          • مشاهدهٔ رفتاری: آنچه کارکنان مدرسه ثبت کرده‌اند.
+          • غربالگری: نتیجهٔ یک ابزار/آزمون مشخص (تشخیص نیست).
+          • تفسیر حرفه‌ای: ثبت نظر متخصص بر پایهٔ اطلاعات موجود.
+
+        این لایه‌ها با هم مخلوط نمی‌شوند و نتیجهٔ غربالگری هرگز به‌عنوان
+        تشخیص یا برچسب قطعی نمایش داده نمی‌شود.
+        """
+        counts = count_behaviors(observations)
+        layers = {
+            'observation': {
+                'title': 'مشاهدهٔ رفتاری (ثبت کارکنان مدرسه)',
+                'counts': counts,
+                'note': observations_volume_note(counts),
+                'items': [{
+                    'date': getattr(o, 'observation_date', None),
+                    'behavior': getattr(o, 'behavior', '') or '',
+                    'type': getattr(o, 'behavior_type', '') or '',
+                    'severity': getattr(o, 'severity', None),
+                } for o in (observations or [])[:20]],
+            },
+            'screening': {'title': 'غربالگری (نتیجهٔ ابزار/آزمون)', 'items': [],
+                          'note': ('نتیجهٔ غربالگری، «یافتهٔ ابزار» است و '
+                                   'به‌معنای تشخیص روان‌شناختی یا برچسب قطعی '
+                                   'برای دانش‌آموز نیست.')},
+            'interpretation': {'title': 'تفسیر حرفه‌ای (نظر متخصص)',
+                               'items': [],
+                               'note': ('تفسیر حرفه‌ای، ثبت نظر متخصص بر پایهٔ '
+                                        'اطلاعات موجود است و جای تشخیص بالینی '
+                                        'را نمی‌گیرد.')},
+            'chain_note': ('مسیر اطلاعات: مشاهدهٔ رفتاری ← غربالگری ← '
+                           'تفسیر حرفه‌ای؛ هر لایه معنای مستقل خود را دارد.'),
+        }
+
+        try:
+            for screening in self.screening_dal.get_by_student_profile(profile_id) or []:
+                layers['screening']['items'].append({
+                    'tool': getattr(screening, 'tool_display_name', None)
+                            or getattr(screening, 'tool_name', '') or 'ابزار غربالگری',
+                    'date': getattr(screening, 'execution_date', None),
+                    'status': screening.status_display,
+                    'domain': getattr(screening, 'domain', '') or '',
+                    'total_score': getattr(screening, 'total_score', None),
+                    'note': 'یافتهٔ ابزار — نه تشخیص',
+                })
+        except Exception as e:
+            self.logger.warning(f"خواندن لایهٔ غربالگری ممکن نشد: {e}")
+
+        try:
+            for interp in self.interpretation_dal.get_by_student_profile(profile_id) or []:
+                layers['interpretation']['items'].append({
+                    'level': interp.level_display,
+                    'title': interp.title or '',
+                    'summary': interp.summary or '',
+                    'status': interp.status_display,
+                    'next_steps': interp.next_steps or '',
+                })
+        except Exception as e:
+            self.logger.warning(f"خواندن لایهٔ تفسیر حرفه‌ای ممکن نشد: {e}")
+
+        return layers
+
+    def build_family_background(self, profile_id):
+        """
+        زمینهٔ خانوادگی و گفت‌وگوهای والدین (بازرسی یازدهم)
+
+        این اطلاعات **زمینه‌ای** است برای درک بهتر وضعیت دانش‌آموز و
+        هرگز مبنای قضاوت دربارهٔ خانواده یا برچسب‌گذاری نیست.
+        """
+        background = {
+            'note': ('اطلاعات خانواده، زمینه‌ای است؛ مبنای قضاوت دربارهٔ خانواده '
+                     'یا دانش‌آموز نیست و فقط برای درک بهتر وضعیت رشد او '
+                     'ثبت می‌شود.'),
+            'contexts': [],
+            'interviews': [],
+        }
+        def _as_list(value):
+            """DAL ممکن است یک رکورد یا فهرست برگرداند؛ هر دو حالت را بپذیر."""
+            if value is None:
+                return []
+            if isinstance(value, (list, tuple)):
+                return list(value)
+            return [value]
+
+        try:
+            for ctx in _as_list(self.family_dal.get_by_student_profile(profile_id)):
+                background['contexts'].append({
+                    'guardian_status': getattr(ctx, 'guardian_status_display', None)
+                    or getattr(ctx, 'guardian_status', '') or '-',
+                    'parental_support': getattr(ctx, 'parental_support', None) or '-',
+                    'economic_status': getattr(ctx, 'economic_status', None) or '-',
+                    'family_stress': getattr(ctx, 'family_stress', None) or '-',
+                    'study_space': ('دارد' if getattr(ctx, 'has_study_space', 0) else 'ندارد'),
+                    'notes': getattr(ctx, 'educational_notes', '') or '',
+                })
+        except Exception as e:
+            self.logger.warning(f"خواندن زمینهٔ خانوادگی ممکن نشد: {e}")
+
+        try:
+            for iv in _as_list(self.parent_interview_dal.get_by_student_profile(profile_id)):
+                background['interviews'].append({
+                    'date': getattr(iv, 'interview_date', None),
+                    'method': getattr(iv, 'method_display', None)
+                    or getattr(iv, 'interview_method', '') or '-',
+                    'topic': getattr(iv, 'topic', '') or '',
+                    'status': getattr(iv, 'status_display', None)
+                    or getattr(iv, 'status', '') or '-',
+                    'summary': getattr(iv, 'summary', '') or '',
+                    'result': getattr(iv, 'result', '') or '',
+                    'next_action': getattr(iv, 'next_action', '') or '',
+                })
+        except Exception as e:
+            self.logger.warning(f"خواندن مصاحبه‌های والدین ممکن نشد: {e}")
+
+        return background
+
+    def generate_growth_narrative(self, student_id):
+        """
+        روایت رشد چندسالهٔ دانش‌آموز (بازرسی یازدهم + تکمیل در دوازدهم)
+
+        برای گزارش پایان دورهٔ ابتدایی: مسیر رشد دانش‌آموز در سال‌های
+        مختلف با هم نشان داده می‌شود — توانمندی‌ها، زمینه‌های نیازمند
+        توجه، اقدامات، نتایج و جهت تغییر. مقایسه فقط با خودِ دانش‌آموز
+        در طول زمان است.
+
+        ===== تکمیل (بازرسی دوازدهم) =====
+        نسخهٔ قبلی بیشتر «فهرست جداگانهٔ سال‌ها» بود. حالا علاوه بر
+        اطلاعات هر سال، یک **جمع‌بندی منسجم مسیر رشد** هم ساخته می‌شود:
+        کدام الگوها در طول سال‌ها ادامه داشته‌اند، کدام زمینه‌ها تغییر
+        کرده‌اند، کدام مداخلات نتیجهٔ پیگیری بهتری داشته‌اند و مسیر کلی
+        رشد چگونه بوده است. هیچ مقایسه‌ای با دانش‌آموزان دیگر انجام
+        نمی‌شود و هیچ تشخیص/برچسبی تولید نمی‌شود.
+        """
+        profiles = self.profile_dal.get_all_profiles_for_student(student_id)
+        if not profiles:
+            return {'has_data': False,
+                    'message': 'برای این دانش‌آموز پرونده‌ای ثبت نشده است.'}
+
+        years = []
+        timeline_periods = []
+        # الگوهای هر سال (نام شایستگی → نوع الگو) برای تحلیل تداوم/تغییر
+        yearly_patterns = []
+        for profile in profiles:
+            observations = self.observation_dal.get_by_student_profile(profile.id)
+            interventions = self.intervention_dal.get_by_student_profile(profile.id)
+            followups = []
+            for inter in interventions:
+                followups.extend(self.followup_dal.get_by_intervention(inter.id))
+
+            counts = count_behaviors(observations)
+            _titles = self.competency_dal.get_titles_by_ids(
+                [o.competency_id for o in observations])
+            patterns = summarize_by_competency(observations, _titles, 2)
+            effectiveness = self.build_intervention_effectiveness(interventions, followups)
+            year_title = getattr(profile, 'academic_year_title', 'نامشخص')
+
+            years.append({
+                'year': year_title,
+                'grade': profile.grade_display,
+                'counts': counts,
+                'shares': shares(counts),
+                'strengths': [{'competency': e['competency'],
+                               'positive': e['positive'], 'count': e['count']}
+                              for e in patterns['strengths'][:3]],
+                'needs_attention': [{'competency': e['competency'],
+                                     'negative': e['negative'], 'count': e['count']}
+                                    for e in patterns['needs_attention'][:3]],
+                'interventions_count': len(interventions),
+                'outcomes': effectiveness['outcome_counts'],
+                'volume_note': observations_volume_note(counts),
+                'has_data': counts['total'] > 0,
+            })
+            yearly_patterns.append({
+                'year': year_title,
+                'strengths': [e['competency'] for e in patterns['strengths']],
+                'needs': [e['competency'] for e in patterns['needs_attention']],
+            })
+            timeline_periods.append({
+                'label': year_title,
+                'positive': counts['positive'], 'negative': counts['negative'],
+                'neutral': counts['neutral'], 'total': counts['total'],
+            })
+
+        direction = growth_direction(timeline_periods)
+        synthesis = self._build_growth_synthesis(
+            years, yearly_patterns, direction)
+        years_with_data = [y for y in years if y['has_data']]
+        narrative = (
+            f"مسیر رشد دانش‌آموز در {len(years)} سال تحصیلی ثبت‌شده بررسی شد"
+            f"؛ در {len(years_with_data)} سال، مشاهدهٔ رفتاری ثبت شده است. "
+            f"جهت کلی تغییر رفتار: {direction['label']}. {direction['message']} "
+            f"{direction['volume_note']} این روایت بر پایهٔ رفتارهای ثبت‌شده "
+            "است و شامل تشخیص روان‌شناختی یا مقایسه با دانش‌آموزان دیگر نیست."
+            f" {synthesis['text']}"
+        )
+        return {'has_data': bool(years_with_data), 'years': years,
+                'direction': direction, 'narrative': narrative,
+                'synthesis': synthesis}
+
+    def _build_growth_synthesis(self, years, yearly_patterns, direction):
+        """
+        جمع‌بندی منسجم مسیر رشد چندساله (بازرسی دوازدهم)
+
+        فقط از مقایسهٔ دانش‌آموز با خودش در طول زمان ساخته می‌شود:
+          • الگوهای ماندگار: زمینه‌هایی که در چند سال پیاپی توانمندی
+            یا نیازمند توجه بوده‌اند؛
+          • زمینه‌های تغییریافته: الگویی که از سالی به سال دیگر عوض شده؛
+          • مداخلات مؤثرتر: سال‌هایی که پیگیری‌ها «بهبود مشاهده‌شده»
+            بیشتری ثبت کرده‌اند.
+
+        Returns:
+            dict: {'text', 'persistent_strengths', 'persistent_needs',
+                   'changed_areas', 'effective_years', 'totals'}
+        """
+        from collections import Counter
+
+        strength_years = {}
+        need_years = {}
+        for entry in yearly_patterns or []:
+            for name in entry.get('strengths', []):
+                strength_years.setdefault(name, []).append(entry['year'])
+            for name in entry.get('needs', []):
+                need_years.setdefault(name, []).append(entry['year'])
+
+        persistent_strengths = [
+            {'competency': name, 'years': yrs}
+            for name, yrs in sorted(strength_years.items())
+            if len(yrs) >= 2
+        ]
+        persistent_needs = [
+            {'competency': name, 'years': yrs}
+            for name, yrs in sorted(need_years.items())
+            if len(yrs) >= 2
+        ]
+
+        # زمینه‌هایی که الگویشان در طول سال‌ها عوض شده است
+        changed_areas = []
+        for name in sorted(set(strength_years) | set(need_years)):
+            in_strength = strength_years.get(name, [])
+            in_need = need_years.get(name, [])
+            if in_strength and in_need:
+                changed_areas.append({
+                    'competency': name,
+                    'strength_years': in_strength,
+                    'need_years': in_need,
+                    'note': ('این زمینه در بعضی سال‌ها توانمندی و در بعضی '
+                             'سال‌ها نیازمند توجه بوده است؛ یعنی الگوی آن '
+                             'در طول زمان تغییر کرده است.'),
+                })
+
+        # سال‌هایی که پیگیری‌ها «بهبود مشاهده‌شده» بیشتری داشته‌اند
+        totals = Counter()
+        improved_by_year = {}
+        for year in years or []:
+            outcomes = year.get('outcomes', {}) or {}
+            for key, value in outcomes.items():
+                totals[key] += value or 0
+            improved = outcomes.get('improved', 0) or 0
+            if improved > 0:
+                improved_by_year[year.get('year')] = improved
+        effective_years = [
+            {'year': year, 'improved': count}
+            for year, count in sorted(improved_by_year.items(),
+                                      key=lambda kv: kv[1], reverse=True)
+        ]
+
+        parts = [f"مسیر کلی رشد: {direction['label']}."]
+        if persistent_strengths:
+            names = "، ".join(p['competency'] for p in persistent_strengths[:5])
+            parts.append(
+                f"توانمندی‌های ماندگار (تکرار در چند سال): {names}.")
+        if persistent_needs:
+            names = "؛ ".join(
+                f"{p['competency']} (در سال‌های "
+                f"{' و '.join(str(y) for y in p['years'][:3])})"
+                for p in persistent_needs[:5])
+            parts.append(
+                f"زمینه‌های نیازمند توجه ماندگار: {names}. این موارد اولویت "
+                "پیگیری در سال آینده‌اند؛ نه برچسبی دربارهٔ دانش‌آموز.")
+        if changed_areas:
+            names = "، ".join(c['competency'] for c in changed_areas[:5])
+            parts.append(
+                f"زمینه‌های تغییریافته در طول سال‌ها: {names}.")
+        if not persistent_strengths and not persistent_needs and not changed_areas:
+            parts.append(
+                "الگوی تکرارشوندهٔ مشترکی بین سال‌ها دیده نشد؛ هر سال الگوی "
+                "خودش را دارد و نتیجه‌گیری دربارهٔ تداوم، نیازمند مشاهدهٔ "
+                "بیشتر است.")
+        if effective_years:
+            best = effective_years[0]
+            parts.append(
+                f"از نظر نتیجهٔ پیگیری‌ها، در مجموع {totals['improved']} مورد "
+                f"«بهبود مشاهده‌شده» ثبت شده است"
+                + (f" که بیشترین آن مربوط به سال {best['year']} است."
+                   if len(effective_years) > 1 or best['improved'] > 1 else ".")
+                + " مداخلاتی که پیگیری آن‌ها بهبود را نشان داده، در سال آینده "
+                  "هم قابل تکرارند.")
+        elif totals['improved'] == 0 and any(
+                (y.get('interventions_count') or 0) > 0 for y in years or []):
+            parts.append(
+                "برای مداخلات ثبت‌شده، «بهبود مشاهده‌شده»‌ای در پیگیری‌ها ثبت "
+                "نشده است؛ ثبت دقیق نتیجهٔ پیگیری، ارزیابی اثربخشی مداخلات را "
+                "ممکن می‌کند.")
+
+        return {
+            'text': " ".join(parts),
+            'persistent_strengths': persistent_strengths,
+            'persistent_needs': persistent_needs,
+            'changed_areas': changed_areas,
+            'effective_years': effective_years,
+            'totals': dict(totals),
+        }
+
     def _build_traceability(self, observations, interventions, followups):
         """ساخت داده‌های ردیابی"""
         traceability = {
@@ -453,26 +1077,34 @@ class ReportGenerator:
                 pdf.add_text(item)
             pdf.add_spacer(0.3)
             
-            # ===== نقاط قوت =====
-            pdf.add_subtitle("نقاط قوت")
+            # ===== توانمندی‌ها (الگوی رفتار مثبت) =====
+            pdf.add_subtitle("توانمندی‌ها (الگوی تکرارشوندهٔ رفتار مثبت)")
             if report['strengths']:
                 for strength in report['strengths']:
-                    pdf.add_strength(
-                        f"{strength['competency']} (میانگین شدت: {strength['avg_severity']})"
-                    )
+                    line = (f"{strength['competency']} — "
+                            f"{strength['positive']} رفتار مثبت از "
+                            f"{strength['count']} مشاهدهٔ ثبت‌شده")
+                    if strength.get('examples'):
+                        line += f" (نمونه: {strength['examples'][0]})"
+                    pdf.add_strength(line)
             else:
-                pdf.add_text("* موردی یافت نشد.")
+                pdf.add_text("* الگوی تکرارشوندهٔ رفتار مثبت ثبت نشده است.")
             pdf.add_spacer(0.3)
-            
-            # ===== زمینه‌های نیازمند حمایت =====
-            pdf.add_subtitle("زمینه‌های نیازمند حمایت")
+
+            # ===== زمینه‌های نیازمند توجه =====
+            pdf.add_subtitle("زمینه‌های نیازمند توجه (الگوی تکرارشوندهٔ رفتار منفی)")
             if report['weaknesses']:
                 for weakness in report['weaknesses']:
-                    pdf.add_weakness(
-                        f"{weakness['competency']} (میانگین شدت: {weakness['avg_severity']})"
-                    )
+                    line = (f"{weakness['competency']} — "
+                            f"{weakness['negative']} رفتار منفی از "
+                            f"{weakness['count']} مشاهدهٔ ثبت‌شده")
+                    if weakness.get('examples'):
+                        line += f" (نمونه: {weakness['examples'][0]})"
+                    pdf.add_weakness(line)
             else:
-                pdf.add_text("* موردی یافت نشد.")
+                pdf.add_text("* الگوی تکرارشوندهٔ رفتار منفی ثبت نشده است.")
+            pdf.add_text("توجه: این فهرست بر پایهٔ رفتارهای ثبت‌شده است و "
+                         "به‌معنای تشخیص یا برچسب نیست.")
             pdf.add_spacer(0.3)
             
             # ===== پیشنهادات =====
@@ -493,23 +1125,169 @@ class ReportGenerator:
                 pdf.add_text(f"* {rec}")
             pdf.add_spacer(0.3)
             
-            # ===== روند تغییرات =====
+            # ===== روند تغییر رفتار =====
             if report['trend_data']:
-                pdf.add_subtitle("روند تغییرات")
+                pdf.add_subtitle("روند تغییر رفتار (بر پایهٔ ترکیب رفتارها)")
                 for item in report['trend_data']:
                     pdf.add_text(
-                        f"* {item['month']}: {item['count']} مشاهده (میانگین شدت: {item['avg_severity']})"
+                        f"* {item['month']}: {item['positive']} مثبت، "
+                        f"{item['negative']} منفی، {item['neutral']} خنثی "
+                        f"(سهم مثبت {item['positive_share']}٪) — "
+                        f"حجم ثبت: {item['count']} مشاهده"
                     )
+                direction = self.calculate_trend_direction(report['trend_data'])
+                pdf.add_text(f"* جهت تغییر: {direction['label']} — {direction['message']}")
+                pdf.add_text(f"* {direction['volume_note']}")
             pdf.add_spacer(0.3)
-            
+
             # ===== مقایسه نیمسال‌ها =====
             if report['semester_stats']:
                 stats = report['semester_stats']
                 pdf.add_subtitle("مقایسه نیمسال‌ها")
-                pdf.add_text(f"* نیمسال اول: {stats['first']['count']} مشاهده (میانگین شدت: {stats['first']['avg_severity']})")
-                pdf.add_text(f"* نیمسال دوم: {stats['second']['count']} مشاهده (میانگین شدت: {stats['second']['avg_severity']})")
-                pdf.add_text(f"* روند کلی: {stats['trend']}")
+                pdf.add_text(
+                    f"* نیمسال اول: {stats['first']['positive']} مثبت، "
+                    f"{stats['first']['negative']} منفی از {stats['first']['count']} "
+                    f"مشاهده (سهم مثبت {stats['first'].get('positive_share', 0)}٪)")
+                pdf.add_text(
+                    f"* نیمسال دوم: {stats['second']['positive']} مثبت، "
+                    f"{stats['second']['negative']} منفی از {stats['second']['count']} "
+                    f"مشاهده (سهم مثبت {stats['second'].get('positive_share', 0)}٪)")
+                pdf.add_text(f"* جهت تغییر رفتار: {stats.get('trend', '-')}")
+                if stats.get('trend_note'):
+                    pdf.add_text(f"* {stats['trend_note']}")
+                if stats.get('volume_note'):
+                    pdf.add_text(f"* {stats['volume_note']}")
             pdf.add_spacer(0.3)
+
+            # ===== اثربخشی مداخلات (مداخله ← پیگیری ← نتیجه) =====
+            effectiveness = report.get('intervention_effectiveness') or {}
+            if effectiveness.get('items'):
+                pdf.add_subtitle("اثربخشی مداخلات (اقدام ← پیگیری ← نتیجه)")
+                for item in effectiveness['items'][:10]:
+                    pdf.add_bold(f"{item['type']} — {item['date'] or ''}")
+                    if item.get('goal'):
+                        pdf.add_text(f"* هدف: {item['goal']}")
+                    if item['followups']:
+                        for follow in item['followups'][:3]:
+                            pdf.add_text(
+                                f"* پیگیری {follow['date'] or ''} "
+                                f"({follow['method']}): {follow['result_label']}"
+                                + (f" — {follow['result_description']}"
+                                   if follow['result_description'] else "")
+                            )
+                    else:
+                        pdf.add_text("* پیگیری ثبت نشده است؛ نتیجهٔ مداخله "
+                                     "قابل ارزیابی نیست.")
+                pdf.add_text(f"* {effectiveness['summary']}")
+                pdf.add_spacer(0.3)
+
+            # ===== زمینهٔ خانوادگی (اطلاعات زمینه‌ای) =====
+            family = report.get('family_background') or {}
+            if family.get('contexts') or family.get('interviews'):
+                pdf.add_subtitle("زمینهٔ خانوادگی و گفت‌وگو با والدین")
+                pdf.add_text(f"* {family.get('note', '')}")
+                for ctx in family['contexts'][:3]:
+                    pdf.add_text(
+                        f"* وضعیت سرپرست: {ctx['guardian_status']} | "
+                        f"حمایت والدین: {ctx['parental_support']} | "
+                        f"فضای مطالعه: {ctx['study_space']}"
+                    )
+                for iv in family['interviews'][:5]:
+                    line = (f"* گفت‌وگو {iv['date'] or ''} ({iv['method']}) — "
+                            f"{iv['topic'] or 'بدون موضوع ثبت‌شده'} | "
+                            f"وضعیت: {iv['status']}")
+                    pdf.add_text(line)
+                    if iv.get('result'):
+                        pdf.add_text(f"  نتیجهٔ گفت‌وگو: {iv['result']}")
+                pdf.add_spacer(0.3)
+
+            # ===== تفکیک لایه‌های اطلاعاتی =====
+            layers = report.get('information_layers') or {}
+            if layers:
+                pdf.add_subtitle("لایه‌های اطلاعاتی (مشاهده / غربالگری / تفسیر)")
+                pdf.add_text(f"* {layers.get('chain_note', '')}")
+                obs_layer = layers.get('observation', {})
+                pdf.add_bold(f"{obs_layer.get('title', 'مشاهدهٔ رفتاری')}")
+                pdf.add_text(f"* {obs_layer.get('note', '')}")
+                scr = layers.get('screening', {})
+                pdf.add_bold(scr.get('title', 'غربالگری'))
+                if scr.get('items'):
+                    for item in scr['items'][:5]:
+                        pdf.add_text(
+                            f"* {item['tool']} — {item['date'] or ''} | "
+                            f"وضعیت: {item['status']} | یافته: "
+                            f"{item['total_score'] if item['total_score'] is not None else '-'}"
+                        )
+                else:
+                    pdf.add_text("* نتیجهٔ غربالگری ثبت نشده است.")
+                pdf.add_text(f"* {scr.get('note', '')}")
+                interp = layers.get('interpretation', {})
+                pdf.add_bold(interp.get('title', 'تفسیر حرفه‌ای'))
+                if interp.get('items'):
+                    for item in interp['items'][:5]:
+                        pdf.add_text(f"* [{item['level']}] {item['title']} — "
+                                     f"{item['status']}")
+                        if item.get('summary'):
+                            pdf.add_text(f"  {item['summary']}")
+                else:
+                    pdf.add_text("* تفسیر حرفه‌ای ثبت نشده است.")
+                pdf.add_text(f"* {interp.get('note', '')}")
+                pdf.add_spacer(0.3)
+
+            # ===== سابقهٔ رشد چندساله =====
+            try:
+                narrative = self.generate_growth_narrative(student.id)
+            except Exception as exc:
+                narrative = None
+                self.logger.warning(f"ساخت روایت رشد ممکن نشد: {exc}")
+            if narrative and narrative.get('has_data'):
+                pdf.add_subtitle("سابقهٔ رشد و مسیر طی‌شده (چندساله)")
+                pdf.add_text(f"* {narrative['narrative']}")
+                synthesis = narrative.get('synthesis') or {}
+                if synthesis.get('text'):
+                    pdf.add_bold("جمع‌بندی مسیر رشد (مقایسهٔ دانش‌آموز با خودش)")
+                    pdf.add_text(f"* {synthesis['text']}")
+                    for item in (synthesis.get('persistent_strengths') or [])[:5]:
+                        pdf.add_text(
+                            f"* توانمندی ماندگار: {item['competency']} "
+                            f"(تکرار در {len(item['years'])} سال)")
+                    for item in (synthesis.get('persistent_needs') or [])[:5]:
+                        pdf.add_text(
+                            f"* نیازمند توجه ماندگار: {item['competency']} "
+                            f"(تکرار در {len(item['years'])} سال)")
+                    for item in (synthesis.get('changed_areas') or [])[:5]:
+                        pdf.add_text(
+                            f"* زمینهٔ تغییریافته: {item['competency']}")
+                    for item in (synthesis.get('effective_years') or [])[:3]:
+                        pdf.add_text(
+                            f"* سال {item['year']}: {item['improved']} مورد "
+                            "«بهبود مشاهده‌شده» در پیگیری‌ها")
+                for year in narrative['years']:
+                    if not year['has_data']:
+                        continue
+                    strength_text = "؛ ".join(
+                        f"{s['competency']} ({s['positive']} رفتار مثبت)"
+                        for s in year['strengths']) or "ثبت نشده"
+                    need_text = "؛ ".join(
+                        f"{n['competency']} ({n['negative']} رفتار منفی)"
+                        for n in year['needs_attention']) or "ثبت نشده"
+                    pdf.add_bold(f"سال {year['year']} (پایهٔ {year['grade']})")
+                    pdf.add_text(f"* توانمندی‌ها: {strength_text}")
+                    pdf.add_text(f"* زمینه‌های نیازمند توجه: {need_text}")
+                    pdf.add_text(
+                        f"* تعداد مداخلات: {year['interventions_count']} | "
+                        f"ترکیب رفتارها: {year['counts']['positive']} مثبت، "
+                        f"{year['counts']['negative']} منفی از "
+                        f"{year['counts']['total']} مشاهده"
+                    )
+                    outcomes = year['outcomes']
+                    pdf.add_text(
+                        f"* نتایج پیگیری: بهبود {outcomes.get('improved', 0)} | "
+                        f"بدون تغییر {outcomes.get('no_change', 0)} | "
+                        f"نیازمند پیگیری بیشتر {outcomes.get('needs_more', 0)} | "
+                        f"بدون پیگیری {outcomes.get('no_followup', 0)}"
+                    )
+                pdf.add_spacer(0.3)
             
             # ===== جدول مشاهدات =====
             if report['observations']:
@@ -539,9 +1317,8 @@ class ReportGenerator:
             try:
                 today = jdatetime.date.today()
                 date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
-            except:
-                from datetime import datetime
-                date_str = datetime.now().strftime("%Y/%m/%d")
+            except Exception:
+                date_str = utc_now().strftime("%Y/%m/%d")
             
             pdf.add_text(f"تاریخ تهیه گزارش: {date_str}")
             pdf.add_text("PARTO - سامانه مدیریت پرونده دانش آموزان")
@@ -553,7 +1330,7 @@ class ReportGenerator:
             return True, f"فایل PDF با موفقیت در {file_path} ذخیره شد."
             
         except Exception as e:
-            return False, f"خطا در ساخت فایل PDF: {str(e)}"
+            return False, f"خطا در ساخت فایل PDF: {e!s}"
     
     # ============================================================
     # خروجی Excel (موجود)
@@ -592,6 +1369,9 @@ class ReportGenerator:
                 cell.alignment = header_alignment
             
             observations = report.get('observations', [])
+            # (بازرسی دوازدهم) یک کوئری دسته‌ای به‌جای یکی برای هر مشاهده
+            _titles = self.competency_dal.get_titles_by_ids(
+                [o.competency_id for o in observations])
             for row, obs in enumerate(observations, 2):
                 ws1.cell(row=row, column=1, value=row-1)
                 ws1.cell(row=row, column=2, value=obs.id)
@@ -604,9 +1384,7 @@ class ReportGenerator:
                 
                 competency_name = ""
                 if obs.competency_id:
-                    comp = self.competency_dal.get_by_id(obs.competency_id)
-                    if comp:
-                        competency_name = comp.title
+                    competency_name = _titles.get(obs.competency_id, "")
                 ws1.cell(row=row, column=9, value=competency_name)
                 
                 ws1.cell(row=row, column=10, value=obs.behavior_type or '')
@@ -644,9 +1422,10 @@ class ReportGenerator:
             row += 1
             if report['strengths']:
                 for strength in report['strengths']:
-                    comp_id = strength.get('competency_id', '')
                     obs_ids = ', '.join([str(i) for i in strength.get('observation_ids', [])])
-                    ws2.cell(row=row, column=1, value=f"• {strength['competency']} (میانگین شدت: {strength['avg_severity']})")
+                    ws2.cell(row=row, column=1, value=(
+                        f"• {strength['competency']} — {strength['positive']} رفتار مثبت "
+                        f"از {strength['count']} مشاهده"))
                     ws2.cell(row=row, column=2, value=f"شناسه مشاهده‌ها: {obs_ids}").font = Font(name='B Nazanin', size=9, color='7F8C8D')
                     row += 1
             else:
@@ -660,7 +1439,9 @@ class ReportGenerator:
             if report['weaknesses']:
                 for weakness in report['weaknesses']:
                     obs_ids = ', '.join([str(i) for i in weakness.get('observation_ids', [])])
-                    ws2.cell(row=row, column=1, value=f"• {weakness['competency']} (میانگین شدت: {weakness['avg_severity']})")
+                    ws2.cell(row=row, column=1, value=(
+                        f"• {weakness['competency']} — {weakness['negative']} رفتار منفی "
+                        f"از {weakness['count']} مشاهده"))
                     ws2.cell(row=row, column=2, value=f"شناسه مشاهده‌ها: {obs_ids}").font = Font(name='B Nazanin', size=9, color='7F8C8D')
                     row += 1
             else:
@@ -674,11 +1455,39 @@ class ReportGenerator:
                 row += 1
                 for item in report['trend_data']:
                     obs_ids = ', '.join([str(i) for i in item.get('observation_ids', [])])
-                    ws2.cell(row=row, column=1, value=f"• {item['month']}: {item['count']} مشاهده (میانگین شدت: {item['avg_severity']})")
+                    ws2.cell(row=row, column=1, value=(
+                        f"• {item['month']}: {item['positive']} مثبت، {item['negative']} منفی، "
+                        f"{item['neutral']} خنثی (سهم مثبت {item['positive_share']}٪) — "
+                        f"حجم ثبت: {item['count']}"))
                     ws2.cell(row=row, column=2, value=f"شناسه مشاهده‌ها: {obs_ids}").font = Font(name='B Nazanin', size=9, color='7F8C8D')
                     row += 1
                 row += 1
             
+            # اثربخشی مداخلات (مداخله ← پیگیری ← نتیجه)
+            effectiveness = report.get('intervention_effectiveness') or {}
+            if effectiveness.get('items'):
+                row += 1
+                ws2.cell(row=row, column=1,
+                         value="🔗 اثربخشی مداخلات (اقدام ← پیگیری ← نتیجه)"
+                         ).font = Font(name='B Nazanin', size=12, bold=True, color='8E44AD')
+                row += 1
+                for item in effectiveness['items']:
+                    outcome = item['outcome']
+                    ws2.cell(row=row, column=1, value=(
+                        f"• {item['type']} ({item['date'] or '-'}): {outcome}"))
+                    if item['followups']:
+                        ws2.cell(row=row, column=2, value=(
+                            f"پیگیری‌ها: {len(item['followups'])} | نتیجهٔ آخر: "
+                            f"{item['followups'][-1]['result_label']}"),
+                            ).font = Font(name='B Nazanin', size=9, color='7F8C8D')
+                    else:
+                        ws2.cell(row=row, column=2,
+                                 value="پیگیری ثبت نشده است؛ نتیجه قابل ارزیابی نیست."
+                                 ).font = Font(name='B Nazanin', size=9, color='95A5A6')
+                    row += 1
+                ws2.cell(row=row, column=1, value=f"• {effectiveness['summary']}")
+                row += 1
+
             # پیام "داده ناکافی"
             if report['observations_count'] < 3:
                 ws2.cell(row=row, column=1, value="⚠️ داده کافی برای تحلیل روند وجود ندارد.").font = Font(name='B Nazanin', size=11, color='F39C12')
@@ -696,7 +1505,7 @@ class ReportGenerator:
             ws3.cell(row=1, column=3, value="میانگین شدت").font = Font(name='B Nazanin', size=12, bold=True)
             ws3.cell(row=1, column=4, value="مثبت").font = Font(name='B Nazanin', size=12, bold=True)
             ws3.cell(row=1, column=5, value="منفی").font = Font(name='B Nazanin', size=12, bold=True)
-            ws3.cell(row=1, column=6, value="وضعیت").font = Font(name='B Nazanin', size=12, bold=True)
+            ws3.cell(row=1, column=6, value="الگو (بر پایهٔ نوع رفتار)").font = Font(name='B Nazanin', size=12, bold=True)
             ws3.cell(row=1, column=7, value="شناسه مشاهده‌ها").font = Font(name='B Nazanin', size=12, bold=True)
             
             row = 2
@@ -710,21 +1519,22 @@ class ReportGenerator:
                 obs_ids = ', '.join([str(i) for i in stats.get('observation_ids', [])])
                 ws3.cell(row=row, column=7, value=obs_ids).font = Font(name='B Nazanin', size=9, color='7F8C8D')
                 
-                if stats['avg_severity'] >= 4:
-                    status = "عالی"
-                    color = '27AE60'
-                elif stats['avg_severity'] >= 3:
-                    status = "خوب"
-                    color = 'F39C12'
-                elif stats['avg_severity'] >= 2:
-                    status = "متوسط"
-                    color = 'F1C40F'
-                elif stats['avg_severity'] > 0:
-                    status = "نیاز به توجه"
-                    color = 'E67E22'
+                # بازرسی یازدهم: وضعیت هر زمینه از «نوع رفتارهای ثبت‌شده»
+                # می‌آید، نه از میانگین شدت. شدت فقط در ستون جداگانه
+                # به‌عنوان اطلاعات تکمیلی نمایش داده می‌شود.
+                _positive = stats.get('positive', 0) or 0
+                _negative = stats.get('negative', 0) or 0
+                _total = stats.get('count', 0) or 0
+                kind = classify_pattern(_positive, _negative,
+                                        max(_total - _positive - _negative, 0), _total)
+                if kind == PATTERN_STRENGTH:
+                    status, color = "الگوی مثبت تکرارشونده", '27AE60'
+                elif kind == PATTERN_NEEDS_ATTENTION:
+                    status, color = "الگوی منفی تکرارشونده", 'E74C3C'
+                elif kind == PATTERN_MIXED:
+                    status, color = "الگوی ترکیبی", 'F39C12'
                 else:
-                    status = "ثبت نشده"
-                    color = '95A5A6'
+                    status, color = "داده ناکافی", '95A5A6'
                 
                 cell = ws3.cell(row=row, column=6, value=status)
                 cell.font = Font(name='B Nazanin', size=11, color=color)
@@ -742,4 +1552,4 @@ class ReportGenerator:
             return True, f"فایل با موفقیت در {file_path} ذخیره شد."
             
         except Exception as e:
-            return False, f"خطا در ساخت فایل Excel: {str(e)}"
+            return False, f"خطا در ساخت فایل Excel: {e!s}"

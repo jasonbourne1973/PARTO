@@ -2,22 +2,32 @@
 دیالوگ اختصاص و ویرایش معلم به دانش‌آموز - نسخه با Tooltip
 """
 
+import jdatetime
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QComboBox, QPushButton, QMessageBox,
-    QWidget, QScrollArea, QGroupBox, QDateEdit
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont
 
-from dal.student_dal import StudentDAL
-from dal.staff_dal import StaffDAL
 from dal.academic_year_dal import AcademicYearDAL
+from dal.staff_dal import StaffDAL
+from dal.student_dal import StudentDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
 from models.teacher_assignment import TeacherAssignment
+from utils.logger import get_logger
 from utils.shamsi_date_input import ShamsiDateInput
 from utils.tooltip_manager import TooltipManager
-import jdatetime
+
+logger = get_logger(__name__)
 
 
 class AssignTeacherDialog(QDialog):
@@ -196,7 +206,7 @@ class AssignTeacherDialog(QDialog):
             for teacher in teachers:
                 self.teacher_combo.addItem(f"{teacher.full_name}", teacher.id)
         except Exception as e:
-            print(f"خطا در بارگذاری معلمان: {e}")
+            logger.error(f"خطا در بارگذاری معلمان: {e}")
     
     def load_academic_years(self):
         """بارگذاری سال‌های تحصیلی در کامبوباکس"""
@@ -207,7 +217,7 @@ class AssignTeacherDialog(QDialog):
                 display_text = f"{year.title} {'📦' if year.is_archived == 1 else ''}"
                 self.year_combo.addItem(display_text, year.id)
         except Exception as e:
-            print(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
+            logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
     
     def load_students(self):
         """بارگذاری دانش‌آموزان در کامبوباکس (حالت ویرایش)"""
@@ -218,7 +228,7 @@ class AssignTeacherDialog(QDialog):
                 for student in students:
                     self.student_combo.addItem(student.full_name, student.id)
             except Exception as e:
-                print(f"خطا در بارگذاری دانش‌آموزان: {e}")
+                logger.error(f"خطا در بارگذاری دانش‌آموزان: {e}")
     
     def load_assignment_data(self):
         """بارگذاری اطلاعات انتساب برای ویرایش"""
@@ -266,7 +276,7 @@ class AssignTeacherDialog(QDialog):
                 self.date_input.set_date(assignment.assigned_date)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری اطلاعات:\n{e!s}")
     
     def save_assignment(self):
         """ذخیره انتساب معلم"""
@@ -337,4 +347,4 @@ class AssignTeacherDialog(QDialog):
             self.accept()
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در ذخیره:\n{e!s}")

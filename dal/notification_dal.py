@@ -4,7 +4,7 @@
 
 from database.connection import DatabaseConnection
 from models.notification import Notification
-from datetime import datetime
+from utils.time_utils import utc_now_iso, utc_shift_sql
 
 
 class NotificationDAL:
@@ -89,6 +89,26 @@ class NotificationDAL:
         row = cursor.fetchone()
         return row['count'] if row else 0
     
+    def exists_for_entity(self, user_id, notification_type, entity_type,
+                          entity_id):
+        """
+        آیا برای همین (کاربر، نوع اعلان، موجودیت) اعلان فعالی وجود دارد؟
+
+        (بازرسی دوازدهم) نسخهٔ قبلی در سرویس فقط ۱۰ اعلان آخر کاربر را
+        می‌خواند و اگر اعلانِ یک پیگیری قدیمی‌تر از آن‌ها بود، پیدا
+        نمی‌شد و Reminder تکراری ساخته می‌شد. حالا مستقیم در دیتابیس و
+        بدون هیچ سقفی جست‌وجو می‌شود؛ معنای «فعال» مثل قبل است: خوانده
+        نشده، رد نشده و حذف‌نشده.
+        """
+        cursor = self.db.execute_query("""
+            SELECT 1 FROM notifications
+            WHERE user_id = ? AND type = ? AND entity_type = ?
+              AND entity_id = ? AND is_read = 0 AND is_dismissed = 0
+              AND is_deleted = 0
+            LIMIT 1
+        """, (user_id, notification_type, entity_type, entity_id))
+        return cursor.fetchone() is not None
+
     def get_by_type(self, user_id, notification_type, limit=None):
         """دریافت اعلان‌های یک نوع خاص"""
         query = """
@@ -127,7 +147,7 @@ class NotificationDAL:
     
     def get_pending(self, limit=None):
         """دریافت اعلان‌های در انتظار (برنامه‌ریزی شده)"""
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         query = """
             SELECT * FROM notifications 
             WHERE scheduled_at IS NOT NULL 
@@ -156,7 +176,7 @@ class NotificationDAL:
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE notifications SET
                 is_read = 1,
@@ -173,7 +193,7 @@ class NotificationDAL:
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE notifications SET
                 is_read = 1,
@@ -190,7 +210,7 @@ class NotificationDAL:
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE notifications SET
                 is_dismissed = 1,
@@ -222,9 +242,15 @@ class NotificationDAL:
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
-        from datetime import datetime, timedelta
-        cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
-        
+        # ===== اصلاح (بازرسی هشتم) =====
+        # ستون created_at را خودِ SQLite با CURRENT_TIMESTAMP پر می‌کند؛
+        # یعنی UTC و با جداکنندهٔ فاصله («2026-09-19 10:46:17»).
+        # قبلاً مقدار برش با datetime.now() ساخته می‌شد: محلی، و با
+        # جداکنندهٔ «T». مقایسهٔ رشته‌ای این دو، بازهٔ پاک‌سازی را
+        # جابه‌جا می‌کرد (کد نویسهٔ T بزرگ‌تر از فاصله است).
+        # حالا هر دو طرف یک قالب و یک منطقهٔ زمانی دارند.
+        cutoff_date = utc_shift_sql(days=-days)
+
         cursor.execute("""
             UPDATE notifications SET
                 is_deleted = 1,

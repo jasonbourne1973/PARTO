@@ -3,8 +3,14 @@
 با متدهای تحلیلی برای داشبورد
 """
 
+import sqlite3
+
 from database.connection import DatabaseConnection
 from models.followup import FollowUp
+from utils.logger import get_logger
+from utils.time_utils import utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class FollowUpDAL:
@@ -172,8 +178,7 @@ class FollowUpDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE followups SET
                 is_deleted = 1,
@@ -322,8 +327,8 @@ class FollowUpDAL:
                 'total': row['total'] if row else 0
             }
 
-        except Exception as e:
-            print(f"خطا در دریافت توزیع پیگیری‌ها: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت توزیع پیگیری‌ها: {e}")
             return {'pending': 0, 'done': 0, 'continued': 0, 'closed': 0, 'cancelled': 0, 'total': 0}
 
     def get_overdue_followups_count(self, start_date=None, end_date=None, staff_id=None):
@@ -372,8 +377,8 @@ class FollowUpDAL:
 
             return row['count'] if row else 0
 
-        except Exception as e:
-            print(f"خطا در دریافت تعداد پیگیری‌های معوق: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت تعداد پیگیری‌های معوق: {e}")
             return 0
 
     def get_followups_by_result_type(self, start_date=None, end_date=None):
@@ -437,8 +442,8 @@ class FollowUpDAL:
 
             return result
 
-        except Exception as e:
-            print(f"خطا در دریافت پیگیری‌ها بر اساس نوع نتیجه: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت پیگیری‌ها بر اساس نوع نتیجه: {e}")
             return []
 
     def get_followups_by_teacher(self, start_date=None, end_date=None, limit=10):
@@ -494,8 +499,8 @@ class FollowUpDAL:
 
             return result
 
-        except Exception as e:
-            print(f"خطا در دریافت پیگیری‌ها بر اساس معلم: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت پیگیری‌ها بر اساس معلم: {e}")
             return []
 
     def get_followup_trend(self, period='monthly', start_date=None, end_date=None, limit=12):
@@ -562,7 +567,7 @@ class FollowUpDAL:
                             week = (day - 1) // 7 + 1
                             key = f"{parts[0]}/{parts[1]}/W{week}"
                             label = f"هفته {week} {parts[1]}"
-                        except:
+                        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                             key = date_str[:7]
                             label = date_str[:7]
                     else:
@@ -593,25 +598,19 @@ class FollowUpDAL:
 
             return result
 
-        except Exception as e:
-            print(f"خطا در دریافت روند پیگیری‌ها: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت روند پیگیری‌ها: {e}")
             return []
 
     def _get_month_label(self, date_str):
-        """دریافت برچسب ماه از تاریخ"""
-        if not date_str or len(date_str) < 7:
-            return date_str
-        try:
-            month_names = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-                          "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
-            parts = date_str.split('/')
-            if len(parts) >= 2:
-                month = int(parts[1])
-                if 1 <= month <= 12:
-                    return f"{month_names[month-1]} {parts[0]}"
-        except:
-            pass
-        return date_str
+        """دریافت برچسب ماه از تاریخ — پیاده‌سازی مشترک
+
+        بازرسی نهم: این متد در ۴ فایل DAL کپی شده بود؛ حالا همه به یک
+        منبع واحد (utils.persian_date) وصل‌اند تا اصلاح‌های آینده
+        (ارقام فارسی، تاریخ ناقص، نام ماه) یک‌جا اعمال شود.
+        """
+        from utils.persian_date import PersianDate
+        return PersianDate.get_month_label(date_str)
 
     def get_followup_completion_rate(self, start_date=None, end_date=None, staff_id=None):
         """
@@ -669,8 +668,8 @@ class FollowUpDAL:
                 'completion_rate': round((completed / total * 100), 1) if total > 0 else 0
             }
 
-        except Exception as e:
-            print(f"خطا در دریافت نرخ تکمیل پیگیری‌ها: {e}")
+        except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"خطا در دریافت نرخ تکمیل پیگیری‌ها: {e}")
             return {'total': 0, 'completed': 0, 'pending': 0, 'completion_rate': 0}
 
     # ============================================================

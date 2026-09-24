@@ -2,9 +2,12 @@
 لایه دسترسی به داده جلسات مشاوره
 """
 
+import json
+import sqlite3
+
 from database.connection import DatabaseConnection
 from models.counseling_session import CounselingSession
-import json
+from utils.time_utils import utc_now_iso
 
 
 class CounselingSessionDAL:
@@ -131,8 +134,9 @@ class CounselingSessionDAL:
     
     def get_upcoming_sessions(self, days=7, include_deleted=False):
         """دریافت جلسات آینده"""
-        import jdatetime
         from datetime import timedelta
+
+        import jdatetime
 
         # ===== اصلاح (بازرسی دوم) =====
         # اگر فراخوانی‌کننده صریحاً None بدهد (مثلاً از یک فیلد خالی UI یا
@@ -270,8 +274,7 @@ class CounselingSessionDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE counseling_sessions SET
                 is_deleted = 1,
@@ -335,7 +338,7 @@ class CounselingSessionDAL:
         if row['goals']:
             try:
                 session.goals = json.loads(row['goals'])
-            except:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 session.goals = None
         else:
             session.goals = None
@@ -346,7 +349,7 @@ class CounselingSessionDAL:
         if row['interventions_discussed']:
             try:
                 session.interventions_discussed = json.loads(row['interventions_discussed'])
-            except:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 session.interventions_discussed = None
         else:
             session.interventions_discussed = None
@@ -354,7 +357,7 @@ class CounselingSessionDAL:
         if row['recommendations']:
             try:
                 session.recommendations = json.loads(row['recommendations'])
-            except:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 session.recommendations = None
         else:
             session.recommendations = None
@@ -362,7 +365,7 @@ class CounselingSessionDAL:
         if row['homework']:
             try:
                 session.homework = json.loads(row['homework'])
-            except:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 session.homework = None
         else:
             session.homework = None

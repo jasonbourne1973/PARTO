@@ -3,6 +3,8 @@
 با ارتباط به ProfessionalInterpretation و پشتیبانی از ساختار سه‌لایه شایستگی
 """
 
+from typing import ClassVar
+
 from models.base import BaseModel
 
 
@@ -39,7 +41,7 @@ class Observation(BaseModel):
     BEHAVIOR_NEGATIVE = "منفی"
     BEHAVIOR_NEUTRAL = "خنثی"
     
-    BEHAVIOR_TYPES = [BEHAVIOR_POSITIVE, BEHAVIOR_NEGATIVE, BEHAVIOR_NEUTRAL]
+    BEHAVIOR_TYPES: ClassVar[list] = [BEHAVIOR_POSITIVE, BEHAVIOR_NEGATIVE, BEHAVIOR_NEUTRAL]
     
     def __init__(self):
         super().__init__()

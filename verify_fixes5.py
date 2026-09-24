@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 راستی‌آزمایی دور پنجم بازرسی — ~۴۰ بررسی
 
@@ -14,6 +13,7 @@
 
 import ast
 import collections
+import contextlib
 import hashlib
 import io
 import os
@@ -23,7 +23,6 @@ import shutil
 import sys
 import tempfile
 import time
-import contextlib
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 os.environ['TZ'] = 'Asia/Tehran'
@@ -69,7 +68,7 @@ try:
     print("بخش A: مسیر امنیتی (utils/security.py)")
     print("=" * 76)
 
-    from utils.security import Security, SessionManager, UserRole, ROLE_PERMISSIONS
+    from utils.security import ROLE_PERMISSIONS, Security, SessionManager, UserRole
 
     h = Security.hash_password("Admin@123")
     check("A1", "رمز درست پس از هش تأیید می‌شود",
@@ -287,7 +286,7 @@ try:
             if nph:
                 raw.execute("EXPLAIN " + sql, tuple([None] * nph)).fetchall()
             elif names:
-                raw.execute("EXPLAIN " + sql, {k: None for k in names}).fetchall()
+                raw.execute("EXPLAIN " + sql, dict.fromkeys(names)).fetchall()
             else:
                 raw.execute("EXPLAIN " + sql).fetchall()
         except Exception as e:

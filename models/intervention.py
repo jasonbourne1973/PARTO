@@ -2,6 +2,8 @@
 مدل مداخله - با Soft Delete یکپارچه
 """
 
+from typing import ClassVar
+
 from models.base import BaseModel
 
 
@@ -19,7 +21,7 @@ class Intervention(BaseModel):
     STATUS_COMPLETED = "completed"  # تکمیل شده
     STATUS_CANCELLED = "cancelled"  # لغو شده
     
-    STATUS_CHOICES = [
+    STATUS_CHOICES: ClassVar[list[tuple[str, str]]] = [
         (STATUS_PLANNED, "برنامه‌ریزی شده"),
         (STATUS_IN_PROGRESS, "در حال اجرا"),
         (STATUS_DONE, "انجام شده"),

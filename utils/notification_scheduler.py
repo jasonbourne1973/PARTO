@@ -4,10 +4,10 @@
 
 import threading
 import time
-from datetime import datetime, timedelta
 
 from services.notification_service import NotificationService
 from utils.logger import get_logger
+from utils.time_utils import utc_now
 
 
 class NotificationScheduler:
@@ -26,10 +26,13 @@ class NotificationScheduler:
     
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(NotificationScheduler, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
             cls._instance._initialized = False
         return cls._instance
     
+    # پاکسازی اعلان‌های قدیمی هر ۲۴ ساعت یک‌بار (نه هر اجرای زمان‌بند)
+    _CLEANUP_INTERVAL_HOURS = 24
+
     def __init__(self):
         if self._initialized:
             return
@@ -38,6 +41,7 @@ class NotificationScheduler:
         self.notification_service = NotificationService()
         self._running = False
         self._thread = None
+        self._last_cleanup_time = None
     
     def start(self, interval_minutes=60):
         """
@@ -96,13 +100,25 @@ class NotificationScheduler:
         # بررسی اینکه آیا امروز پاکسازی انجام شده است
         if self._should_cleanup():
             self.notification_service.cleanup_old_notifications()
+            self._last_cleanup_time = utc_now()
             self.logger.info("پاکسازی اعلان‌های قدیمی انجام شد")
-    
+
     def _should_cleanup(self):
-        """بررسی اینکه آیا پاکسازی باید انجام شود"""
-        # در این نسخه ساده، هر بار که وظیفه اجرا می‌شود، پاکسازی انجام می‌شود
-        # برای بهبود می‌توان یک فایل نشانگر ذخیره کرد
-        return True
+        """
+        بررسی اینکه آیا پاکسازی باید انجام شود
+
+        (بازرسی دوازدهم) نسخهٔ قبلی همیشه True برمی‌گرداند، پس با
+        اجرای هر ۶۰ دقیقه‌ای زمان‌بند، پاکسازی هم هر ساعت انجام
+        می‌شد نه «هر ۲۴ ساعت» که کامنت می‌گفت. حالا واقعاً بررسی
+        می‌شود که ۲۴ ساعت از آخرین پاکسازی گذشته باشد یا نه.
+        """
+        if self._last_cleanup_time is None:
+            return True
+        try:
+            elapsed = utc_now() - self._last_cleanup_time
+        except Exception:
+            return True
+        return elapsed.total_seconds() >= self._CLEANUP_INTERVAL_HOURS * 3600
     
     def run_once(self):
         """اجرای یک بار وظایف زمان‌بندی (برای تست)"""

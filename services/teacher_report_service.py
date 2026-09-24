@@ -2,8 +2,8 @@
 سرویس تولید گزارش معلم - بدون Emoji
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -17,20 +17,27 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 # نمی‌آمد (به‌جای پیام «openpyxl نصب نیست»). همین الگو در
 # services/class_report_service.py درست پیاده شده بود (import داخل متد
 # با except ImportError و پیام راهنما) — اینجا هم همان رفتار گرفته شد.
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 try:
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
     OPENPYXL_AVAILABLE = True
 except ImportError:
     OPENPYXL_AVAILABLE = False
     Workbook = Font = PatternFill = Alignment = Border = Side = None
     get_column_letter = None
-    print("⚠️ openpyxl نصب نیست. pip install openpyxl")
+    logger.warning("⚠️ openpyxl نصب نیست. pip install openpyxl")
 
-from utils.persian_pdf import PersianPDF
 import jdatetime
-from datetime import datetime
+
+from utils.behavior_analysis import classify_pattern, pattern_label
+from utils.logger import get_logger
+from utils.persian_pdf import PersianPDF
+from utils.time_utils import utc_now
 
 
 class TeacherReportService:
@@ -101,19 +108,19 @@ class TeacherReportService:
             # ===== شایستگی‌ها =====
             stats = report_data.get('competency_stats', {})
             if stats:
-                pdf.add_subtitle("وضعیت شایستگی‌ها")
-                table_data = [["شایستگی", "میانگین شدت", "تعداد", "وضعیت"]]
+                pdf.add_subtitle("وضعیت زمینه‌ها (بر پایهٔ نوع رفتار ثبت‌شده)")
+                table_data = [["زمینه", "مثبت", "منفی", "از مشاهدات", "الگو"]]
                 for name, stat in list(stats.items())[:15]:
-                    avg = stat.get('avg_severity', 0)
-                    if avg >= 3.5:
-                        status = "عالی"
-                    elif avg >= 2.5:
-                        status = "خوب"
-                    elif avg >= 1.5:
-                        status = "متوسط"
-                    else:
-                        status = "نیاز به توجه"
-                    table_data.append([name, str(avg), str(stat['count']), status])
+                    # بازرسی یازدهم: الگو از نوع رفتار می‌آید، نه میانگین شدت
+                    kind = classify_pattern(
+                        stat.get('positive', 0), stat.get('negative', 0),
+                        max(stat.get('count', 0) - stat.get('positive', 0)
+                            - stat.get('negative', 0), 0),
+                        stat.get('count', 0))
+                    table_data.append([
+                        name, str(stat.get('positive', 0)),
+                        str(stat.get('negative', 0)), str(stat['count']),
+                        pattern_label(kind)])
                 pdf.add_table(table_data)
                 pdf.add_spacer(0.3)
             
@@ -155,8 +162,8 @@ class TeacherReportService:
             try:
                 today = jdatetime.date.today()
                 date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
-            except:
-                date_str = datetime.now().strftime("%Y/%m/%d")
+            except Exception:
+                date_str = utc_now().strftime("%Y/%m/%d")
             
             pdf.add_text(f"تاریخ تهیه گزارش: {date_str}")
             pdf.add_text("PARTO - سامانه مدیریت پرونده دانش آموزان")
@@ -166,7 +173,7 @@ class TeacherReportService:
             pdf.build(file_path)
             
         except Exception as e:
-            raise Exception(f"خطا در تولید PDF: {str(e)}")
+            raise Exception(f"خطا در تولید PDF: {e!s}")
     
     def export_to_excel(self, report_data, file_path):
         """خروجی گزارش معلم به Excel - بدون Emoji"""
@@ -230,29 +237,25 @@ class TeacherReportService:
         
         ws2.cell(row=1, column=1, value="شایستگی").font = header_font
         ws2.cell(row=1, column=1).fill = header_fill
-        ws2.cell(row=1, column=2, value="میانگین شدت").font = header_font
+        ws2.cell(row=1, column=2, value="مثبت").font = header_font
         ws2.cell(row=1, column=2).fill = header_fill
-        ws2.cell(row=1, column=3, value="تعداد").font = header_font
+        ws2.cell(row=1, column=3, value="منفی").font = header_font
         ws2.cell(row=1, column=3).fill = header_fill
-        ws2.cell(row=1, column=4, value="وضعیت").font = header_font
+        ws2.cell(row=1, column=4, value="الگو (بر پایهٔ نوع رفتار)").font = header_font
         ws2.cell(row=1, column=4).fill = header_fill
         
         stats = report_data.get('competency_stats', {})
         row = 2
         for name, stat in stats.items():
             ws2.cell(row=row, column=1, value=name)
-            ws2.cell(row=row, column=2, value=stat.get('avg_severity', 0))
-            ws2.cell(row=row, column=3, value=stat['count'])
-            
-            avg = stat.get('avg_severity', 0)
-            if avg >= 3.5:
-                status = "عالی"
-            elif avg >= 2.5:
-                status = "خوب"
-            elif avg >= 1.5:
-                status = "متوسط"
-            else:
-                status = "نیاز به توجه"
+            ws2.cell(row=row, column=2, value=stat.get('positive', 0))
+            ws2.cell(row=row, column=3, value=stat.get('negative', 0))
+            # بازرسی یازدهم: الگو از نوع رفتار می‌آید، نه میانگین شدت
+            status = pattern_label(classify_pattern(
+                stat.get('positive', 0), stat.get('negative', 0),
+                max(stat.get('count', 0) - stat.get('positive', 0)
+                    - stat.get('negative', 0), 0),
+                stat.get('count', 0)))
             ws2.cell(row=row, column=4, value=status)
             row += 1
         

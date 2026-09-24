@@ -2,32 +2,49 @@
 صفحه تحلیل روند رشد - نسخه کامل با نمودارهای متعدد و جستجو
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+import matplotlib
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QComboBox, QMessageBox, QGroupBox, QTextEdit,
-    QLineEdit, QCheckBox, QFormLayout, QTabWidget
+    QComboBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt
 
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.academic_year_dal import AcademicYearDAL
 from dal.observation_dal import ObservationDAL
 from dal.staff_dal import StaffDAL
-from dal.academic_year_dal import AcademicYearDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
 from database.connection import DatabaseConnection
 from utils.shamsi_date_input import ShamsiDateInput
 
-import matplotlib
 matplotlib.use('QtAgg')
+import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-import numpy as np
+
+from utils.behavior_analysis import (
+    count_behaviors,
+    growth_direction,
+    shares,
+)
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class AnalysisPage(QWidget):
@@ -289,8 +306,10 @@ class AnalysisPage(QWidget):
                 start_month += 12
                 start_year -= 1
             self.start_date.set_date(f"{start_year:04d}/{start_month:02d}/{today.day:02d}")
-        except:
-            pass
+        except (ImportError, ValueError, AttributeError, TypeError) as e:
+            # نبود jdatetime یا تاریخ نامعتبر: صفحه بدون تاریخ پیش‌فرض
+            # بالا می‌آید و کاربر خودش تاریخ را وارد می‌کند.
+            logger.debug(f"تاریخ‌های پیش‌فرض تنظیم نشد: {e}")
     
     def load_teachers(self):
         """بارگذاری معلمان در کامبوباکس"""
@@ -302,7 +321,7 @@ class AnalysisPage(QWidget):
             for teacher in self.all_teachers:
                 self.teacher_combo.addItem(f"{teacher.full_name}", teacher.id)
         except Exception as e:
-            print(f"خطا در بارگذاری معلمان: {e}")
+            logger.error(f"خطا در بارگذاری معلمان: {e}")
     
     def on_teacher_changed(self, index):
         """وقتی معلم تغییر می‌کند، لیست دانش‌آموزان را به‌روز کن"""
@@ -334,7 +353,7 @@ class AnalysisPage(QWidget):
                     display_text = f"{student.full_name} - پایه {grade_text}"
                     self.student_combo.addItem(display_text, student.id)
         except Exception as e:
-            print(f"خطا در بارگذاری دانش‌آموزان معلم: {e}")
+            logger.error(f"خطا در بارگذاری دانش‌آموزان معلم: {e}")
     
     def load_academic_years(self):
         """بارگذاری سال‌های تحصیلی در کامبوباکس"""
@@ -353,7 +372,7 @@ class AnalysisPage(QWidget):
                         self.year_combo.setCurrentIndex(i)
                         break
         except Exception as e:
-            print(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
+            logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
     
     def load_students(self):
         """بارگذاری دانش‌آموزان در کامبوباکس"""
@@ -367,7 +386,7 @@ class AnalysisPage(QWidget):
                 display_text = f"{student.full_name} - پایه {grade_text}"
                 self.student_combo.addItem(display_text, student.id)
         except Exception as e:
-            print(f"خطا در بارگذاری دانش‌آموزان: {e}")
+            logger.error(f"خطا در بارگذاری دانش‌آموزان: {e}")
     
     def search_student(self):
         """جستجوی دانش‌آموز و انتخاب در کامبوباکس"""
@@ -394,7 +413,7 @@ class AnalysisPage(QWidget):
                 QMessageBox.information(self, "نتیجه جستجو", msg)
                 
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{e!s}")
     
     def clear_search(self):
         """پاک کردن جستجو و نمایش همه"""
@@ -459,27 +478,36 @@ class AnalysisPage(QWidget):
                 canvas.draw()
     
     def draw_trend_chart(self, observations):
-        """رسم نمودار روند تغییرات"""
+        """
+        رسم نمودار روند **ترکیب رفتارها** (بازرسی یازدهم)
+
+        پیش از این، نمودار «میانگین شدت» را نشان می‌داد؛ اکنون تعداد
+        رفتارهای مثبت/منفی/خنثی در طول زمان رسم می‌شود، زیرا شاخص رشد
+        «تغییر نوع رفتارهای ثبت‌شده» است و نه شدت یا حجم ثبت.
+        """
         self.trend_figure.clear()
         ax = self.trend_figure.add_subplot(111)
-        
+
         dates = {}
         for obs in observations:
-            if obs.observation_date not in dates:
-                dates[obs.observation_date] = []
-            dates[obs.observation_date].append(obs.severity)
-        
+            dates.setdefault(obs.observation_date, []).append(obs.behavior_type)
+
         sorted_dates = sorted(dates.keys())
-        avg_severities = [sum(dates[d]) / len(dates[d]) for d in sorted_dates]
-        max_severities = [max(dates[d]) for d in sorted_dates]
-        min_severities = [min(dates[d]) for d in sorted_dates]
-        
-        ax.plot(sorted_dates, avg_severities, 'o-', linewidth=2, color='#0B2E4F', label='میانگین')
-        ax.fill_between(sorted_dates, min_severities, max_severities, alpha=0.2, color='#0B2E4F')
-        
+        positives = [sum(1 for t in dates[d] if t == 'مثبت') for d in sorted_dates]
+        negatives = [sum(1 for t in dates[d] if t == 'منفی') for d in sorted_dates]
+        neutrals = [sum(1 for t in dates[d] if t not in ('مثبت', 'منفی')) for d in sorted_dates]
+
+        ax.plot(sorted_dates, positives, 'o-', linewidth=2, color='#2E7D32',
+                label='رفتار مثبت')
+        ax.plot(sorted_dates, negatives, 'o-', linewidth=2, color='#C62828',
+                label='رفتار منفی')
+        ax.plot(sorted_dates, neutrals, 'o-', linewidth=1.5, color='#9E9E9E',
+                label='خنثی')
+
         ax.set_xlabel('تاریخ (شمسی)', fontsize=11)
-        ax.set_ylabel('شدت', fontsize=11)
-        ax.set_title('روند تغییرات شدت مشاهدات', fontsize=13, fontweight='bold')
+        ax.set_ylabel('تعداد رفتار ثبت‌شده', fontsize=11)
+        ax.set_title('روند تغییر ترکیب رفتارها (تعداد = حجم ثبت، نه شاخص رشد)',
+                     fontsize=12, fontweight='bold')
         ax.grid(True, alpha=0.3)
         ax.legend()
         
@@ -516,42 +544,45 @@ class AnalysisPage(QWidget):
         self.competency_figure.clear()
         ax = self.competency_figure.add_subplot(111)
         
-        # گروه‌بندی بر اساس شایستگی
+        # گروه‌بندی بر اساس شایستگی — با تفکیک نوع رفتار (نه شدت)
         competency_stats = {}
         for obs in observations:
             if obs.competency_id:
                 comp_name = obs.competency_title or self._get_competency_name(obs.competency_id)
-                if comp_name not in competency_stats:
-                    competency_stats[comp_name] = {'count': 0, 'total_severity': 0}
-                competency_stats[comp_name]['count'] += 1
-                competency_stats[comp_name]['total_severity'] += obs.severity or 1
+                entry = competency_stats.setdefault(
+                    comp_name, {'positive': 0, 'negative': 0, 'neutral': 0, 'count': 0})
+                entry['count'] += 1
+                if obs.behavior_type == 'مثبت':
+                    entry['positive'] += 1
+                elif obs.behavior_type == 'منفی':
+                    entry['negative'] += 1
+                else:
+                    entry['neutral'] += 1
         
         if competency_stats:
-            # مرتب‌سازی و انتخاب ۱۰ مورد اول
-            items = sorted(competency_stats.items(), 
-                          key=lambda x: x[1]['total_severity'] / x[1]['count'], 
-                          reverse=True)[:10]
+            # مرتب‌سازی بر پایهٔ تعداد رفتارهای جهت‌دار و انتخاب ۱۰ مورد اول
+            items = sorted(
+                competency_stats.items(),
+                key=lambda x: (x[1]['positive'] + x[1]['negative'], x[1]['count']),
+                reverse=True)[:10]
             
             names = [item[0][:15] for item in items]
-            values = [item[1]['total_severity'] / item[1]['count'] for item in items]
+            positions = range(len(names))
+            positive_values = [item[1]['positive'] for item in items]
+            negative_values = [item[1]['negative'] for item in items]
             
-            bars = ax.bar(names, values, color='#66BB6A', edgecolor='#F4C542')
+            ax.bar([p - 0.2 for p in positions], positive_values, width=0.4,
+                   color='#66BB6A', edgecolor='#2E7D32', label='رفتار مثبت')
+            ax.bar([p + 0.2 for p in positions], negative_values, width=0.4,
+                   color='#C62828', edgecolor='#8E1B1B', label='رفتار منفی')
+            ax.set_xticks(list(positions))
+            ax.set_xticklabels(names)
             
-            # رنگ‌بندی بر اساس مقدار
-            for bar, val in zip(bars, values):
-                if val >= 4:
-                    bar.set_color('#66BB6A')
-                elif val >= 3:
-                    bar.set_color('#0B2E4F')
-                elif val >= 2:
-                    bar.set_color('#F4D35E')
-                else:
-                    bar.set_color('#C62828')
-            
-            ax.set_ylabel('میانگین شدت', fontsize=11)
-            ax.set_xlabel('شایستگی', fontsize=11)
-            ax.set_title('وضعیت شایستگی‌ها', fontsize=13, fontweight='bold')
-            ax.set_ylim(0, 5)
+            ax.set_ylabel('تعداد رفتار ثبت‌شده', fontsize=11)
+            ax.set_xlabel('زمینه (شایستگی)', fontsize=11)
+            ax.set_title('ترکیب رفتارهای ثبت‌شده به تفکیک زمینه (بدون رتبه‌بندی مقایسه‌ای)',
+                         fontsize=12, fontweight='bold')
+            ax.legend()
             ax.grid(True, alpha=0.2, axis='y')
             
             # چرخش برچسب‌ها
@@ -604,7 +635,7 @@ class AnalysisPage(QWidget):
             comp_dal = CompetencyDAL()
             comp = comp_dal.get_by_id(competency_id)
             return comp.title if comp else "نامشخص"
-        except:
+        except Exception:
             return "نامشخص"
     
     def show_analysis_text(self, observations, start_date, end_date):
@@ -613,65 +644,51 @@ class AnalysisPage(QWidget):
             self.analysis_text.setText("⚠️ داده‌ای برای تحلیل وجود ندارد.")
             return
         
-        severities = [obs.severity for obs in observations]
-        avg_severity = sum(severities) / len(severities)
-        max_severity = max(severities)
-        min_severity = min(severities)
-        
-        positive = sum(1 for obs in observations if obs.behavior_type == "مثبت")
-        negative = sum(1 for obs in observations if obs.behavior_type == "منفی")
-        neutral = len(observations) - positive - negative
-        
-        # تحلیل روند
-        if len(observations) >= 3:
-            first_third = severities[:len(severities)//3]
-            last_third = severities[2*len(severities)//3:]
-            
-            if len(first_third) > 0 and len(last_third) > 0:
-                avg_first = sum(first_third) / len(first_third)
-                avg_last = sum(last_third) / len(last_third)
-                
-                if avg_last > avg_first * 1.1:
-                    trend = "📈 افزایش قابل توجه"
-                elif avg_last > avg_first:
-                    trend = "📈 افزایش ملایم"
-                elif avg_last < avg_first * 0.9:
-                    trend = "📉 کاهش قابل توجه"
-                elif avg_last < avg_first:
-                    trend = "📉 کاهش ملایم"
-                else:
-                    trend = "➡️ تقریباً ثابت"
-            else:
-                trend = "⚠️ داده کافی نیست"
-        else:
-            trend = "⚠️ حداقل به ۳ مشاهده نیاز است"
-        
+        # ===== اصلاح (بازرسی یازدهم) =====
+        # تحلیل بر پایهٔ **ترکیب رفتارهای ثبت‌شده** ساخته می‌شود، نه
+        # میانگین شدت و نه حجم مشاهدات. یک مشاهدهٔ منفرد نتیجه‌گیری
+        # نمی‌سازد و متن هیچ تشخیصی ارائه نمی‌کند.
+        counts = count_behaviors(observations)
+        share = shares(counts)
+        by_date = {}
+        for obs in observations:
+            by_date.setdefault(obs.observation_date or '-', []).append(obs)
+
+        periods = []
+        for date_key in sorted(by_date.keys()):
+            period_counts = count_behaviors(by_date[date_key])
+            periods.append({'label': date_key, 'positive': period_counts['positive'],
+                            'negative': period_counts['negative'],
+                            'neutral': period_counts['neutral'],
+                            'total': period_counts['total']})
+
+        direction = growth_direction(periods)
         student_name = self.get_student_name()
         
         analysis = f"""
-📊 **تحلیل جامع روند رشد**
+📊 **تحلیل روند رشد (بر پایهٔ رفتارهای ثبت‌شده)**
 
 📌 **دانش‌آموز:** {student_name}
 📅 **بازه زمانی:** {start_date} تا {end_date}
-📝 **تعداد مشاهدات:** {len(observations)}
+📝 **حجم ثبت و پایش:** {counts['total']} مشاهده (این عدد به‌تنهایی شاخص رشد نیست)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📈 **روند کلی:** {trend}
+📈 **جهت تغییر رفتار:** {direction['label']}
+{direction['message']}
+🗒️ {direction['volume_note']}
 
-📊 **آمار توصیفی:**
-• میانگین شدت: {avg_severity:.2f}
-• بیشترین شدت: {max_severity}
-• کمترین شدت: {min_severity}
-• انحراف معیار: {np.std(severities):.2f}
+🏷️ **ترکیب رفتارهای ثبت‌شده:**
+• ✅ مثبت: {counts['positive']} مورد ({share['positive']}٪)
+• ❌ منفی: {counts['negative']} مورد ({share['negative']}٪)
+• ⬜ خنثی: {counts['neutral']} مورد
+• میانگین شدت (اطلاعات تکمیلی): {np.mean([obs.severity or 1 for obs in observations]):.2f}
 
-🏷️ **توزیع نوع مشاهدات:**
-• ✅ مثبت: {positive} مورد ({positive/len(observations)*100:.1f}%)
-• ❌ منفی: {negative} مورد ({negative/len(observations)*100:.1f}%)
-• ⬜ خنثی: {neutral} مورد ({neutral/len(observations)*100:.1f}%)
+💡 **پیشنهادها (بر پایهٔ دادهٔ ثبت‌شده):**
+{self.get_recommendation(share['positive'], direction['status'], counts)}
 
-💡 **توصیه‌ها:**
-{self.get_recommendation(avg_severity, trend, positive/len(observations) if observations else 0)}
+⚠️ این تحلیل «الگوی مشاهده‌شده» را توصیف می‌کند؛ تشخیص روان‌شناختی یا
+برچسب نیست و مقایسه فقط با خود دانش‌آموز در طول زمان انجام می‌شود.
 """
         self.analysis_text.setText(analysis)
     
@@ -679,32 +696,66 @@ class AnalysisPage(QWidget):
         try:
             student = self.student_dal.get_by_id(self.current_student_id)
             return student.full_name if student else "نامشخص"
-        except:
+        except Exception:
             return "نامشخص"
     
-    def get_recommendation(self, avg_severity, trend, positive_ratio):
+    def get_recommendation(self, positive_share, direction_status, counts):
+        """
+        پیشنهاد محتاطانه و قابل ردیابی — بر پایهٔ رفتارهای ثبت‌شده
+
+        ساختار: دادهٔ ثبت‌شده ← الگوی مشاهده‌شده ← پیشنهاد بررسی/اقدام.
+        شدت رفتار در این پیشنهادها نقشی ندارد و متن، تشخیص نیست.
+        """
         recommendations = []
-        
-        if avg_severity >= 4:
-            recommendations.append("✅ وضعیت کلی بسیار مطلوب است. به نظارت و ثبت مشاهدات ادامه دهید.")
-        elif avg_severity >= 3:
-            if "افزایش" in trend:
-                recommendations.append("🟡 روند رو به بهبود است. به حمایت و تمرین ادامه دهید.")
-            else:
-                recommendations.append("🟡 وضعیت متوسط است. با تمرین‌های هدفمند می‌توان بهبود یافت.")
-        elif avg_severity >= 2:
-            if "کاهش" in trend:
-                recommendations.append("🟠 روند کاهشی است. نیاز به بررسی و حمایت ویژه دارد.")
-            else:
-                recommendations.append("🟠 وضعیت نیازمند توجه است. با مشاور مدرسه هماهنگ کنید.")
+
+        # ۱) دادهٔ ثبت‌شده
+        recommendations.append(
+            f"دادهٔ ثبت‌شده: {counts['positive']} رفتار مثبت، "
+            f"{counts['negative']} رفتار منفی و {counts['neutral']} رفتار خنثی "
+            f"(سهم رفتار مثبت {positive_share}٪)."
+        )
+
+        # ۲) الگوی مشاهده‌شده
+        if counts['total'] < 2:
+            recommendations.append(
+                "الگوی مشاهده‌شده: برای تحلیل الگو به ثبت مشاهدات بیشتری نیاز است؛ "
+                "یک مشاهدهٔ منفرد مبنای نتیجه‌گیری نیست."
+            )
+        elif positive_share >= 60:
+            recommendations.append(
+                "الگوی مشاهده‌شده: سهم رفتارهای مثبت بیشتر است؛ تقویت همین مسیر پیشنهاد می‌شود."
+            )
+        elif positive_share >= 40:
+            recommendations.append(
+                "الگوی مشاهده‌شده: ترکیب رفتارها متعادل است؛ بررسی زمینه‌ها و "
+                "تقویت رفتارهای مثبت پیشنهاد می‌شود."
+            )
         else:
-            recommendations.append("🔴 وضعیت نیازمند حمایت فوری است. لطفاً با مشاور مدرسه تماس بگیرید.")
-        
-        if positive_ratio >= 0.6:
-            recommendations.append("✅ درصد مشاهدات مثبت بالا است. فضای آموزشی مناسب می‌باشد.")
-        elif positive_ratio >= 0.4:
-            recommendations.append("🟡 درصد مشاهدات مثبت متوسط است. می‌توان با تقویت رفتارهای مثبت بهبود یافت.")
+            recommendations.append(
+                "الگوی مشاهده‌شده: در این زمینه الگوی نیازمند توجه مشاهده شده است؛ "
+                "بررسی دقیق‌تر و در صورت تأیید، اقدام هدفمند پیشنهاد می‌شود."
+            )
+
+        # ۳) پیشنهاد بررسی/اقدام
+        if direction_status == 'improving':
+            recommendations.append(
+                "پیشنهاد: با ثبت مستمر مشاهدات، روند را در بازهٔ بعدی هم بررسی کنید."
+            )
+        elif direction_status == 'declining':
+            recommendations.append(
+                "پیشنهاد: بررسی زمینه‌ها و هماهنگی با مشاور مدرسه پیشنهاد می‌شود."
+            )
+        elif direction_status == 'insufficient':
+            recommendations.append(
+                "پیشنهاد: ثبت مشاهده در بازه‌های زمانی مختلف، تحلیل روند را دقیق‌تر می‌کند."
+            )
         else:
-            recommendations.append("🔴 درصد مشاهدات مثبت پایین است. بررسی علل و تغییر رویکرد توصیه می‌شود.")
-        
+            recommendations.append(
+                "پیشنهاد: ادامهٔ ثبت و پایش رفتارها و بررسی تغییرات در بازهٔ بعدی."
+            )
+
+        recommendations.append(
+            "یادآوری: این متن «الگوی مشاهده‌شده» را گزارش می‌کند و به‌معنای "
+            "تشخیص یا برچسب نیست."
+        )
         return "\n".join(recommendations)

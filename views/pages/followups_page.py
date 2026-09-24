@@ -2,25 +2,34 @@
 صفحه مدیریت پیگیری‌ها - نسخه نهایی با ویرایش کامل و جستجوی پیشرفته
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QTableWidget, QTableWidgetItem, QLabel, QHeaderView,
-    QMessageBox, QDialog, QComboBox, QLineEdit
-)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QKeyEvent
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
-from services.followup_service import FollowUpService
-from dal.student_dal import StudentDAL
 from dal.staff_dal import StaffDAL
+from dal.student_dal import StudentDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
-from views.dialogs.followup_form import FollowUpForm
+from services.followup_service import FollowUpService
 from utils.logger import get_logger
+from views.dialogs.followup_form import FollowUpForm
 
 
 class FollowUpsPage(QWidget):
@@ -234,7 +243,7 @@ class FollowUpsPage(QWidget):
             self.display_followups(self.followups)
             
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در جستجو:\n{e!s}")
     
     def clear_search(self):
         """پاک کردن جستجو"""
@@ -248,7 +257,7 @@ class FollowUpsPage(QWidget):
             self.followups = self.followup_service.get_all_followups(limit=100)
             self.display_followups(self.followups)
         except Exception as e:
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری پیگیری‌ها:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری پیگیری‌ها:\n{e!s}")
     
     def filter_followups(self):
         """فیلتر پیگیری‌ها بر اساس وضعیت و معلم"""
@@ -373,4 +382,4 @@ class FollowUpsPage(QWidget):
                 self.filter_followups()
                 QMessageBox.information(self, "موفقیت", "پیگیری با موفقیت حذف شد")
             except Exception as e:
-                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{str(e)}")
+                QMessageBox.critical(self, "خطا", f"مشکل در حذف:\n{e!s}")

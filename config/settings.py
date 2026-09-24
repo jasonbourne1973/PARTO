@@ -3,14 +3,15 @@
 """
 
 import os
-import sys
 
 # مسیر ریشه پروژه
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # مسیر دیتابیس
 DB_PATH = os.path.join(BASE_DIR, "database", "partow.db")
-DB_VERSION = 7  # نسخه ۷: جدول‌های recommendations، saved_filters، backups
+DB_VERSION = 9  # نسخه ۹: یکدست‌سازی تاریخ‌های شمسی موجود (بازرسی نهم)
+                # نسخه ۸: ایندکس‌گذاری ۳۵ ستون کلید خارجی (بازرسی هشتم)
+                # نسخه ۷: جدول‌های recommendations، saved_filters، backups
                 # + ستون attachments.updated_at
                 # + ستون‌های سه‌لایه روی observations
 DB_VERSION_FILE = os.path.join(BASE_DIR, "database", "db_version.txt")
@@ -60,16 +61,42 @@ DATE_FORMAT = "%Y-%m-%d"
 PERSIAN_DATE_FORMAT = "%Y/%m/%d"
 
 # ===== وارد کردن تنظیمات از فایل constants =====
+#
+# ===== نکته مهم (بازرسی هشتم) =====
+# این بلوک «Re-export» است: هیچ‌کدام از این نام‌ها داخل همین فایل
+# استفاده نمی‌شوند، ولی ۲۰+ ماژول دیگر (مثلاً views/main_window.py و
+# views/pages/students_page.py) آن‌ها را این‌طور وارد می‌کنند:
+#       from config.settings import GRADES, STAFF_ROLES
+# پس حذف‌شدنشان به‌عنوان «import بی‌استفاده» برنامه را می‌شکند.
+# پاک‌سازی خودکار ruff دقیقاً همین کار را کرد و سه فایل را شکست؛
+# به‌همین‌دلیل نام‌ها با شکل صریح «X as X» نوشته می‌شوند که هم برای
+# انسان و هم برای lint روشن است: «این‌ها عمداً صادر می‌شوند».
 from config.constants import (
-    STAFF_ROLES,
-    OBSERVATION_LOCATIONS,
-    OBSERVATION_TYPES,
-    INTERVENTION_TYPES,
-    FOLLOWUP_TYPES,
-    GRADES,
-    GRADE_NAMES,
-    LIVING_STATUSES,
-    COMPETENCY_CATEGORIES
+    COMPETENCY_CATEGORIES as COMPETENCY_CATEGORIES,
+)
+from config.constants import (
+    FOLLOWUP_TYPES as FOLLOWUP_TYPES,
+)
+from config.constants import (
+    GRADE_NAMES as GRADE_NAMES,
+)
+from config.constants import (
+    GRADES as GRADES,
+)
+from config.constants import (
+    INTERVENTION_TYPES as INTERVENTION_TYPES,
+)
+from config.constants import (
+    LIVING_STATUSES as LIVING_STATUSES,
+)
+from config.constants import (
+    OBSERVATION_LOCATIONS as OBSERVATION_LOCATIONS,
+)
+from config.constants import (
+    OBSERVATION_TYPES as OBSERVATION_TYPES,
+)
+from config.constants import (
+    STAFF_ROLES as STAFF_ROLES,
 )
 
 # ===== نام‌های قدیمی برای سازگاری با کدهای موجود =====

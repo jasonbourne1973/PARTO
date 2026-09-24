@@ -4,32 +4,37 @@
 بدون مقایسه و رتبه‌بندی
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+import matplotlib
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QFrame, QGridLayout, QScrollArea, QMessageBox,
-    QTableWidget, QTableWidgetItem, QHeaderView, QComboBox,
-    QSizePolicy, QTabWidget, QGroupBox, QTextEdit,
-    QProgressBar, QSplitter
+    QComboBox,
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, QTimer
-from PySide6.QtGui import QColor, QFont
 
-from services.dashboard_service import DashboardService
 from dal.academic_year_dal import AcademicYearDAL
 from dal.staff_dal import StaffDAL
+from services.dashboard_service import DashboardService
 from utils.chart_helper import ChartHelper
 from utils.logger import get_logger
 
-import matplotlib
 matplotlib.use('QtAgg')
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
-import numpy as np
 
 
 class AnalyticsDashboardPage(QWidget):
@@ -595,12 +600,11 @@ class AnalyticsDashboardPage(QWidget):
             
         except Exception as e:
             self.logger.error(f"خطا در بارگذاری داده‌های داشبورد: {e}")
-            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری داده‌ها:\n{str(e)}")
+            QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری داده‌ها:\n{e!s}")
     
     def _update_kpi_cards(self):
         """به‌روزرسانی کارت‌های آماری"""
         stats = self.dashboard_data.get('general_stats', {})
-        analytics = self.dashboard_data.get('analytics', {})
         
         self.kpi_cards["مشاهدات"].value_label.setText(str(stats.get('observations_count', 0)))
         self.kpi_cards["مثبت"].value_label.setText(str(stats.get('positive_count', 0)))
@@ -641,7 +645,7 @@ class AnalyticsDashboardPage(QWidget):
                 'completed': 'تکمیل شده',
                 'cancelled': 'لغو شده'
             }
-            labels = [status_map.get(k, k) for k in inter_status.keys() if k != 'total']
+            labels = [status_map.get(k, k) for k in inter_status if k != 'total']
             values = [v for k, v in inter_status.items() if k != 'total']
             canvas = ChartHelper.create_pie_chart(labels, values, None, "وضعیت مداخلات")
         else:
@@ -659,7 +663,7 @@ class AnalyticsDashboardPage(QWidget):
                 'closed': 'مختومه',
                 'cancelled': 'لغو شده'
             }
-            labels = [status_map.get(k, k) for k in follow_status.keys() if k != 'total']
+            labels = [status_map.get(k, k) for k in follow_status if k != 'total']
             values = [v for k, v in follow_status.items() if k != 'total']
             canvas = ChartHelper.create_pie_chart(labels, values, None, "وضعیت پیگیری‌ها")
         else:

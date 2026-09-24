@@ -2,26 +2,28 @@
 سرویس تولید گزارش داخلی مدرسه - جزئی‌تر و تخصصی
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from services.report_generator import ReportGenerator
-from services.case_timeline_service import CaseTimelineService
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
+import jdatetime
+
 from dal.academic_year_dal import AcademicYearDAL
 from dal.competency_dal import CompetencyDAL
-from dal.staff_dal import StaffDAL
 from dal.family_context_dal import FamilyContextDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
 from dal.parent_interview_dal import ParentInterviewDAL
+from dal.staff_dal import StaffDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from services.base_service import BaseService
+from services.case_timeline_service import CaseTimelineService
+from services.report_generator import ReportGenerator
 from utils.persian_pdf import PersianPDF
-import jdatetime
+from utils.time_utils import utc_now
 
 
 class SchoolReportService(BaseService):
@@ -262,38 +264,59 @@ class SchoolReportService(BaseService):
                     pdf.add_spacer(0.15)
                 pdf.add_spacer(0.3)
             
-            # ===== روند تغییرات =====
+            # ===== روند تغییر رفتار (بر پایهٔ ترکیب رفتارها) =====
             if report_data['trend_data']:
-                pdf.add_subtitle("روند تغییرات")
+                pdf.add_subtitle("روند تغییر رفتار")
                 for item in report_data['trend_data']:
                     pdf.add_text(
-                        f"{item['month']}: {item['count']} مشاهده (میانگین شدت: {item['avg_severity']})"
+                        f"{item['month']}: {item['positive']} مثبت، "
+                        f"{item['negative']} منفی، {item['neutral']} خنثی "
+                        f"(سهم مثبت {item['positive_share']}٪) — "
+                        f"حجم ثبت: {item['count']} مشاهده"
                     )
+                pdf.add_text("تعداد مشاهدات «حجم ثبت و پایش» است و به‌تنهایی "
+                             "شاخص رشد یا افت نیست.")
                 pdf.add_spacer(0.3)
-            
+
             # ===== مقایسه نیمسال‌ها =====
             if report_data['semester_stats']:
                 stats = report_data['semester_stats']
-                pdf.add_subtitle("مقایسه نیمسال‌ها")
-                pdf.add_text(f"نیمسال اول: {stats['first']['count']} مشاهده")
-                pdf.add_text(f"نیمسال دوم: {stats['second']['count']} مشاهده")
-                pdf.add_text(f"روند کلی: {stats['trend']}")
+                pdf.add_subtitle("مقایسه نیمسال‌ها (ترکیب رفتارها)")
+                pdf.add_text(
+                    f"نیمسال اول: {stats['first']['positive']} مثبت و "
+                    f"{stats['first']['negative']} منفی از {stats['first']['count']} مشاهده "
+                    f"(سهم مثبت {stats['first'].get('positive_share', 0)}٪)")
+                pdf.add_text(
+                    f"نیمسال دوم: {stats['second']['positive']} مثبت و "
+                    f"{stats['second']['negative']} منفی از {stats['second']['count']} مشاهده "
+                    f"(سهم مثبت {stats['second'].get('positive_share', 0)}٪)")
+                pdf.add_text(f"جهت تغییر رفتار: {stats.get('trend', '-')}")
                 pdf.add_spacer(0.3)
-            
-            # ===== نقاط قوت و ضعف =====
-            pdf.add_subtitle("تحلیل مشاهدات")
-            
-            pdf.add_bold("نقاط قوت مشاهده‌شده:")
-            for strength in report_data['strengths']:
-                pdf.add_strength(
-                    f"{strength['competency']} (میانگین شدت: {strength['avg_severity']}, تعداد: {strength['count']})"
-                )
-            
-            pdf.add_bold("زمینه‌های نیازمند حمایت:")
-            for weakness in report_data['weaknesses']:
-                pdf.add_weakness(
-                    f"{weakness['competency']} (میانگین شدت: {weakness['avg_severity']}, تعداد: {weakness['count']})"
-                )
+
+            # ===== توانمندی‌ها و زمینه‌های نیازمند توجه =====
+            pdf.add_subtitle("تحلیل رفتارهای ثبت‌شده")
+
+            pdf.add_bold("توانمندی‌ها (الگوی تکرارشوندهٔ رفتار مثبت):")
+            if report_data['strengths']:
+                for strength in report_data['strengths']:
+                    pdf.add_strength(
+                        f"{strength['competency']} ({strength['positive']} رفتار مثبت "
+                        f"از {strength['count']} مشاهدهٔ ثبت‌شده)"
+                    )
+            else:
+                pdf.add_text("الگوی تکرارشوندهٔ رفتار مثبت ثبت نشده است.")
+
+            pdf.add_bold("زمینه‌های نیازمند توجه (الگوی تکرارشوندهٔ رفتار منفی):")
+            if report_data['weaknesses']:
+                for weakness in report_data['weaknesses']:
+                    pdf.add_weakness(
+                        f"{weakness['competency']} ({weakness['negative']} رفتار منفی "
+                        f"از {weakness['count']} مشاهدهٔ ثبت‌شده)"
+                    )
+            else:
+                pdf.add_text("الگوی تکرارشوندهٔ رفتار منفی ثبت نشده است.")
+            pdf.add_text("این تحلیل بر پایهٔ رفتارهای ثبت‌شده است و تشخیص یا "
+                         "برچسب نیست.")
             pdf.add_spacer(0.3)
             
             # ===== پیشنهادات تخصصی =====
@@ -314,9 +337,8 @@ class SchoolReportService(BaseService):
             try:
                 today = jdatetime.date.today()
                 date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
-            except:
-                from datetime import datetime
-                date_str = datetime.now().strftime("%Y/%m/%d")
+            except Exception:
+                date_str = utc_now().strftime("%Y/%m/%d")
             
             pdf.add_text(f"تاریخ تهیه گزارش: {date_str}")
             pdf.add_text("PARTO - سامانه مدیریت پرونده دانش‌آموزان")
@@ -329,4 +351,4 @@ class SchoolReportService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در ساخت PDF گزارش مدرسه: {e}")
-            return False, f"خطا در ساخت فایل PDF: {str(e)}"
+            return False, f"خطا در ساخت فایل PDF: {e!s}"

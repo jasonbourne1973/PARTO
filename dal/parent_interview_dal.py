@@ -2,9 +2,12 @@
 لایه دسترسی به داده مصاحبه والدین (ParentInterview)
 """
 
+import json
+import sqlite3
+
 from database.connection import DatabaseConnection
 from models.parent_interview import ParentInterview  # این خط باید کار کند
-import json
+from utils.time_utils import utc_now_iso
 
 
 class ParentInterviewDAL:
@@ -195,8 +198,7 @@ class ParentInterviewDAL:
         if not cursor.fetchone():
             return False
         
-        from datetime import datetime
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE parent_interviews SET
                 is_deleted = 1,
@@ -245,7 +247,7 @@ class ParentInterviewDAL:
         if row['key_points']:
             try:
                 interview.key_points = json.loads(row['key_points'])
-            except:
+            except (sqlite3.Error, OSError, KeyError, IndexError, TypeError, ValueError, AttributeError):
                 interview.key_points = None
         else:
             interview.key_points = None

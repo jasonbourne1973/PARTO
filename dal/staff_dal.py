@@ -3,10 +3,10 @@
 """
 
 import sqlite3
-from datetime import datetime
 
 from database.connection import DatabaseConnection
 from models.staff import Staff
+from utils.time_utils import utc_now_iso
 
 
 class StaffDAL:
@@ -62,6 +62,28 @@ class StaffDAL:
         if row:
             return self._row_to_staff(row)
         return None
+
+    def get_names_by_ids(self, staff_ids, include_deleted=True):
+        """
+        دریافت نام چند عضو کادر با «یک» کوئری (بازرسی دوازدهم: رفع N+1)
+
+        جدول‌های مداخلات/پیگیری‌ها قبلاً برای هر ردیف یک get_by_id جدا
+        می‌زدند. حالا شناسه‌ها یک‌جا خوانده می‌شوند. رفتار فیلتر
+        حذف‌شده‌ها دقیقاً مثل get_by_id است (پیش‌فرض True: نام افراد
+        حذف‌شده در سوابق تاریخی همچنان نمایش داده می‌شود).
+
+        Returns:
+            dict: {staff_id: full_name}
+        """
+        unique_ids = sorted({i for i in (staff_ids or []) if i is not None})
+        if not unique_ids:
+            return {}
+        placeholders = ", ".join("?" * len(unique_ids))
+        query = (f"SELECT id, full_name FROM staff WHERE id IN ({placeholders})")
+        if not include_deleted:
+            query += " AND is_deleted = 0"
+        cursor = self.db.execute_query(query, tuple(unique_ids))
+        return {row['id']: row['full_name'] for row in cursor.fetchall()}
 
     def get_all(self, include_inactive=False, include_deleted=False):
         """
@@ -196,7 +218,7 @@ class StaffDAL:
                 "ارجاع می‌دهند. در صورت نیاز آن را غیرفعال کنید."
             )
 
-        now = datetime.now().isoformat()
+        now = utc_now_iso()
         cursor.execute("""
             UPDATE staff SET
                 is_deleted = 1,
@@ -329,5 +351,7 @@ class StaffDAL:
             staff.deleted_at = row['deleted_at']
             staff.deleted_by = row['deleted_by']
         except (IndexError, KeyError):
+            # ردیف/کوئری بدون این ستون‌ها: مقادیر پیش‌فرض مدل (None)
+            # حفظ می‌شود و بقیهٔ اطلاعات بارگذاری می‌شود.
             pass
         return staff

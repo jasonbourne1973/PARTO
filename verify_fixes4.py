@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 راستی‌آزمایی دور چهارم بازرسی — ۳۶ بررسی
 
@@ -14,9 +13,9 @@
 """
 
 import os
-import sys
 import re
 import shutil
+import sys
 import tempfile
 import time
 
@@ -65,12 +64,12 @@ dbc.DB_PATH = TEST_DB
 _restore_main()
 
 try:
-    from utils.persian_date import format_timestamp
-    from dal.observation_dal import ObservationDAL
-    from dal.intervention_dal import InterventionDAL
     from dal.followup_dal import FollowUpDAL
-    from dal.student_dal import StudentDAL
+    from dal.intervention_dal import InterventionDAL
+    from dal.observation_dal import ObservationDAL
     from dal.staff_dal import StaffDAL
+    from dal.student_dal import StudentDAL
+    from utils.persian_date import format_timestamp
 
     conn_obj = dbc.DatabaseConnection()
     app_conn = conn_obj.get_connection()
@@ -357,8 +356,8 @@ try:
     print("بخش D: فوتر شمسیِ خروجی اکسل")
     print("=" * 76)
 
-    from utils.excel_importer import ExcelImporter
     from models.student import Student
+    from utils.excel_importer import ExcelImporter
 
     stu = Student()
     stu.first_name = 'دانش'

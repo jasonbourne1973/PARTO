@@ -3,7 +3,7 @@
 نسخه کامل - ۱۴۰۵
 """
 
-from enum import Enum, IntEnum
+from enum import Enum
 
 
 class ObservationStatus(str, Enum):

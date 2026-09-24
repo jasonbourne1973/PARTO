@@ -2,9 +2,9 @@
 ویجت ورودی تاریخ شمسی با QLineEdit
 """
 
-from PySide6.QtWidgets import QLineEdit, QWidget, QHBoxLayout, QPushButton
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtGui import QIntValidator
+from PySide6.QtWidgets import QHBoxLayout, QLineEdit, QPushButton, QWidget
 
 from utils.persian_date import PersianDate
 

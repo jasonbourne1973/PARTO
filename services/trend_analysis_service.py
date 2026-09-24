@@ -3,19 +3,27 @@
 با پشتیبانی از تحلیل چندساله
 """
 
-import sys
 import os
-from datetime import datetime
+import sys
 from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
 from dal.competency_dal import CompetencyDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from services.base_service import BaseService
+from utils.behavior_analysis import (
+    classify_pattern,
+    count_behaviors,
+    growth_direction,
+    observations_volume_note,
+    pattern_label,
+    shares,
+)
+
 # ===== اصلاح =====
 # نسخه قبلی اینجا این خط را داشت:
 #     from utils.persian_calendar import PersianCalendarWidget
@@ -28,7 +36,6 @@ from dal.student_academic_profile_dal import StudentAcademicProfileDAL
 # و چون `student_service.py` هم `TrendAnalysisService` را import می‌کند،
 # نتیجه این بود که هر استفاده بدون رابط گرافیکی از سرویس‌ها (تست‌ها،
 # اسکریپت‌ها، تولید گزارش از خط فرمان) با خطای import Qt از کار می‌افتاد.
-import jdatetime
 
 
 class TrendAnalysisService(BaseService):
@@ -79,6 +86,14 @@ class TrendAnalysisService(BaseService):
             
             # دریافت شایستگی‌های برتر
             top_competencies = self._get_top_competencies(observations)
+
+            # جهت تغییر = ترکیب رفتارها (نه تعداد مشاهدات)
+            direction = growth_direction([
+                {'label': p['label'], 'positive': p['positive'],
+                 'negative': p['negative'], 'neutral': p['neutral'],
+                 'total': p['total']}
+                for p in trend_data
+            ])
             
             return {
                 'success': True,
@@ -86,6 +101,8 @@ class TrendAnalysisService(BaseService):
                 'period': period,
                 'trend_data': trend_data,
                 'overall_trend': overall_trend,
+                'direction': direction,
+                'volume_note': observations_volume_note(count_behaviors(observations)),
                 'total_observations': len(observations),
                 'top_competencies': top_competencies,
                 'positive_count': sum(1 for o in observations if o.behavior_type == "مثبت"),
@@ -209,52 +226,79 @@ class TrendAnalysisService(BaseService):
                     'message': 'هنوز مشاهده‌ای ثبت نشده است.'
                 }
             
-            # محاسبه تغییرات
+            # ===== اصلاح (بازرسی یازدهم) =====
+            # پیش از این، نیمهٔ دوم با «تعداد خام» رفتارهای مثبت/منفی
+            # مقایسه می‌شد؛ اگر ثبت در نیمهٔ دوم کمتر بود، همان کاهش ثبت
+            # می‌توانست به‌اشتباه «نیاز به توجه» تعبیر شود. اکنون مقایسه
+            # بر پایهٔ **سهم** رفتارها انجام می‌شود و تعداد مشاهدات فقط
+            # «حجم ثبت و پایش» گزارش می‌شود.
             first_half = observations[:len(observations)//2]
             second_half = observations[len(observations)//2:]
-            
-            first_positive = sum(1 for o in first_half if o.behavior_type == "مثبت")
-            first_negative = sum(1 for o in first_half if o.behavior_type == "منفی")
-            second_positive = sum(1 for o in second_half if o.behavior_type == "مثبت")
-            second_negative = sum(1 for o in second_half if o.behavior_type == "منفی")
-            
-            # تعیین روند
-            if second_half:
-                if second_positive > first_positive and second_negative < first_negative:
-                    trend = "بهبود"
-                    trend_icon = "📈"
-                    color = "#27ae60"
-                elif second_positive < first_positive and second_negative > first_negative:
-                    trend = "نیاز به توجه"
-                    trend_icon = "📉"
-                    color = "#e74c3c"
-                else:
-                    trend = "ثابت"
-                    trend_icon = "➡️"
-                    color = "#f39c12"
-            else:
+            minimum_for_halves = 2
+
+            def _half_stats(items):
+                counts = count_behaviors(items)
+                return counts, shares(counts)
+
+            first_counts, first_share = _half_stats(first_half)
+            second_counts, second_share = _half_stats(second_half)
+
+            direction = growth_direction([
+                {'label': 'نیمهٔ نخست', 'positive': first_counts['positive'],
+                 'negative': first_counts['negative'], 'neutral': first_counts['neutral'],
+                 'total': first_counts['total']},
+                {'label': 'نیمهٔ دوم', 'positive': second_counts['positive'],
+                 'negative': second_counts['negative'], 'neutral': second_counts['neutral'],
+                 'total': second_counts['total']},
+            ])
+
+            if first_counts['total'] < minimum_for_halves or \
+                    second_counts['total'] < minimum_for_halves:
                 trend = "داده ناکافی"
                 trend_icon = "❓"
                 color = "#95a5a6"
-            
+            elif direction['status'] == 'improving':
+                trend = "تغییر به سمت رفتارهای مثبت‌تر"
+                trend_icon = "📈"
+                color = "#27ae60"
+            elif direction['status'] == 'declining':
+                trend = "افزایش سهم رفتارهای منفی"
+                trend_icon = "📉"
+                color = "#e74c3c"
+            elif direction['status'] == 'stable':
+                trend = "ترکیب رفتارها تقریباً ثابت"
+                trend_icon = "➡️"
+                color = "#f39c12"
+            else:
+                trend = "تغییر ترکیبی / نیازمند مشاهدهٔ بیشتر"
+                trend_icon = "➡️"
+                color = "#f39c12"
+
+            total_counts = count_behaviors(observations)
             return {
                 'has_data': True,
-                'total_observations': len(observations),
-                'positive_count': sum(1 for o in observations if o.behavior_type == "مثبت"),
-                'negative_count': sum(1 for o in observations if o.behavior_type == "منفی"),
-                'neutral_count': sum(1 for o in observations if o.behavior_type == "خنثی"),
-                'first_half_positive': first_positive,
-                'first_half_negative': first_negative,
-                'second_half_positive': second_positive,
-                'second_half_negative': second_negative,
+                'total_observations': total_counts['total'],
+                'positive_count': total_counts['positive'],
+                'negative_count': total_counts['negative'],
+                'neutral_count': total_counts['neutral'],
+                'positive_share': shares(total_counts)['positive'],
+                'negative_share': shares(total_counts)['negative'],
+                'first_half_positive': first_counts['positive'],
+                'first_half_negative': first_counts['negative'],
+                'second_half_positive': second_counts['positive'],
+                'second_half_negative': second_counts['negative'],
+                'first_half_positive_share': first_share['positive'],
+                'second_half_positive_share': second_share['positive'],
+                'direction': direction,
                 'trend': trend,
                 'trend_icon': trend_icon,
                 'color': color,
+                'volume_note': observations_volume_note(total_counts),
             }
             
         except Exception as e:
             self.logger.error(f"خطا در دریافت خلاصه پیشرفت: {e}")
-            return {'has_data': False, 'message': f'خطا: {str(e)}'}
+            return {'has_data': False, 'message': f'خطا: {e!s}'}
 
     # ============================================================
     # متدهای تحلیل چندساله (جدید)
@@ -290,18 +334,26 @@ class TrendAnalysisService(BaseService):
                 observations = self.observation_dal.get_by_student_profile(profile.id)
                 
                 # آمار سال
+                year_counts = count_behaviors(observations)
+                year_share = shares(year_counts)
                 year_info = {
                     'year': getattr(profile, 'academic_year_title', 'نامشخص'),
                     'profile_id': profile.id,
                     'grade': profile.grade,
                     'grade_display': profile.grade_display,
                     'class_name': profile.class_name,
-                    'observations_count': len(observations),
-                    'positive': sum(1 for o in observations if o.behavior_type == "مثبت"),
-                    'negative': sum(1 for o in observations if o.behavior_type == "منفی"),
-                    'neutral': len(observations) - sum(1 for o in observations if o.behavior_type == "مثبت") - sum(1 for o in observations if o.behavior_type == "منفی"),
+                    # حجم ثبت و پایش — نه شاخص رشد
+                    'observations_count': year_counts['total'],
+                    'volume_note': observations_volume_note(year_counts),
+                    'positive': year_counts['positive'],
+                    'negative': year_counts['negative'],
+                    'neutral': year_counts['neutral'],
+                    'positive_share': year_share['positive'],
+                    'negative_share': year_share['negative'],
+                    # شدت: تکمیلی
                     'avg_severity': round(sum(o.severity or 1 for o in observations) / len(observations), 1) if observations else 0,
-                    'has_data': len(observations) > 0
+                    'severity_is_auxiliary': True,
+                    'has_data': year_counts['total'] > 0
                 }
                 year_data.append(year_info)
                 observation_counts.append(len(observations))
@@ -317,7 +369,7 @@ class TrendAnalysisService(BaseService):
                                 'behavior_type': obs.behavior_type
                             })
             
-            # تحلیل روند کلی چندساله
+            # تحلیل روند کلی چندساله (بر پایهٔ ترکیب رفتارها)
             overall = self._analyze_multi_year_overall(observation_counts, year_data)
             
             # تحلیل شایستگی‌های برتر چندساله
@@ -391,26 +443,36 @@ class TrendAnalysisService(BaseService):
         if not trend['success'] or not trend['has_data']:
             return None
         
+        def _summarize(comp_data):
+            """خلاصهٔ رفتارمحور یک زمینه در طول سال‌ها (نه شدت‌محور)"""
+            positive = sum(1 for item in comp_data if item.get('behavior_type') == 'مثبت')
+            negative = sum(1 for item in comp_data if item.get('behavior_type') == 'منفی')
+            total = len(comp_data)
+            kind = classify_pattern(positive, negative,
+                                    max(total - positive - negative, 0), total)
+            return {
+                'years': [item['year'] for item in comp_data],
+                # شدت فقط تکمیلی است
+                'severities': [item['severity'] for item in comp_data],
+                'positive': positive,
+                'negative': negative,
+                'count': total,
+                'pattern': kind,
+                'pattern_label': pattern_label(kind),
+            }
+
         if competency_name:
             # دریافت روند یک شایستگی خاص
             comp_data = trend['competency_trend'].get(competency_name, [])
-            return {
-                'competency_name': competency_name,
-                'data': comp_data,
-                'years': [item['year'] for item in comp_data],
-                'severities': [item['severity'] for item in comp_data],
-                'has_data': len(comp_data) > 0
-            }
+            summary = _summarize(comp_data)
+            summary.update({'competency_name': competency_name,
+                            'data': comp_data,
+                            'has_data': len(comp_data) > 0})
+            return summary
         else:
-            # دریافت همه شایستگی‌ها
-            result = {}
-            for name, data in trend['competency_trend'].items():
-                result[name] = {
-                    'years': [item['year'] for item in data],
-                    'severities': [item['severity'] for item in data],
-                    'count': len(data)
-                }
-            return result
+            # دریافت همه شایستگی‌ها (خروجی رفتارمحور)
+            return {name: _summarize(data)
+                    for name, data in trend['competency_trend'].items()}
 
     def _analyze_multi_year_overall(self, observation_counts, year_data):
         """
@@ -423,39 +485,51 @@ class TrendAnalysisService(BaseService):
                 'icon': '❓'
             }
         
-        # بررسی تغییرات تعداد مشاهدات
-        first_count = observation_counts[0]
-        last_count = observation_counts[-1]
-        
-        # بررسی تغییرات درصد مثبت
-        first_positive_ratio = year_data[0]['positive'] / year_data[0]['observations_count'] if year_data[0]['observations_count'] > 0 else 0
-        last_positive_ratio = year_data[-1]['positive'] / year_data[-1]['observations_count'] if year_data[-1]['observations_count'] > 0 else 0
-        
+        # ===== اصلاح (بازرسی یازدهم) =====
+        # روند از «سهم رفتارهای مثبت» ساخته می‌شود (نه از تعداد مشاهدات).
+        # کاهش یا افزایش تعداد مشاهدات فقط «حجم ثبت و پایش» است و در
+        # متن تحلیل هم صریحاً همین‌گونه گزارش می‌شود.
+        first_year, last_year = year_data[0], year_data[-1]
+        first_positive_ratio = (first_year.get('positive_share', 0) or 0) / 100
+        last_positive_ratio = (last_year.get('positive_share', 0) or 0) / 100
+
         positive_change = last_positive_ratio - first_positive_ratio
-        
+        volume_note = observations_volume_note({
+            'positive': last_year.get('positive', 0),
+            'negative': last_year.get('negative', 0),
+            'neutral': last_year.get('neutral', 0),
+            'total': last_year.get('observations_count', 0),
+        })
+
         if positive_change > 0.15:
             status = 'improving'
-            message = 'روند کلی بهبود یافته است. عملکرد دانش‌آموز در حال رشد است.'
+            message = ('سهم رفتارهای مثبت در آخرین سال بیشتر از سال نخست است؛ '
+                       'این تغییر بر پایهٔ نوع رفتارهای ثبت‌شده گزارش می‌شود، '
+                       'نه بر پایهٔ تعداد مشاهدات.')
             icon = '📈'
             color = '#27ae60'
         elif positive_change > 0.05:
             status = 'slightly_improving'
-            message = 'روند کلی کمی بهبود یافته است. ادامه حمایت توصیه می‌شود.'
+            message = ('سهم رفتارهای مثبت کمی افزایش یافته است؛ ادامهٔ حمایت '
+                       'توصیه می‌شود.')
             icon = '📈'
             color = '#2ecc71'
         elif positive_change > -0.05:
             status = 'stable'
-            message = 'روند کلی تقریباً ثابت است. به حمایت‌های فعلی ادامه دهید.'
+            message = ('ترکیب رفتارهای مثبت و منفی تقریباً ثابت است؛ به '
+                       'حمایت‌های فعلی ادامه دهید.')
             icon = '➡️'
             color = '#f39c12'
         elif positive_change > -0.15:
             status = 'slightly_declining'
-            message = 'روند کلی کمی کاهشی است. نیاز به توجه و بررسی دارد.'
+            message = ('سهم رفتارهای مثبت کمی کاهش یافته است؛ بررسی و توجه '
+                       'بیشتر پیشنهاد می‌شود.')
             icon = '📉'
             color = '#e67e22'
         else:
             status = 'declining'
-            message = 'روند کلی کاهشی است. نیاز به مداخله و حمایت ویژه دارد.'
+            message = ('سهم رفتارهای مثبت کاهش یافته است؛ بررسی و حمایت '
+                       'بیشتر پیشنهاد می‌شود. این تحلیل، تشخیص نیست.')
             icon = '📉'
             color = '#e74c3c'
         
@@ -471,7 +545,8 @@ class TrendAnalysisService(BaseService):
             'total_years': len(year_data),
             'first_year': year_data[0]['year'] if year_data else None,
             'last_year': year_data[-1]['year'] if year_data else None,
-            'positive_change': round(positive_change * 100, 1)
+            'positive_change': round(positive_change * 100, 1),
+            'volume_note': volume_note,
         }
 
     def _get_multi_year_top_competencies(self, competency_trend):
@@ -480,17 +555,28 @@ class TrendAnalysisService(BaseService):
         """
         result = []
         for name, data in competency_trend.items():
-            avg_severity = sum(item['severity'] for item in data) / len(data) if data else 0
+            positive = sum(1 for item in data if item.get('behavior_type') == 'مثبت')
+            negative = sum(1 for item in data if item.get('behavior_type') == 'منفی')
+            total = len(data)
+            avg_severity = sum(item['severity'] for item in data) / total if total else 0
+            kind = classify_pattern(positive, negative, max(total - positive - negative, 0), total)
             result.append({
                 'name': name,
-                'count': len(data),
+                'count': total,
+                'positive': positive,
+                'negative': negative,
+                'pattern': kind,
+                'pattern_label': pattern_label(kind),
+                # شدت فقط تکمیلی
                 'avg_severity': round(avg_severity, 1),
-                'years': sorted(set(item['year'] for item in data))
+                'severity_is_auxiliary': True,
+                'years': sorted({item['year'] for item in data})
             })
-        
-        # مرتب‌سازی بر اساس تعداد و میانگین شدت
-        result.sort(key=lambda x: (x['count'], x['avg_severity']), reverse=True)
-        return result[:10]  # ۱۰ شایستگی برتر
+
+        # پرتکرارترین زمینه‌ها اول (بر پایهٔ تعداد رفتارهای جهت‌دار)
+        result.sort(key=lambda x: (x['positive'] + x['negative'], x['count']),
+                    reverse=True)
+        return result[:10]  # ۱۰ زمینهٔ پرتکرار
 
     def _group_observations_by_time(self, observations, period):
         """گروه‌بندی مشاهدات بر اساس زمان"""
@@ -527,7 +613,7 @@ class TrendAnalysisService(BaseService):
                         'month': month,
                         'day': day
                     })
-            except:
+            except Exception:
                 continue
         
         sorted_keys = sorted(grouped.keys())
@@ -544,7 +630,9 @@ class TrendAnalysisService(BaseService):
             total = len(items)
             
             avg_severity = sum(i['obs'].severity or 1 for i in items) / total if total > 0 else 0
-            
+            share = shares({'positive': positive, 'negative': negative,
+                            'neutral': neutral, 'total': total})
+
             result.append({
                 'period': period_key,
                 'label': items[0]['label'] if items else period_key,
@@ -552,8 +640,12 @@ class TrendAnalysisService(BaseService):
                 'negative': negative,
                 'neutral': neutral,
                 'total': total,
+                # شدت فقط اطلاعات تکمیلی است (بازرسی یازدهم)
                 'avg_severity': round(avg_severity, 1),
-                'positive_percent': round((positive / total) * 100) if total > 0 else 0,
+                'severity_is_auxiliary': True,
+                'positive_share': share['positive'],
+                'negative_share': share['negative'],
+                'positive_percent': share['positive'],
                 'items': items
             })
         
@@ -594,17 +686,36 @@ class TrendAnalysisService(BaseService):
             }
     
     def _get_top_competencies(self, observations):
-        """دریافت شایستگی‌های برتر"""
-        competency_counts = defaultdict(int)
-        
+        """
+        دریافت زمینه‌های پرتکرار — با تفکیک نوع رفتار
+
+        بازرسی یازدهم: صرفِ «نام شایستگی» یا «میانگین شدت» مبنای
+        نتیجه‌گیری نیست؛ شمارش رفتارهای مثبت و منفیِ ثبت‌شده و الگوی
+        حاصل از آن‌ها مبناست. خروجی به شکل (نام، تعداد، الگو) است.
+        """
+        stats = defaultdict(lambda: {'positive': 0, 'negative': 0, 'total': 0})
+        names = {}
         for obs in observations:
-            if obs.competency_id:
-                comp = self.competency_dal.get_by_id(obs.competency_id)
-                if comp:
-                    competency_counts[comp.title] += 1
-        
-        sorted_comps = sorted(competency_counts.items(), key=lambda x: x[1], reverse=True)
-        return sorted_comps[:5]
+            if not obs.competency_id:
+                continue
+            comp = self.competency_dal.get_by_id(obs.competency_id)
+            if not comp:
+                continue
+            names[comp.title] = names.get(comp.title, comp.title)
+            stats[comp.title]['total'] += 1
+            if obs.behavior_type == "مثبت":
+                stats[comp.title]['positive'] += 1
+            elif obs.behavior_type == "منفی":
+                stats[comp.title]['negative'] += 1
+
+        result = []
+        for title, data in stats.items():
+            kind = classify_pattern(data['positive'], data['negative'],
+                                    max(data['total'] - data['positive'] - data['negative'], 0),
+                                    data['total'])
+            result.append((title, data['total'], pattern_label(kind)))
+        result.sort(key=lambda x: (x[1], x[2]), reverse=True)
+        return result[:5]
     
     def _empty_trend(self, error=None):
         """بازگرداندن داده‌های خالی برای روند"""

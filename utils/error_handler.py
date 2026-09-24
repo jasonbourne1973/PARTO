@@ -21,10 +21,8 @@
    کاربر نوشته شده‌اند، نه برای لاگ.
 """
 
-import sys
 import traceback
 import warnings
-from datetime import datetime
 
 from utils.logger import get_logger, log_error
 

@@ -2,23 +2,32 @@
 سرویس تولید گزارش والدین - ساده، قابل فهم و غیرتشخیصی
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from dal.student_dal import StudentDAL
-from dal.student_academic_profile_dal import StudentAcademicProfileDAL
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
-from dal.followup_dal import FollowUpDAL
+import jdatetime
+
 from dal.academic_year_dal import AcademicYearDAL
 from dal.competency_dal import CompetencyDAL
 from dal.family_context_dal import FamilyContextDAL
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
 from dal.parent_interview_dal import ParentInterviewDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from services.base_service import BaseService
+from utils.behavior_analysis import (
+    count_behaviors,
+    growth_direction,
+    observations_volume_note,
+    shares,
+    summarize_by_competency,
+)
 from utils.persian_pdf import PersianPDF
-import jdatetime
+from utils.time_utils import utc_now
 
 
 class ParentReportService(BaseService):
@@ -123,81 +132,63 @@ class ParentReportService(BaseService):
     
     def _extract_strengths(self, observations):
         """
-        استخراج نقاط قوت از مشاهدات - غیرتشخیصی
-        
-        فقط تعداد و نوع رفتارهای مثبت را گزارش می‌دهد
-        بدون تشخیص شخصیت
+        استخراج توانمندی‌ها از مشاهدات - رفتارمحور و غیرتشخیصی
+
+        بازرسی یازدهم: «توانمندی» یعنی الگوی **تکرارشوندهٔ رفتار مثبت**
+        مرتبط با یک شایستگی. یک مشاهدهٔ منفرد نتیجه‌گیری نمی‌سازد و
+        شدت رفتار در این تصمیم نقشی ندارد.
         """
-        positive_obs = [o for o in observations if o.behavior_type == "مثبت"]
-        
-        if not positive_obs:
-            return ["هنوز مشاهده مثبتی ثبت نشده است."]
-        
-        # گروه‌بندی بر اساس شایستگی
-        strengths_by_competency = {}
-        for obs in positive_obs:
-            if obs.competency_id:
-                key = obs.competency_id
-                if key not in strengths_by_competency:
-                    strengths_by_competency[key] = {
-                        'count': 0,
-                        'examples': []
-                    }
-                strengths_by_competency[key]['count'] += 1
-                if obs.behavior and len(strengths_by_competency[key]['examples']) < 2:
-                    strengths_by_competency[key]['examples'].append(obs.behavior[:50])
-        
-        # تبدیل به لیست
+        # (بازرسی دوازدهم) نام‌ها با یک کوئری دسته‌ای (رفع N+1؛ خروجی یکسان)
+        _titles = self.competency_dal.get_titles_by_ids(
+            [o.competency_id for o in observations])
+        patterns = summarize_by_competency(observations, _titles)
+
         result = []
-        for comp_id, data in strengths_by_competency.items():
-            comp = self.competency_dal.get_by_id(comp_id)
-            comp_name = comp.title if comp else f"شایستگی {comp_id}"
-            if data['count'] >= 2:
-                result.append(f"{comp_name}: {data['count']} بار مشاهده شده")
-        
+        for entry in patterns['strengths']:
+            result.append(
+                f"{entry['competency']}: الگوی تکرارشوندهٔ رفتار مثبت "
+                f"({entry['positive']} رفتار مثبت از {entry['count']} مشاهدهٔ ثبت‌شده)"
+            )
+
         if not result:
-            # اگر شایستگی ثبت نشده بود
-            result = [f"{len(positive_obs)} مشاهده مثبت ثبت شده است."]
-        
+            counts = count_behaviors(observations)
+            if counts['positive']:
+                result = [("مشاهدهٔ رفتار مثبت ثبت شده است، ولی هنوز برای "
+                           "تشخیص «الگوی تکرارشونده» به ثبت بیشتری نیاز است.")]
+            else:
+                result = ["هنوز مشاهدهٔ مثبتی ثبت نشده است."]
+
         return result[:5]  # حداکثر ۵ مورد
     
     def _extract_weaknesses(self, observations):
         """
-        استخراج زمینه‌های نیازمند حمایت - غیرتشخیصی
-        
-        فقط تعداد و نوع رفتارهای منفی را گزارش می‌دهد
-        بدون تشخیص شخصیت
+        استخراج زمینه‌های نیازمند توجه - رفتارمحور و غیرتشخیصی
+
+        بازرسی یازدهم: «زمینهٔ نیازمند توجه» یعنی الگوی **تکرارشوندهٔ
+        رفتار منفی**؛ نه یک مشاهدهٔ منفرد و نه بر پایهٔ شدت. این گزارش
+        به‌معنای تشخیص یا برچسب نیست.
         """
-        negative_obs = [o for o in observations if o.behavior_type == "منفی"]
-        
-        if not negative_obs:
-            return ["هیچ زمینه نیازمند حمایتی ثبت نشده است."]
-        
-        # گروه‌بندی بر اساس شایستگی
-        weaknesses_by_competency = {}
-        for obs in negative_obs:
-            if obs.competency_id:
-                key = obs.competency_id
-                if key not in weaknesses_by_competency:
-                    weaknesses_by_competency[key] = {
-                        'count': 0,
-                        'examples': []
-                    }
-                weaknesses_by_competency[key]['count'] += 1
-                if obs.behavior and len(weaknesses_by_competency[key]['examples']) < 2:
-                    weaknesses_by_competency[key]['examples'].append(obs.behavior[:50])
-        
-        # تبدیل به لیست
+        # (بازرسی دوازدهم) نام‌ها با یک کوئری دسته‌ای (رفع N+1؛ خروجی یکسان)
+        _titles = self.competency_dal.get_titles_by_ids(
+            [o.competency_id for o in observations])
+        patterns = summarize_by_competency(observations, _titles)
+
         result = []
-        for comp_id, data in weaknesses_by_competency.items():
-            comp = self.competency_dal.get_by_id(comp_id)
-            comp_name = comp.title if comp else f"شایستگی {comp_id}"
-            if data['count'] >= 2:
-                result.append(f"{comp_name}: {data['count']} بار مشاهده شده")
-        
+        for entry in patterns['needs_attention']:
+            result.append(
+                f"{entry['competency']}: الگوی تکرارشوندهٔ رفتار منفی "
+                f"({entry['negative']} رفتار منفی از {entry['count']} مشاهدهٔ ثبت‌شده) "
+                "— نیازمند توجه و بررسی"
+            )
+
         if not result:
-            result = [f"{len(negative_obs)} مشاهده منفی ثبت شده است."]
-        
+            counts = count_behaviors(observations)
+            if counts['negative']:
+                result = [("مشاهدهٔ رفتار منفی ثبت شده است، ولی هنوز برای "
+                           "تشخیص «الگوی تکرارشونده» به ثبت بیشتری نیاز است.")]
+            else:
+                result = ["هیچ زمینهٔ نیازمند توجهی ثبت نشده است."]
+
         return result[:5]  # حداکثر ۵ مورد
     
     def _calculate_simple_trend(self, observations):
@@ -226,33 +217,59 @@ class ParentReportService(BaseService):
                 'message': 'داده کافی برای تحلیل روند وجود ندارد.',
             }
         
-        # مقایسه نیمسال‌ها
-        first_half = months[:len(months)//2]
-        second_half = months[len(months)//2:]
-        
-        first_count = sum(monthly_counts[m] for m in first_half)
-        second_count = sum(monthly_counts[m] for m in second_half)
-        
-        # تعیین روند
-        if second_count > first_count:
-            trend_text = "روند ثبت مشاهدات افزایشی بوده است."
-            trend_icon = "📈"
-        elif second_count < first_count:
-            trend_text = "روند ثبت مشاهدات کاهشی بوده است."
-            trend_icon = "📉"
-        else:
-            trend_text = "روند ثبت مشاهدات تقریباً ثابت بوده است."
-            trend_icon = "➡️"
-        
+        # ===== اصلاح (بازرسی یازدهم) =====
+        # پیش از این، روند از روی «تعداد مشاهدات» ساخته می‌شد؛ یعنی
+        # کمتر ثبت‌شدن رفتار می‌توانست به‌اشتباه «کاهشی» خوانده شود.
+        # اکنون روند از «ترکیب رفتارهای ثبت‌شده» ساخته می‌شود و تعداد
+        # صرفاً به‌عنوان حجم ثبت و پایش گزارش می‌شود.
+        periodic = {}
+        for obs in observations:
+            if obs.observation_date and len(obs.observation_date) >= 7:
+                key = obs.observation_date[:7]
+                periodic.setdefault(key, []).append(obs)
+
+        periods = []
+        for month_key in sorted(periodic.keys()):
+            counts = count_behaviors(periodic[month_key])
+            periods.append({'label': month_key, 'positive': counts['positive'],
+                            'negative': counts['negative'],
+                            'neutral': counts['neutral'], 'total': counts['total']})
+
+        direction = growth_direction(periods)
+        counts = count_behaviors(observations)
+        share = shares(counts)
+
+        # حجم ثبت در دو نیمه (فقط «حجم ثبت و پایش»؛ نه شاخص رشد)
+        half = len(months) // 2
+        first_months, second_months = months[:half], months[half:]
+        first_volume = sum(monthly_counts[m] for m in first_months)
+        second_volume = sum(monthly_counts[m] for m in second_months)
+
+        week_labels = {
+            'improving': ("روند تغییر رفتار به سمت رفتارهای مثبت‌تر بوده است.", "📈"),
+            'declining': ("سهم رفتارهای نیازمند توجه افزایش یافته است؛ بررسی بیشتر پیشنهاد می‌شود.", "📉"),
+            'stable': ("ترکیب رفتارهای ثبت‌شده تقریباً ثابت بوده است.", "➡️"),
+            'mixed': ("ترکیب رفتارها در بازه‌های مختلف متفاوت بوده است؛ تحلیل قطعی نیازمند مشاهدهٔ بیشتر است.", "➡️"),
+            'insufficient': ("دادهٔ کافی برای تحلیل روند وجود ندارد.", "❓"),
+        }
+        trend_text, trend_icon = week_labels.get(direction['status'], week_labels['insufficient'])
+
         return {
             'has_data': True,
             'trend_text': trend_text,
             'trend_icon': trend_icon,
+            'direction': direction,
             'months': months,
             'monthly_counts': monthly_counts,
-            'first_half_count': first_count,
-            'second_half_count': second_count,
-            'total_observations': len(observations),
+            # حجم ثبت (نه شاخص رشد)
+            'first_half_count': first_volume,
+            'second_half_count': second_volume,
+            'positive_count': counts['positive'],
+            'negative_count': counts['negative'],
+            'positive_share': share['positive'],
+            'negative_share': share['negative'],
+            'volume_note': observations_volume_note(counts),
+            'total_observations': counts['total'],
         }
     
     def _generate_parent_recommendations(self, observations, interventions, followups):
@@ -261,26 +278,29 @@ class ParentReportService(BaseService):
         """
         recommendations = []
         
-        # پیشنهادات بر اساس تعداد مشاهدات
+        # پیشنهادات بر اساس حجم ثبت (نه رشد)
         if len(observations) < 3:
             recommendations.append(
-                "توصیه می‌شود همکاری و تعامل با مدرسه برای ثبت دقیق‌تر رفتارهای دانش‌آموز افزایش یابد."
+                "حجم ثبت مشاهده در این بازه کم است؛ ثبت مشاهدات بیشتر به "
+                "دقت تحلیل کمک می‌کند. این موضوع به‌خودی‌خود نشانهٔ بهبود یا "
+                "وخامت نیست."
             )
         
         # پیشنهادات بر اساس نوع رفتار
         positive_count = sum(1 for o in observations if o.behavior_type == "مثبت")
         negative_count = sum(1 for o in observations if o.behavior_type == "منفی")
         
-        if negative_count > positive_count and negative_count >= 3:
+        if negative_count > positive_count and negative_count >= 2:
             recommendations.append(
-                "توصیه می‌شود در خانه نیز الگوهای رفتاری مثبت تقویت شوند. "
-                "تشویق رفتارهای مناسب و گفتگوی روزانه درباره احساسات می‌تواند مؤثر باشد."
+                "در رفتارهای ثبت‌شده، سهم رفتارهای نیازمند توجه بیشتر بوده "
+                "است. پیشنهاد می‌شود در خانه نیز فرصت‌های رفتار مثبت تقویت "
+                "شوند و گفت‌وگوی روزانه ادامه یابد؛ این متن تشخیص نیست."
             )
         
-        if positive_count >= 3:
+        if positive_count >= 2:
             recommendations.append(
-                "نقاط قوت دانش‌آموز در مدرسه شناسایی شده است. "
-                "توصیه می‌شود این توانمندی‌ها در خانه نیز تقویت و تشویق شوند."
+                "الگوهای رفتار مثبت در مدرسه ثبت شده است. پیشنهاد می‌شود این "
+                "توانمندی‌ها در خانه نیز دیده و تشویق شوند."
             )
         
         # پیشنهادات بر اساس پیگیری‌ها
@@ -370,15 +390,22 @@ class ParentReportService(BaseService):
             pdf.add_spacer(0.3)
             
             # ===== روند رشد =====
-            pdf.add_subtitle("روند رشد")
+            pdf.add_subtitle("روند رشد (بر پایهٔ ترکیب رفتارها)")
             if report_data['trend']['has_data']:
                 pdf.add_text(f"{report_data['trend']['trend_icon']} {report_data['trend']['trend_text']}")
-                pdf.add_text(f"تعداد کل مشاهدات: {report_data['trend']['total_observations']}")
+                pdf.add_text(
+                    f"ترکیب رفتارهای ثبت‌شده: {report_data['trend']['positive_count']} مثبت و "
+                    f"{report_data['trend']['negative_count']} منفی "
+                    f"(سهم مثبت {report_data['trend']['positive_share']}٪)"
+                )
                 if report_data['trend']['first_half_count'] > 0:
                     pdf.add_text(
-                        f"نیمسال اول: {report_data['trend']['first_half_count']} مشاهده | "
-                        f"نیمسال دوم: {report_data['trend']['second_half_count']} مشاهده"
+                        "حجم ثبت و پایش — نیمسال اول: "
+                        f"{report_data['trend']['first_half_count']} مشاهده | "
+                        "نیمسال دوم: "
+                        f"{report_data['trend']['second_half_count']} مشاهده"
                     )
+                pdf.add_text(report_data['trend']['volume_note'])
             else:
                 pdf.add_text(report_data['trend']['message'])
             pdf.add_spacer(0.3)
@@ -411,9 +438,8 @@ class ParentReportService(BaseService):
             try:
                 today = jdatetime.date.today()
                 date_str = f"{today.year:04d}/{today.month:02d}/{today.day:02d}"
-            except:
-                from datetime import datetime
-                date_str = datetime.now().strftime("%Y/%m/%d")
+            except Exception:
+                date_str = utc_now().strftime("%Y/%m/%d")
             
             pdf.add_text(f"تاریخ تهیه گزارش: {date_str}")
             pdf.add_text("PARTO - سامانه مدیریت پرونده دانش‌آموزان")
@@ -425,4 +451,4 @@ class ParentReportService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در ساخت PDF گزارش والدین: {e}")
-            return False, f"خطا در ساخت فایل PDF: {str(e)}"
+            return False, f"خطا در ساخت فایل PDF: {e!s}"

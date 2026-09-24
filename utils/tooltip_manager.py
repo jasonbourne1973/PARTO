@@ -3,11 +3,10 @@
 با قابلیت نمایش راهنماهای پیشرفته
 """
 
-from PySide6.QtWidgets import QWidget, QToolTip, QLabel, QVBoxLayout
-from PySide6.QtCore import QTimer, QPoint, Qt
-from PySide6.QtGui import QFont, QColor, QPalette
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QLabel, QToolTip, QVBoxLayout, QWidget
 
-from config.help_messages import HELP_MESSAGES, FIELD_HELP
+from config.help_messages import FIELD_HELP, HELP_MESSAGES
 
 
 class TooltipManager:

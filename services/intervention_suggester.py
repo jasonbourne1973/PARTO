@@ -2,19 +2,20 @@
 سرویس پیشنهاد مداخلات - پیشنهاد نوع مداخله مناسب بر اساس داده‌ها
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.base_service import BaseService
-from dal.observation_dal import ObservationDAL
-from dal.intervention_dal import InterventionDAL
+from typing import ClassVar
+
 from dal.competency_dal import CompetencyDAL
-from dal.student_dal import StudentDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
 from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from services.base_service import BaseService
 from utils.logger import get_logger
-from utils.error_handler import ServiceError
 
 
 class InterventionSuggester(BaseService):
@@ -34,7 +35,7 @@ class InterventionSuggester(BaseService):
     # نسخه قبلی دو دسته از CompetencyCategory را نداشت:
     # 'behavioral' و 'cognitive'. شایستگی‌های این دو دسته هیچ
     # پیشنهاد دسته‌بندی‌شده‌ای نمی‌گرفتند.
-    COMPETENCY_INTERVENTION_MAP = {
+    COMPETENCY_INTERVENTION_MAP: ClassVar[dict[str, str]] = {
         'emotional': ['individual_talk', 'counseling', 'encouragement'],
         'social': ['group_activity', 'group_talk', 'peer_helper'],
         'educational': ['encouragement', 'responsibility', 'seat_change'],
@@ -61,7 +62,7 @@ class InterventionSuggester(BaseService):
     #
     # حالا هر دو شکل پذیرفته می‌شود تا اگر جایی مقدار انگلیسی هم
     # رسید، کار کند.
-    BEHAVIOR_INTERVENTION_MAP = {
+    BEHAVIOR_INTERVENTION_MAP: ClassVar[dict[str, str]] = {
         'مثبت': ['encouragement', 'responsibility'],
         'منفی': ['individual_talk', 'warning', 'counseling'],
         'خنثی': ['encouragement', 'group_activity'],
@@ -196,7 +197,7 @@ class InterventionSuggester(BaseService):
             else:
                 return 'low'
                 
-        except:
+        except Exception:
             return 'medium'
     
     def _get_suggestion_details(self, suggested_types, profile_id):
@@ -271,13 +272,21 @@ class InterventionSuggester(BaseService):
                     comp_obj = self.competency_dal.get_by_id(comp_id)
                     if comp_obj:
                         suggested_types = self.suggest_intervention_for_competency(comp_id)
+                        # بازرسی یازدهم: اولویت بر پایهٔ «الگوی تکرارشوندهٔ
+                        # رفتار منفی» است، نه میانگین شدت.
                         recommendations.append({
                             'competency_id': comp_id,
                             'competency_name': comp_obj.title,
-                            'avg_severity': comp.get('avg_severity', 0),
+                            'pattern': comp.get('pattern'),
+                            'pattern_label': comp.get('pattern_label'),
+                            'positive_count': comp.get('positive_count', 0),
+                            'negative_count': comp.get('negative_count', 0),
                             'observation_count': comp.get('count', 0),
                             'suggested_interventions': suggested_types[:2],
-                            'priority': 'high' if comp.get('avg_severity', 0) <= 1.5 else 'medium'
+                            # شدت فقط تکمیلی
+                            'avg_severity': comp.get('avg_severity', 0),
+                            'severity_is_auxiliary': True,
+                            'priority': 'high' if comp.get('negative_count', 0) >= 3 else 'medium',
                         })
             
             return recommendations[:limit]

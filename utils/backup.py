@@ -2,14 +2,19 @@
 ابزارهای پشتیبان‌گیری و بازیابی اطلاعات - نسخه ساده (بدون رمزنگاری)
 """
 
+import hashlib
+import json
 import os
 import shutil
 import sqlite3
-import json
 import zipfile
 from datetime import datetime
-import hashlib
-import secrets
+
+from config.settings import APP_VERSION
+from utils.logger import get_logger
+from utils.time_utils import utc_now, utc_now_iso
+
+logger = get_logger(__name__)
 
 
 class BackupManager:
@@ -58,7 +63,7 @@ class BackupManager:
         try:
             # ایجاد نام فایل
             if not name:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                timestamp = utc_now().strftime("%Y%m%d_%H%M%S")
                 name = f"backup_{timestamp}"
             
             backup_file = os.path.join(self.backup_dir, f"{name}.partobak")
@@ -77,6 +82,14 @@ class BackupManager:
             # حالا از API رسمی online backup خود sqlite3 استفاده
             # می‌شود. این API یک نسخه سازگار و کامل می‌گیرد، حتی وقتی
             # نوشتن در جریان است.
+            #
+            # ===== اصلاح (بازرسی دوازدهم) =====
+            # نسخهٔ قبلی اگر online backup خطا می‌داد، بی‌صدا به
+            # «کپی مستقیم فایل فعال» برمی‌گشت؛ یعنی دقیقاً همان
+            # پشتیبانِ «پاره» که قرار بود حذف شود، با ظاهر «موفق»
+            # تحویل داده می‌شد. حالا شکستِ online backup = شکستِ
+            # عملیات با پیام روشن؛ هرگز فایل فعال SQLite مستقیم کپی
+            # نمی‌شود چون سلامت آن قابل تضمین نیست.
             tmp_db_snapshot = os.path.join(self.backup_dir, f"{name}.db.tmp")
             try:
                 if os.path.exists(self.db_path):
@@ -90,10 +103,17 @@ class BackupManager:
                     finally:
                         src.close()
             except sqlite3.Error as e:
-                # اگر API پشتیبان در دسترس نبود، به کپی فایل برمی‌گردیم
-                self.logger.warning(f"پشتیبان‌گیری آنلاین ممکن نشد، کپی فایل: {e}")
-                if os.path.exists(self.db_path):
-                    shutil.copy2(self.db_path, tmp_db_snapshot)
+                try:
+                    if os.path.exists(tmp_db_snapshot):
+                        os.remove(tmp_db_snapshot)
+                except OSError as cleanup_error:
+                    # فایل موقتِ نیمه‌کاره در اجرای بعدی بازنویسی می‌شود؛
+                    # پاک‌نشدنش فقط در لاگ دیباگ ثبت می‌شود.
+                    self.logger.debug(f"حذف فایل موقت پشتیبان ممکن نشد: {cleanup_error}")
+                raise RuntimeError(
+                    "پشتیبان‌گیری آنلاین از دیتابیس ناموفق بود و کپی مستقیم "
+                    f"فایل فعال مجاز نیست (خطر پشتیبان ناسالم): {e}"
+                ) from e
 
             # ایجاد فایل ZIP
             with zipfile.ZipFile(backup_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
@@ -112,12 +132,15 @@ class BackupManager:
                 # 3. متادیتا
                 metadata = {
                     'name': name,
-                    'created_at': datetime.now().isoformat(),
+                    'created_at': utc_now_iso(),
                     'created_by': user_id,
                     'created_by_name': user_name or 'سیستم',
                     'db_file': os.path.basename(self.db_path),
                     'attachments_count': self._count_attachments(),
-                    'version': '2.0.0',
+                    # (بازرسی دوازدهم) نسخه از همان منبع اصلی برنامه؛
+                    # دیگر hard-code جداگانه نیست تا سازگاری پشتیبان با
+                    # نسخهٔ برنامه قابل تشخیص بماند.
+                    'version': APP_VERSION,
                     'encrypted': False,
                 }
                 zipf.writestr("metadata.json", json.dumps(metadata, ensure_ascii=False, indent=2))
@@ -162,7 +185,7 @@ class BackupManager:
         except Exception as e:
             return {
                 'success': False,
-                'message': f"❌ خطا در ایجاد Backup: {str(e)}"
+                'message': f"❌ خطا در ایجاد Backup: {e!s}"
             }
     
     def _quiesce_database(self):
@@ -201,21 +224,16 @@ class BackupManager:
 
         علاوه بر این، بازنویسی فایل .db زیر پای یک اتصال **باز** SQLite
         رفتار تعریف‌نشده است؛ پس اول اتصال بسته می‌شود.
+
+        (بازرسی دوازدهم) چون هر نخ اتصال خودش را دارد، این‌جا همهٔ
+        اتصال‌ها (نخ رابط کاربری، زمان‌بند اعلان‌ها، ...) با close_all
+        بسته می‌شوند؛ هر نخ با استفادهٔ بعدی اتصال تازه می‌گیرد.
         """
-        # ۱) checkpoint و بستن اتصال باز
+        # ۱) checkpoint و بستن اتصال‌های باز همهٔ نخ‌ها
         try:
             from database.connection import DatabaseConnection
-            inst = getattr(DatabaseConnection, '_instance', None)
-            conn = getattr(inst, '_connection', None) if inst is not None else None
-            if conn is not None:
-                try:
-                    conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-                except sqlite3.Error:
-                    pass
-                try:
-                    inst.close()      # _connection = None و _initialized = False
-                except Exception:
-                    pass
+            # checkpoint/rollback/close هر اتصال + صفرشدن وضعیت تراکنش
+            DatabaseConnection().close_all()
         except Exception as e:
             self.logger.warning(f"بستن اتصال دیتابیس قبل از بازیابی ممکن نشد: {e}")
 
@@ -234,6 +252,46 @@ class BackupManager:
             except OSError as e:
                 self.logger.warning(f"حذف {os.path.basename(path)} ممکن نشد: {e}")
         return removed
+
+    # اعضای مجاز فایل پشتیبان: فقط همین‌ها پذیرفته می‌شوند
+    _ALLOWED_BACKUP_MEMBERS = ('metadata.json', 'database/', 'attachments/')
+
+    def _safe_extract(self, zipf, extract_dir):
+        """
+        استخراج امن فایل پشتیبان (بازرسی دوازدهم)
+
+        نسخهٔ قبلی `zipf.extractall()` را بدون هیچ اعتبارسنجی صدا
+        می‌زد؛ یک ZIP مخرب با عضوی مثل `../../x` می‌توانست خارج از
+        پوشهٔ بازیابی فایل بنویسد (Path Traversal). حالا:
+          • مسیر هر عضو نرمال و بررسی می‌شود؛ مسیر مطلق، `..` و
+            جداکنندهٔ معکوس → خطا و توقف بازیابی؛
+          • مقصد نهایی حتماً باید داخل extract_dir بماند؛
+          • فقط اعضای موردانتظار پشتیبان (دیتابیس/پیوست‌ها/متادیتا)
+            پذیرفته می‌شوند و بقیه با هشدار رد می‌شوند.
+        """
+        base = os.path.realpath(extract_dir)
+        os.makedirs(extract_dir, exist_ok=True)
+        for member in zipf.infolist():
+            name = member.filename or ''
+            if not name or name.endswith('/'):
+                continue
+            normalized = os.path.normpath(name.replace('\\', '/'))
+            parts = normalized.split('/')
+            if (not normalized or normalized.startswith('..')
+                    or os.path.isabs(name) or os.path.isabs(normalized)
+                    or '..' in parts or '\\' in name):
+                raise ValueError(
+                    f"عضو نامعتبر در فایل پشتیبان (احتمال Path Traversal): {name}")
+            if not (normalized == 'metadata.json'
+                    or normalized.startswith(('database/', 'attachments/'))):
+                self.logger.warning(
+                    f"عضو ناشناختهٔ پشتیبان نادیده گرفته شد: {name}")
+                continue
+            target = os.path.realpath(os.path.join(extract_dir, normalized))
+            if target != base and not target.startswith(base + os.sep):
+                raise ValueError(
+                    f"عضو پشتیبان خارج از پوشهٔ بازیابی است: {name}")
+            zipf.extract(member, extract_dir)
 
     def _verify_restored_database(self):
         """
@@ -285,7 +343,7 @@ class BackupManager:
             sidecar = backup_file + '.sha256'
             if os.path.exists(sidecar):
                 try:
-                    with open(sidecar, 'r', encoding='utf-8') as f:
+                    with open(sidecar, encoding='utf-8') as f:
                         expected = f.read().strip()
                 except OSError as e:
                     expected = None
@@ -338,14 +396,14 @@ class BackupManager:
                     'message': f"❌ امکان ایجاد Backup از وضعیت فعلی وجود ندارد: {pre_restore.get('message')}"
                 }
             
-            # استخراج فایل
+            # استخراج فایل (امن در برابر Path Traversal — بازرسی دوازدهم)
             extract_dir = os.path.join(self.backup_dir, "temp_restore")
             if os.path.exists(extract_dir):
                 shutil.rmtree(extract_dir)
-            
+
             with zipfile.ZipFile(backup_file, 'r') as zipf:
-                zipf.extractall(extract_dir)
-            
+                self._safe_extract(zipf, extract_dir)
+
             # بازیابی دیتابیس
             db_backup = os.path.join(extract_dir, "database", "partow.db")
             if not os.path.exists(db_backup):
@@ -365,23 +423,30 @@ class BackupManager:
             # ۱) اتصال باز بسته و فایل‌های ژورنال WAL پاک می‌شوند، وگرنه
             #    WAL قدیمی روی دیتابیس بازیابی‌شده بازپخش می‌شود و
             #    بازیابی بی‌اثر می‌ماند (توضیح کامل در _quiesce_database).
-            journal_removed = self._quiesce_database()
+            #
+            # (بازرسی دوازدهم) کل پنجرهٔ «بستن اتصال‌ها ← جایگزینی ←
+            # راستی‌آزمایی» زیر قفل سراسری دیتابیس انجام می‌شود تا نخ
+            # دیگری (مثلاً زمان‌بند اعلان‌ها) وسط بازیابی اتصال تازه
+            # باز نکند و روی فایل نیمه‌جایگزین‌شده ننویسد.
+            from database.connection import DB_THREAD_LOCK
+            with DB_THREAD_LOCK:
+                journal_removed = self._quiesce_database()
 
-            # ۲) جایگزینی فایل دیتابیس
-            shutil.copy2(db_backup, self.db_path)
+                # ۲) جایگزینی فایل دیتابیس
+                shutil.copy2(db_backup, self.db_path)
 
-            # ۳) ژورنال‌های احتمالیِ باقی‌مانده دوباره پاک شوند
-            journal_removed += self._remove_journal_files()
+                # ۳) ژورنال‌های احتمالیِ باقی‌مانده دوباره پاک شوند
+                journal_removed += self._remove_journal_files()
 
-            # ۴) راستی‌آزمایی اینکه بازیابی واقعاً اثر کرده
-            healthy, detail = self._verify_restored_database()
-            if not healthy:
-                return {
-                    'success': False,
-                    'message': f"❌ بازیابی کامل نشد: {detail}\n\n"
-                               f"پشتیبانِ وضعیت قبلی در این فایل نگه داشته شد: "
-                               f"{pre_restore.get('file')}"
-                }
+                # ۴) راستی‌آزمایی اینکه بازیابی واقعاً اثر کرده
+                healthy, detail = self._verify_restored_database()
+                if not healthy:
+                    return {
+                        'success': False,
+                        'message': f"❌ بازیابی کامل نشد: {detail}\n\n"
+                                   f"پشتیبانِ وضعیت قبلی در این فایل نگه داشته شد: "
+                                   f"{pre_restore.get('file')}"
+                    }
             
             # بازیابی فایل‌های پیوست
             attachments_backup = os.path.join(extract_dir, "attachments")
@@ -413,7 +478,7 @@ class BackupManager:
         except Exception as e:
             return {
                 'success': False,
-                'message': f"❌ خطا در بازیابی: {str(e)}"
+                'message': f"❌ خطا در بازیابی: {e!s}"
             }
     
     def _cleanup_pre_restore_files(self):
@@ -455,7 +520,7 @@ class BackupManager:
                             created_at = modified.isoformat()
                             created_by = 'سیستم'
                             encrypted = False
-                except:
+                except Exception:
                     name = file
                     created_at = modified.isoformat()
                     created_by = 'سیستم'
@@ -490,7 +555,7 @@ class BackupManager:
                 return True, "✅ فایل پشتیبان با موفقیت حذف شد."
             return False, "❌ فایل پشتیبان وجود ندارد."
         except Exception as e:
-            return False, f"❌ خطا در حذف فایل: {str(e)}"
+            return False, f"❌ خطا در حذف فایل: {e!s}"
     
     def _count_attachments(self):
         """تعداد فایل‌های پیوست"""
@@ -519,15 +584,17 @@ class BackupManager:
     def _log_backup_operation(self, operation, backup_name, user_id, user_name):
         """ثبت عملیات Backup در لاگ"""
         log_file = os.path.join(self.backup_dir, "backup_log.txt")
-        timestamp = datetime.now().isoformat()
+        timestamp = utc_now_iso()
         
         log_entry = f"[{timestamp}] {operation} | user: {user_id} ({user_name}) | backup: {backup_name}\n"
         
         try:
             with open(log_file, 'a', encoding='utf-8') as f:
                 f.write(log_entry)
-        except:
-            pass
+        except Exception as _exc:
+            self.logger.debug(
+                f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+            )
 
     def schedule_auto_backup(self, interval_hours=24, user_id=None, user_name=None):
         """
@@ -546,7 +613,7 @@ class BackupManager:
                 time.sleep(interval_hours * 3600)
                 try:
                     # ایجاد پشتیبان
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    timestamp = utc_now().strftime("%Y%m%d_%H%M%S")
                     name = f"auto_backup_{timestamp}"
                     result = self.create_backup(name, user_id, user_name)
                     
@@ -562,12 +629,12 @@ class BackupManager:
                             user_name
                         )
                 except Exception as e:
-                    print(f"⚠️ خطا در پشتیبان‌گیری خودکار: {e}")
+                    logger.error(f"⚠️ خطا در پشتیبان‌گیری خودکار: {e}")
         
         # شروع ترد
         thread = threading.Thread(target=auto_backup_worker, daemon=True)
         thread.start()
-        print(f"✅ پشتیبان‌گیری خودکار هر {interval_hours} ساعت فعال شد.")
+        logger.debug(f"✅ پشتیبان‌گیری خودکار هر {interval_hours} ساعت فعال شد.")
         return thread
     
     def _cleanup_old_backups(self, keep_count=10):
@@ -585,8 +652,10 @@ class BackupManager:
                 for backup in to_delete:
                     try:
                         os.remove(backup['path'])
-                        print(f"🗑️ پشتیبان قدیمی حذف شد: {backup['name']}")
-                    except:
-                        pass
+                        logger.debug(f"🗑️ پشتیبان قدیمی حذف شد: {backup['name']}")
+                    except Exception as _exc:
+                        self.logger.debug(
+                            f"خطای غیرمنتظره در {self.__class__.__name__}: {_exc}"
+                        )
         except Exception as e:
-            print(f"⚠️ خطا در پاکسازی پشتیبان‌های قدیمی: {e}")
+            logger.error(f"⚠️ خطا در پاکسازی پشتیبان‌های قدیمی: {e}")
