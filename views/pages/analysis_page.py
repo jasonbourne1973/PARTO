@@ -149,12 +149,15 @@ class AnalysisPage(YearAwarePage, QWidget):
         self.clear_search_btn.clicked.connect(self.clear_search)
         toolbar.addWidget(self.clear_search_btn)
         
-        # انتخاب سال تحصیلی
+        # انتخاب سال تحصیلی — هندلر صریحِ سال (دور هجدهم — BUG-GUI-13):
+        # تغییر سال باید فهرست دانش‌آموزان (پایهٔ سال جدید) و نمودارها را
+        # هم تازه کند؛ وصل‌کردن مستقیم به load_analysis فهرست را کهنه
+        # نگه می‌داشت (پایه‌های سال دیگر).
         toolbar.addWidget(QLabel("سال:"))
         self.year_combo = QComboBox()
         self.year_combo.setMinimumWidth(120)
         self.year_combo.addItem("همه سال‌ها", None)
-        self.year_combo.currentIndexChanged.connect(self.load_analysis)
+        self.year_combo.currentIndexChanged.connect(self.on_year_changed)
         toolbar.addWidget(self.year_combo)
         
         layout.addLayout(toolbar)
@@ -313,10 +316,13 @@ class AnalysisPage(YearAwarePage, QWidget):
             logger.debug(f"تاریخ‌های پیش‌فرض تنظیم نشد: {e}")
     
     def reload_for_year(self, year_id):
-        """بارگذاری دوبارهٔ تحلیل‌ها با سال اعلام‌شده"""
-        self.load_teachers()
-        self.load_students_for_teacher()
-        self.load_analysis()
+        """
+        بارگذاری دوبارهٔ تحلیل‌ها با سال اعلام‌شده از MainWindow
+
+        کامبوی سال بدون سیگنال هماهنگ شده؛ همان مسیر «تغییر سال» صفحه
+        اجرا می‌شود تا فهرست (پایهٔ سال جدید) و نمودارها یک‌جا تازه شوند.
+        """
+        self.on_year_changed(self.year_combo.currentIndex())
         return True
 
     def load_teachers(self):
@@ -335,22 +341,62 @@ class AnalysisPage(YearAwarePage, QWidget):
         """وقتی معلم تغییر می‌کند، لیست دانش‌آموزان را به‌روز کن"""
         self.selected_teacher_id = self.teacher_combo.currentData()
         self.load_students_for_teacher()
-    
+
+    def on_year_changed(self, index):
+        """
+        تغییر سال تحصیلی (دور هجدهم — BUG-GUI-13)
+
+        فهرست دانش‌آموزان با پایهٔ «سال جدید» دوباره ساخته می‌شود؛
+        نمودارهای سال قبلی معتبر نمی‌مانند: اگر همان دانش‌آموز در سال
+        جدید پرونده داشت تحلیل با سال جدید دوباره خوانده می‌شود، وگرنه
+        نمودارها پاک و پیام راهنما می‌آید (بدون حدس زدن سال فعال DB).
+        """
+        self.selected_teacher_id = self.teacher_combo.currentData()
+        previous_student_id = self.current_student_id
+        self.current_student_id = None
+
+        self.load_students_for_teacher()
+
+        if previous_student_id:
+            for i in range(self.student_combo.count()):
+                if self.student_combo.itemData(i) == previous_student_id:
+                    self.student_combo.setCurrentIndex(i)  # → load_analysis
+                    return
+
+        # دانش‌آموز قبلی در سال جدید نیست → نمودارهای کهنه پاک شوند
+        self.clear_charts()
+        self.analysis_text.setText(
+            "⚠️ لطفاً یک دانش‌آموز را انتخاب کنید.")
+
+    def _profile_map_for_listing(self, student_ids, year_id):
+        """
+        نقشهٔ پایهٔ فهرست دانش‌آموزان (دور هجدهم — BUG-GUI-08)
+
+        با سال انتخاب‌شده: پایه از پروندهٔ «همان سال» (بدون fallback به
+        سال فعال). با «همه سال‌ها»: پروندهٔ فعال (رفتار فعلی).
+        """
+        if year_id is not None:
+            return self.profile_dal.get_by_students_and_year(
+                student_ids, year_id)
+        return self.profile_dal.get_active_by_students(student_ids)
+
     def load_students_for_teacher(self):
-        """بارگذاری دانش‌آموزان یک معلم خاص"""
+        """بارگذاری دانش‌آموزان یک معلم خاص (پایه از سال انتخاب‌شده)"""
         try:
             self.student_combo.clear()
             self.student_combo.addItem("انتخاب دانش‌آموز...", None)
+            year_id = self.year_combo.currentData()
             
             if self.selected_teacher_id:
-                year_id = self.year_combo.currentData()
                 assignments = self.assignment_dal.get_by_teacher(self.selected_teacher_id, year_id)
                 
-                # خوانش دسته‌ای دانش‌آموزان و پروندهٔ فعال‌شان (رفع N+1؛
-                # قبلاً برای هر تخصیص دو کوئری جدا زده می‌شد)
+                # خوانش دسته‌ای دانش‌آموزان و پرونده‌شان (رفع N+1)؛
+                # پایه از «سال انتخاب‌شده» می‌آید نه پروندهٔ فعال
+                # (BUG-GUI-08 — دور هجدهم)
                 student_map = self.student_dal.get_by_ids(
                     a.student_id for a in assignments)
-                profile_map = self.profile_dal.get_active_by_students(student_map.keys())
+                profile_map = self._profile_map_for_listing(
+                    student_map.keys(), year_id)
                 for assignment in assignments:
                     student = student_map.get(assignment.student_id)
                     if student:
@@ -359,17 +405,24 @@ class AnalysisPage(YearAwarePage, QWidget):
                         display_text = f"{student.full_name} - پایه {grade_text}"
                         self.student_combo.addItem(display_text, student.id)
             else:
-                self.all_students = self.student_dal.get_all()
-                # پروندهٔ فعال دانش‌آموزان یک‌جا خوانده می‌شود (رفع N+1)
-                profile_map = self.profile_dal.get_active_by_students(
-                    s.id for s in self.all_students)
+                students = self.student_dal.get_all()
+                if year_id is not None:
+                    # سال مشخص: فقط دارای پرونده در همان سال، پایهٔ همان سال
+                    profile_map = self.profile_dal.get_by_students_and_year(
+                        (s.id for s in students), year_id)
+                    self.all_students = [
+                        s for s in students if s.id in profile_map]
+                else:
+                    profile_map = self.profile_dal.get_active_by_students(
+                        s.id for s in students)
+                    self.all_students = students
                 for student in self.all_students:
                     profile = profile_map.get(student.id)
                     grade_text = profile.grade_display if profile else "نامشخص"
                     display_text = f"{student.full_name} - پایه {grade_text}"
                     self.student_combo.addItem(display_text, student.id)
         except Exception as e:
-            logger.error(f"خطا در بارگذاری دانش‌آموزان معلم: {e}")
+            logger.error(f"خطا در بارگذاری دانش‌آموزان معلم: {e}", exc_info=True)
     
     def load_academic_years(self):
         """بارگذاری سال‌های تحصیلی در کامبوباکس"""
@@ -391,21 +444,28 @@ class AnalysisPage(YearAwarePage, QWidget):
             logger.error(f"خطا در بارگذاری سال‌های تحصیلی: {e}")
     
     def load_students(self):
-        """بارگذاری دانش‌آموزان در کامبوباکس"""
+        """بارگذاری دانش‌آموزان در کامبوباکس (پایه از سال انتخاب‌شده)"""
         try:
-            self.all_students = self.student_dal.get_all()
+            students = self.student_dal.get_all()
             self.student_combo.clear()
             self.student_combo.addItem("انتخاب دانش‌آموز...", None)
-            # پروندهٔ فعال دانش‌آموزان یک‌جا خوانده می‌شود (رفع N+1)
-            profile_map = self.profile_dal.get_active_by_students(
-                s.id for s in self.all_students)
+            year_id = self.year_combo.currentData()
+            if year_id is not None:
+                profile_map = self.profile_dal.get_by_students_and_year(
+                    (s.id for s in students), year_id)
+                self.all_students = [
+                    s for s in students if s.id in profile_map]
+            else:
+                profile_map = self.profile_dal.get_active_by_students(
+                    s.id for s in students)
+                self.all_students = students
             for student in self.all_students:
                 profile = profile_map.get(student.id)
                 grade_text = profile.grade_display if profile else "نامشخص"
                 display_text = f"{student.full_name} - پایه {grade_text}"
                 self.student_combo.addItem(display_text, student.id)
         except Exception as e:
-            logger.error(f"خطا در بارگذاری دانش‌آموزان: {e}")
+            logger.error(f"خطا در بارگذاری دانش‌آموزان: {e}", exc_info=True)
     
     def search_student(self):
         """جستجوی دانش‌آموز و انتخاب در کامبوباکس"""

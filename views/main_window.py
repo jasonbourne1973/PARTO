@@ -51,6 +51,29 @@ from views.widgets.notification_widget import NotificationWidget
 logger = get_logger(__name__)
 
 
+# ===== نگاشت مرکزی ناوبری (دور هجدهم — BUG-NAV-07) =====
+# ترتیب addWidget در stacked_widget؛ تنها مرجع ایندکس صفحه‌ها.
+# هیچ جای کد نباید ایندکس عددی خام به setCurrentIndex بدهد؛ همه‌جا با
+# نام صفحه از همین نگاشت (goto_page) کار می‌شود تا جابه‌جایی صفحات
+# (index drift) ناوبری را نشکند. آزمون رگرسیون: verify_fixes18 §C.
+PAGE_INDEX = {
+    "welcome": 0,
+    "dashboard": 1,
+    "students": 2,
+    "observations": 3,
+    "interventions": 4,
+    "followups": 5,
+    "indicators": 6,
+    "analysis": 7,
+    "reports": 8,
+    "settings": 9,
+    "academic_structure": 10,
+    "counseling": 11,
+    "activities": 12,
+    "goals": 13,
+}
+
+
 class MainWindow(QMainWindow):
     """
     پنجره اصلی برنامه PARTO - با استایل یکپارچه
@@ -236,13 +259,17 @@ class MainWindow(QMainWindow):
         user_layout.setSpacing(2)
         user_frame.setLayout(user_layout)
 
+        # دور هجدهم — BUG-GUI-01: رنگ قبلی (#08223A) دقیقاً همان
+        # پس‌زمینهٔ user_frame بود؛ یعنی آیکون و نام کاربر عملاً
+        # نامرئی بودند. حالا #F4C542 (همان طلایی پالت) با نسبت
+        # کنتراست ~9:1 روی #08223A (آزمون محاسباتی در verify_fixes18).
         user_icon_label = QLabel("👤")
-        user_icon_label.setStyleSheet("font-size: 20px; color: #08223A;")
+        user_icon_label.setStyleSheet("font-size: 20px; color: #F4C542;")
         user_icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         user_layout.addWidget(user_icon_label)
 
         self.user_name_label = QLabel(self.current_username or "کاربر")
-        self.user_name_label.setStyleSheet("color: #08223A; font-size: 13px; font-weight: bold;")
+        self.user_name_label.setStyleSheet("color: #F4C542; font-size: 13px; font-weight: bold;")
         self.user_name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         user_layout.addWidget(self.user_name_label)
 
@@ -275,23 +302,28 @@ class MainWindow(QMainWindow):
         # داخلش (کاربران، پشتیبان‌گیری، ساختار آموزشی) مجوز دارند؛
         # به این ترتیب کاربر عادی هم می‌تواند «درباره» و اطلاعات
         # مدرسه را ببیند، ولی به عملیات مدیریتی دسترسی ندارد.
+        # (دور هجدهم — BUG-NAV-07) به‌جای ایندکس عددی خام، نام صفحه از
+        # PAGE_INDEX؛ ترتیب منو و ایندکس واقعی هرگز از هم جدا نمی‌شوند.
         menu_items = [
-            ("btn_dashboard", "📊 داشبورد", 1, None),
-            ("btn_students", "📋 دانش‌آموزان", 2, Permission.VIEW_STUDENTS.value),
-            ("btn_observations", "📝 مشاهدات", 3, Permission.VIEW_OBSERVATIONS.value),
-            ("btn_interventions", "🛠️ مداخلات", 4, Permission.VIEW_INTERVENTIONS.value),
-            ("btn_followups", "🔔 پیگیری‌ها", 5, Permission.VIEW_FOLLOWUPS.value),
-            ("btn_indicators", "📊 شاخص‌ها", 6, None),
-            ("btn_analysis", "📈 تحلیل روند", 7, Permission.VIEW_OBSERVATIONS.value),
-            ("btn_reports", "📄 گزارش‌ها", 8, Permission.VIEW_REPORTS.value),
-            ("btn_counseling", "🧑‍⚕️ جلسات مشاوره", 11, None),
-            ("btn_activities", "🎯 فعالیت‌ها", 12, None),
-            ("btn_goals", "🎯 اهداف فردی", 13, None),
-            ("btn_academic_structure", "🏫 ساختار آموزشی", 10, Permission.MANAGE_ACADEMIC_YEARS.value),
-            ("btn_settings", "⚙️ تنظیمات", 9, None),
+            ("btn_dashboard", "📊 داشبورد", "dashboard", None),
+            ("btn_students", "📋 دانش‌آموزان", "students", Permission.VIEW_STUDENTS.value),
+            ("btn_observations", "📝 مشاهدات", "observations", Permission.VIEW_OBSERVATIONS.value),
+            ("btn_interventions", "🛠️ مداخلات", "interventions", Permission.VIEW_INTERVENTIONS.value),
+            ("btn_followups", "🔔 پیگیری‌ها", "followups", Permission.VIEW_FOLLOWUPS.value),
+            ("btn_indicators", "📊 شاخص‌ها", "indicators", None),
+            ("btn_analysis", "📈 تحلیل روند", "analysis", Permission.VIEW_OBSERVATIONS.value),
+            ("btn_reports", "📄 گزارش‌ها", "reports", Permission.VIEW_REPORTS.value),
+            ("btn_counseling", "🧑‍⚕️ جلسات مشاوره", "counseling", None),
+            ("btn_activities", "🎯 فعالیت‌ها", "activities", None),
+            ("btn_goals", "🎯 اهداف فردی", "goals", None),
+            ("btn_academic_structure", "🏫 ساختار آموزشی", "academic_structure", Permission.MANAGE_ACADEMIC_YEARS.value),
+            ("btn_settings", "⚙️ تنظیمات", "settings", None),
         ]
 
-        for btn_name, btn_text, page_index, required in menu_items:
+        for btn_name, btn_text, page_name, required in menu_items:
+            page_index = self.goto_page_index(page_name)
+            if page_index is None:  # گارد: نام ناشناخته هرگز دکوراسیون نمی‌شود
+                continue
             if required and not self.has_permission(required):
                 self.logger.info(
                     f"منوی «{btn_text}» برای نقش {self.current_user_role} "
@@ -957,6 +989,21 @@ class MainWindow(QMainWindow):
             self.year_label.setText("⚠️ خطا")
             logger.error(f"خطا در به‌روزرسانی سال تحصیلی: {e}")
 
+    def goto_page_index(self, page_name):
+        """ایندکس صفحه از نگاشت مرکزی (تنها مرجع؛ BUG-NAV-07)"""
+        index = PAGE_INDEX.get(page_name)
+        if index is None:
+            self.logger.error(
+                f"نام صفحهٔ «{page_name}» در PAGE_INDEX نیست؛ "
+                "ناوبری معیوب می‌شود — این یک خطای برنامه‌نویسی است.")
+        return index
+
+    def goto_page(self, page_name):
+        """رفتن به صفحه با نام (به‌جای ایندکس عددی خام)"""
+        index = self.goto_page_index(page_name)
+        if index is not None:
+            self.stacked_widget.setCurrentIndex(index)
+
     def on_student_double_clicked(self, item):
         row = item.row()
         if row < len(self.students_page.students):
@@ -968,7 +1015,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "توجه", "لطفاً یک دانش‌آموز را انتخاب کنید.")
             return
         self.students_page.open_profile_tab(student_id)
-        self.stacked_widget.setCurrentIndex(2)
+        self.goto_page("students")
 
     def open_student_report(self, student_id):
         """رفتن به صفحهٔ گزارش‌ها با دانش‌آموز انتخاب‌شده (بازرسی شانزدهم)"""
@@ -1122,7 +1169,7 @@ class MainWindow(QMainWindow):
             self.notification_widget.show_at(pos)
 
     def on_notification_clicked(self, data):
-        self.stacked_widget.setCurrentIndex(5)  # پیگیری‌ها
+        self.goto_page("followups")
 
     def open_student_profile_by_profile_id(self, profile_id):
         if not profile_id:

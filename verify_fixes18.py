@@ -275,6 +275,228 @@ check("A", "A8: بازیابی دوبارهٔ همان رکورد → False",
       AttachmentDAL().restore(fresh.id) is False)
 
 # ============================================================
+# بخش B: مرحلهٔ ۳ — سال و پایهٔ فهرست‌ها (بندهای ۶ و ۷)
+# ============================================================
+print()
+print("=" * 76)
+print("بخش B: مرحلهٔ ۳ — هندلر سال شاخص‌ها/تحلیل و پایهٔ سال انتخاب‌شده")
+print("=" * 76)
+
+from dal.academic_year_dal import AcademicYearDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from models.academic_year import AcademicYear
+from models.student import Student
+from models.student_academic_profile import StudentAcademicProfile
+from views.pages.indicators_page import IndicatorsPage
+from views.pages.analysis_page import AnalysisPage
+
+year_dal = AcademicYearDAL()
+student_dal = StudentDAL()
+profile_dal = StudentAcademicProfileDAL()
+
+
+def make_year(title, start, end):
+    year = AcademicYear()
+    year.title = title
+    year.start_date = start
+    year.end_date = end
+    return year_dal.create(year)
+
+
+def make_student(first, last, national_code):
+    student = Student()
+    student.first_name = first
+    student.last_name = last
+    student.national_code = national_code
+    return student_dal.create(student)
+
+
+def make_profile(student_id, year_id, grade, class_name):
+    profile = StudentAcademicProfile()
+    profile.student_id = student_id
+    profile.academic_year_id = year_id
+    profile.grade = grade
+    profile.class_name = class_name
+    profile.status = "active"
+    return profile_dal.create(profile)
+
+
+def select_combo_item(combo, data_value, emit=True):
+    """انتخاب در کامبو (با یا بدون سیگنال واقعی)"""
+    for i in range(combo.count()):
+        if combo.itemData(i) == data_value:
+            if not emit:
+                combo.blockSignals(True)
+            combo.setCurrentIndex(i)
+            if not emit:
+                combo.blockSignals(False)
+            return True
+    return False
+
+
+def combo_student_ids(combo):
+    return [combo.itemData(i) for i in range(combo.count())]
+
+
+def combo_row_text(combo, data_value):
+    for i in range(combo.count()):
+        if combo.itemData(i) == data_value:
+            return combo.itemText(i)
+    return None
+
+
+# دادهٔ دو ساله: A فقط ۱۴۰۳ (پایهٔ سوم)؛ B فقط ۱۴۰۴ (پایهٔ اول)
+y1403 = make_year("۱۴۰۳-۱۴۰۴", "1403/07/01", "1404/06/30")
+y1404 = make_year("۱۴۰۴-۱۴۰۵", "1404/07/01", "1405/06/30")
+year_dal.set_active(y1404.id)
+
+student_a = make_student("علی", "یک‌سال‌ه", "5550000001")
+student_b = make_student("رضا", "دو‌سال‌ه", "5550000002")
+profile_a = make_profile(student_a.id, y1403.id, 3, "سوم-الف")
+profile_b = make_profile(student_b.id, y1404.id, 1, "اول-ب")
+
+# ---------- B1: فهرست شاخص‌ها از سال انتخاب‌شده ----------
+with contextlib.redirect_stdout(io.StringIO()):
+    ipage = IndicatorsPage()
+
+check("B", "B1: صفحهٔ شاخص‌ها با سال فعال (۱۴۰۴) بالا آمد",
+      ipage.year_combo.currentData() == y1404.id,
+      f"year={ipage.year_combo.currentData()}")
+select_combo_item(ipage.year_combo, y1403.id)   # سیگنال واقعی → on_year_changed
+check("B", "B1: فهرست ۱۴۰۳ فقط A را دارد (B نشت نکرده)",
+      combo_student_ids(ipage.student_combo) == [None, student_a.id],
+      f"ids={combo_student_ids(ipage.student_combo)}")
+check("B", "B1: پایهٔ نمایشی A از پروندهٔ ۱۴۰۳ است («سوم»)",
+      "سوم" in (combo_row_text(ipage.student_combo, student_a.id) or ""))
+
+# ---------- B2: تغییر سال → پنل کهنه پاک ----------
+select_combo_item(ipage.student_combo, student_a.id, emit=False)
+with contextlib.redirect_stdout(io.StringIO()):
+    ipage.load_student_indicators()
+check("B", "B2: انتخاب A در ۱۴۰۳ ثبت شد",
+      ipage.current_student_id == student_a.id
+      and ipage.current_profile_id == profile_a.id)
+
+select_combo_item(ipage.year_combo, y1404.id)   # سیگنال واقعی
+check("B", "B2: تغییر سال → انتخاب و پروندهٔ کهنه پاک شد",
+      ipage.current_student_id is None
+      and ipage.current_profile_id is None)
+check("B", "B2: پنل جزئیات پیام راهنما دارد (نه نتیجهٔ کهنه)",
+      "دانش‌آموز" in ipage.details_panel.toPlainText())
+check("B", "B2: فهرست ۱۴۰۴ فقط B را دارد",
+      combo_student_ids(ipage.student_combo) == [None, student_b.id])
+check("B", "B2: پایهٔ نمایشی B از پروندهٔ ۱۴۰۴ است («اول»)",
+      "اول" in (combo_row_text(ipage.student_combo, student_b.id) or ""))
+ipage.close()
+ipage.deleteLater()
+
+# ---------- B3: حفظ ایمن انتخاب وقتی همان دانش‌آموز در هر دو سال هست ----------
+make_profile(student_b.id, y1403.id, 2, "دوم-ب")
+with contextlib.redirect_stdout(io.StringIO()):
+    ipage = IndicatorsPage()
+select_combo_item(ipage.year_combo, y1404.id)
+select_combo_item(ipage.student_combo, student_b.id, emit=False)
+with contextlib.redirect_stdout(io.StringIO()):
+    ipage.load_student_indicators()
+select_combo_item(ipage.year_combo, y1403.id)   # سیگنال واقعی
+check("B", "B3: انتخاب B پس از تغییر سال حفظ شد",
+      ipage.current_student_id == student_b.id)
+check("B", "B3: پنل با پروندهٔ ۱۴۰۳ دوباره خوانده شد (پایهٔ دوم)",
+      ipage.current_profile_id == profile_dal.get_by_student_and_year(
+          student_b.id, y1403.id).id)
+ipage.close()
+ipage.deleteLater()
+
+# ---------- B4: صفحهٔ تحلیل — همان قرارداد ----------
+# (توجه: از B3، دانش‌آموز B در ۱۴۰۳ هم پرونده دارد → فهرست ۱۴۰۳ هر دو)
+with contextlib.redirect_stdout(io.StringIO()):
+    apage = AnalysisPage()
+select_combo_item(apage.year_combo, y1403.id)   # سیگنال واقعی → on_year_changed
+ids_1403 = combo_student_ids(apage.student_combo)
+check("B", "B4: فهرست تحلیل ۱۴۰۳ = پرونده‌های همان سال (A و B از B3)",
+      ids_1403 == [None, student_b.id, student_a.id], f"ids={ids_1403}")
+check("B", "B4: پایهٔ B در ۱۴۰۳ «دوم» است (پروندهٔ همان سال، نه فعال)",
+      "دوم" in (combo_row_text(apage.student_combo, student_b.id) or ""))
+select_combo_item(apage.year_combo, y1404.id)
+check("B", "B4: فهرست تحلیل در ۱۴۰۴ فقط B است",
+      combo_student_ids(apage.student_combo) == [None, student_b.id])
+check("B", "B4: پایهٔ B در ۱۴۰۴ «اول» است (پروندهٔ همان سال)",
+      "اول" in (combo_row_text(apage.student_combo, student_b.id) or ""))
+apage.close()
+apage.deleteLater()
+
+# ============================================================
+# بخش C: مرحلهٔ ۳ — نگاشت ناوبری و کنتراست هدر (بندهای ۲۶ و ۳۱)
+# ============================================================
+print()
+print("=" * 76)
+print("بخش C: مرحلهٔ ۳ — نگاشت مرکزی ناوبری و کنتراست نام/آیکون کاربر")
+print("=" * 76)
+
+from views.main_window import PAGE_INDEX
+
+# ---------- C1: نگاشت مرکزی ----------
+check("C", "C1: PAGE_INDEX پیوسته 0..N است",
+      sorted(PAGE_INDEX.values()) == list(range(len(PAGE_INDEX))))
+check("C", "C1: ایندکس‌های کلیدی مطابق ترتیب addWidget است",
+      PAGE_INDEX["students"] == 2 and PAGE_INDEX["followups"] == 5
+      and PAGE_INDEX["reports"] == 8 and PAGE_INDEX["goals"] == 13)
+
+# ---------- C2: هیچ setCurrentIndex عددی خام روی stacked_widget ----------
+import pathlib
+mw_src = pathlib.Path("views/main_window.py").read_text(encoding="utf-8")
+import re
+raw_indexes = [
+    m.group(1).strip()
+    for m in re.finditer(r"stacked_widget\.setCurrentIndex\(([^)]*)\)", mw_src)
+]
+check("C", "C2: setCurrentIndex فقط از PAGE_INDEX (index/idx) می‌خواند",
+      set(raw_indexes) <= {"index", "idx"}, f"args={raw_indexes}")
+check("C", "C2: منو با نام صفحه کار می‌کند نه ایندکس عددی",
+      '"btn_settings", "⚙️ تنظیمات", "settings", None' in mw_src
+      and ', 9, None)' not in mw_src)
+
+# ---------- C3: کنتراست محاسباتی (WCAG) ----------
+
+def _relative_luminance(hex_color):
+    r, g, b = (int(hex_color[i:i + 2], 16) / 255 for i in (0, 2, 4))
+    def channel(c):
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+
+
+def contrast_ratio(fg_hex, bg_hex):
+    l1 = _relative_luminance(fg_hex)
+    l2 = _relative_luminance(bg_hex)
+    lighter, darker = max(l1, l2), min(l1, l2)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+# سایدبار: user_frame #08223A — نام/آیکون باید مرئی باشند (دور هجدهم)
+sidebar_name = contrast_ratio("F4C542", "08223A")
+check("C", "C3: نام/آیکون کاربر سایدبار (#F4C542 روی #08223A) ≥ 4.5",
+      sidebar_name >= 4.5, f"ratio={sidebar_name:.2f}")
+# رگرسیون: رنگ قدیمی نامرئی نباید برگردد
+check("C", "C3: رنگ نامرئی قبلی (#08223A روی خودش) در سورس سایدبار نیست",
+      'user_icon_label.setStyleSheet("font-size: 20px; color: #08223A;")'
+      not in mw_src
+      and "color: #08223A; font-size: 13px; font-weight: bold;" not in mw_src)
+# هدر اصلی: پس‌زمینه #0B2E4F
+header_user = contrast_ratio("66BB6A", "0B2E4F")
+header_title = contrast_ratio("F4C542", "0B2E4F")
+header_version = contrast_ratio("D9C36A", "0B2E4F")
+check("C", "C3: نام کاربر هدر (#66BB6A) ≥ 4.5",
+      header_user >= 4.5, f"ratio={header_user:.2f}")
+check("C", "C3: عنوان هدر (#F4C542) ≥ 4.5",
+      header_title >= 4.5, f"ratio={header_title:.2f}")
+check("C", "C3: نسخهٔ هدر (#D9C36A) ≥ 4.5",
+      header_version >= 4.5, f"ratio={header_version:.2f}")
+# نقش کاربر سایدبار (#D9C36A روی #08223A)
+check("C", "C3: نقش کاربر سایدبار (#D9C36A) ≥ 4.5",
+      contrast_ratio("D9C36A", "08223A") >= 4.5)
+
+# ============================================================
 # پایان
 # ============================================================
 
@@ -290,7 +512,7 @@ with contextlib.suppress(Exception):
 
 print()
 print("=" * 76)
-print(f"نتیجهٔ دور هجدهم (مرحلهٔ ۲ — پیوست‌ها):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
+print(f"نتیجهٔ دور هجدهم (مرحله‌های ۲ و ۳):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
 print("=" * 76)
 if FAILURES:
     print("موارد ناموفق:")

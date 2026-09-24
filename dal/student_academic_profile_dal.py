@@ -143,6 +143,38 @@ class StudentAcademicProfileDAL:
                     result[row['student_id']] = self._row_to_profile(row)
         return result
 
+    def get_by_students_and_year(self, student_ids, academic_year_id):
+        """
+        پروندهٔ چند دانش‌آموز «در یک سال مشخص» با یک کوئری (دور هجدهم)
+
+        پایهٔ فهرست‌های شاخص‌ها/تحلیل باید از «سال انتخاب‌شده» بیاید نه
+        از پروندهٔ فعال (BUG-GUI-07/08). بدون این متد، رفع N+1 ناقص
+        می‌ماند.
+
+        Args:
+            student_ids: شناسه‌های دانش‌آموز (هر iterable؛ خالی مجاز)
+            academic_year_id: شناسهٔ سال تحصیلی انتخاب‌شده
+
+        Returns:
+            dict: {student_id: StudentAcademicProfile} — اولین پروندهٔ
+            حذف‌نشدهٔ آن سال (کوچک‌ترین id).
+        """
+        if academic_year_id is None:
+            return {}
+        result = {}
+        for chunk in id_chunks(student_ids):
+            cursor = self.db.execute_query(f"""
+                SELECT sap.* FROM student_academic_profiles sap
+                WHERE sap.student_id IN ({placeholders(len(chunk))})
+                  AND sap.academic_year_id = ?
+                  AND sap.is_deleted = 0
+                ORDER BY sap.id ASC
+            """, (*chunk, academic_year_id))
+            for row in cursor.fetchall():
+                if row['student_id'] not in result:
+                    result[row['student_id']] = self._row_to_profile(row)
+        return result
+
     def get_by_student_and_year(self, student_id, academic_year_id):
         """دریافت پرونده یک دانش‌آموز در یک سال خاص"""
         cursor = self.db.execute_query(
