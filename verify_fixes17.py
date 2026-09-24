@@ -27,9 +27,9 @@
      «همهٔ دانش‌آموزان بارگذاری‌شده» (نه صفحهٔ جاری) با برچسب صریح در حالت
      حذف‌شده‌ها، لغو دیالوگ‌های ایمپورت، نمایش جزئیات خطا در مسیر واقعی UI،
      و «فیلتر سال پیش از LIMIT» با ۲۴۰ رکورد در دو سال برای مشاهدات/مداخلات/
-     پیگیری‌ها (خود query، مسیر جست‌وجو و صفحهٔ واقعی) .................. ۱۰ بررسی
+     پیگیری‌ها (خود query، مسیر جست‌وجو و صفحه‌های واقعی سه بخش) ......... ۱۱ بررسی
 
-جمع فعلی: ۴۲ بررسی
+جمع فعلی: ۴۳ بررسی
 """
 
 import contextlib
@@ -1668,6 +1668,35 @@ check("D",
       "بند ۱۶/۱۷ (حالت مرزی): سال بدون داده → صفحهٔ مشاهدات فهرست خالی نشان می‌دهد، خطایی تولید نمی‌شود و دادهٔ سال‌های دیگر جای آن را نمی‌گیرد",
       empty_rows == 0 and not empty_critical,
       f"rows={empty_rows} critical={empty_critical[-2:]}")
+
+# --- D11: همان قرارداد در «صفحه‌های واقعی» مداخلات و پیگیری‌ها (نه فقط DAL)
+from views.pages.followups_page import FollowUpsPage
+from views.pages.interventions_page import InterventionsPage
+
+interventions_page = InterventionsPage()
+interventions_page.set_active_year(year_a.id)
+interv_a_rows = len(interventions_page.interventions)
+interv_a_wrong = [i for i in interventions_page.interventions
+                  if i.student_profile_id != profile_a.id]
+interventions_page.set_active_year(year_b.id)
+interv_b_rows = len(interventions_page.interventions)
+interv_b_wrong = [i for i in interventions_page.interventions
+                  if i.student_profile_id != profile_b.id]
+
+followups_page = FollowUpsPage()
+followups_page.set_active_year(year_a.id)
+fu_a_rows = len(followups_page.followups)
+fu_a_wrong = [f for f in followups_page.followups
+              if f.intervention_id not in {i.id for i in interventions_a_all}]
+followups_page.set_active_year(year_b.id)
+fu_b_rows = len(followups_page.followups)
+check("D",
+      "بند ۱۷ (صفحه‌های واقعی): صفحهٔ مداخلات و صفحهٔ پیگیری‌ها با سال اعلام‌شده هر کدام دقیقاً ۱۲۰ رکورد همان سال را نشان می‌دهند (بدون نشتی ردیف سال دیگر) — یعنی فیلتر سال در خود query و پیش از هر سقف/برش اعمال می‌شود",
+      interv_a_rows == 120 and interv_b_rows == 120
+      and not interv_a_wrong and not interv_b_wrong
+      and fu_a_rows == 120 and fu_b_rows == 120 and not fu_a_wrong,
+      f"interv={interv_a_rows}/{interv_b_rows} wrong={len(interv_a_wrong)}/{len(interv_b_wrong)} "
+      f"followups={fu_a_rows}/{fu_b_rows} wrong_a={len(fu_a_wrong)}")
 
 QMessageBox.question = real_question
 QMessageBox.information = real_info_d
