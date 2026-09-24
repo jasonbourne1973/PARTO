@@ -47,16 +47,32 @@ class AttachmentDAL:
         self.logger.info(f"پیوست با ID {attachment.id} ایجاد شد: {attachment.file_name}")
         return attachment
     
-    def get_by_id(self, attachment_id):
-        """دریافت پیوست با شناسه"""
-        cursor = self.db.execute_query(
-            "SELECT * FROM attachments WHERE id = ? AND is_deleted = 0",
-            (attachment_id,)
-        )
+    def get_by_id(self, attachment_id, include_deleted=False):
+        """دریافت پیوست با شناسه
+
+        Args:
+            attachment_id: شناسه پیوست
+            include_deleted: اگر True باشد، رکورد حذف‌شده هم برگردانده
+                می‌شود (لازم برای مسیر «بازیابی» — دور هجدهم BUG-ATT-04/05)
+        """
+        query = "SELECT * FROM attachments WHERE id = ?"
+        if not include_deleted:
+            query += " AND is_deleted = 0"
+        cursor = self.db.execute_query(query, (attachment_id,))
         row = cursor.fetchone()
         if row:
             return self._row_to_attachment(row)
         return None
+
+    def get_deleted_by_entity(self, entity_type, entity_id):
+        """فهرست پیوست‌های حذف‌شدهٔ یک موجودیت (برای مسیر بازیابی در UI)"""
+        cursor = self.db.execute_query("""
+            SELECT * FROM attachments
+            WHERE entity_type = ? AND entity_id = ? AND is_deleted = 1
+            ORDER BY deleted_at DESC
+        """, (entity_type, entity_id))
+        rows = cursor.fetchall()
+        return [self._row_to_attachment(row) for row in rows]
     
     def get_by_entity(self, entity_type, entity_id):
         """دریافت پیوست‌های یک موجودیت"""
@@ -144,10 +160,47 @@ class AttachmentDAL:
             WHERE id = ?
         """, (user_id, attachment_id))
         
+        if cursor.rowcount == 0:
+            self.db.rollback()
+            self.logger.warning(
+                f"حذف پیوست ID={attachment_id} روی هیچ ردیفی اثر نکرد")
+            return False
+
         self.db.commit()
         self.logger.info(f"پیوست با ID {attachment_id} حذف شد")
         return True
-    
+
+    def restore(self, attachment_id, user_id=None):
+        """بازیابی پیوست حذف‌شده (فقط رکورد؛ بدون کاری به فایل فیزیکی)
+
+        قرارداد سایر DALها: نتیجهٔ واقعی بررسی می‌شود؛ فقط وقتی True است
+        که یک ردیفِ واقعاً حذف‌شده برگشته باشد. بررسی «وجود فایل فیزیکی»
+        مسئولیت سرویس است (AttachmentService.restore_attachment) تا
+        بازیابی هرگز موفقیت خاموش برای فایل گم‌شده ندهد (BUG-ATT-05).
+
+        Returns:
+            bool: True فقط اگر یک رکورد حذف‌شده واقعاً بازیابی شد.
+        """
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            UPDATE attachments SET
+                is_deleted = 0,
+                deleted_at = NULL,
+                deleted_by = NULL
+            WHERE id = ? AND is_deleted = 1
+        """, (attachment_id,))
+
+        updated = cursor.rowcount > 0
+        self.db.commit()
+        if updated:
+            self.logger.info(f"پیوست با ID {attachment_id} بازیابی شد")
+        else:
+            self.logger.warning(
+                f"بازیابی پیوست ID={attachment_id} روی هیچ ردیفی اثر نکرد")
+        return updated
+
     def permanent_delete(self, attachment_id, user_id=None):
         """
         حذف دائم پیوست: هم ردیف دیتابیس، هم فایل فیزیکی

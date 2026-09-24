@@ -243,6 +243,115 @@ class AttachmentService(BaseService):
             self.logger.error(f"خطا در حذف پیوست‌ها: {e}")
             raise ServiceError(f"خطا در حذف: {e!s}")
     
+    def restore_attachment(self, attachment_id, user_id=None, ip_address=None):
+        """
+        بازیابی پیوست حذف‌شده (دور هجدهم — BUG-ATT-04/05)
+
+        قاعده‌ها (بند ۱۱ مأموریت):
+          • اگر رکورد حذف‌شده پیدا نشد → خطای صریح، نه موفقیت خاموش.
+          • BUG-ATT-05: قبل از هر تغییر DB، «وجود فایل فیزیکی» بررسی
+            می‌شود؛ فایل گم‌شده → خطای صریح و رکورد در همان حالت حذف
+            می‌ماند (بازیابی نباید silently success شود).
+          • سقف MAX_ATTACHMENTS_PER_ENTITY با پیوست‌های بازیابی‌شده هم
+            سنجیده می‌شود؛ اگر بازیابی از سقف بگذرد → خطای صریح.
+          • نتیجهٔ واقعی DAL بررسی و با بازخوانی از DB اثبات می‌شود.
+
+        Args:
+            attachment_id: شناسهٔ پیوست حذف‌شده
+            user_id: شناسهٔ کاربر بازیابی‌کننده (برای Audit)
+            ip_address: آدرس IP کاربر
+
+        Returns:
+            Attachment: پیوست بازیابی‌شده
+
+        Raises:
+            ServiceError: رکورد ناموجود/حذف‌نشده، فایل فیزیکی گم‌شده یا
+                اثرنکردن بازیابی روی دیتابیس
+            ValidationError: عبور از سقف تعداد پیوست موجودیت
+        """
+        def _restore():
+            # 1. رکورد باید واقعاً حذف‌شده باشد
+            deleted = self.attachment_dal.get_by_id(
+                attachment_id, include_deleted=True)
+            if deleted is None:
+                raise ServiceError(
+                    f"پیوست با شناسه {attachment_id} یافت نشد.")
+            if not getattr(deleted, 'is_deleted', 0):
+                raise ServiceError(
+                    "این پیوست حذف نشده است؛ بازیابی لازم نیست.")
+
+            # 2. BUG-ATT-05: فایل فیزیکی باید وجود داشته باشد — پیش از
+            #    هر تغییری در دیتابیس. بازیابیِ رکوردی که فایلش نیست
+            #    فقط «پیوست لنگ» می‌سازد و ممنوع است.
+            file_path = deleted.file_path
+            if not file_path or not os.path.exists(file_path):
+                self.logger.error(
+                    f"بازیابی پیوست ID={attachment_id} رد شد: فایل فیزیکی "
+                    f"«{file_path}» وجود ندارد؛ رکورد حذف‌شده ماند.")
+                raise ServiceError(
+                    "فایل فیزیکی این پیوست روی دیسک پیدا نشد؛ بازیابی "
+                    "انجام نشد. (ممکن است فایل دستی حذف شده باشد)")
+
+            # 3. سقف ۲۰ پیوست موجودیت با بازیابی هم سنجیده می‌شود
+            active_count = self.attachment_dal.get_count_by_entity(
+                deleted.entity_type, deleted.entity_id)
+            if active_count >= self.MAX_ATTACHMENTS_PER_ENTITY:
+                raise ValidationError(
+                    "با بازیابی این پیوست، تعداد پیوست‌های این موجودیت از "
+                    f"حداکثر ({self.MAX_ATTACHMENTS_PER_ENTITY}) بیشتر "
+                    "می‌شود. ابتدا یکی از پیوست‌های فعال را حذف کنید.")
+
+            # 4. بازیابی منطقی + بررسی نتیجهٔ واقعی
+            restored = self.attachment_dal.restore(attachment_id, user_id)
+            if not restored:
+                raise ServiceError(
+                    f"بازیابی پیوست با شناسه {attachment_id} روی دیتابیس "
+                    "اثر نکرد.")
+
+            # 5. بازخوانی از دیتابیس: تنها شاهد «بازیابی‌شدن»
+            attachment = self.attachment_dal.get_by_id(attachment_id)
+            if attachment is None or getattr(attachment, 'is_deleted', 0):
+                raise ServiceError(
+                    "پیوست پس از بازیابی از دیتابیس خوانده نشد؛ عملیات "
+                    "کامل نشد.")
+
+            # 6. ثبت Audit Log
+            self.log_audit(
+                user_id=user_id,
+                action='restore',
+                entity_type='attachment',
+                entity_id=attachment_id,
+                new_value={
+                    'file_name': attachment.file_name,
+                    'entity_type': attachment.entity_type,
+                    'entity_id': attachment.entity_id,
+                },
+                ip_address=ip_address
+            )
+            self.logger.info(
+                f"پیوست «{attachment.file_name}» با ID {attachment_id} "
+                "بازیابی شد.")
+            return attachment
+
+        return self.execute_in_transaction(_restore)
+
+    def get_deleted_attachments_by_entity(self, entity_type, entity_id):
+        """فهرست پیوست‌های حذف‌شدهٔ یک موجودیت (برای مسیر بازیابی در UI)"""
+        try:
+            deleted = self.attachment_dal.get_deleted_by_entity(
+                entity_type, entity_id)
+            # همان غنی‌سازی فهرست فعال (آیکون/حجم نمایشی) تا UI یکدست بماند
+            # (توجه: _enrich_attachment در جا تغییر می‌دهد؛ برگشتش None است)
+            for att in deleted:
+                self._enrich_attachment(att)
+            return deleted
+        except Exception as e:
+            self.logger.error(
+                "خطا در دریافت پیوست‌های حذف‌شده: "
+                f"{e}", exc_info=True)
+            raise ServiceError(
+                f"خطا در دریافت فهرست حذف‌شده‌ها: {e!s}")
+
     def get_attachment_path(self, attachment_id):
         """دریافت مسیر فیزیکی فایل پیوست"""
         attachment = self.get_attachment(attachment_id)

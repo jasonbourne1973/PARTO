@@ -32,6 +32,12 @@ from database.connection import DatabaseConnection
 from services.attachment_service import AttachmentService
 from utils.error_handler import ServiceError
 from utils.logger import get_logger
+from views.widgets.deleted_records import (
+    ask_restore_confirmation,
+    deleted_label,
+    make_show_deleted_checkbox,
+    report_restore_failure,
+)
 
 
 class AttachmentUploadWorker(QThread):
@@ -103,10 +109,15 @@ class AttachmentDialog(QDialog):
     
     attachment_added = Signal()
     attachment_deleted = Signal()
-    
+    # نکتهٔ دور هجدهم: سیگنال جداگانهٔ «بازیابی» تعریف نشد چون مثل دو
+    # سیگنال بالا گیرنده‌ای در معماری فعلی وجود ندارد (والد فقط exec()
+    # می‌کند) و ممیزی Signal/Slot دور ۱۶ آن را «سیگنال بلااستفاده»
+    # می‌گرفت. بازخورد بازیابی داخل خود دیالوگ داده می‌شود (برگشت به
+    # فهرست فعال + پیام موفقیت).
+
     def __init__(self, entity_type, entity_id, parent=None):
         super().__init__(parent)
-        
+
         self.entity_type = entity_type
         self.entity_id = entity_id
         self.attachment_service = AttachmentService()
@@ -115,6 +126,10 @@ class AttachmentDialog(QDialog):
         self.attachments = []
         self.current_attachment_id = None
         self.search_results = []
+        # مسیر بازیابی پیوست حذف‌شده (دور هجدهم — BUG-ATT-04/05)
+        self.showing_deleted = False
+        self.deleted_attachments = []
+        self._deleted_by_id = {}
         # (بازرسی شانزدهم) صف آپلود: فایل‌های انتخاب‌شده یکی‌یکی آپلود می‌شوند
         self._upload_queue = []
         self._upload_results = []
@@ -216,7 +231,15 @@ class AttachmentDialog(QDialog):
         """)
         self.refresh_btn.clicked.connect(self.load_attachments)
         toolbar.addWidget(self.refresh_btn)
-        
+
+        # «نمایش حذف‌شده‌ها» + بازیابی (دور هجدهم — BUG-ATT-04)
+        toolbar.addSpacing(10)
+        self.show_deleted_check = make_show_deleted_checkbox(
+            self, "toggle_show_deleted",
+            tooltip="پیوست‌های حذف‌شده را نشان می‌دهد تا بتوان آن‌ها را "
+                    "بازیابی کرد.")
+        toolbar.addWidget(self.show_deleted_check)
+
         # اطلاعات تعداد و حجم
         self.info_label = QLabel("تعداد: 0 | حجم کل: 0 B")
         self.info_label.setStyleSheet("color: #D9C36A; font-size: 13px;")
@@ -434,7 +457,26 @@ class AttachmentDialog(QDialog):
         """)
         self.delete_btn.clicked.connect(self.delete_selected)
         btn_layout.addWidget(self.delete_btn)
-        
+
+        self.restore_btn = QPushButton("↩️ بازیابی")
+        self.restore_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #66BB6A;
+                color: #111111;
+                padding: 8px 15px;
+                border: none;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #8BC34A; }
+        """)
+        self.restore_btn.setToolTip(
+            "بازیابی پیوست حذف‌شده؛ فایل فیزیکی پیش از بازیابی "
+            "راستی‌آزمایی می‌شود.")
+        self.restore_btn.clicked.connect(self.restore_selected)
+        self.restore_btn.setVisible(False)  # فقط در حالت «نمایش حذف‌شده‌ها»
+        btn_layout.addWidget(self.restore_btn)
+
         btn_layout.addStretch()
         
         self.close_btn = QPushButton("❌ بستن")
@@ -464,50 +506,113 @@ class AttachmentDialog(QDialog):
         self.download_btn.setEnabled(False)
         self.delete_btn.setEnabled(False)
     
+    def toggle_show_deleted(self, showing):
+        """تعویض بین فهرست فعال‌ها و حذف‌شده‌ها (دور هجدهم — BUG-ATT-04)"""
+        self.showing_deleted = bool(showing)
+        self.restore_btn.setVisible(self.showing_deleted)
+        self.add_btn.setEnabled(not self.showing_deleted)
+        self.load_attachments()
+
     def load_attachments(self):
-        """بارگذاری لیست پیوست‌ها"""
+        """بارگذاری لیست پیوست‌ها (فعال یا حذف‌شده — بسته به چک‌باکس)"""
         try:
+            if self.showing_deleted:
+                self._load_deleted_attachments()
+                return
+
             summary = self.attachment_service.get_attachments_summary(
                 self.entity_type, self.entity_id
             )
-            
+
             self.attachments = summary['attachments']
             self.search_results = self.attachments
             self.file_list.clear()
-            
+
             for att in self.attachments:
                 icon = getattr(att, 'icon', '📎')
                 display_name = att.file_name
                 display_size = getattr(att, 'display_size', '')
-                
+
                 item_text = f"{icon} {display_name} ({display_size})"
                 item = QListWidgetItem(item_text)
                 item.setData(Qt.ItemDataRole.UserRole, att.id)
                 self.file_list.addItem(item)
-            
+
             # به‌روزرسانی اطلاعات
             self.info_label.setText(
                 f"تعداد: {summary['total_count']} | "
                 f"حجم کل: {summary['total_size_display']}"
             )
-            
+
             # پاک کردن پیش‌نمایش
             self.preview_label.setText("یک فایل را انتخاب کنید")
             self.info_text.clear()
             self.open_btn.setEnabled(False)
             self.download_btn.setEnabled(False)
             self.delete_btn.setEnabled(False)
+            self.restore_btn.setEnabled(False)
             self.current_attachment_id = None
-            
+
             self.logger.info(f"{summary['total_count']} پیوست برای {self.entity_type}/{self.entity_id} بارگذاری شد")
-            
+
         except Exception as e:
-            self.logger.error(f"خطا در بارگذاری پیوست‌ها: {e}")
+            self.logger.error(f"خطا در بارگذاری پیوست‌ها: {e}", exc_info=True)
             QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری:\n{e!s}")
+
+    def _load_deleted_attachments(self):
+        """فهرست پیوست‌های حذف‌شده با امکان بازیابی (BUG-ATT-04)"""
+        self.deleted_attachments = (
+            self.attachment_service.get_deleted_attachments_by_entity(
+                self.entity_type, self.entity_id))
+        self._deleted_by_id = {att.id: att for att in self.deleted_attachments}
+        self.attachments = []
+        self.search_results = self.deleted_attachments
+        self.file_list.clear()
+
+        for att in self.deleted_attachments:
+            icon = getattr(att, 'icon', '📎')
+            display_size = getattr(att, 'display_size', '')
+            item_text = f"{icon} {deleted_label(att.file_name)} ({display_size})"
+            item = QListWidgetItem(item_text)
+            item.setData(Qt.ItemDataRole.UserRole, att.id)
+            self.file_list.addItem(item)
+
+        self.info_label.setText(
+            f"حذف‌شده‌ها: {len(self.deleted_attachments)} — برای بازیابی "
+            "انتخاب و «↩️ بازیابی» را بزنید")
+
+        self.preview_label.setText("یک فایل را انتخاب کنید")
+        self.info_text.clear()
+        self.open_btn.setEnabled(False)
+        self.download_btn.setEnabled(False)
+        self.delete_btn.setEnabled(False)
+        self.restore_btn.setEnabled(False)
+        self.current_attachment_id = None
     
     def search_attachments(self):
         """جستجوی پیوست‌ها"""
         search_text = self.search_input.text().strip()
+        if self.showing_deleted:
+            # جست‌وجو در حالت «حذف‌شده‌ها» روی همان فهرست حذف‌شده‌ها
+            if not search_text:
+                results = self.deleted_attachments
+            else:
+                needle = search_text.lower()
+                results = [
+                    att for att in self.deleted_attachments
+                    if needle in (att.file_name or "").lower()
+                    or needle in (att.title or "").lower()
+                ]
+            self.search_results = results
+            self.file_list.clear()
+            for att in results:
+                icon = getattr(att, 'icon', '📎')
+                display_size = getattr(att, 'display_size', '')
+                item = QListWidgetItem(
+                    f"{icon} {deleted_label(att.file_name)} ({display_size})")
+                item.setData(Qt.ItemDataRole.UserRole, att.id)
+                self.file_list.addItem(item)
+            return
         if not search_text:
             self.search_results = self.attachments
         else:
@@ -665,11 +770,65 @@ class AttachmentDialog(QDialog):
         """وقتی فایل انتخاب می‌شود"""
         attachment_id = item.data(Qt.ItemDataRole.UserRole)
         self.current_attachment_id = attachment_id
+        if self.showing_deleted:
+            # رکورد حذف‌شده: فقط «بازیابی» معنا دارد؛ اطلاعات از شیءِ
+            # حذف‌شده خوانده می‌شود (get_attachment رکورد حذف‌شده را
+            # برنمی‌گرداند و پیش‌نمایش هم برای حذف‌شده ساخته نمی‌شود).
+            self.open_btn.setEnabled(False)
+            self.download_btn.setEnabled(False)
+            self.delete_btn.setEnabled(False)
+            self.restore_btn.setEnabled(True)
+            att = self._deleted_by_id.get(attachment_id)
+            if att is not None:
+                self.info_text.setText(
+                    f"📄 **نام فایل:** {deleted_label(att.file_name)}\n"
+                    f"📦 **حجم:** {getattr(att, 'display_size', self._format_size(att.file_size))}\n"
+                    f"📂 **مسیر:** {att.file_path}\n\n"
+                    "برای بازگرداندن، «↩️ بازیابی» را بزنید.")
+                self.preview_label.setText("پیش‌نمایش برای پیوست حذف‌شده ندارد")
+            return
         self.open_btn.setEnabled(True)
         self.download_btn.setEnabled(True)
         self.delete_btn.setEnabled(True)
-        
+        self.restore_btn.setEnabled(False)
+
         self.show_attachment_info(attachment_id)
+
+    def restore_selected(self):
+        """بازیابی پیوست حذف‌شدهٔ انتخاب‌شده (دور هجدهم — BUG-ATT-04/05)"""
+        if not self.showing_deleted or not self.current_attachment_id:
+            return
+
+        att = self._deleted_by_id.get(self.current_attachment_id)
+        if att is None:
+            return
+
+        if not ask_restore_confirmation(
+                self, f"بازیابی فایل «{att.file_name}»؟"):
+            return
+
+        try:
+            restored = self.attachment_service.restore_attachment(
+                self.current_attachment_id)
+            # نتیجهٔ واقعی: تنها وقتی «موفقیت» است که رکورد از DB به‌صورت
+            # فعال خوانده شود (سرویس خودش هم اثبات می‌کند؛ اینجا دوباره
+            # قرارداد برگشت واقعی سنجیده می‌شود)
+            if restored is None or getattr(restored, 'is_deleted', 0):
+                QMessageBox.warning(self, "خطا", "پیوست بازیابی نشد.")
+                return
+            # برگشت به فهرست فعال تا کاربر فایل بازیابی‌شده را همان‌جا
+            # ببیند (چک‌باکس برداشته می‌شود → load_attachments فعال)
+            if self.showing_deleted:
+                self.show_deleted_check.setChecked(False)
+            else:
+                self.load_attachments()
+            QMessageBox.information(
+                self, "موفقیت",
+                f"فایل «{restored.file_name}» با موفقیت بازیابی شد.")
+        except Exception as e:
+            # شکست (مثلاً فایل فیزیکی گم‌شده یا عبور از سقف ۲۰) صریح
+            # به کاربر گزارش می‌شود؛ موفقیت خاموش ممنوع (BUG-ATT-05)
+            report_restore_failure(self, e)
     
     def show_attachment_info(self, attachment_id):
         """نمایش اطلاعات و پیش‌نمایش فایل"""
@@ -859,11 +1018,14 @@ class AttachmentDialog(QDialog):
     
     def set_buttons_enabled(self, enabled):
         """فعال/غیرفعال کردن دکمه‌ها"""
-        self.add_btn.setEnabled(enabled)
+        self.add_btn.setEnabled(enabled and not self.showing_deleted)
         self.refresh_btn.setEnabled(enabled)
         self.open_btn.setEnabled(enabled and self.current_attachment_id is not None)
         self.download_btn.setEnabled(enabled and self.current_attachment_id is not None)
         self.delete_btn.setEnabled(enabled and self.current_attachment_id is not None)
+        if self.showing_deleted:
+            self.restore_btn.setEnabled(
+                enabled and self.current_attachment_id is not None)
     
     def _format_size(self, size):
         """فرمت‌سازی حجم فایل"""
