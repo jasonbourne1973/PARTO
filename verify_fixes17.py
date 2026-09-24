@@ -22,7 +22,14 @@
      (IT-RESTORE-YEAR-01)، جدایی دادهٔ سال‌ها (IT-YEAR-CRUD-01) و
      بازگرداندن کاربر در صفحهٔ تنظیمات (RESTORE-02) ...................... ۱۱ بررسی
 
-جمع فعلی: ۳۲ بررسی
+مرحلهٔ ۴ — P1: درستی ایمپورت/خروجی/صفحه‌بندی/جست‌وجو (بندهای ۱۴، ۱۵، ۱۶، ۱۷، ۱۹):
+  D) ماتریس کامل صفحه‌بندی (N=۰/۱/۲۰/۲۱/۴۰/۴۱ و ۱۵۰ رکورد)، خروجی Excel
+     «همهٔ دانش‌آموزان بارگذاری‌شده» (نه صفحهٔ جاری) با برچسب صریح در حالت
+     حذف‌شده‌ها، لغو دیالوگ‌های ایمپورت، نمایش جزئیات خطا در مسیر واقعی UI،
+     و «فیلتر سال پیش از LIMIT» با ۲۴۰ رکورد در دو سال برای مشاهدات/مداخلات/
+     پیگیری‌ها (خود query، مسیر جست‌وجو و صفحهٔ واقعی) .................. ۱۰ بررسی
+
+جمع فعلی: ۴۲ بررسی
 """
 
 import contextlib
@@ -1221,7 +1228,456 @@ QMessageBox.warning = real_warn_c
 # ============================================================
 print()
 print("=" * 76)
-print(f"نتیجهٔ دور هفدهم (مرحله‌های ۱، ۲ و ۳):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
+print("بخش D: مرحلهٔ ۴ — درستی ایمپورت/خروجی/صفحه‌بندی/جست‌وجو (بندهای ۱۴، ۱۵، ۱۶، ۱۷، ۱۹)")
+print("=" * 76)
+
+import openpyxl
+from PySide6.QtWidgets import QDialog as _QDialog
+
+from dal.followup_dal import FollowUpDAL
+from dal.intervention_dal import InterventionDAL
+from dal.observation_dal import ObservationDAL
+from models.followup import FollowUp
+from models.intervention import Intervention
+from models.observation import Observation
+from services.observation_service import ObservationService
+from utils.excel_importer import ExcelImporter
+from views.pages.observations_page import ObservationsPage
+
+# سه پیام دیگر هم باید استاب باشند: مسیرهای مرحلهٔ ۴ (خروجی/ایمپورت) کادر
+# «اطلاع»/«خطا» باز می‌کنند و اگر استاب نباشند، اجرای offscreen روی همان
+# دیالوگ مدال قفل می‌شود (ترتیب استورها درست بود ولی §C استاب‌ها را
+# برگردانده بود).
+real_info_d = QMessageBox.information
+real_crit_d = QMessageBox.critical
+real_warn_d = QMessageBox.warning
+QMessageBox.question = staticmethod(
+    lambda *a, **k: question_log.append(str(a[2])) or QMessageBox.StandardButton.Yes)
+QMessageBox.information = staticmethod(
+    lambda *a, **k: message_log.append(("info", str(a[2]))) or QMessageBox.StandardButton.Ok)
+QMessageBox.critical = staticmethod(
+    lambda *a, **k: message_log.append(("crit", str(a[2]))) or QMessageBox.StandardButton.Ok)
+QMessageBox.warning = staticmethod(
+    lambda *a, **k: message_log.append(("warn", str(a[2]))) or QMessageBox.StandardButton.Ok)
+
+
+def _year(title, start, end, make_active=True):
+    """ساخت سال تحصیلی تازه (بدون دست‌زدن به سال‌های دیگر)"""
+    year = AcademicYear()
+    year.title = title
+    year.start_date = start
+    year.end_date = end
+    year.is_active = 0
+    year.is_archived = 0
+    with contextlib.redirect_stdout(io.StringIO()):
+        year = AcademicYearDAL().create(year)
+    if make_active:
+        AcademicYearDAL().set_active(year.id)
+    return year
+
+
+def _student_direct(first_name, last_name, national_code):
+    student = Student()
+    student.first_name = first_name
+    student.last_name = last_name
+    student.national_code = national_code
+    student.is_active = 1
+    with contextlib.redirect_stdout(io.StringIO()):
+        return StudentDAL().create(student)
+
+
+def _profile_direct(student_id, year_id, grade=1, class_name=""):
+    profile = StudentAcademicProfile()
+    profile.student_id = student_id
+    profile.academic_year_id = year_id
+    profile.grade = grade
+    profile.class_name = class_name
+    profile.status = StudentAcademicProfile.STATUS_ACTIVE
+    with contextlib.redirect_stdout(io.StringIO()):
+        return StudentAcademicProfileDAL().create(profile)
+
+
+# --- D1: ماتریس صفحه‌بندی (N=0/1/20/21/40/41/100) و نبود سقف ۱۰۰
+# دانش‌آموزان ساختهٔ بخش‌های پیشین موقتاً حذف منطقی می‌شوند تا شمارش
+# صفحه‌بندی فقط به فیکسچر همین بخش وابسته باشد (شمارش ۱۵۰ باید دقیق باشد).
+with contextlib.redirect_stdout(io.StringIO()):
+    _preexisting_conn = _fresh_conn()
+    _preexisting_ids = [r[0] for r in _preexisting_conn.execute(
+        "SELECT id FROM students WHERE is_deleted = 0").fetchall()]
+    _preexisting_conn.execute("UPDATE students SET is_deleted = 1")
+    _preexisting_conn.commit()
+
+page_years = [r[0] for r in _fresh_conn().execute(
+    "SELECT id FROM academic_years WHERE is_active = 1").fetchall()]
+paged_students = [_student_direct(f"صفحه{i:03d}", "آزمون‌بندی", f"{4000000000 + i}")
+                  for i in range(150)]
+for student in paged_students:
+    _profile_direct(student.id, page_years[0], grade=1, class_name="اول-الف")
+
+matrix = {}
+pagination_page = StudentsPage()
+pagination_page.show_deleted_check.setChecked(False)
+pagination_page.page_size_combo.setCurrentText("20")
+for page_size in (10, 20, 50, 100):
+    pagination_page.page_size_combo.setCurrentText(str(page_size))
+    total = len(pagination_page.all_students)
+    total_pages = pagination_page.total_pages
+    pagination_page.current_page = total_pages - 1
+    pagination_page.load_students()
+    matrix[page_size] = (total, total_pages, pagination_page.current_page,
+                         len(pagination_page.students),
+                         pagination_page.next_page_btn.isEnabled())
+check("D",
+      "بند ۱۶ (ماتریس Pagination): با ۱۵۰ دانش‌آموز، تعداد صفحه‌ها و ردیف صفحهٔ آخر برای هر گزینهٔ اندازهٔ صفحه درست است (۱۰→۱۵ صفحه/۱۰ ردیف، ۲۰→۸/۱۰، ۵۰→۳/۵۰، ۱۰۰→۲/۵۰) و در صفحهٔ آخر «بعدی» غیرفعال می‌شود",
+      matrix[10][:4] == (150, 15, 14, 10)
+      and matrix[20][:4] == (150, 8, 7, 10)
+      and matrix[50][:4] == (150, 3, 2, 50)
+      and matrix[100][:4] == (150, 2, 1, 50)
+      and all(not v[4] for v in matrix.values()),
+      f"matrix={matrix}")
+
+# --- D2: N=0/1/20/21/40/41 — صفحه‌بندی روی فهرست‌های کوچک و مرزی
+edge_counts = {}
+pagination_page.search_input.clear()
+pagination_page.show_deleted_check.setChecked(False)
+for count in (0, 1, 20, 21, 40, 41):
+    # در هر تکرار دقیقاً «count» دانش‌آموز فعال می‌ماند و بقیهٔ فیکسچر حذف
+    # منطقی می‌شود؛ بنابراین شمارش صفحه‌بندی قطعی و مستقل است.
+    with contextlib.redirect_stdout(io.StringIO()):
+        fresh_conn = _fresh_conn()
+        fresh_conn.execute(
+            "UPDATE students SET is_deleted = 1 WHERE id IN (%s)"
+            % ",".join("?" * len(paged_students)), [s.id for s in paged_students])
+        if count:
+            fresh_conn.execute(
+                "UPDATE students SET is_deleted = 0 WHERE id IN (%s)"
+                % ",".join("?" * count),
+                [s.id for s in paged_students[:count]])
+        fresh_conn.commit()
+    pagination_page.page_size_combo.setCurrentText("20")
+    # بازخوانی صریح: تغییر کامبو اگر مقدارش عوض نشده باشد سیگنالی نمی‌فرستد
+    # و فهرست صفحه از تکرار قبلی می‌ماند.
+    pagination_page.current_page = 0
+    pagination_page.load_students()
+    total = len(pagination_page.all_students)
+    pages = pagination_page.total_pages
+    first_page_rows = len(pagination_page.students)
+    pagination_page.current_page = max(0, pages - 1)
+    pagination_page.load_students()
+    last_page_rows = len(pagination_page.students)
+    edge_counts[count] = (total, pages, first_page_rows, last_page_rows,
+                          pagination_page.page_label.text())
+    pagination_page.current_page = 999          # کلمپ صفحهٔ خارج از محدوده
+    pagination_page.load_students()
+    edge_counts[count] = edge_counts[count] + (pagination_page.current_page,)
+
+# بازگردانی دانش‌آموزان برای بررسی‌های بعدی
+with contextlib.redirect_stdout(io.StringIO()):
+    fresh_conn = _fresh_conn()
+    fresh_conn.execute(
+        "UPDATE students SET is_deleted = 0 WHERE id IN (%s)"
+        % ",".join("?" * len(paged_students)),
+        [s.id for s in paged_students])
+    fresh_conn.commit()
+pagination_page.load_students()
+check("D",
+      "بند ۱۶ (N=۰/۱/۲۰/۲۱/۴۰/۴۱): تعداد صفحه و ردیف‌های اولین/آخرین صفحه در همهٔ حالت‌ها درست است، لیست خالی پیام «صفحه ۱ از ۱» می‌دهد و شمارهٔ صفحهٔ خارج از محدوده به صفحهٔ معتبر کلمپ می‌شود (کرش/صفحهٔ خالی بی‌دلیل نمی‌دهد)",
+      edge_counts[0][:5] == (0, 0, 0, 0, "صفحه 1 از 1")
+      and edge_counts[1][:4] == (1, 1, 1, 1)
+      and edge_counts[20][:4] == (20, 1, 20, 20)
+      and edge_counts[21][:4] == (21, 2, 20, 1)
+      and edge_counts[40][:4] == (40, 2, 20, 20)
+      and edge_counts[41][:4] == (41, 3, 20, 1)
+      and all(values[5] == max(0, values[1] - 1) for values in edge_counts.values()),
+      f"edges={edge_counts}")
+
+# --- D3: خروجی «همهٔ بارگذاری‌شده‌ها» از صفحهٔ چندصفحه‌ای (نه صفحهٔ جاری)
+export_path = os.path.join(TMP, "ui_export_all.xlsx")
+real_save_dialog = QFileDialog.getSaveFileName
+QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (export_path, "xlsx"))
+pagination_page.page_size_combo.setCurrentText("20")
+pagination_page.current_page = 0
+pagination_page.load_students()
+visible_rows = len(pagination_page.students)
+messages_before = len(message_log)
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        pagination_page.export_to_excel()
+finally:
+    QFileDialog.getSaveFileName = real_save_dialog
+export_msgs = message_log[messages_before:]
+exported_sheet = openpyxl.load_workbook(export_path).active
+exported_rows = [row for row in exported_sheet.iter_rows(values_only=True)
+                 if row and isinstance(row[0], int)]
+check("D",
+      "بند ۱۵ (BUG-GUI-03): خروجی Excel از صفحهٔ چندصفحه‌ای همهٔ دانش‌آموزان بارگذاری‌شده (۱۵۰) را می‌نویسد، نه فقط ۲۰ ردیف صفحهٔ جاری؛ فایل واقعی xlsx است و پیام موفقیت تعداد واقعی را می‌گوید",
+      visible_rows == 20 and len(exported_rows) == 150
+      and os.path.exists(export_path) and zipfile.is_zipfile(export_path)
+      and len([m for m in export_msgs if m[0] == "info"]) == 1
+      and "150" in export_msgs[0][1],
+      f"visible={visible_rows} exported={len(exported_rows)} msgs={[m[0] for m in export_msgs]}")
+
+# --- D4: خروجی در حالت «نمایش حذف‌شده‌ها» خودش را حذف‌شده معرفی می‌کند
+deleted_export_path = os.path.join(TMP, "ui_export_deleted.xlsx")
+# فقط یک رکورد حذف‌شده در دیتابیس باشد تا اعداد خروجی قطعی بمانند
+# (دانش‌آموزان بخش‌های پیشین هم به حالت فعال برمی‌گردند).
+with contextlib.redirect_stdout(io.StringIO()):
+    _reset_conn = _fresh_conn()
+    _reset_conn.execute("UPDATE students SET is_deleted = 0")
+    _reset_conn.commit()
+    StudentDAL().delete(paged_students[0].id, 1)
+pagination_page.show_deleted_check.setChecked(True)
+QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (deleted_export_path, "xlsx"))
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        pagination_page.export_to_excel()
+finally:
+    QFileDialog.getSaveFileName = real_save_dialog
+deleted_sheet = openpyxl.load_workbook(deleted_export_path).active
+deleted_rows = [row for row in deleted_sheet.iter_rows(values_only=True)
+                if row and isinstance(row[0], int)]
+deleted_texts = [str(cell.value) for row in deleted_sheet.iter_rows()
+                 for cell in row if cell.value]
+check("D",
+      "بند ۱۵/۱۹: خروجی در حالت «نمایش حذف‌شده‌ها» خودش را «لیست دانش‌آموزان حذف‌شده (سطل بازیافت)» معرفی می‌کند و ردیف وضعیت «حذف‌شده» را دارد — فایلی که خواننده فکر کند دادهٔ فعال است ساخته نمی‌شود",
+      len(deleted_rows) == 1
+      and "حذف‌شده" in str(deleted_sheet.cell(row=1, column=1).value)
+      and any("حذف‌شده (این ردیف‌ها" in text for text in deleted_texts),
+      f"rows={len(deleted_rows)} title={deleted_sheet.cell(row=1, column=1).value!r}")
+pagination_page.show_deleted_check.setChecked(False)
+
+# --- D5: لغو دیالوگ‌های ایمپورت → هیچ تغییر و هیچ پیام
+import views.pages.students_page as students_page_mod
+
+importer_ui = ExcelImporter()
+cancel_file = os.path.join(TMP, "cancel.xlsx")
+wb_cancel = openpyxl.Workbook()
+ws_cancel = wb_cancel.active
+ws_cancel.append(["نام", "نام خانوادگی", "کد ملی"])
+ws_cancel.append(["لغو", "شده", "5511111111"])
+wb_cancel.save(cancel_file)
+
+students_before_cancel = _fresh_conn().execute(
+    "SELECT COUNT(*) FROM students").fetchone()[0]
+messages_before = len(message_log)
+QFileDialog.getOpenFileName = staticmethod(lambda *a, **k: ("", ""))
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        pagination_page.import_from_excel()
+finally:
+    QFileDialog.getOpenFileName = real_get_open
+cancel_msgs = message_log[messages_before:]
+
+real_exec = _QDialog.exec
+QFileDialog.getOpenFileName = staticmethod(lambda *a, **k: (cancel_file, "xlsx"))
+_QDialog.exec = lambda self, *a, **k: _QDialog.DialogCode.Rejected
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        pagination_page.import_from_excel()
+finally:
+    _QDialog.exec = real_exec
+    QFileDialog.getOpenFileName = real_get_open
+rejected_msgs = message_log[messages_before + len(cancel_msgs):]
+students_after_cancel = _fresh_conn().execute(
+    "SELECT COUNT(*) FROM students").fetchone()[0]
+check("D",
+      "بند ۱۴ (لغو دیالوگ): لغو انتخاب فایل و لغو دیالوگ سال تحصیلی هیچ رکوردی وارد نمی‌کند و هیچ پیامی هم نشان نمی‌دهد (نه موفقیت، نه خطا) — یعنی عملیات ایمپورت بدون تأیید کاربر اجرا نمی‌شود",
+      not cancel_msgs and not rejected_msgs
+      and students_after_cancel == students_before_cancel,
+      f"cancel={[m[0] for m in cancel_msgs]} rejected={[m[0] for m in rejected_msgs]} "
+      f"students={students_before_cancel}->{students_after_cancel}")
+
+# --- D6: ایمپورت از مسیر واقعی UI با فایل مختلط و فایل تمام‌غلط
+mixed_file = os.path.join(TMP, "mixed.xlsx")
+wb_mixed = openpyxl.Workbook()
+ws_mixed = wb_mixed.active
+ws_mixed.append(["نام", "نام خانوادگی", "کد ملی", "تاریخ تولد", "پایه", "کلاس"])
+ws_mixed.append(["وارد", "شدنی", "5522222222", "1395/01/01", 2, "دوم-الف"])
+ws_mixed.append(["کد", "تکراری", "5522222222", "1395/01/01", 2, "دوم-الف"])
+ws_mixed.append(["تاریخ", "غلط", "5533333333", "1395/13/45", 2, "دوم-الف"])
+wb_mixed.save(mixed_file)
+
+all_bad_file = os.path.join(TMP, "all_bad.xlsx")
+wb_bad = openpyxl.Workbook()
+ws_bad = wb_bad.active
+ws_bad.append(["نام", "نام خانوادگی", "کد ملی"])
+ws_bad.append(["", "بدون‌نام", "5544444444"])
+wb_bad.save(all_bad_file)
+
+
+def _run_ui_import(file_path):
+    """اجرای واقعی مسیر UI ایمپورت (انتخاب فایل + پذیرش دیالوگ سال)"""
+    QFileDialog.getOpenFileName = staticmethod(lambda *a, **k: (file_path, "xlsx"))
+    _QDialog.exec = lambda self, *a, **k: _QDialog.DialogCode.Accepted
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            pagination_page.import_from_excel()
+    finally:
+        _QDialog.exec = real_exec
+        QFileDialog.getOpenFileName = real_get_open
+    app.processEvents()
+
+
+active_year_for_import = AcademicYearDAL().get_active()
+
+
+def _profiles_in_year(year_id):
+    return _fresh_conn().execute(
+        "SELECT COUNT(*) FROM student_academic_profiles WHERE academic_year_id = ?",
+        (year_id,)).fetchone()[0]
+
+
+count_before_mixed = _profiles_in_year(active_year_for_import.id)
+messages_before = len(message_log)
+_run_ui_import(mixed_file)
+mixed_msgs = message_log[messages_before:]
+mixed_ids = [r[0] for r in _fresh_conn().execute(
+    "SELECT id FROM students WHERE national_code = '5522222222'").fetchall()]
+count_after_mixed = _profiles_in_year(active_year_for_import.id)
+mixed_profile_ok = bool(mixed_ids) and _fresh_conn().execute(
+    "SELECT COUNT(*) FROM student_academic_profiles WHERE student_id = ? "
+    "AND academic_year_id = ?", (mixed_ids[0], active_year_for_import.id)).fetchone()[0] == 1
+
+messages_before = len(message_log)
+_run_ui_import(all_bad_file)
+bad_msgs = message_log[messages_before:]
+check("D",
+      "بند ۱۴ (مسیر UI): فایل مختلط → یک ردیف وارد می‌شود و کادر اطلاع «دقیقاً با جزئیات خطاهای همان ردیف‌ها» نشان داده می‌شود؛ فایل تمام‌غلط → کادر «خطای ایمپورت» با علت خطاها (نه پیام موفقیت صفر رکورد) و هیچ رکوردی ساخته نمی‌شود",
+      len(mixed_ids) == 1 and mixed_profile_ok
+      and count_after_mixed == count_before_mixed + 1
+      and len([m for m in mixed_msgs if m[0] == "info"]) == 1
+      and "تکراری" in mixed_msgs[0][1] and "معتبر نیست" in mixed_msgs[0][1]
+      and len([m for m in bad_msgs if m[0] == "crit"]) == 1
+      and "هیچ دانش‌آموزی ایمپورت نشد" in bad_msgs[0][1]
+      and not _fresh_conn().execute(
+          "SELECT COUNT(*) FROM students WHERE national_code = '5544444444'").fetchone()[0],
+      f"mixed_info={mixed_msgs[-1:] and mixed_msgs[0][1][:60]!r} "
+      f"mixed_ids={mixed_ids} profile_ok={mixed_profile_ok} "
+      f"profiles={count_before_mixed}->{count_after_mixed} bad={[m[0] for m in bad_msgs]}")
+
+# --- D7: فیلتر سال پیش از LIMIT با بیش از ۱۰۰ رکورد در دو سال (مشاهدات/مداخلات/پیگیری‌ها)
+year_a = AcademicYearDAL().get_active()
+year_b = _year("1510-1511", "1510/07/01", "1511/03/31", make_active=False)
+
+student_two_years = _student_direct("دوساله", "فیلترسال", "5600000001")
+profile_a = _profile_direct(student_two_years.id, year_a.id, 1, "اول-الف")
+profile_b = _profile_direct(student_two_years.id, year_b.id, 2, "دوم-الف")
+filter_staff = Staff()
+filter_staff.full_name = "مشاهده‌گر فیلتر سال"
+filter_staff.role = "teacher"
+with contextlib.redirect_stdout(io.StringIO()):
+    filter_staff = StaffDAL().create(filter_staff)
+
+observation_dal = ObservationDAL()
+intervention_dal = InterventionDAL()
+followup_dal = FollowUpDAL()
+for index in range(120):
+    for profile, day in ((profile_a, "1403/08/01"), (profile_b, "1404/08/01")):
+        observation = Observation()
+        observation.student_profile_id = profile.id
+        observation.staff_id = filter_staff.id
+        observation.observation_date = day
+        observation.location = "کلاس"
+        observation.behavior = f"رفتار آزمون {index}"
+        observation.description = f"شرح مشاهدهٔ آزمون {index}"
+        observation.behavior_type = "مثبت"
+        observation.severity = 3
+        with contextlib.redirect_stdout(io.StringIO()):
+            observation_dal.create(observation)
+
+        intervention = Intervention()
+        intervention.student_profile_id = profile.id
+        intervention.staff_id = filter_staff.id
+        intervention.type = "educational"
+        intervention.date = day
+        intervention.description = f"مداخلهٔ آزمون {index}"
+        intervention.status = "in_progress"
+        with contextlib.redirect_stdout(io.StringIO()):
+            intervention_dal.create(intervention)
+
+        followup = FollowUp()
+        followup.intervention_id = intervention.id
+        followup.staff_id = filter_staff.id
+        followup.date = day
+        followup.method = "phone"
+        followup.description = f"پیگیری آزمون {index}"
+        followup.status = "pending"
+        with contextlib.redirect_stdout(io.StringIO()):
+            followup_dal.create(followup)
+
+with contextlib.redirect_stdout(io.StringIO()):
+    obs_a = ObservationService().get_all_observations(limit=None, year_id=year_a.id)
+    obs_b = ObservationService().get_all_observations(limit=None, year_id=year_b.id)
+obs_a_limited = observation_dal.get_all(limit=100, academic_year_id=year_a.id)
+obs_no_year_limited = observation_dal.get_all(limit=100)
+interventions_a_limited = intervention_dal.get_all(limit=100, academic_year_id=year_a.id)
+interventions_a_all = intervention_dal.get_all(limit=None, academic_year_id=year_a.id)
+followups_a_limited = followup_dal.get_all(limit=100, academic_year_id=year_a.id)
+followups_b_limited = followup_dal.get_all(limit=100, academic_year_id=year_b.id)
+obs_profiles_a = {o.student_profile_id for o in obs_a_limited}
+obs_profiles_no_year = {o.student_profile_id for o in obs_no_year_limited}
+check("D",
+      "بند ۱۷: «فیلتر سال قبل از LIMIT» با ۲۴۰ رکورد در دو سال — get_all(limit=100, year=۱۴۰۳) دقیقاً ۱۰۰ رکورد «همان سال» می‌دهد، در حالی که همان کوئری بدون فیلتر سال ۱۰۰ رکورد از فقط یک سال (جدیدترین‌ها = ۱۴۰۴) برمی‌گرداند؛ فهرست بدون limit همهٔ ۱۲۰ رکورد سال انتخاب‌شده را می‌دهد و همین قرارداد برای مداخلات و پیگیری‌ها برقرار است",
+      len(obs_a) == 120 and len(obs_b) == 120
+      and len(obs_a_limited) == 100 and obs_profiles_a == {profile_a.id}
+      and len(obs_no_year_limited) == 100
+      and obs_profiles_no_year == {profile_b.id}      # بدون فیلتر: سالِ دیگر جای ردیف‌ها را می‌گیرد
+      and len(interventions_a_limited) == 100
+      and {i.student_profile_id for i in interventions_a_limited} == {profile_a.id}
+      and len(interventions_a_all) == 120
+      and len(followups_a_limited) == 100 and len(followups_b_limited) == 100,
+      f"obs={len(obs_a)}/{len(obs_b)} limited={len(obs_a_limited)} profiles={obs_profiles_a} "
+      f"no_year={len(obs_no_year_limited)} profiles_no_year={obs_profiles_no_year} "
+      f"interv={len(interventions_a_limited)}/{len(interventions_a_all)} fu={len(followups_a_limited)}/{len(followups_b_limited)}")
+
+# --- D8: صفحهٔ مشاهدات با سال اعلام‌شده → فقط رکوردهای همان سال (نه نشتی سال دیگر)
+observations_page = ObservationsPage()
+observations_page.set_active_year(year_b.id)
+page_b_rows = len(observations_page.observations)
+page_b_wrong_year = [o for o in observations_page.observations
+                     if o.student_profile_id != profile_b.id]
+observations_page.set_active_year(year_a.id)
+page_a_rows = len(observations_page.observations)
+page_a_wrong_year = [o for o in observations_page.observations
+                     if o.student_profile_id != profile_a.id]
+check("D",
+      "بند ۱۷ + GUI-07: صفحهٔ مشاهدات با سال اعلام‌شده فقط رکوردهای همان سال را نشان می‌دهد (۱۲۰ رکورد سال ۱۴۰۳ و ۱۲۰ رکورد سال ۱۴۰۴، بدون نشتی ردیف سال دیگر) — قبلاً فیلتر سال فقط پس از خواندن داده در پایتون اعمال می‌شد",
+      page_a_rows == 120 and page_b_rows == 120
+      and not page_a_wrong_year and not page_b_wrong_year,
+      f"rows_a={page_a_rows} rows_b={page_b_rows} wrong_a={len(page_a_wrong_year)} wrong_b={len(page_b_wrong_year)}")
+
+# --- D9: جست‌وجوی متنی با سال در همان query (قبل از LIMIT) و بدون نشتی
+with contextlib.redirect_stdout(io.StringIO()):
+    search_a = observation_dal.search("آزمون", limit=None, academic_year_id=year_a.id)
+    search_a_limited = observation_dal.search("آزمون", limit=100, academic_year_id=year_a.id)
+    search_b = observation_dal.search("آزمون", limit=None, academic_year_id=year_b.id)
+check("D",
+      "بند ۱۷ (مسیر جست‌وجو): جست‌وجوی متنی با فیلتر سال در خود SQL انجام می‌شود — ۱۲۰ نتیجهٔ سال ۱۴۰۳ و ۱۲۰ نتیجهٔ سال ۱۴۰۴ جدا برمی‌گردند، با limit=۱۰۰ هم دقیقاً ۱۰۰ نتیجه از همان سال (نه محدودکردن قبل از فیلتر سال)",
+      len(search_a) == 120 and len(search_b) == 120 and len(search_a_limited) == 100
+      and {o.student_profile_id for o in search_a} == {profile_a.id}
+      and {o.student_profile_id for o in search_b} == {profile_b.id},
+      f"a={len(search_a)} b={len(search_b)} limited={len(search_a_limited)}")
+
+# --- D10: صفر رکورد در سال بدون داده → صفحهٔ خالی، بدون خطا و بدون نشتی
+empty_year = _year("1520-1521", "1520/07/01", "1521/03/31", make_active=False)
+messages_before = len(message_log)
+observations_page.set_active_year(empty_year.id)
+empty_rows = len(observations_page.observations)
+empty_critical = [m for m in message_log[messages_before:] if m[0] == "crit"]
+check("D",
+      "بند ۱۶/۱۷ (حالت مرزی): سال بدون داده → صفحهٔ مشاهدات فهرست خالی نشان می‌دهد، خطایی تولید نمی‌شود و دادهٔ سال‌های دیگر جای آن را نمی‌گیرد",
+      empty_rows == 0 and not empty_critical,
+      f"rows={empty_rows} critical={empty_critical[-2:]}")
+
+QMessageBox.question = real_question
+QMessageBox.information = real_info_d
+QMessageBox.critical = real_crit_d
+QMessageBox.warning = real_warn_d
+
+# ============================================================
+print()
+print("=" * 76)
+print(f"نتیجهٔ دور هفدهم (مرحله‌های ۱ تا ۴):  {PASS} موفق / {FAIL} ناموفق  از {PASS + FAIL}")
 if FAILURES:
     print("موارد ناموفق:")
     for f in FAILURES:

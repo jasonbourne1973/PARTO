@@ -27,6 +27,7 @@ from dal.student_dal import StudentDAL
 from models.student import Student
 from models.student_academic_profile import StudentAcademicProfile
 from utils.logger import get_logger
+from utils.persian_date import PersianDate, normalize_digits, to_db_date
 from utils.time_utils import utc_now
 
 
@@ -39,7 +40,8 @@ class ExcelImporter:
         self.academic_year_dal = AcademicYearDAL()
         self.logger = get_logger(self.__class__.__name__)
     
-    def export_students_to_excel(self, students, file_path, academic_year=None):
+    def export_students_to_excel(self, students, file_path, academic_year=None,
+                                 deleted_view=False):
         """
         خروجی لیست دانش‌آموزان به Excel
         
@@ -47,6 +49,13 @@ class ExcelImporter:
             students: لیست دانش‌آموزان
             file_path: مسیر ذخیره فایل
             academic_year: سال تحصیلی (برای نمایش در هدر)
+            deleted_view: اگر True باشد، فایل صریحاً «رکوردهای حذف‌شده»
+                          معرفی می‌شود (دور هفدهم — بند ۱۵). چرا لازم است؟
+                          چون صفحه می‌تواند در حالت «نمایش حذف‌شده‌ها» باشد
+                          و خروجی گرفتن از همان فهرست با عنوان «لیست
+                          دانش‌آموزان» یعنی فایلی که خواننده نمی‌فهمد
+                          داده‌های حذف‌شده‌اند. پیش‌فرض (False) رفتار
+                          قبلی را برای هر فراخوان دیگر حفظ می‌کند.
             
         Returns:
             tuple: (success, message)
@@ -68,8 +77,10 @@ class ExcelImporter:
             header_alignment = Alignment(horizontal='center', vertical='center')
             
             # ===== عنوان =====
+            export_title = ("لیست دانش‌آموزان حذف‌شده (سطل بازیافت)"
+                            if deleted_view else "لیست دانش‌آموزان")
             ws.merge_cells('A1:I1')
-            title_cell = ws.cell(row=1, column=1, value="لیست دانش‌آموزان")
+            title_cell = ws.cell(row=1, column=1, value=export_title)
             title_cell.font = Font(name='B Nazanin', size=16, bold=True)
             title_cell.alignment = Alignment(horizontal='center')
             
@@ -82,6 +93,13 @@ class ExcelImporter:
                 row += 1
                 ws.cell(row=row, column=1, value="سال تحصیلی:").font = Font(name='B Nazanin', size=11, bold=True)
                 ws.cell(row=row, column=2, value=academic_year.title if hasattr(academic_year, 'title') else str(academic_year)).font = Font(name='B Nazanin', size=11)
+
+            if deleted_view:
+                row += 1
+                ws.cell(row=row, column=1, value="وضعیت رکوردها:").font = Font(name='B Nazanin', size=11, bold=True)
+                note = ws.cell(row=row, column=2,
+                               value="حذف‌شده (این ردیف‌ها در فهرست فعال دانش‌آموزان نیستند)")
+                note.font = Font(name='B Nazanin', size=11, color='C62828')
             
             # ===== هدر جدول =====
             row += 2
@@ -229,19 +247,58 @@ class ExcelImporter:
             for row in range(header_row + 1, ws.max_row + 1):
                 try:
                     # خواندن داده‌ها
+                    # (دور هفدهم — بند ۱۴) مقدار «خام» سلول‌ها هم نگه داشته
+                    # می‌شود: برای ستون تاریخ تولد باید بدانیم کاربر متن
+                    # نوشته یا سلول واقعاً از نوع «تاریخ/عدد» اکسل است.
                     student_data = {}
+                    raw_values = {}
                     for field, col in column_map.items():
                         cell_value = ws.cell(row=row, column=col).value
+                        raw_values[field] = cell_value
                         if cell_value is not None:
                             student_data[field] = str(cell_value).strip()
                         else:
                             student_data[field] = ""
-                    
+
                     # بررسی داده‌های ضروری
                     if not student_data.get('first_name') or not student_data.get('last_name'):
                         errors.append(f"ردیف {row}: نام یا نام خانوادگی خالی است.")
                         continue
-                    
+
+                    # ===== (دور هفدهم — بند ۱۴) یکدست‌سازی مقدارها =====
+                    # مسیر فرم/سرویس، کد ملی و تلفن را با ارقام ASCII و تاریخ
+                    # را با قالب «yyyy/MM/dd» ذخیره می‌کند. ایمپورت این
+                    # یکدست‌سازی را انجام نمی‌داد؛ نتیجهٔ عملی:
+                    #   • اعتبارسنجی کد ملی «۱۲۳۴۵۶۷۸۹۰» را قبول می‌کرد
+                    #     (چون str.isdigit برای ارقام فارسی هم True است) و
+                    #     همان مقدار در دیتابیس می‌ماند؛ بعد تکراری‌یابی و
+                    #     جست‌وجو با «1234567890» هرگز آن رکورد را پیدا
+                    #     نمی‌کرد — یعنی امکان ثبت دوبارهٔ همان شخص.
+                    #   • تاریخ «۱۳۹۵/۰۱/۰۱» یا سلول تاریخِ اکسل
+                    #     («2026-09-23 00:00:00») عیناً ذخیره می‌شد و
+                    #     مقایسه/مرتب‌سازی رشته‌ای تاریخ‌ها می‌شکست.
+                    for field in ('national_code', 'guardian_phone'):
+                        if student_data.get(field):
+                            student_data[field] = normalize_digits(
+                                student_data[field]).strip()
+
+                    if student_data.get('birth_date'):
+                        raw_birth = raw_values.get('birth_date')
+                        if not isinstance(raw_birth, str):
+                            errors.append(
+                                f"ردیف {row}: سلول «تاریخ تولد» باید متن باشد "
+                                "(قالب yyyy/MM/dd)؛ سلول تاریخ/عددِ اکسل "
+                                "قابل تفسیر نیست.")
+                            continue
+                        normalized_birth = to_db_date(raw_birth)
+                        if not normalized_birth or not PersianDate.is_valid_persian_date(
+                                normalized_birth):
+                            errors.append(
+                                f"ردیف {row}: تاریخ تولد «{student_data['birth_date']}» "
+                                "معتبر نیست. قالب درست: yyyy/MM/dd (مثلاً 1395/03/05)")
+                            continue
+                        student_data['birth_date'] = normalized_birth
+
                     # بررسی کد ملی (اختیاری)
                     if student_data.get('national_code'):
                         # بررسی تکراری نبودن کد ملی
@@ -307,6 +364,15 @@ class ExcelImporter:
                     continue
             
             # ===== خلاصه =====
+            # (دور هفدهم — بند ۱۴) صفر رکوردِ واردشده «موفقیت» نیست:
+            # نسخهٔ قبلی «✅ 0 دانش‌آموز با موفقیت ایمپورت شدند» برمی‌گرداند
+            # و صفحه هم آن را در کادر «اطلاع» نشان می‌داد — یعنی وقتی همهٔ
+            # ردیف‌ها رد شده بودند، کاربر پیام موفقیت می‌دید.
+            if imported == 0:
+                message = ("هیچ دانش‌آموزی ایمپورت نشد؛ همهٔ ردیف‌ها رد "
+                           f"شدند ({len(errors)} خطا).")
+                return False, message, imported, errors
+
             message = f"✅ {imported} دانش‌آموز با موفقیت ایمپورت شدند."
             if errors:
                 message += f"\n⚠️ {len(errors)} خطا رخ داده است."

@@ -678,8 +678,13 @@ class StudentsPage(YearAwarePage, QWidget):
             importer = ExcelImporter()
             
             active_year = self.academic_year_dal.get_active()
+            # (دور هفدهم — بند ۱۵) اگر صفحه در حالت «نمایش حذف‌شده‌ها»
+            # باشد، فایل باید خودش بگوید داده‌های حذف‌شده‌اند؛ وگرنه فایلی
+            # با عنوان «لیست دانش‌آموزان» می‌سازیم که خواننده‌اش نمی‌فهمد
+            # این ردیف‌ها در فهرست فعال نیستند.
             success, message = importer.export_students_to_excel(
-                export_students, file_path, active_year
+                export_students, file_path, active_year,
+                deleted_view=self.showing_deleted,
             )
             
             if success:
@@ -742,19 +747,23 @@ class StudentsPage(YearAwarePage, QWidget):
                 file_path, year_id
             )
             
+            # (دور هفدهم — بند ۱۴) جزئیات خطاها در «هر دو» مسیر نمایش داده
+            # می‌شود. قبلاً فقط مسیر موفقیت خطاها را نشان می‌داد؛ یعنی وقتی
+            # همهٔ ردیف‌ها رد می‌شدند کاربر فقط تعداد خطا را می‌دید و دلیل
+            # هیچ ردیفی را نمی‌فهمید.
+            msg = message
+            if errors:
+                # نمایش ۱۰ خطای اول
+                error_text = "\n".join(errors[:10])
+                if len(errors) > 10:
+                    error_text += f"\n... و {len(errors)-10} خطای دیگر"
+                msg += f"\n\nخطاها:\n{error_text}"
+
             if success:
                 self.load_students()
-                msg = message
-                if errors:
-                    # نمایش ۱۰ خطای اول
-                    error_text = "\n".join(errors[:10])
-                    if len(errors) > 10:
-                        error_text += f"\n... و {len(errors)-10} خطای دیگر"
-                    msg += f"\n\nخطاها:\n{error_text}"
-                
                 QMessageBox.information(self, "نتیجه ایمپورت", msg)
             else:
-                QMessageBox.critical(self, "خطا", message)
+                QMessageBox.critical(self, "خطای ایمپورت", msg)
                 
         except Exception as e:
             QMessageBox.critical(self, "خطا", f"مشکل در ایمپورت:\n{e!s}")
