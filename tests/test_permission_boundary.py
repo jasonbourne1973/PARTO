@@ -177,7 +177,10 @@ class TestUnauthorizedDirectCallRejected(PermissionBoundaryTestBase):
         student.first_name = "سینا"
         student.last_name = "آزمونی"
         student.national_code = "3333333333"
-        sid = StudentDAL().create(student).id  # create دانش‌آموز محافظت نیست
+        # ساخت در «بافت سیستمی» (بدون نشست) انجام می‌شود → طبق DD-4 مجاز است؛
+        # از دور نوزدهم به بعد create هم با CREATE_STUDENT محافظت می‌شود
+        # (پایین‌تر در TestCreateUpdatePermissionBoundary آزموده شده است).
+        sid = StudentDAL().create(student).id
         self._login_teacher()
         with self.assertRaises(PermissionDeniedError):
             StudentDAL().delete(sid)
@@ -334,6 +337,203 @@ class TestUiHelperConsistency(PermissionBoundaryTestBase):
         self.assertFalse(self.ac.has_permission("delete_student"))
         self._login_staff(self._users["staff_id"])
         self.assertTrue(self.ac.has_permission("delete_student"))
+
+
+class TestCreateUpdatePermissionBoundary(PermissionBoundaryTestBase):
+    """
+    دور نوزدهم — سند ممیزی مدیر پروژه (بخش‌های ۸، ۹، ۱۰)
+
+    قبل از این دور، `create`/`update` در StudentDAL/ObservationDAL/
+    InterventionDAL/FollowupDAL و تمام عملیات AttachmentService هیچ
+    مرز مجوز backend نداشتند (فقط delete/restore محافظت می‌شد). نقش
+    «مشاهده‌گر» (viewer) هیچ‌کدام از CREATE_*/EDIT_* را ندارد؛ پس
+    مناسب‌ترین نقش برای اثبات مرز است.
+    """
+
+    def _login_viewer(self):
+        _, staff_id = self._make_staff_and_user("viewer", "viewer_create")
+        self._login_staff(staff_id)
+        return staff_id
+
+    def test_viewer_cannot_create_student(self):
+        from dal.student_dal import StudentDAL
+        from models.student import Student
+        from utils.security import PermissionDeniedError
+
+        self._login_viewer()
+        student = Student()
+        student.first_name = "آزمون"
+        student.last_name = "مشاهده‌گر"
+        with self.assertRaises(PermissionDeniedError):
+            StudentDAL().create(student)
+
+    def test_viewer_cannot_update_student(self):
+        from dal.student_dal import StudentDAL
+        from models.student import Student
+        from utils.security import PermissionDeniedError
+
+        student = Student()
+        student.first_name = "قبل"
+        student.last_name = "ویرایش"
+        created = StudentDAL().create(student)  # بدون نشست → مجاز (DD-4)
+
+        self._login_viewer()
+        created.first_name = "بعد"
+        with self.assertRaises(PermissionDeniedError):
+            StudentDAL().update(created)
+
+    def test_viewer_cannot_create_observation(self):
+        from dal.observation_dal import ObservationDAL
+        from models.observation import Observation
+        from utils.security import PermissionDeniedError
+
+        self._login_viewer()
+        obs = Observation()
+        obs.student_profile_id = 1
+        obs.staff_id = 1
+        with self.assertRaises(PermissionDeniedError):
+            ObservationDAL().create(obs)
+
+    def test_viewer_cannot_create_intervention(self):
+        from dal.intervention_dal import InterventionDAL
+        from models.intervention import Intervention
+        from utils.security import PermissionDeniedError
+
+        self._login_viewer()
+        inter = Intervention()
+        inter.student_profile_id = 1
+        inter.staff_id = 1
+        with self.assertRaises(PermissionDeniedError):
+            InterventionDAL().create(inter)
+
+    def test_viewer_cannot_create_followup(self):
+        from dal.followup_dal import FollowUpDAL
+        from models.followup import FollowUp
+        from utils.security import PermissionDeniedError
+
+        self._login_viewer()
+        f = FollowUp()
+        f.intervention_id = 1
+        f.staff_id = 1
+        with self.assertRaises(PermissionDeniedError):
+            FollowUpDAL().create(f)
+
+    def test_teacher_can_create_student_but_not_edit_intervention(self):
+        """معلم CREATE_STUDENT دارد ولی EDIT_INTERVENTION ندارد (نگاشت موجود)"""
+        from dal.intervention_dal import InterventionDAL
+        from dal.student_dal import StudentDAL
+        from models.intervention import Intervention
+        from models.student import Student
+        from utils.security import PermissionDeniedError
+
+        _, staff_id = self._make_staff_and_user("teacher", "teacher_cu")
+        self._login_staff(staff_id)
+
+        student = Student()
+        student.first_name = "دانش"
+        student.last_name = "آموز"
+        created = StudentDAL().create(student)
+        self.assertIsNotNone(created.id)
+
+        inter = Intervention()
+        inter.student_profile_id = 1
+        inter.staff_id = staff_id
+        inter.id = 999999
+        with self.assertRaises(PermissionDeniedError):
+            InterventionDAL().update(inter)
+
+
+class TestImportExcelPermissionBoundary(PermissionBoundaryTestBase):
+    """دور نوزدهم — ایمپورت اکسل بدون CREATE_STUDENT باید رد شود (نه Partial بی‌صدا)"""
+
+    def test_viewer_cannot_import_excel(self):
+        from utils.excel_importer import ExcelImporter
+
+        _, staff_id = self._make_staff_and_user("viewer", "viewer_import")
+        self._login_staff(staff_id)
+
+        importer = ExcelImporter()
+        success, message, imported, _errors = importer.import_students_from_excel(
+            "/nonexistent/path/does-not-matter.xlsx")
+        self.assertFalse(success)
+        self.assertEqual(imported, 0)
+        self.assertIn("اجازه", message)
+
+
+class TestAttachmentPermissionBoundary(PermissionBoundaryTestBase):
+    """
+    دور نوزدهم — SEC-ATT-01/02: پیوست از همان Permission موجودیت والد
+    استفاده می‌کند (DD-6)، چون Permission اختصاصی پیوست تعریف نشده است.
+    """
+
+    def setUp(self):
+        super().setUp()
+        # ایزوله‌سازی پوشهٔ پیوست‌ها: بدون این کار، AttachmentService از
+        # ATTACHMENTS_DIR پیش‌فرض (پوشهٔ واقعی «attachments/» در ریشهٔ
+        # مخزن) استفاده می‌کند و فایل واقعی روی دیسک مخزن می‌نویسد.
+        import dal.attachment_dal as _att_dal_mod
+        import services.attachment_service as _att_svc_mod
+        self._saved_att_dirs = (_att_dal_mod.ATTACHMENTS_DIR, _att_svc_mod.ATTACHMENTS_DIR)
+        att_dir = os.path.join(self._tmpdir, "attachments")
+        os.makedirs(att_dir, exist_ok=True)
+        _att_dal_mod.ATTACHMENTS_DIR = att_dir
+        _att_svc_mod.ATTACHMENTS_DIR = att_dir
+
+    def tearDown(self):
+        import dal.attachment_dal as _att_dal_mod
+        import services.attachment_service as _att_svc_mod
+        _att_dal_mod.ATTACHMENTS_DIR, _att_svc_mod.ATTACHMENTS_DIR = self._saved_att_dirs
+        super().tearDown()
+
+    def _create_student_no_session(self):
+        from dal.student_dal import StudentDAL
+        from models.student import Student
+
+        student = Student()
+        student.first_name = "دانش‌آموز"
+        student.last_name = "پیوست‌دار"
+        return StudentDAL().create(student).id
+
+    def test_viewer_cannot_upload_attachment_to_student(self):
+        from services.attachment_service import AttachmentService
+        from utils.security import PermissionDeniedError
+
+        student_id = self._create_student_no_session()
+        _, staff_id = self._make_staff_and_user("viewer", "viewer_att_up")
+        self._login_staff(staff_id)
+
+        service = AttachmentService()
+        with self.assertRaises(PermissionDeniedError):
+            service.upload_attachment(
+                "student", student_id, b"hello world", "note.txt")
+
+    def test_viewer_cannot_delete_attachment_of_student(self):
+        from services.attachment_service import AttachmentService
+        from utils.security import PermissionDeniedError
+
+        student_id = self._create_student_no_session()
+        # آپلود در بافت سیستمی (بدون نشست) مجاز است
+        service = AttachmentService()
+        created = service.upload_attachment(
+            "student", student_id, b"hello world", "note.txt")
+
+        _, staff_id = self._make_staff_and_user("viewer", "viewer_att_del")
+        self._login_staff(staff_id)
+        with self.assertRaises(PermissionDeniedError):
+            service.delete_attachment(created.id)
+
+    def test_manager_can_view_student_attachment(self):
+        """کنترل منفی کاذب نبودن: مدیر با VIEW_STUDENTS باید بتواند بخواند"""
+        from services.attachment_service import AttachmentService
+
+        student_id = self._create_student_no_session()
+        service = AttachmentService()
+        created = service.upload_attachment(
+            "student", student_id, b"hello world", "note.txt")
+
+        self._login_staff(self._users["staff_id"])  # manager
+        fetched = service.get_attachment(created.id)
+        self.assertEqual(fetched.id, created.id)
 
 
 if __name__ == "__main__":

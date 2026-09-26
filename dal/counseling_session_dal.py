@@ -8,6 +8,7 @@ import sqlite3
 from database.connection import DatabaseConnection
 from models.counseling_session import CounselingSession
 from utils.logger import get_logger
+from utils.security import AccessControl
 from utils.time_utils import utc_now_iso
 
 logger = get_logger(__name__)
@@ -21,6 +22,12 @@ class CounselingSessionDAL:
     
     def create(self, session):
         """ایجاد جلسه مشاوره جدید"""
+        # مرز Scope (دور نوزدهم — مرحلهٔ ۴، DD-6 + تصمیم صریح
+        # dd1_scope=add_scope_only): این موجودیت طبق DD-1 هنوز هیچ
+        # Permission‌ای در enum ندارد — پس فقط Scope بررسی می‌شود، نه
+        # مجوز (اختراع Permission جدید همچنان ممنوع است).
+        AccessControl.require_profile_scope(
+            session.student_profile_id, action="CounselingSessionDAL.create")
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
@@ -77,7 +84,12 @@ class CounselingSessionDAL:
         cursor = self.db.execute_query(query, (session_id,))
         row = cursor.fetchone()
         if row:
-            return self._row_to_session(row)
+            session = self._row_to_session(row)
+            # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۴؛ فقط Scope، طبق DD-1
+            # هنوز Permission‌ای برای این موجودیت وجود ندارد)
+            AccessControl.require_profile_scope(
+                session.student_profile_id, action="CounselingSessionDAL.get_by_id")
+            return session
         return None
     
     def get_by_student_profile(self, profile_id, include_deleted=False):
@@ -191,6 +203,26 @@ class CounselingSessionDAL:
         """به‌روزرسانی جلسه"""
         conn = self.db.get_connection()
         cursor = conn.cursor()
+
+        # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۴؛ فقط Scope). توجه: این
+        # متد پیش از این دور هم بدون بررسی «آیا رکورد وجود دارد؟» بود
+        # (رفتار برای رکورد ناموجود/حذف‌شده دست‌نخورده می‌ماند — همان
+        # رفتار silently-no-op قبلی — چون تغییر آن قراردادی جدا از
+        # مأموریت IDOR/Scope است)؛ اگر رکورد پیدا شود، هم مقصدِ فعلی و
+        # هم مقصدِ جدید (اگر student_profile_id عوض شده) Scope می‌گیرند.
+        cursor.execute(
+            "SELECT student_profile_id FROM counseling_sessions "
+            "WHERE id = ? AND is_deleted = 0",
+            (session.id,)
+        )
+        existing = cursor.fetchone()
+        if existing:
+            AccessControl.require_profile_scope(
+                existing["student_profile_id"], action="CounselingSessionDAL.update")
+            if session.student_profile_id != existing["student_profile_id"]:
+                AccessControl.require_profile_scope(
+                    session.student_profile_id,
+                    action="CounselingSessionDAL.update(new_profile)")
         
         goals_json = json.dumps(session.goals, ensure_ascii=False) if session.goals else None
         interventions_json = json.dumps(session.interventions_discussed, ensure_ascii=False) if session.interventions_discussed else None
@@ -271,11 +303,16 @@ class CounselingSessionDAL:
         cursor = conn.cursor()
         
         cursor.execute(
-            "SELECT id FROM counseling_sessions WHERE id = ? AND is_deleted = 0",
+            "SELECT student_profile_id FROM counseling_sessions "
+            "WHERE id = ? AND is_deleted = 0",
             (session_id,)
         )
-        if not cursor.fetchone():
+        existing = cursor.fetchone()
+        if not existing:
             return False
+        # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۴؛ فقط Scope)
+        AccessControl.require_profile_scope(
+            existing["student_profile_id"], action="CounselingSessionDAL.delete")
         
         now = utc_now_iso()
         cursor.execute("""
@@ -293,6 +330,18 @@ class CounselingSessionDAL:
         """بازیابی جلسه حذف شده"""
         conn = self.db.get_connection()
         cursor = conn.cursor()
+
+        # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۴؛ فقط Scope). اگر رکورد
+        # پیدا نشود، رفتار قبلی (no-op، rowcount=0) دست‌نخورده می‌ماند.
+        cursor.execute(
+            "SELECT student_profile_id FROM counseling_sessions "
+            "WHERE id = ? AND is_deleted = 1",
+            (session_id,)
+        )
+        existing = cursor.fetchone()
+        if existing:
+            AccessControl.require_profile_scope(
+                existing["student_profile_id"], action="CounselingSessionDAL.restore")
         
         cursor.execute("""
             UPDATE counseling_sessions SET

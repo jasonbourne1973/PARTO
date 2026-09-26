@@ -174,6 +174,9 @@ class ObservationsPage(YearAwarePage, QWidget):
             QPushButton:hover { background-color: #66BB6A; }
         """)
         self.add_btn.clicked.connect(self.add_observation)
+        # (دور نوزدهم) هماهنگ با CREATE_OBSERVATION در DAL — UI↔backend یک مرز
+        self.add_btn.setEnabled(
+            AccessControl.has_permission(Permission.CREATE_OBSERVATION.value))
         toolbar.addWidget(self.add_btn)
         
         layout.addLayout(toolbar)

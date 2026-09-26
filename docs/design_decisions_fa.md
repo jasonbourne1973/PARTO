@@ -73,3 +73,48 @@ SettingsPage مدیریت می‌شوند و آن تب‌ها همین حالا 
 دکمه‌های حذف/بازیابی ردیف‌ها در صفحه‌های دانش‌آموزان/مشاهدات/مداخله‌ها/
 پیگیری‌ها همان `AccessControl.has_permission` را می‌پرسند (نه منطق
 جداگانه) تا UI و backend هرگز دو پاسخ متفاوت ندهند.
+
+---
+
+## DD-6 — مدل «Resource Scope» برای IDOR / Object-Level Authorization
+**مرجع:** سند «PARTO Master Audit & Repair Specification» (مدیر پروژه) —
+بخش‌های ۵، ۸، ۱۴، ۱۵، ۱۶ (SEC-IDOR-01, SEC-SCOPE-01/02/03, SEC-ATT-01/02،
+Teacher/Coach Scope). این تصمیم مستقیماً از مدیر پروژه گرفته شده (نه حدس
+Agent) — تاریخ ۱۴۰۵/۰۷/۰۴.
+
+**تصمیم نهایی (تأییدشده توسط مدیر پروژه):**
+
+| نقش (UserRole) | محدودیت Scope |
+|---|---|
+| MANAGER (مدیر) | بدون محدودیت — همهٔ دانش‌آموزان |
+| COUNSELOR (مشاور) | بدون محدودیت — همهٔ دانش‌آموزان |
+| VICE_PRINCIPAL (معاون پرورشی) | بدون محدودیت — همهٔ دانش‌آموزان |
+| VICE_EDUCATION (معاون آموزشی) | بدون محدودیت — همهٔ دانش‌آموزان |
+| SPORT_COACH / QURAN_COACH / ART_COACH (مربی ورزش/قرآن/هنر) | بدون محدودیت — همهٔ دانش‌آموزان |
+| VIEWER (مشاهده‌گر) | بدون محدودیت (موضوعیت ندارد؛ فقط دسترسی خواندنی دارد) |
+| OTHER (سایر) | بدون محدودیت |
+| SYSTEM (سیستم) | بدون محدودیت (طبق DD-4 همیشه مجاز) |
+| **TEACHER (معلم)** | **محدود** — فقط دانش‌آموزانی که در جدول `teacher_assignments` با `staff_id` او و `is_active=1` (و در صورت وجود، `academic_year_id` مرتبط) فعال ثبت شده‌اند. |
+
+یعنی در عمل، تنها نقشی که Resource Scope واقعی روی آن اعمال می‌شود
+**TEACHER** است؛ بقیهٔ نقش‌ها همان‌طور که تا امروز بوده‌اند فقط از طریق
+`Permission`/`ROLE_PERMISSIONS` کنترل می‌شوند (نه Scope شیء).
+
+**رفتار در نبود Scope:** وقتی معلمی سعی می‌کند رکوردی خارج از
+`teacher_assignments` خودش را با ID مستقیم بخواند/ویرایش/حذف کند،
+`PermissionDeniedError` صریح داده می‌شود (نه وانمود به «یافت نشد»؛ طبق
+تصمیم صریح مدیر پروژه) و در Audit Log با `action=permission_denied`
+ثبت می‌شود (هم‌راستا با DD-4).
+
+**زنجیرهٔ اعمال Scope برای هر Entity:**
+- Observation/Intervention/Activity → از طریق `student_id`/`profile_id`
+  همان رکورد.
+- Follow-up → از طریق `intervention_id` → `interventions.student_profile_id`
+  → `student_id`.
+- Attachment → از طریق `entity_type/entity_id` (پدر) → `student_id`.
+
+**Import اکسل (بند ۱۰ سند):** رفتار Partial فعلی (هر ردیف مستقل، خطاهای
+per-row گزارش می‌شود) **عمداً حفظ می‌شود** — این یک تصمیم محصولی
+تأییدشده است، نه یک باگ. تنها اصلاح لازم، افزودن Permission Gate
+(`CREATE_STUDENT`) قبل از شروع ایمپورت است؛ Atomicity کل فایل تغییر
+نمی‌کند.

@@ -292,7 +292,17 @@ class StaffDAL:
         نداشته باشد — یعنی عملاً فقط برای پاک کردن رکوردی که اشتباهی
         ساخته شده. در غیر این صورت با پیام روشن رد می‌شود و کاربر را به
         همان delete() منطقی ارجاع می‌دهد که سابقه را حفظ می‌کند.
+
+        (دور نوزدهم، مرحلهٔ ۸ — SEC-HARD-DELETE-01) گاردِ وابستگیِ بالا از
+        قبل وجود داشت، ولی این متد — بر خلاف delete()/restore() همین
+        DAL — هیچ بررسیِ Permission نداشت. حالا مثل آن‌ها EDIT_SETTINGS
+        بررسی می‌شود.
         """
+        # مرز مجوز backend (BUG-NAV-03، تکمیل‌شده در مرحلهٔ ۸): دامنهٔ
+        # تنظیمات → EDIT_SETTINGS (همان مجوز delete()/restore())
+        AccessControl.require_permission(
+            Permission.EDIT_SETTINGS.value, action="StaffDAL.permanent_delete")
+
         conn = self.db.get_connection()
         cursor = conn.cursor()
 

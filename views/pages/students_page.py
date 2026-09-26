@@ -63,7 +63,13 @@ class StudentsPage(YearAwarePage, QWidget):
         self.student_service = StudentService()
         
         self.students = []
+        # (دور نوزدهم، مرحلهٔ ۶) all_students دیگر «کل فهرست فیلترشده» را در
+        # هر بارگذاری/جست‌وجو نگه نمی‌دارد (آن الگو یعنی لود کامل جدول در
+        # هر تغییر صفحه/کاراکتر جست‌وجو). این فهرست فقط هنگام خروجی Excel
+        # (export_to_excel) به‌صورت جداگانه و کامل واکشی می‌شود؛ صفحه‌بندی
+        # نمایش از total_count + LIMIT/OFFSET واقعی SQL استفاده می‌کند.
         self.all_students = []
+        self.total_count = 0
         self.showing_deleted = False
         self.current_page = 0
         self.page_size = 20
@@ -176,6 +182,11 @@ class StudentsPage(YearAwarePage, QWidget):
             }
         """)
         self.add_btn.clicked.connect(self.add_student)
+        # (دور نوزدهم) دکمهٔ افزودن هم مثل دکمهٔ حذف با همان مرز backend
+        # هماهنگ می‌شود (DD-5) — بدون CREATE_STUDENT، UI و backend هر دو
+        # اجازهٔ ساخت دانش‌آموز جدید نمی‌دهند.
+        self.add_btn.setEnabled(
+            AccessControl.has_permission(Permission.CREATE_STUDENT.value))
         toolbar.addWidget(self.add_btn)
         
         # ===== دکمه‌های ایمپورت و اکسل (جدید) =====
@@ -194,6 +205,9 @@ class StudentsPage(YearAwarePage, QWidget):
             }
         """)
         self.import_btn.clicked.connect(self.import_from_excel)
+        # (دور نوزدهم) ایمپورت هم CREATE_STUDENT لازم دارد؛ همان مرز UI↔backend
+        self.import_btn.setEnabled(
+            AccessControl.has_permission(Permission.CREATE_STUDENT.value))
         toolbar.addWidget(self.import_btn)
         
         self.export_btn = QPushButton("📤 خروجی Excel")
@@ -359,23 +373,38 @@ class StudentsPage(YearAwarePage, QWidget):
         self.load_students()
 
     def load_students(self):
-        """بارگذاری لیست دانش‌آموزان با Pagination (یا فهرست حذف‌شده‌ها)"""
+        """
+        بارگذاری لیست دانش‌آموزان با Pagination واقعی (یا فهرست حذف‌شده‌ها)
+
+        (دور نوزدهم، مرحلهٔ ۶ — اصلاح Query/Pagination) قبلاً این متد کل
+        دانش‌آموزان فیلترشده را از دیتابیس می‌خواند و بعد در پایتون
+        صفحه‌بندی (slice) می‌کرد؛ حالا شمارش کل با COUNT و ردیف‌های همان
+        صفحه با LIMIT/OFFSET واقعی گرفته می‌شوند.
+        """
         try:
             self.page_size = int(self.page_size_combo.currentText())
             if self.showing_deleted:
                 # مسیر بازیابی: فقط رکوردهای حذف‌شده، از لایهٔ سرویس
-                self.all_students = self.student_service.get_deleted_students()
+                self.total_count = self.student_service.count_deleted_students()
             else:
-                self.all_students = self.student_dal.get_all()
-            self.total_pages = (len(self.all_students) + self.page_size - 1) // self.page_size
+                self.total_count = self.student_dal.count_all()
+
+            # (بدون max(1, ...) عمداً؛ فرمول دقیقاً همان قدیمی است — فهرست
+            # خالی باید total_pages=0 بدهد، برچسب صفحه در
+            # update_pagination_controls جداگانه با max(1, ...) نمایش داده
+            # می‌شود؛ همان قراردادی که verify_fixes17 §D2 آزمون می‌کند.)
+            self.total_pages = (self.total_count + self.page_size - 1) // self.page_size
             self.current_page = min(self.current_page, self.total_pages - 1)
             if self.current_page < 0:
                 self.current_page = 0
-            
-            start = self.current_page * self.page_size
-            end = min(start + self.page_size, len(self.all_students))
-            self.students = self.all_students[start:end]
-            
+
+            offset = self.current_page * self.page_size
+            if self.showing_deleted:
+                self.students = self.student_service.get_deleted_students(
+                    self.page_size, offset)
+            else:
+                self.students = self.student_dal.get_all(self.page_size, offset)
+
             self.display_students(self.students)
             self.update_pagination_controls()
         except Exception as e:
@@ -478,6 +507,9 @@ class StudentsPage(YearAwarePage, QWidget):
                 }
             """)
             edit_btn.clicked.connect(lambda checked, s=student: self.edit_student(s))
+            # (دور نوزدهم) هماهنگ با EDIT_STUDENT در DAL — UI↔backend یک مرز
+            edit_btn.setEnabled(
+                AccessControl.has_permission(Permission.EDIT_STUDENT.value))
             btn_layout.addWidget(edit_btn)
             
             if AccessControl.has_permission(Permission.DELETE_STUDENT.value):
@@ -521,7 +553,15 @@ class StudentsPage(YearAwarePage, QWidget):
             self.table.setRowHeight(row, 40)
     
     def search_students(self):
-        """جستجوی دانش‌آموزان با Pagination"""
+        """
+        جستجوی دانش‌آموزان با Pagination واقعی
+
+        (دور نوزدهم، مرحلهٔ ۶) مانند load_students، شمارش کل با COUNT
+        (در SQL) و ردیف‌های صفحهٔ جاری با LIMIT/OFFSET گرفته می‌شوند؛
+        دیگر فهرست کامل در پایتون فیلتر/برش زده نمی‌شود. جست‌وجو در حالت
+        «نمایش حذف‌شده‌ها» هم اکنون در همان SQL (نه حلقهٔ پایتونی) روی
+        فقط رکوردهای حذف‌شده انجام می‌شود.
+        """
         search_term = self.search_input.text().strip()
         
         if not search_term:
@@ -529,23 +569,25 @@ class StudentsPage(YearAwarePage, QWidget):
             return
         
         try:
+            self.current_page = 0
             if self.showing_deleted:
                 # در حالت نمایش حذف‌شده‌ها، جست‌وجو روی همان فهرست حذف‌شده
                 # انجام می‌شود (وگرنه فهرستِ فعال جای حالت بازیابی را می‌گرفت).
-                needle = search_term.casefold()
-                self.all_students = [
-                    s for s in self.student_service.get_deleted_students()
-                    if needle in (f"{s.first_name or ''} {s.last_name or ''}").casefold()
-                    or needle in (s.national_code or '').casefold()
-                ]
+                self.total_count = self.student_service.count_search_deleted_students(
+                    search_term)
             else:
-                self.all_students = self.student_dal.search(search_term)
-            self.total_pages = (len(self.all_students) + self.page_size - 1) // self.page_size
-            self.current_page = 0
-            
-            start = self.current_page * self.page_size
-            end = min(start + self.page_size, len(self.all_students))
-            self.students = self.all_students[start:end]
+                self.total_count = self.student_dal.count_search(search_term)
+
+            # (همان توضیح load_students: بدون max(1, ...) عمداً)
+            self.total_pages = (self.total_count + self.page_size - 1) // self.page_size
+
+            offset = self.current_page * self.page_size
+            if self.showing_deleted:
+                self.students = self.student_service.search_deleted_students(
+                    search_term, self.page_size, offset)
+            else:
+                self.students = self.student_dal.search(
+                    search_term, limit=self.page_size, offset=offset)
             
             self.display_students(self.students)
             self.update_pagination_controls()
@@ -661,7 +703,32 @@ class StudentsPage(YearAwarePage, QWidget):
     # ===== متدهای جدید برای Excel =====
     
     def export_to_excel(self):
-        """خروجی Excel از دانش‌آموزان"""
+        """
+        خروجی Excel از دانش‌آموزان
+
+        (دور نوزدهم، مرحلهٔ ۶) از این پس load_students/search_students
+        فقط ردیف‌های همان صفحه را نگه می‌دارند؛ خروجی Excel باید تمام
+        دانش‌آموزانِ منطبق با فیلتر جاری (نه فقط صفحهٔ نمایشی) باشد،
+        بنابراین اینجا — و فقط اینجا، در لحظهٔ کلیک خروجی — یک واکشیِ
+        کامل (بدون LIMIT) با همان فیلتر جاری (حذف‌شده/فعال + متن جست‌وجو)
+        انجام می‌شود؛ رفتار قابل‌مشاهده با قبل از این تغییر یکسان است.
+        """
+        search_term = self.search_input.text().strip()
+        try:
+            if self.showing_deleted:
+                if search_term:
+                    self.all_students = self.student_service.search_deleted_students(
+                        search_term)
+                else:
+                    self.all_students = self.student_service.get_deleted_students()
+            elif search_term:
+                self.all_students = self.student_dal.search(search_term)
+            else:
+                self.all_students = self.student_dal.get_all()
+        except Exception as e:
+            QMessageBox.critical(self, "خطا", f"مشکل در خروجی:\n{e!s}")
+            return
+
         export_students = self.all_students or self.students
         if not export_students:
             QMessageBox.warning(

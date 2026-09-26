@@ -663,7 +663,17 @@ class UserDAL:
         return True
 
     def permanent_delete(self, user_id):
-        """حذف فیزیکی - فقط برای موارد خاص"""
+        """
+        حذف فیزیکی - فقط برای موارد خاص
+
+        (دور نوزدهم، مرحلهٔ ۸ — SEC-HARD-DELETE-01) قبلاً بدون هیچ
+        بررسیِ Permission، ردیف مستقیماً DELETE می‌شد. هیچ جدولی به
+        users.id کلید خارجی ندارد (جدول staff از این نظر مستقل است)،
+        پس فقط Permission لازم است.
+        """
+        AccessControl.require_permission(
+            Permission.MANAGE_USERS.value, action="UserDAL.permanent_delete")
+
         conn = self.db.get_connection()
         cursor = conn.cursor()
         cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))

@@ -10,6 +10,7 @@ from database.connection import DatabaseConnection
 from models.student_academic_profile import StudentAcademicProfile
 from utils.batch_query import id_chunks, placeholders
 from utils.logger import get_logger
+from utils.security import AccessControl, Permission
 from utils.time_utils import utc_now_iso
 
 logger = get_logger(__name__)
@@ -401,19 +402,35 @@ class StudentAcademicProfileDAL:
         حالا هم is_deleted=1 می‌شود (مثل بقیهٔ DALها، با ثبت زمان و
         کاربر و اجرای تریگر حسابرسی) و هم وضعیت به 'archived' می‌رود و
         در تاریخچهٔ وضعیت ثبت می‌شود.
+
+        (دور نوزدهم، مرحلهٔ ۸ — تکمیلِ یافتهٔ جانبی) این متد تا پیش از
+        این هیچ بررسیِ Permission/Scope نداشت (کلِ این DAL نداشت — مستند
+        در تحلیل مرحلهٔ ۸). چون هیچ Service/UI‌ای این‌جا صدا نمی‌زد (فقط
+        زیرساخت بود)، بدون ریسکِ شکستنِ رفتار موجود، همان مجوز/Scope
+        دانش‌آموزِ والد اضافه شد (بدون اختراع Permission تازه) — نه
+        create()/update() که چندین مسیر فعال (از جمله ایجاد خودکار
+        پرونده هنگام ثبت مشاهده/مداخله) دارند و نیازمند تحلیل جداگانه‌اند.
         """
+        # مرز مجوز backend: حذف پروندهٔ سالانه = همان مجوز حذف دانش‌آموز
+        AccessControl.require_permission(
+            Permission.DELETE_STUDENT.value, action="StudentAcademicProfileDAL.delete")
+
         conn = self.db.get_connection()
         cursor = conn.cursor()
 
         try:
             cursor.execute("""
-                SELECT status, status_history
+                SELECT student_id, status, status_history
                 FROM student_academic_profiles
                 WHERE id = ? AND is_deleted = 0
             """, (profile_id,))
             row = cursor.fetchone()
             if not row:
                 return False
+
+            # مرز Scope/IDOR: معلم فقط برای دانش‌آموزهای منتسب‌شدهٔ خودش
+            AccessControl.require_student_scope(
+                row["student_id"], action="StudentAcademicProfileDAL.delete")
 
             old_status = row['status']
             try:
@@ -462,19 +479,46 @@ class StudentAcademicProfileDAL:
         پرونده به معنی فعال‌کردن دوبارهٔ دانش‌آموز در سال جاری نیست و
         باید آگاهانه و جداگانه انجام شود (وگرنه یک پروندهٔ حذف‌شده
         می‌توانست ناگهان در داشبورد و لیست ارتقاء ظاهر شود).
+
+        (دور نوزدهم، مرحلهٔ ۸ — تکمیلِ یافتهٔ جانبی) همان مجوز/Scope که
+        به delete() اضافه شد، اینجا هم اضافه شد (بازیابی = همان مجوز حذف،
+        هم‌راستا با الگوی همهٔ DALهای دیگر).
         """
+        # مرز مجوز backend: بازیابی پروندهٔ سالانه = همان مجوز حذف دانش‌آموز
+        AccessControl.require_permission(
+            Permission.DELETE_STUDENT.value, action="StudentAcademicProfileDAL.restore")
+
         conn = self.db.get_connection()
         cursor = conn.cursor()
 
         try:
             cursor.execute("""
-                SELECT status, status_history
+                SELECT student_id, status, status_history
                 FROM student_academic_profiles
                 WHERE id = ? AND is_deleted = 1
             """, (profile_id,))
             row = cursor.fetchone()
             if not row:
                 return False
+
+            # مرز Scope/IDOR: معلم فقط برای دانش‌آموزهای منتسب‌شدهٔ خودش
+            AccessControl.require_student_scope(
+                row["student_id"], action="StudentAcademicProfileDAL.restore")
+
+            # مرحلهٔ ۸ (RESTORE-EDGE-01): دانش‌آموزِ والد باید هنوز وجود
+            # داشته و حذف نشده باشد — وگرنه یک پروندهٔ «فعال» روی یک
+            # دانش‌آموزِ حذف‌شده ساخته می‌شود (ناسازگار با هر جای دیگر
+            # کد که دانش‌آموز حذف‌شده را از فهرست‌ها/گزارش‌ها کنار می‌گذارد).
+            parent = cursor.execute(
+                "SELECT 1 FROM students WHERE id = ? AND is_deleted = 0",
+                (row["student_id"],)
+            ).fetchone()
+            if not parent:
+                raise ValueError(
+                    "دانش‌آموزِ مربوط به این پرونده حذف شده یا وجود "
+                    "ندارد؛ پیش از بازیابیِ پرونده باید ابتدا خودِ "
+                    "دانش‌آموز را بازگردانی کنید."
+                )
 
             try:
                 history = json.loads(row['status_history'] or "[]")

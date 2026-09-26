@@ -8,8 +8,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database.connection import DatabaseConnection
-from utils.error_handler import ErrorHandler, ServiceError
+from utils.error_handler import AppError, ErrorHandler, ServiceError
 from utils.logger import get_logger
+from utils.security import PermissionDeniedError
 
 
 class BaseService:
@@ -28,7 +29,56 @@ class BaseService:
         self.logger = get_logger(self.__class__.__name__)
         self.error_handler = ErrorHandler()
         self._in_transaction = False
-    
+
+    # ============================================================
+    # کمکی مشترک برای رفع نشت Exception خام (دور نوزدهم، مرحلهٔ ۵ —
+    # ERR-01/ERR-LEAK-01)
+    # ============================================================
+    #
+    # الگوی رایج در سراسر لایهٔ سرویس این بود:
+    #
+    #     try:
+    #         ...
+    #         if not found:
+    #             raise ServiceError("... یافت نشد.")   # پیام امن/عمدی
+    #         ...
+    #     except Exception as e:
+    #         self.logger.error(...)
+    #         raise ServiceError(f"خطای عمومی: {e!s}")   # نشت raw
+    #
+    # چون بلوک `except Exception` هم Exceptionِ خامِ سیستمی (sqlite/OS)
+    # و هم ServiceError/ValidationError عمدیِ *داخل همان try* (مثل «یافت
+    # نشد» یا «به حداکثر رسیده») را یکسان می‌گرفت، رفعِ ساده‌لوحانهٔ نشت
+    # (فقط حذف `{e!s}`) پیام‌های عمدی و امن را هم با یک پیام عمومیِ کم‌فایده
+    # جایگزین می‌کرد — خودش یک باگِ تازه بود. `_safe_service_error` این
+    # دو حالت را تفکیک می‌کند: اگر e از قبل AppError با user_visible=True
+    # است (پیامش عمداً و امن برای کاربر نوشته شده)، همان پیام حفظ می‌شود؛
+    # در غیر این صورت (Exception خام/سیستمی یا AppError با
+    # user_visible=False مثل DatabaseError) با پیام عمومی امنِ داده‌شده
+    # جایگزین می‌شود.
+    def _safe_service_error(self, e, generic_message):
+        """
+        ساخت ServiceError امن از یک exception گرفته‌شده در except عمومی
+
+        Args:
+            e: exception گرفته‌شده (ممکن است AppError عمدی یا Exception خام باشد)
+            generic_message: پیام عمومیِ امن برای حالتی که e خام/سیستمی است
+
+        Returns:
+            ServiceError: باید با `raise ... from e` پرتاب شود
+        """
+        if isinstance(e, AppError) and e.user_visible:
+            return ServiceError(e.message, user_visible=True)
+        if isinstance(e, PermissionDeniedError):
+            # (یادداشت) این‌جا فقط پیامِ امنِ PermissionDeniedError حفظ
+            # می‌شود؛ خودِ نوعِ استثنا هنوز به ServiceError بدل می‌شود —
+            # همان رفتار قبل از مرحلهٔ ۵ (یک نقص جداگانه و از قبل موجود،
+            # نه چیزی که مرحلهٔ ۵ ایجاد کرده باشد؛ رفعش نیازمند افزودن
+            # `except PermissionDeniedError: raise` در محل‌های پرشمار
+            # فراخوانی است و خارج از حیطهٔ ERR-01/ERR-LEAK-01 است).
+            return ServiceError(str(e), user_visible=True)
+        return ServiceError(generic_message, user_visible=False)
+
     # ============================================================
     # Transaction واقعی
     # ============================================================
@@ -63,7 +113,7 @@ class BaseService:
         except Exception as e:
             self.logger.error(f"خطا در تأیید Transaction: {e}")
             self.rollback_transaction()
-            raise ServiceError(f"خطا در ذخیره‌سازی: {e!s}")
+            raise self._safe_service_error(e, "خطا در ذخیره‌سازی.") from e
 
     def rollback_transaction(self):
         """بازگشت Transaction (همه لایه‌های تودرتو)"""
@@ -101,9 +151,30 @@ class BaseService:
             # به ServiceError تبدیل می‌کرد. حالا اگر خطا از قبل یک
             # ServiceError بود (مثلاً خطای اعتبارسنجی با پیام فارسی)،
             # همان پیام به کاربر می‌رسد نه «خطا در عملیات: ...».
-            if isinstance(e, ServiceError):
+            #
+            # (دور نوزدهم، مرحلهٔ ۵ — ERR-01/ERR-LEAK-01) این شرط قبلاً
+            # فقط ServiceError/PermissionDeniedError را دست‌نخورده رد
+            # می‌کرد. اما ValidationError/NotFoundError/AuthorizationError
+            # هم دقیقاً همین‌طور «پیام از پیش امن و برای کاربر نوشته‌شده»
+            # هستند (user_visible=True در تعریف کلاس‌شان) — مثلاً «تعداد
+            # پیوست‌ها به حداکثر رسیده است» که از AttachmentService.upload
+            # به‌عنوان ValidationError raise می‌شود. قبلاً چون این کلاس‌ها
+            # در isinstance نبودند، پیام مفیدشان با «خطا در عملیات» عمومی
+            # جایگزین می‌شد (و تنها به این دلیل که پیام قدیمی خام {e!s} را
+            # داخل خودش embed می‌کرد، به‌طور تصادفی همچنان دیده می‌شد —
+            # قرارداد قدیمی/تست‌شدهٔ پروژه این بود که این نوع خطاها به
+            # ServiceError تبدیل شوند ولی پیامشان حفظ شود؛ رفع نشتِ
+            # Exception خام نباید این قرارداد را بشکند، پس همان تبدیل با
+            # پیام دست‌نخورده و بدون افزودن جزئیات فنی/raw ادامه دارد).
+            if isinstance(e, (ServiceError, PermissionDeniedError)):
                 raise
-            raise ServiceError(f"خطا در عملیات: {e!s}") from e
+            if isinstance(e, AppError) and e.user_visible:
+                # پیام خودِ AppError (ValidationError/NotFoundError/
+                # AuthorizationError) از قبل امن و برای کاربر نوشته شده؛
+                # صرفاً نوعش به ServiceError تبدیل می‌شود (قرارداد قبلی)
+                # بدون افزودن هیچ متن خام دیگری.
+                raise ServiceError(e.message, user_visible=True) from e
+            raise ServiceError("خطا در عملیات.", user_visible=False) from e
 
     # ============================================================
     # Audit Log / مدیریت خطا / اعتبارسنجی

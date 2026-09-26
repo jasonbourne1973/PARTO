@@ -9,6 +9,7 @@ from database.connection import DatabaseConnection
 from models.student import Student
 from utils.batch_query import id_chunks, placeholders
 from utils.logger import get_logger
+from utils.pagination import normalize_limit_offset
 from utils.security import AccessControl, Permission
 from utils.time_utils import utc_now_iso
 
@@ -23,6 +24,12 @@ class StudentDAL:
 
     def create(self, student):
         """ایجاد دانش‌آموز جدید"""
+        # مرز مجوز backend (دور نوزدهم — سند ممیزی مدیر پروژه، بخش ۹):
+        # create فقط با نمایش/مخفی‌کردن دکمه در UI محافظت نمی‌شد؛ هر
+        # کاربر واردشده (حتی «مشاهده‌گر») می‌توانست مستقیم این متد را
+        # صدا بزند. الگو یکسان با delete/restore (BUG-NAV-03) است.
+        AccessControl.require_permission(
+            Permission.CREATE_STUDENT.value, action="StudentDAL.create")
         conn = self.db.get_connection()
         cursor = conn.cursor()
 
@@ -97,6 +104,11 @@ class StudentDAL:
 
     def get_all(self, limit=None, offset=None, include_deleted=False):
         """دریافت همه دانش‌آموزان - فقط رکوردهای موجود"""
+        # (دور نوزدهم، مرحلهٔ ۶ — Pagination مرکزی) اعتبارسنجی/Clamp
+        # limit/offset از یک محل مشترک؛ limit=None دست‌نخورده می‌ماند
+        # (یعنی «بدون سقف» — قرارداد موجود صادرات کامل نمی‌شکند).
+        limit, offset = normalize_limit_offset(limit, offset)
+
         query = "SELECT * FROM students WHERE 1=1"
         params = []
 
@@ -117,25 +129,72 @@ class StudentDAL:
         rows = cursor.fetchall()
         return [self._row_to_student(row) for row in rows]
 
-    def search(self, search_term, include_deleted=False):
-        """جستجوی دانش‌آموزان - فقط رکوردهای موجود"""
+    def count_all(self, include_deleted=False):
+        """
+        شمارش کل دانش‌آموزان با همان WHERE متد get_all (بدون LIMIT/OFFSET)
+
+        برای Pagination واقعی لازم است `total` دقیقاً همان فیلتری را
+        داشته باشد که صفحه‌بندی رویش اعمال می‌شود (دور نوزدهم، مرحلهٔ ۶).
+        """
+        query = "SELECT COUNT(*) as cnt FROM students WHERE 1=1"
+        if not include_deleted:
+            query += " AND is_deleted = 0"
+        cursor = self.db.execute_query(query)
+        row = cursor.fetchone()
+        return row["cnt"] if row else 0
+
+    def search(self, search_term, include_deleted=False, only_deleted=False,
+               limit=None, offset=None):
+        """
+        جستجوی دانش‌آموزان
+
+        Args:
+            only_deleted: اگر True باشد، فقط رکوردهای حذف‌شده جست‌وجو
+                می‌شوند (برای جست‌وجوی متنی در حالت «نمایش حذف‌شده‌ها»؛
+                قبلاً این فیلتر با یک حلقهٔ پایتونی روی کل فهرست حذف‌شده
+                انجام می‌شد). با include_deleted ناسازگار است؛ only_deleted
+                اولویت دارد.
+        """
+        limit, offset = normalize_limit_offset(limit, offset)
+
         query = """
             SELECT * FROM students
             WHERE (first_name LIKE ? OR last_name LIKE ? OR national_code LIKE ?)
         """
-        if not include_deleted:
+        params = [f"%{search_term}%", f"%{search_term}%", f"%{search_term}%"]
+        if only_deleted:
+            query += " AND is_deleted = 1"
+        elif not include_deleted:
             query += " AND is_deleted = 0"
 
         query += " ORDER BY last_name, first_name"
 
-        cursor = self.db.execute_query(query, (
-            f"%{search_term}%",
-            f"%{search_term}%",
-            f"%{search_term}%"
-        ))
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+            if offset is not None:
+                query += " OFFSET ?"
+                params.append(offset)
+
+        cursor = self.db.execute_query(query, tuple(params))
 
         rows = cursor.fetchall()
         return [self._row_to_student(row) for row in rows]
+
+    def count_search(self, search_term, include_deleted=False, only_deleted=False):
+        """شمارش نتایج جستجو با همان WHERE متد search (بدون LIMIT/OFFSET)"""
+        query = """
+            SELECT COUNT(*) as cnt FROM students
+            WHERE (first_name LIKE ? OR last_name LIKE ? OR national_code LIKE ?)
+        """
+        params = [f"%{search_term}%", f"%{search_term}%", f"%{search_term}%"]
+        if only_deleted:
+            query += " AND is_deleted = 1"
+        elif not include_deleted:
+            query += " AND is_deleted = 0"
+        cursor = self.db.execute_query(query, tuple(params))
+        row = cursor.fetchone()
+        return row["cnt"] if row else 0
 
     def update(self, student):
         """
@@ -147,6 +206,9 @@ class StudentDAL:
         بود). حالا در آن حالت `None` برمی‌گردد و در لاگ هم هشدار ثبت
         می‌شود تا لایهٔ بالا بتواند نبودِ اثر را تشخیص دهد.
         """
+        # مرز مجوز backend (دور نوزدهم) — همان الگوی create/delete
+        AccessControl.require_permission(
+            Permission.EDIT_STUDENT.value, action="StudentDAL.update")
         conn = self.db.get_connection()
         cursor = conn.cursor()
 
@@ -252,18 +314,30 @@ class StudentDAL:
         self.db.commit()
         return True
 
-    def get_deleted(self, limit=None):
+    def get_deleted(self, limit=None, offset=None):
         """دریافت لیست رکوردهای حذف شده"""
+        limit, offset = normalize_limit_offset(limit, offset)
+
         query = "SELECT * FROM students WHERE is_deleted = 1 ORDER BY deleted_at DESC"
         params = []
 
         if limit is not None:
             query += " LIMIT ?"
             params.append(limit)
+            if offset is not None:
+                query += " OFFSET ?"
+                params.append(offset)
 
         cursor = self.db.execute_query(query, tuple(params) if params else None)
         rows = cursor.fetchall()
         return [self._row_to_student(row) for row in rows]
+
+    def count_deleted(self):
+        """شمارش رکوردهای حذف‌شده (بدون LIMIT/OFFSET) — برای Pagination"""
+        cursor = self.db.execute_query(
+            "SELECT COUNT(*) as cnt FROM students WHERE is_deleted = 1")
+        row = cursor.fetchone()
+        return row["cnt"] if row else 0
 
     def get_by_national_code(self, national_code, include_deleted=False):
         """دریافت دانش‌آموز با کد ملی"""
@@ -329,16 +403,55 @@ class StudentDAL:
             return []
 
     def permanent_delete(self, student_id):
-        """حذف فیزیکی دانش‌آموز - فقط برای موارد خاص استفاده شود"""
+        """
+        حذف فیزیکی دانش‌آموز - فقط برای موارد خاص استفاده شود
+
+        (دور نوزدهم، مرحلهٔ ۸ — SEC-HARD-DELETE-01) این متد قبلاً بدون
+        هیچ بررسیِ Permission یا وابستگی، ردیف را مستقیماً DELETE
+        می‌کرد. چون `student_academic_profiles.student_id` با
+        `ON DELETE CASCADE` به students.id وصل است، این کار عملاً
+        هر پرونده/مشاهده/مداخله/پیگیری/غربالگری/... متعلق به آن
+        دانش‌آموز را هم برای همیشه پاک می‌کرد — بدون Audit Trail (بر
+        خلاف delete() منطقی که سابقه را با is_deleted=1 حفظ می‌کند).
+        حالا مثل staff_dal.permanent_delete: هم Permission بررسی
+        می‌شود، هم وابستگی (وجود پروندهٔ سالانه) قبل از حذف.
+        """
+        # مرز مجوز backend: حذف دائم = همان مجوز حذف منطقی (بدون اختراع
+        # Permission تازه)
+        AccessControl.require_permission(
+            Permission.DELETE_STUDENT.value, action="StudentDAL.permanent_delete")
+
         conn = self.db.get_connection()
         cursor = conn.cursor()
+
+        row = cursor.execute(
+            "SELECT first_name, last_name FROM students WHERE id = ?",
+            (student_id,)
+        ).fetchone()
+        if row is None:
+            return False
+
+        profile_count = cursor.execute(
+            "SELECT COUNT(*) FROM student_academic_profiles WHERE student_id = ?",
+            (student_id,)
+        ).fetchone()[0]
+        if profile_count:
+            raise ValueError(
+                f"«{row['first_name']} {row['last_name']}» دارای "
+                f"{profile_count} پروندهٔ سالانه (و هر سابقهٔ مشاهده/"
+                "مداخله/پیگیری/غربالگری وابسته به آن‌ها) است؛ حذف دائم "
+                "همهٔ این تاریخچه را برای همیشه نابود می‌کند. به‌جای آن "
+                "از حذف عادی استفاده کنید تا رکورد غیرفعال و از "
+                "فهرست‌ها پنهان شود ولی سوابق حفظ بمانند."
+            )
 
         cursor.execute(
             "DELETE FROM students WHERE id = ?",
             (student_id,)
         )
+        affected = cursor.rowcount
         self.db.commit()
-        return True
+        return affected > 0
 
     # ============================================================
     # متدهای تحلیلی برای داشبورد

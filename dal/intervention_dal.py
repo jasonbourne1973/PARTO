@@ -9,6 +9,7 @@ from database.connection import DatabaseConnection
 from models.intervention import Intervention
 from utils.batch_query import id_chunks, placeholders
 from utils.logger import get_logger
+from utils.pagination import normalize_limit_offset
 from utils.security import AccessControl, Permission
 from utils.time_utils import utc_now_iso
 
@@ -23,6 +24,13 @@ class InterventionDAL:
     
     def create(self, intervention):
         """ایجاد مداخله جدید"""
+        # مرز مجوز backend (دور نوزدهم — سند ممیزی مدیر پروژه)
+        AccessControl.require_permission(
+            Permission.CREATE_INTERVENTION.value, action="InterventionDAL.create")
+        # مرز Scope (دور نوزدهم — مرحلهٔ ۳، DD-6): معلم فقط برای
+        # دانش‌آموزهای منتسب‌شدهٔ خودش می‌تواند مداخله بسازد.
+        AccessControl.require_profile_scope(
+            intervention.student_profile_id, action="InterventionDAL.create")
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
@@ -56,7 +64,16 @@ class InterventionDAL:
         cursor = self.db.execute_query(query, (intervention_id,))
         row = cursor.fetchone()
         if row:
-            return self._row_to_intervention(row)
+            intervention = self._row_to_intervention(row)
+            # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۳، SEC-IDOR-01، DD-6):
+            # پیش از این، خواندن مستقیم با ID هیچ بررسی «آیا این دانش‌آموز
+            # در Scope کاربر جاری است؟» نداشت — معلم می‌توانست با حدس‌زدن
+            # شناسه، مداخلهٔ دانش‌آموزِ معلم دیگری را بخواند. رد Scope
+            # همیشه صریح است (PermissionDeniedError)، نه پنهان به‌شکل
+            # NotFound (تصمیم صریح مدیر پروژه در DD-6).
+            AccessControl.require_profile_scope(
+                intervention.student_profile_id, action="InterventionDAL.get_by_id")
+            return intervention
         return None
     
     def get_by_ids(self, intervention_ids, include_deleted=False):
@@ -135,8 +152,17 @@ class InterventionDAL:
         rows = cursor.fetchall()
         return [self._row_to_intervention(row) for row in rows]
     
-    def get_all(self, limit=None, include_deleted=False, academic_year_id=None, staff_id=None):
-        """دریافت همه مداخلات با فیلتر سال/معلم قبل از LIMIT."""
+    def get_all(self, limit=None, include_deleted=False, academic_year_id=None,
+                staff_id=None, offset=None):
+        """
+        دریافت همه مداخلات با فیلتر سال/معلم قبل از LIMIT.
+
+        (دور نوزدهم، مرحلهٔ ۶) پارامتر offset سازگار با گذشته اضافه شده
+        (پیش‌فرض None یعنی بدون OFFSET)؛ limit=None هم مثل قبل «بدون سقف»
+        است. این DAL هنوز کنترل صفحه‌بندی‌ای در UI ندارد.
+        """
+        limit, offset = normalize_limit_offset(limit, offset)
+
         query = "SELECT i.* FROM interventions i"
         joins = []
         where = []
@@ -145,6 +171,9 @@ class InterventionDAL:
             joins.append("JOIN student_academic_profiles sap ON i.student_profile_id = sap.id")
             where.append("sap.academic_year_id = ?")
             params.append(academic_year_id)
+            # (دور نوزدهم، مرحلهٔ ۷ — رفع باگ) پروندهٔ حذف‌شده در فیلتر سال
+            # نباید شمرده شود؛ هم‌راستا با profile_dal.get_by_ids در همه‌جا.
+            where.append("sap.is_deleted = 0")
         if not include_deleted:
             where.append("i.is_deleted = 0")
         if staff_id is not None:
@@ -158,9 +187,36 @@ class InterventionDAL:
         if limit is not None:
             query += " LIMIT ?"
             params.append(limit)
+            if offset is not None:
+                query += " OFFSET ?"
+                params.append(offset)
         cursor = self.db.execute_query(query, params)
         rows = cursor.fetchall()
         return [self._row_to_intervention(row) for row in rows]
+
+    def count_all(self, include_deleted=False, academic_year_id=None, staff_id=None):
+        """شمارش مداخلات با همان فیلترهای get_all (بدون LIMIT/OFFSET) — مرحلهٔ ۶"""
+        query = "SELECT COUNT(*) as cnt FROM interventions i"
+        joins = []
+        where = []
+        params = []
+        if academic_year_id is not None:
+            joins.append("JOIN student_academic_profiles sap ON i.student_profile_id = sap.id")
+            where.append("sap.academic_year_id = ?")
+            params.append(academic_year_id)
+            where.append("sap.is_deleted = 0")
+        if not include_deleted:
+            where.append("i.is_deleted = 0")
+        if staff_id is not None:
+            where.append("i.staff_id = ?")
+            params.append(staff_id)
+        if joins:
+            query += " " + " ".join(joins)
+        if where:
+            query += " WHERE " + " AND ".join(where)
+        cursor = self.db.execute_query(query, params)
+        row = cursor.fetchone()
+        return row["cnt"] if row else 0
     
     def get_active(self, include_deleted=False):
         """دریافت مداخلات فعال (برنامه‌ریزی شده یا در حال اجرا) - فقط رکوردهای موجود"""
@@ -179,15 +235,31 @@ class InterventionDAL:
     
     def update(self, intervention):
         """به‌روزرسانی مداخله - فقط رکوردهای موجود"""
+        # مرز مجوز backend (دور نوزدهم)
+        AccessControl.require_permission(
+            Permission.EDIT_INTERVENTION.value, action="InterventionDAL.update")
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
         cursor.execute(
-            "SELECT id FROM interventions WHERE id = ? AND is_deleted = 0",
+            "SELECT student_profile_id FROM interventions WHERE id = ? AND is_deleted = 0",
             (intervention.id,)
         )
-        if not cursor.fetchone():
+        existing = cursor.fetchone()
+        if not existing:
             raise Exception("رکورد مورد نظر یافت نشد یا حذف شده است.")
+
+        # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۳، DD-6): هم رکورد موجود
+        # (قبل از تغییر) و هم پروندهٔ مقصد (اگر جابه‌جا شده باشد) باید
+        # در Scope کاربر جاری باشند — وگرنه معلم می‌توانست مداخلهٔ
+        # دانش‌آموز خودش را به دانش‌آموز خارج از Scope منتقل کند یا
+        # برعکس، رکورد دانش‌آموز دیگری را با ID مستقیم ویرایش کند.
+        AccessControl.require_profile_scope(
+            existing["student_profile_id"], action="InterventionDAL.update")
+        if intervention.student_profile_id != existing["student_profile_id"]:
+            AccessControl.require_profile_scope(
+                intervention.student_profile_id,
+                action="InterventionDAL.update(new_profile)")
         
         cursor.execute("""
             UPDATE interventions SET
@@ -233,11 +305,15 @@ class InterventionDAL:
         cursor = conn.cursor()
         
         cursor.execute(
-            "SELECT id FROM interventions WHERE id = ? AND is_deleted = 0",
+            "SELECT student_profile_id FROM interventions WHERE id = ? AND is_deleted = 0",
             (intervention_id,)
         )
-        if not cursor.fetchone():
+        existing = cursor.fetchone()
+        if not existing:
             return False
+        # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۳)
+        AccessControl.require_profile_scope(
+            existing["student_profile_id"], action="InterventionDAL.delete")
         
         now = utc_now_iso()
         cursor.execute("""
@@ -261,12 +337,29 @@ class InterventionDAL:
         cursor = conn.cursor()
         
         cursor.execute(
-            "SELECT id FROM interventions WHERE id = ? AND is_deleted = 1",
+            "SELECT student_profile_id FROM interventions WHERE id = ? AND is_deleted = 1",
             (intervention_id,)
         )
-        if not cursor.fetchone():
+        existing = cursor.fetchone()
+        if not existing:
             return False
-        
+        # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۳)
+        AccessControl.require_profile_scope(
+            existing["student_profile_id"], action="InterventionDAL.restore")
+
+        # مرحلهٔ ۸ (RESTORE-EDGE-01): پروندهٔ سالانهٔ والد باید هنوز
+        # وجود داشته و حذف نشده باشد.
+        parent = cursor.execute(
+            "SELECT 1 FROM student_academic_profiles WHERE id = ? AND is_deleted = 0",
+            (existing["student_profile_id"],)
+        ).fetchone()
+        if not parent:
+            raise ValueError(
+                "پروندهٔ سالانهٔ مربوط به این مداخله حذف شده یا وجود "
+                "ندارد؛ پیش از بازیابیِ مداخله باید ابتدا خودِ پرونده "
+                "را بازگردانی کنید."
+            )
+
         cursor.execute("""
             UPDATE interventions SET
                 is_deleted = 0,
@@ -293,16 +386,46 @@ class InterventionDAL:
         return [self._row_to_intervention(row) for row in rows]
     
     def permanent_delete(self, intervention_id):
-        """حذف فیزیکی مداخله - فقط برای موارد خاص استفاده شود"""
+        """
+        حذف فیزیکی مداخله - فقط برای موارد خاص استفاده شود
+
+        (دور نوزدهم، مرحلهٔ ۸ — SEC-HARD-DELETE-01) قبلاً بدون هیچ
+        بررسیِ Permission یا وابستگی، ردیف مستقیماً DELETE می‌شد. چون
+        `followups.intervention_id` با ON DELETE CASCADE به
+        interventions.id وصل است، این کار عملاً تمام تاریخچهٔ پیگیریِ
+        این مداخله را هم برای همیشه پاک می‌کرد. حالا مثل
+        staff_dal.permanent_delete: Permission بررسی می‌شود و اگر
+        پیگیری‌ای وابسته باشد، حذف رد می‌شود.
+        """
+        AccessControl.require_permission(
+            Permission.DELETE_INTERVENTION.value, action="InterventionDAL.permanent_delete")
+
         conn = self.db.get_connection()
         cursor = conn.cursor()
-        
+
+        if cursor.execute(
+            "SELECT 1 FROM interventions WHERE id = ?", (intervention_id,)
+        ).fetchone() is None:
+            return False
+
+        followup_count = cursor.execute(
+            "SELECT COUNT(*) FROM followups WHERE intervention_id = ?",
+            (intervention_id,)
+        ).fetchone()[0]
+        if followup_count:
+            raise ValueError(
+                f"این مداخله دارای {followup_count} پیگیری وابسته است؛ "
+                "حذف دائم این تاریخچه را برای همیشه نابود می‌کند. "
+                "به‌جای آن از حذف عادی استفاده کنید."
+            )
+
         cursor.execute(
             "DELETE FROM interventions WHERE id = ?",
             (intervention_id,)
         )
+        affected = cursor.rowcount
         self.db.commit()
-        return True
+        return affected > 0
     
     def _row_to_intervention(self, row):
         """تبدیل ردیف دیتابیس به مدل Intervention"""
@@ -744,26 +867,43 @@ class InterventionDAL:
     _LIKE = "LIKE ? ESCAPE '\\'"
     _SEARCH_COLUMNS = ('description', 'goal', 'result', 'type', 'status')
 
-    def search(self, search_term, limit=None, include_deleted=False, academic_year_id=None):
+    def search(self, search_term, limit=None, include_deleted=False, academic_year_id=None,
+               offset=None):
         """جست‌وجوی متن آزاد در همه مداخلات"""
-        return self._search_text(search_term, limit=limit, include_deleted=include_deleted, academic_year_id=academic_year_id)
+        return self._search_text(search_term, limit=limit, include_deleted=include_deleted,
+                                 academic_year_id=academic_year_id, offset=offset)
 
-    def search_by_student(self, student_id, search_term, limit=None, include_deleted=False, academic_year_id=None):
+    def search_by_student(self, student_id, search_term, limit=None, include_deleted=False,
+                          academic_year_id=None, offset=None):
         """جست‌وجوی متن آزاد در مداخلات یک دانش‌آموز"""
         return self._search_text(search_term, student_id=student_id, limit=limit,
-                                 include_deleted=include_deleted, academic_year_id=academic_year_id)
+                                 include_deleted=include_deleted, academic_year_id=academic_year_id,
+                                 offset=offset)
 
-    def search_by_teacher(self, teacher_id, search_term, limit=None, include_deleted=False, academic_year_id=None):
+    def search_by_teacher(self, teacher_id, search_term, limit=None, include_deleted=False,
+                          academic_year_id=None, offset=None):
         """جست‌وجوی متن آزاد در مداخلات یک معلم"""
         return self._search_text(search_term, teacher_id=teacher_id, limit=limit,
-                                 include_deleted=include_deleted, academic_year_id=academic_year_id)
+                                 include_deleted=include_deleted, academic_year_id=academic_year_id,
+                                 offset=offset)
 
-    def _search_text(self, search_term, student_id=None, teacher_id=None,
-                     limit=None, include_deleted=False, academic_year_id=None):
-        """پیاده‌سازی مشترک جست‌وجو (ساختار کوئری همانند get_by_student)"""
+    def count_search(self, search_term, student_id=None, teacher_id=None,
+                      include_deleted=False, academic_year_id=None):
+        """شمارش نتایج جست‌وجوی متن آزاد (بدون LIMIT/OFFSET) — مرحلهٔ ۶"""
         if search_term is None or not str(search_term).strip():
-            return []
+            return 0
+        where, params, joins = self._search_where(
+            search_term, student_id=student_id, teacher_id=teacher_id,
+            include_deleted=include_deleted, academic_year_id=academic_year_id)
+        query = "SELECT COUNT(*) as cnt FROM interventions i%s WHERE %s" % (
+            joins, " AND ".join(where))
+        cursor = self.db.execute_query(query, params)
+        row = cursor.fetchone()
+        return row["cnt"] if row else 0
 
+    def _search_where(self, search_term, student_id=None, teacher_id=None,
+                       include_deleted=False, academic_year_id=None):
+        """ساخت مشترک WHERE/params/joins جست‌وجو (استفادهٔ _search_text و count_search)"""
         term = self._escape_like(search_term)
         like = " OR ".join("i.%s %s" % (c, self._LIKE) for c in self._SEARCH_COLUMNS)
 
@@ -789,12 +929,29 @@ class InterventionDAL:
         if not include_deleted:
             where.append("i.is_deleted = 0")
 
+        return where, params, joins
+
+    def _search_text(self, search_term, student_id=None, teacher_id=None,
+                     limit=None, include_deleted=False, academic_year_id=None, offset=None):
+        """پیاده‌سازی مشترک جست‌وجو (ساختار کوئری همانند get_by_student)"""
+        if search_term is None or not str(search_term).strip():
+            return []
+
+        limit, offset = normalize_limit_offset(limit, offset)
+
+        where, params, joins = self._search_where(
+            search_term, student_id=student_id, teacher_id=teacher_id,
+            include_deleted=include_deleted, academic_year_id=academic_year_id)
+
         query = "SELECT i.* FROM interventions i%s WHERE %s" % (joins, " AND ".join(where))
         query += " ORDER BY i.date DESC"
 
         if limit is not None:
             query += " LIMIT ?"
             params.append(limit)
+            if offset is not None:
+                query += " OFFSET ?"
+                params.append(offset)
 
         cursor = self.db.execute_query(query, params)
         rows = cursor.fetchall()

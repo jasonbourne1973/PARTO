@@ -56,6 +56,48 @@ class AttachmentRestoreTestBase(unittest.TestCase):
         from services.attachment_service import AttachmentService
         self.service = AttachmentService()
 
+        # (دور نوزدهم، مرحلهٔ ۸ — RESTORE-EDGE-01) از این پس restore_attachment
+        # وجودِ واقعیِ موجودیت والد را بررسی می‌کند؛ پس این آزمون‌ها که قبلاً
+        # صرفاً entity_id=1 فرضی/بدون رکورد واقعی به کار می‌بردند، حالا به
+        # یک مشاهدهٔ واقعی نیاز دارند تا رفتار خودِ Attachment (نه این
+        # بررسیِ تازه) را بسنجند.
+        from dal.observation_dal import ObservationDAL
+        from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+        from dal.student_dal import StudentDAL
+        from models.observation import Observation
+        from models.student import Student
+        from models.student_academic_profile import StudentAcademicProfile
+
+        student = Student()
+        student.first_name = "آزمون"
+        student.last_name = "پیوست"
+        student.national_code = "8200000001"
+        student = StudentDAL().create(student)
+
+        year_row = self.db_conn_for_year()
+        profile = StudentAcademicProfile()
+        profile.student_id = student.id
+        profile.academic_year_id = year_row
+        profile.grade = 1
+        profile.class_name = "اول-الف"
+        profile = StudentAcademicProfileDAL().create(profile)
+
+        obs = Observation()
+        obs.student_profile_id = profile.id
+        obs.staff_id = 1
+        obs.observation_date = "1404/01/01"
+        obs.description = "مشاهدهٔ زمینه‌ساز آزمون پیوست"
+        obs.behavior_type = "خنثی"
+        default_observation = ObservationDAL().create(obs)
+        self.default_entity = ("observation", default_observation.id)
+
+    def db_conn_for_year(self):
+        """شناسهٔ سال تحصیلیِ فعالِ seed‌شده را برمی‌گرداند"""
+        row = _dbc.DatabaseConnection().get_connection().execute(
+            "SELECT id FROM academic_years WHERE is_active = 1 LIMIT 1"
+        ).fetchone()
+        return row["id"]
+
     def tearDown(self):
         with contextlib.suppress(Exception):
             _dbc.DatabaseConnection().close_all()
@@ -69,12 +111,14 @@ class AttachmentRestoreTestBase(unittest.TestCase):
 
     # ---------------- کمکی ----------------
 
-    def upload(self, name="f.txt", content=b"hello", entity=("observation", 1)):
+    def upload(self, name="f.txt", content=b"hello", entity=None):
+        entity = entity or self.default_entity
         return self.service.upload_attachment(
             entity[0], entity[1], content, name,
             created_by=None, user_id=None)
 
-    def upload_n(self, n, entity=("observation", 1)):
+    def upload_n(self, n, entity=None):
+        entity = entity or self.default_entity
         ids = []
         for i in range(n):
             att = self.upload(
@@ -139,7 +183,7 @@ class TestRestoreRoundtrip(AttachmentRestoreTestBase):
         self.service.delete_attachment(a.id)
         self.service.delete_attachment(c.id)
         deleted = self.service.get_deleted_attachments_by_entity(
-            "observation", 1)
+            *self.default_entity)
         self.assertEqual(sorted(x.id for x in deleted), [a.id, c.id])
 
 
@@ -165,7 +209,7 @@ class TestRestoreVerifiesPhysicalFile(AttachmentRestoreTestBase):
         self.assertEqual(row["is_deleted"], 1)
         # و در فهرست حذف‌شده‌ها هم هست (کاربر می‌تواند وضعیت را ببیند)
         deleted = self.service.get_deleted_attachments_by_entity(
-            "observation", 1)
+            *self.default_entity)
         self.assertIn(att.id, [x.id for x in deleted])
 
     def test_restore_with_empty_path_fails(self):
@@ -185,7 +229,11 @@ class TestRestoreVerifiesPhysicalFile(AttachmentRestoreTestBase):
 class TestAttachmentLimit(AttachmentRestoreTestBase):
     """BUG-ATT-06: سقف ۲۰ پیوست — ۲۰قبول/۲۱رد + بدون خرابی نیمه‌کاره"""
 
-    ENTITY = ("observation", 7)
+    def setUp(self):
+        super().setUp()
+        # (مرحلهٔ ۸ — RESTORE-EDGE-01) باید به یک موجودیتِ والدِ واقعی
+        # اشاره کند؛ همان مشاهدهٔ زمینه‌سازِ AttachmentRestoreTestBase کافی است.
+        self.ENTITY = self.default_entity
 
     def test_twenty_accepted(self):
         ids = self.upload_n(20, self.ENTITY)

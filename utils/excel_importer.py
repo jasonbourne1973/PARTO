@@ -28,6 +28,7 @@ from models.student import Student
 from models.student_academic_profile import StudentAcademicProfile
 from utils.logger import get_logger
 from utils.persian_date import PersianDate, normalize_digits, to_db_date
+from utils.security import AccessControl, Permission, PermissionDeniedError
 from utils.time_utils import utc_now
 
 
@@ -165,9 +166,24 @@ class ExcelImporter:
         Returns:
             tuple: (success, message, imported_count, errors)
         """
+        # مرز مجوز backend (دور نوزدهم — سند ممیزی مدیر پروژه، بخش ۹/۱۰):
+        # ایمپورت یعنی ایجاد دانش‌آموز؛ باید همان CREATE_STUDENT لازم باشد.
+        # عمداً *قبل* از بررسی نصب‌بودن openpyxl/وجود فایل است: مرز مجوز
+        # نباید به وضعیت محیط (نصب بودن کتابخانه) وابسته باشد. این بررسی
+        # زودهنگام فقط برای پیام تمیز و رد سریع است — even اگر اینجا نبود،
+        # خودِ StudentDAL.create هم اکنون همین مجوز را کنترل می‌کند (دفاع
+        # لایه‌ای)، ولی بدون این بررسی، کاربر بی‌مجوز به‌جای یک خطای روشن،
+        # N بار «ردیف رد شد» می‌دید.
+        try:
+            AccessControl.require_permission(
+                Permission.CREATE_STUDENT.value,
+                action="ExcelImporter.import_students_from_excel")
+        except PermissionDeniedError as e:
+            return False, str(e), 0, []
+
         if not OPENPYXL_AVAILABLE:
             return False, "کتابخانه openpyxl نصب نیست. pip install openpyxl", 0, []
-        
+
         if not os.path.exists(file_path):
             return False, "فایل مورد نظر وجود ندارد.", 0, []
         
