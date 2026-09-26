@@ -436,6 +436,294 @@ class AccessControl:
 
         raise PermissionDeniedError(permission, staff_id=staff_id, action=action)
 
+    # ================================================================
+    # زیرساخت مشترک Scope/IDOR (دور نوزدهم — مرحلهٔ ۲، DD-6)
+    # ================================================================
+    #
+    # چرا لازم شد: Permission فقط می‌گوید «آیا نقش کاربر اجازهٔ نوعِ این
+    # عملیات را دارد» (مثلاً EDIT_STUDENT)، نه «آیا این کاربر خاص اجازهٔ
+    # این رکورد خاص را دارد». طبق تصمیم صریح مدیر پروژه (DD-6):
+    #   • فقط نقش TEACHER محدود به Scope است: فقط دانش‌آموزهایی که در
+    #     `teacher_assignments` با staff_id=او و is_active=1 (و
+    #     is_deleted=0) به او انتساب داده شده‌اند.
+    #   • همهٔ نقش‌های دیگر (MANAGER/COUNSELOR/VICE_PRINCIPAL/
+    #     VICE_EDUCATION/SPORT_COACH/QURAN_COACH/ART_COACH/VIEWER/
+    #     OTHER/SYSTEM) بدون محدودیت Scope هستند — فقط Permission آن‌ها
+    #     را کنترل می‌کند.
+    #   • رد Scope همیشه با PermissionDeniedError صریح است، هرگز پنهان
+    #     به‌شکل «رکورد پیدا نشد» (NotFound) — چون آن الگو تفاوت
+    #     «دسترسی نداری» و «رکورد اصلاً وجود ندارد» را از مهاجم مخفی
+    #     نمی‌کند و کاربر مجاز را هم گیج می‌کند.
+    #
+    # این متدها فقط زیرساخت‌اند (تنها روی «دانش‌آموز» عمل می‌کنند)؛
+    # نگاشت هر Entity دیگر (Observation/Intervention/FollowUp/Attachment)
+    # به student_id بر عهدهٔ Resolverهای مراحل بعدی (۳ و ۴) است — همان
+    # زنجیرهٔ مستندشده در DD-6.
+
+    @classmethod
+    def _teacher_has_active_assignment(cls, staff_id, student_id):
+        """آیا staff_id (با نقش TEACHER) به student_id فعالانه منتسب است؟"""
+        from database.connection import DatabaseConnection
+
+        try:
+            conn = DatabaseConnection().get_connection()
+            row = conn.execute(
+                """
+                SELECT 1 FROM teacher_assignments
+                WHERE staff_id = ? AND student_id = ?
+                  AND is_active = 1 AND is_deleted = 0
+                LIMIT 1
+                """,
+                (staff_id, student_id),
+            ).fetchone()
+        except Exception as e:
+            # خواندن انتساب شکست خورد → fail-closed (مثل _resolve_current_role)
+            logger.error(
+                f"خواندن انتساب معلم (staff_id={staff_id}, "
+                f"student_id={student_id}) شکست خورد؛ دسترسی رد می‌شود: {e}"
+            )
+            return False
+        return row is not None
+
+    @classmethod
+    def has_student_scope(cls, student_id):
+        """
+        آیا کاربر جاری به این دانش‌آموز خاص دسترسیِ Scope دارد؟ (DD-6)
+
+        Args:
+            student_id: شناسهٔ students.id؛ None یعنی «موجودیتی برای
+                محدودکردن مشخص نیست» (مثلاً هنوز ساخته نشده) → مجاز.
+
+        Returns:
+            bool — بدون نشست → True (بافت سیستمی، هم‌قرارداد با
+            has_permission/DD-4).
+        """
+        if not cls.has_session():
+            return True
+        if student_id is None:
+            return True
+        role = cls._resolve_current_role()
+        if role is None:
+            return False
+        if role != UserRole.TEACHER.value:
+            return True
+        return cls._teacher_has_active_assignment(cls._session_staff_id, student_id)
+
+    @classmethod
+    def require_student_scope(cls, student_id, action=None):
+        """
+        اجرای عملیات فقط اگر دانش‌آموز در Scope کاربر جاری باشد
+
+        Raises:
+            PermissionDeniedError: اگر TEACHER به این دانش‌آموز منتسب
+                نباشد (یا نشست نامعتبر باشد).
+        """
+        if cls.has_student_scope(student_id):
+            return True
+
+        staff_id = cls._session_staff_id
+        logger.warning(
+            f"🚫 رد Scope: staff_id={staff_id} به دانش‌آموز {student_id} "
+            f"(خارج از انتساب‌های او) برای «{action or 'نامشخص'}» دسترسی ندارد."
+        )
+        try:
+            import json as _json
+
+            from database.connection import DatabaseConnection
+
+            AuditLogger(DatabaseConnection()).log(
+                staff_id,
+                "permission_denied",
+                "scope",
+                entity_id=student_id,
+                new_value=_json.dumps(
+                    {"scope": "student", "student_id": student_id,
+                     "action": action or "student_scope"},
+                    ensure_ascii=False,
+                ),
+            )
+        except Exception as e:
+            logger.debug(f"ثبت Audit برای رد Scope انجام نشد: {e}")
+
+        raise PermissionDeniedError("student_scope", staff_id=staff_id, action=action)
+
+    # ----------------------------------------------------------------
+    # Resolverهای زنجیرهٔ Scope (دور نوزدهم — مرحلهٔ ۳، طبق DD-6)
+    # ----------------------------------------------------------------
+    #
+    # هر Entity به‌جای «student_id» با کلید خارجی خودش کار می‌کند
+    # (Intervention/Observation → student_profile_id، FollowUp →
+    # intervention_id). این متدها همان زنجیرهٔ مستندشده در DD-6 را طی
+    # می‌کنند تا در نهایت به student_id برسند و از has_student_scope/
+    # require_student_scope عبور کنند — منطق Scope فقط یک‌جا نوشته
+    # می‌شود، این‌ها فقط «نگاشت» می‌کنند.
+
+    @classmethod
+    def _student_id_from_profile(cls, profile_id):
+        """نگاشت student_academic_profiles.id → students.id"""
+        if profile_id is None:
+            return None
+        from database.connection import DatabaseConnection
+
+        try:
+            conn = DatabaseConnection().get_connection()
+            row = conn.execute(
+                "SELECT student_id FROM student_academic_profiles WHERE id = ?",
+                (profile_id,),
+            ).fetchone()
+        except Exception as e:
+            logger.error(
+                f"نگاشت پروندهٔ سالانه {profile_id} به دانش‌آموز شکست خورد: {e}")
+            return None
+        return row["student_id"] if row else None
+
+    @classmethod
+    def _profile_id_from_intervention(cls, intervention_id):
+        """نگاشت interventions.id → student_academic_profiles.id"""
+        if intervention_id is None:
+            return None
+        from database.connection import DatabaseConnection
+
+        try:
+            conn = DatabaseConnection().get_connection()
+            row = conn.execute(
+                "SELECT student_profile_id FROM interventions WHERE id = ?",
+                (intervention_id,),
+            ).fetchone()
+        except Exception as e:
+            logger.error(
+                f"نگاشت مداخلهٔ {intervention_id} به پرونده شکست خورد: {e}")
+            return None
+        return row["student_profile_id"] if row else None
+
+    @classmethod
+    def _intervention_id_from_followup(cls, followup_id):
+        """نگاشت followups.id → interventions.id"""
+        if followup_id is None:
+            return None
+        from database.connection import DatabaseConnection
+
+        try:
+            conn = DatabaseConnection().get_connection()
+            row = conn.execute(
+                "SELECT intervention_id FROM followups WHERE id = ?",
+                (followup_id,),
+            ).fetchone()
+        except Exception as e:
+            logger.error(
+                f"نگاشت پیگیریِ {followup_id} به مداخله شکست خورد: {e}")
+            return None
+        return row["intervention_id"] if row else None
+
+    @classmethod
+    def has_profile_scope(cls, profile_id):
+        """آیا کاربر جاری به پروندهٔ سالانهٔ داده‌شده Scope دارد؟"""
+        return cls.has_student_scope(cls._student_id_from_profile(profile_id))
+
+    @classmethod
+    def require_profile_scope(cls, profile_id, action=None):
+        """نسخهٔ raise‌کنندهٔ has_profile_scope (برای Observation/Intervention)"""
+        return cls.require_student_scope(
+            cls._student_id_from_profile(profile_id), action=action)
+
+    @classmethod
+    def has_intervention_scope(cls, intervention_id):
+        """آیا کاربر جاری به مداخلهٔ داده‌شده Scope دارد؟ (زنجیره تا student_id)"""
+        profile_id = cls._profile_id_from_intervention(intervention_id)
+        return cls.has_profile_scope(profile_id)
+
+    @classmethod
+    def require_intervention_scope(cls, intervention_id, action=None):
+        """نسخهٔ raise‌کنندهٔ has_intervention_scope"""
+        profile_id = cls._profile_id_from_intervention(intervention_id)
+        return cls.require_profile_scope(profile_id, action=action)
+
+    @classmethod
+    def has_followup_scope(cls, followup_id):
+        """آیا کاربر جاری به پیگیریِ داده‌شده Scope دارد؟ (زنجیرهٔ کامل)"""
+        intervention_id = cls._intervention_id_from_followup(followup_id)
+        return cls.has_intervention_scope(intervention_id)
+
+    @classmethod
+    def require_followup_scope(cls, followup_id, action=None):
+        """نسخهٔ raise‌کنندهٔ has_followup_scope"""
+        intervention_id = cls._intervention_id_from_followup(followup_id)
+        return cls.require_intervention_scope(intervention_id, action=action)
+
+    # ------------------------------------------------------------
+    # Resolverهای مرحلهٔ ۴: موجودیت‌هایی که خودشان مستقیماً ستون
+    # student_profile_id دارند (Observation، و — طبق تصمیم صریح مدیر
+    # پروژه dd1_scope=add_scope_only — سه موجودیتی که فعلاً هیچ
+    # Permission‌ای در enum ندارند: counseling_session،
+    # extracurricular_activity، individual_goal. توجه: این‌ها فقط
+    # Scope می‌گیرند، نه Permission؛ طبق DD-1 اختراع Permission برای
+    # آن‌ها هنوز ممنوع است).
+    # ------------------------------------------------------------
+
+    @classmethod
+    def _profile_id_from_own_table(cls, table, entity_id):
+        """نگاشت عمومی <table>.id → student_academic_profiles.id
+        (برای جدول‌هایی که خودشان ستون student_profile_id دارند)"""
+        if entity_id is None:
+            return None
+        from database.connection import DatabaseConnection
+
+        try:
+            conn = DatabaseConnection().get_connection()
+            row = conn.execute(
+                f"SELECT student_profile_id FROM {table} WHERE id = ?",
+                (entity_id,),
+            ).fetchone()
+        except Exception as e:
+            logger.error(f"نگاشت {table}.id={entity_id} به پرونده شکست خورد: {e}")
+            return None
+        return row["student_profile_id"] if row else None
+
+    @classmethod
+    def has_observation_scope(cls, observation_id):
+        return cls.has_profile_scope(
+            cls._profile_id_from_own_table("observations", observation_id))
+
+    @classmethod
+    def require_observation_scope(cls, observation_id, action=None):
+        return cls.require_profile_scope(
+            cls._profile_id_from_own_table("observations", observation_id),
+            action=action)
+
+    @classmethod
+    def has_counseling_session_scope(cls, session_id):
+        return cls.has_profile_scope(
+            cls._profile_id_from_own_table("counseling_sessions", session_id))
+
+    @classmethod
+    def require_counseling_session_scope(cls, session_id, action=None):
+        return cls.require_profile_scope(
+            cls._profile_id_from_own_table("counseling_sessions", session_id),
+            action=action)
+
+    @classmethod
+    def has_extracurricular_activity_scope(cls, activity_id):
+        return cls.has_profile_scope(
+            cls._profile_id_from_own_table("extracurricular_activities", activity_id))
+
+    @classmethod
+    def require_extracurricular_activity_scope(cls, activity_id, action=None):
+        return cls.require_profile_scope(
+            cls._profile_id_from_own_table("extracurricular_activities", activity_id),
+            action=action)
+
+    @classmethod
+    def has_goal_scope(cls, goal_id):
+        return cls.has_profile_scope(
+            cls._profile_id_from_own_table("individual_goals", goal_id))
+
+    @classmethod
+    def require_goal_scope(cls, goal_id, action=None):
+        return cls.require_profile_scope(
+            cls._profile_id_from_own_table("individual_goals", goal_id),
+            action=action)
+
+
 
 def permission_required(permission):
     """

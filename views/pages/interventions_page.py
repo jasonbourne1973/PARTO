@@ -164,6 +164,9 @@ class InterventionsPage(YearAwarePage, QWidget):
             QPushButton:hover { background-color: #d35400; }
         """)
         self.add_btn.clicked.connect(self.add_intervention)
+        # (دور نوزدهم) هماهنگ با CREATE_INTERVENTION در DAL — UI↔backend یک مرز
+        self.add_btn.setEnabled(
+            AccessControl.has_permission(Permission.CREATE_INTERVENTION.value))
         toolbar.addWidget(self.add_btn)
         
         layout.addLayout(toolbar)

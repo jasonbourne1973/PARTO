@@ -132,7 +132,7 @@ class ClassReportService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در دریافت گزارش کلاس: {e}")
-            raise ServiceError(f"خطا در دریافت گزارش: {e!s}")
+            raise self._safe_service_error(e, "خطا در دریافت گزارش.") from e
     
     def get_class_list_report(self, academic_year_id=None, start_date=None, end_date=None):
         """
@@ -159,7 +159,7 @@ class ClassReportService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در دریافت گزارش لیست کلاس‌ها: {e}")
-            raise ServiceError(f"خطا در دریافت گزارش: {e!s}")
+            raise self._safe_service_error(e, "خطا در دریافت گزارش.") from e
     
     def get_class_summary_for_dashboard(self, class_id):
         """
@@ -621,7 +621,7 @@ class ClassReportService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در خروجی PDF گزارش کلاس: {e}")
-            return False, f"خطا در ساخت فایل PDF: {e!s}"
+            return False, "خطا در ساخت فایل PDF."
     
     def export_class_report_excel(self, class_id, file_path, start_date=None, end_date=None):
         """
@@ -762,4 +762,4 @@ class ClassReportService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در خروجی Excel گزارش کلاس: {e}")
-            return False, f"خطا در ساخت فایل Excel: {e!s}"
+            return False, "خطا در ساخت فایل Excel."

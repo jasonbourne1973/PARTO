@@ -8,6 +8,7 @@ import sqlite3
 from database.connection import DatabaseConnection
 from models.followup import FollowUp
 from utils.logger import get_logger
+from utils.pagination import normalize_limit_offset
 from utils.security import AccessControl, Permission
 from utils.time_utils import utc_now_iso
 
@@ -22,6 +23,16 @@ class FollowUpDAL:
     
     def create(self, followup):
         """ایجاد پیگیری جدید"""
+        # مرز مجوز backend (دور نوزدهم — سند ممیزی مدیر پروژه)
+        AccessControl.require_permission(
+            Permission.CREATE_FOLLOWUP.value, action="FollowupDAL.create")
+        # مرز Scope/Cross-resource (دور نوزدهم — مرحلهٔ ۳، DD-6): پیگیری
+        # به یک مداخله وصل می‌شود؛ اگر آن مداخله در Scope کاربر جاری
+        # نباشد، نباید بشود رویش پیگیری ثبت کرد (وگرنه معلم می‌توانست
+        # با دانستن intervention_id مداخلهٔ معلم دیگر، پیگیری روی
+        # دانش‌آموزی خارج از Scope خودش بسازد).
+        AccessControl.require_intervention_scope(
+            followup.intervention_id, action="FollowupDAL.create")
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
@@ -56,7 +67,12 @@ class FollowUpDAL:
         cursor = self.db.execute_query(query, (followup_id,))
         row = cursor.fetchone()
         if row:
-            return self._row_to_followup(row)
+            followup = self._row_to_followup(row)
+            # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۳، SEC-IDOR-01، DD-6):
+            # زنجیرهٔ FollowUp→Intervention→Profile→Student→Scope.
+            AccessControl.require_intervention_scope(
+                followup.intervention_id, action="FollowupDAL.get_by_id")
+            return followup
         return None
     
     def get_by_intervention(self, intervention_id, include_deleted=False):
@@ -99,9 +115,52 @@ class FollowUpDAL:
         rows = cursor.fetchall()
         return [self._row_to_followup(row) for row in rows]
     
-    def get_all(self, limit=None, include_deleted=False, academic_year_id=None, staff_id=None):
-        """دریافت همه پیگیری‌ها با فیلتر سال/معلم قبل از LIMIT."""
+    def get_all(self, limit=None, include_deleted=False, academic_year_id=None,
+                staff_id=None, offset=None):
+        """
+        دریافت همه پیگیری‌ها با فیلتر سال/معلم قبل از LIMIT.
+
+        (دور نوزدهم، مرحلهٔ ۶) پارامتر offset سازگار با گذشته اضافه شده
+        (پیش‌فرض None یعنی بدون OFFSET)؛ limit=None هم مثل قبل «بدون سقف»
+        است. این DAL هنوز کنترل صفحه‌بندی‌ای در UI ندارد.
+        """
+        limit, offset = normalize_limit_offset(limit, offset)
+
         query = "SELECT f.* FROM followups f"
+        joins, where, params = self._base_filters(
+            include_deleted=include_deleted, academic_year_id=academic_year_id,
+            staff_id=staff_id)
+        if joins:
+            query += " " + " ".join(joins)
+        if where:
+            query += " WHERE " + " AND ".join(where)
+        query += " ORDER BY f.date DESC"
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+            if offset is not None:
+                query += " OFFSET ?"
+                params.append(offset)
+        cursor = self.db.execute_query(query, params)
+        rows = cursor.fetchall()
+        return [self._row_to_followup(row) for row in rows]
+
+    def count_all(self, include_deleted=False, academic_year_id=None, staff_id=None):
+        """شمارش پیگیری‌ها با همان فیلترهای get_all (بدون LIMIT/OFFSET) — مرحلهٔ ۶"""
+        query = "SELECT COUNT(*) as cnt FROM followups f"
+        joins, where, params = self._base_filters(
+            include_deleted=include_deleted, academic_year_id=academic_year_id,
+            staff_id=staff_id)
+        if joins:
+            query += " " + " ".join(joins)
+        if where:
+            query += " WHERE " + " AND ".join(where)
+        cursor = self.db.execute_query(query, params)
+        row = cursor.fetchone()
+        return row["cnt"] if row else 0
+
+    def _base_filters(self, include_deleted=False, academic_year_id=None, staff_id=None):
+        """ساخت مشترک joins/where/params برای get_all و count_all (مرحلهٔ ۶)"""
         joins = []
         where = []
         params = []
@@ -112,6 +171,9 @@ class FollowUpDAL:
             ])
             where.append("sap.academic_year_id = ?")
             params.append(academic_year_id)
+            # (دور نوزدهم، مرحلهٔ ۷ — رفع باگ) پروندهٔ حذف‌شده در فیلتر سال
+            # نباید شمرده شود؛ هم‌راستا با profile_dal.get_by_ids در همه‌جا.
+            where.append("sap.is_deleted = 0")
             if not include_deleted:
                 where.append("i.is_deleted = 0")
         if not include_deleted:
@@ -119,30 +181,54 @@ class FollowUpDAL:
         if staff_id is not None:
             where.append("f.staff_id = ?")
             params.append(staff_id)
+        return joins, where, params
+
+    def get_dashboard_stats(self, staff_id=None, academic_year_id=None):
+        """
+        شمارش کل/در-انتظار پیگیری‌ها با یک کوئری Aggregate (مرحلهٔ ۷ —
+        PERF-01/08/09)؛ جایگزین get_all() کامل + شمارش پایتونی در
+        dashboard_service. فیلترها دقیقاً همان count_all/get_all را دارند.
+
+        Returns:
+            dict: {'total', 'pending'}
+        """
+        query = "SELECT COUNT(*) as total, SUM(CASE WHEN f.status = 'pending' THEN 1 ELSE 0 END) as pending FROM followups f"
+        joins, where, params = self._base_filters(
+            include_deleted=False, academic_year_id=academic_year_id, staff_id=staff_id)
         if joins:
             query += " " + " ".join(joins)
         if where:
             query += " WHERE " + " AND ".join(where)
-        query += " ORDER BY f.date DESC"
-        if limit is not None:
-            query += " LIMIT ?"
-            params.append(limit)
         cursor = self.db.execute_query(query, params)
-        rows = cursor.fetchall()
-        return [self._row_to_followup(row) for row in rows]
-    
+        row = cursor.fetchone()
+        total = (row["total"] if row else 0) or 0
+        pending = (row["pending"] if row else 0) or 0
+        return {'total': total, 'pending': pending}
+
     def update(self, followup):
         """به‌روزرسانی پیگیری - فقط رکوردهای موجود"""
+        # مرز مجوز backend (دور نوزدهم)
+        AccessControl.require_permission(
+            Permission.EDIT_FOLLOWUP.value, action="FollowupDAL.update")
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
         # بررسی وجود رکورد و عدم حذف
         cursor.execute(
-            "SELECT id FROM followups WHERE id = ? AND is_deleted = 0",
+            "SELECT intervention_id FROM followups WHERE id = ? AND is_deleted = 0",
             (followup.id,)
         )
-        if not cursor.fetchone():
+        existing = cursor.fetchone()
+        if not existing:
             raise Exception("رکورد مورد نظر یافت نشد یا حذف شده است.")
+
+        # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۳): هم رکورد موجود
+        # (پیش از تغییر) و هم مداخلهٔ مقصد (اگر عوض شده باشد).
+        AccessControl.require_intervention_scope(
+            existing["intervention_id"], action="FollowupDAL.update")
+        if followup.intervention_id != existing["intervention_id"]:
+            AccessControl.require_intervention_scope(
+                followup.intervention_id, action="FollowupDAL.update(new_intervention)")
         
         cursor.execute("""
             UPDATE followups SET
@@ -190,11 +276,15 @@ class FollowUpDAL:
         
         # بررسی وجود رکورد و عدم حذف قبلی
         cursor.execute(
-            "SELECT id FROM followups WHERE id = ? AND is_deleted = 0",
+            "SELECT intervention_id FROM followups WHERE id = ? AND is_deleted = 0",
             (followup_id,)
         )
-        if not cursor.fetchone():
+        existing = cursor.fetchone()
+        if not existing:
             return False
+        # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۳)
+        AccessControl.require_intervention_scope(
+            existing["intervention_id"], action="FollowupDAL.delete")
         
         now = utc_now_iso()
         cursor.execute("""
@@ -219,12 +309,30 @@ class FollowUpDAL:
         
         # بررسی وجود رکورد و حذف شده بودن
         cursor.execute(
-            "SELECT id FROM followups WHERE id = ? AND is_deleted = 1",
+            "SELECT intervention_id FROM followups WHERE id = ? AND is_deleted = 1",
             (followup_id,)
         )
-        if not cursor.fetchone():
+        existing = cursor.fetchone()
+        if not existing:
             return False
-        
+        # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۳)
+        AccessControl.require_intervention_scope(
+            existing["intervention_id"], action="FollowupDAL.restore")
+
+        # مرحلهٔ ۸ (RESTORE-EDGE-01): مداخلهٔ والد باید هنوز وجود
+        # داشته و حذف نشده باشد — وگرنه یک پیگیریِ «فعال» روی یک
+        # مداخلهٔ حذف‌شده ساخته می‌شود.
+        parent = cursor.execute(
+            "SELECT 1 FROM interventions WHERE id = ? AND is_deleted = 0",
+            (existing["intervention_id"],)
+        ).fetchone()
+        if not parent:
+            raise ValueError(
+                "مداخلهٔ مربوط به این پیگیری حذف شده یا وجود ندارد؛ "
+                "پیش از بازیابیِ پیگیری باید ابتدا خودِ مداخله را "
+                "بازگردانی کنید."
+            )
+
         cursor.execute("""
             UPDATE followups SET
                 is_deleted = 0,
@@ -251,7 +359,17 @@ class FollowUpDAL:
         return [self._row_to_followup(row) for row in rows]
     
     def permanent_delete(self, followup_id):
-        """حذف فیزیکی پیگیری - فقط برای موارد خاص استفاده شود"""
+        """
+        حذف فیزیکی پیگیری - فقط برای موارد خاص استفاده شود
+
+        (دور نوزدهم، مرحلهٔ ۸ — SEC-HARD-DELETE-01) قبلاً بدون هیچ
+        بررسیِ Permission، ردیف مستقیماً DELETE می‌شد. هیچ جدولی به
+        followups.id کلید خارجی ندارد (برگ درخت وابستگی است)، پس فقط
+        Permission لازم است، نه گاردِ وابستگی.
+        """
+        AccessControl.require_permission(
+            Permission.DELETE_FOLLOWUP.value, action="FollowUpDAL.permanent_delete")
+
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
@@ -259,8 +377,9 @@ class FollowUpDAL:
             "DELETE FROM followups WHERE id = ?",
             (followup_id,)
         )
+        affected = cursor.rowcount
         self.db.commit()
-        return True
+        return affected > 0
     
     def _row_to_followup(self, row):
         """تبدیل ردیف دیتابیس به مدل FollowUp"""
@@ -730,26 +849,43 @@ class FollowUpDAL:
     _LIKE = "LIKE ? ESCAPE '\\'"
     _SEARCH_COLUMNS = ('description', 'method', 'result_description', 'result_type', 'status')
 
-    def search(self, search_term, limit=None, include_deleted=False, academic_year_id=None):
+    def search(self, search_term, limit=None, include_deleted=False, academic_year_id=None,
+               offset=None):
         """جست‌وجوی متن آزاد در همه پیگیری‌ها"""
-        return self._search_text(search_term, limit=limit, include_deleted=include_deleted, academic_year_id=academic_year_id)
+        return self._search_text(search_term, limit=limit, include_deleted=include_deleted,
+                                 academic_year_id=academic_year_id, offset=offset)
 
-    def search_by_student(self, student_id, search_term, limit=None, include_deleted=False, academic_year_id=None):
+    def search_by_student(self, student_id, search_term, limit=None, include_deleted=False,
+                          academic_year_id=None, offset=None):
         """جست‌وجوی متن آزاد در پیگیری‌های یک دانش‌آموز"""
         return self._search_text(search_term, student_id=student_id, limit=limit,
-                                 include_deleted=include_deleted, academic_year_id=academic_year_id)
+                                 include_deleted=include_deleted, academic_year_id=academic_year_id,
+                                 offset=offset)
 
-    def search_by_teacher(self, teacher_id, search_term, limit=None, include_deleted=False, academic_year_id=None):
+    def search_by_teacher(self, teacher_id, search_term, limit=None, include_deleted=False,
+                          academic_year_id=None, offset=None):
         """جست‌وجوی متن آزاد در پیگیری‌های یک معلم"""
         return self._search_text(search_term, teacher_id=teacher_id, limit=limit,
-                                 include_deleted=include_deleted, academic_year_id=academic_year_id)
+                                 include_deleted=include_deleted, academic_year_id=academic_year_id,
+                                 offset=offset)
 
-    def _search_text(self, search_term, student_id=None, teacher_id=None,
-                     limit=None, include_deleted=False, academic_year_id=None):
-        """پیاده‌سازی مشترک جست‌وجو"""
+    def count_search(self, search_term, student_id=None, teacher_id=None,
+                      include_deleted=False, academic_year_id=None):
+        """شمارش نتایج جست‌وجوی متن آزاد (بدون LIMIT/OFFSET) — مرحلهٔ ۶"""
         if search_term is None or not str(search_term).strip():
-            return []
+            return 0
+        where, params, joins = self._search_where(
+            search_term, student_id=student_id, teacher_id=teacher_id,
+            include_deleted=include_deleted, academic_year_id=academic_year_id)
+        query = "SELECT COUNT(*) as cnt FROM followups f%s WHERE %s" % (
+            joins, " AND ".join(where))
+        cursor = self.db.execute_query(query, params)
+        row = cursor.fetchone()
+        return row["cnt"] if row else 0
 
+    def _search_where(self, search_term, student_id=None, teacher_id=None,
+                       include_deleted=False, academic_year_id=None):
+        """ساخت مشترک WHERE/params/joins جست‌وجو (استفادهٔ _search_text و count_search)"""
         term = self._escape_like(search_term)
         like = " OR ".join("f.%s %s" % (c, self._LIKE) for c in self._SEARCH_COLUMNS)
 
@@ -781,12 +917,29 @@ class FollowUpDAL:
         if not include_deleted:
             where.append("f.is_deleted = 0")
 
+        return where, params, joins
+
+    def _search_text(self, search_term, student_id=None, teacher_id=None,
+                     limit=None, include_deleted=False, academic_year_id=None, offset=None):
+        """پیاده‌سازی مشترک جست‌وجو"""
+        if search_term is None or not str(search_term).strip():
+            return []
+
+        limit, offset = normalize_limit_offset(limit, offset)
+
+        where, params, joins = self._search_where(
+            search_term, student_id=student_id, teacher_id=teacher_id,
+            include_deleted=include_deleted, academic_year_id=academic_year_id)
+
         query = "SELECT f.* FROM followups f%s WHERE %s" % (joins, " AND ".join(where))
         query += " ORDER BY f.date DESC"
 
         if limit is not None:
             query += " LIMIT ?"
             params.append(limit)
+            if offset is not None:
+                query += " OFFSET ?"
+                params.append(offset)
 
         cursor = self.db.execute_query(query, params)
         rows = cursor.fetchall()

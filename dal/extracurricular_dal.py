@@ -8,6 +8,8 @@ import sqlite3
 from database.connection import DatabaseConnection
 from models.extracurricular_activity import ExtracurricularActivity
 from utils.logger import get_logger
+from utils.pagination import normalize_limit_offset
+from utils.security import AccessControl
 from utils.time_utils import utc_now_iso
 
 logger = get_logger(__name__)
@@ -21,6 +23,10 @@ class ExtracurricularDAL:
     
     def create(self, activity):
         """ایجاد فعالیت جدید"""
+        # مرز Scope (دور نوزدهم — مرحلهٔ ۴، DD-6 + dd1_scope=add_scope_only؛
+        # طبق DD-1 این موجودیت هنوز Permission‌ای ندارد، فقط Scope)
+        AccessControl.require_profile_scope(
+            activity.student_profile_id, action="ExtracurricularDAL.create")
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
@@ -67,7 +73,11 @@ class ExtracurricularDAL:
         cursor = self.db.execute_query(query, (activity_id,))
         row = cursor.fetchone()
         if row:
-            return self._row_to_activity(row)
+            activity = self._row_to_activity(row)
+            # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۴؛ فقط Scope)
+            AccessControl.require_profile_scope(
+                activity.student_profile_id, action="ExtracurricularDAL.get_by_id")
+            return activity
         return None
     
     def get_by_student_profile(self, profile_id, include_deleted=False):
@@ -128,8 +138,16 @@ class ExtracurricularDAL:
         rows = cursor.fetchall()
         return [self._row_to_activity(row) for row in rows]
     
-    def get_all(self, limit=None, include_deleted=False):
-        """دریافت همه فعالیت‌ها"""
+    def get_all(self, limit=None, include_deleted=False, offset=None):
+        """
+        دریافت همه فعالیت‌ها
+
+        (دور نوزدهم، مرحلهٔ ۶) پارامتر offset سازگار با گذشته اضافه شده
+        (پیش‌فرض None یعنی بدون OFFSET)؛ limit=None هم مثل قبل «بدون سقف»
+        است. این DAL هنوز کنترل صفحه‌بندی‌ای در UI ندارد.
+        """
+        limit, offset = normalize_limit_offset(limit, offset)
+
         query = "SELECT * FROM extracurricular_activities"
         if not include_deleted:
             query += " WHERE is_deleted = 0"
@@ -139,15 +157,44 @@ class ExtracurricularDAL:
         if limit is not None:
             query += " LIMIT ?"
             params.append(limit)
+            if offset is not None:
+                query += " OFFSET ?"
+                params.append(offset)
         
         cursor = self.db.execute_query(query, params if params else None)
         rows = cursor.fetchall()
         return [self._row_to_activity(row) for row in rows]
+
+    def count_all(self, include_deleted=False):
+        """شمارش فعالیت‌ها با همان فیلتر get_all (بدون LIMIT/OFFSET) — مرحلهٔ ۶"""
+        query = "SELECT COUNT(*) as cnt FROM extracurricular_activities"
+        if not include_deleted:
+            query += " WHERE is_deleted = 0"
+        cursor = self.db.execute_query(query)
+        row = cursor.fetchone()
+        return row["cnt"] if row else 0
     
     def update(self, activity):
         """به‌روزرسانی فعالیت"""
         conn = self.db.get_connection()
         cursor = conn.cursor()
+
+        # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۴؛ فقط Scope). اگر رکورد
+        # پیدا نشود، رفتار قبلی (no-op عملاً چون WHERE id=? هیچ ردیفی
+        # را نمی‌زند) دست‌نخورده می‌ماند.
+        cursor.execute(
+            "SELECT student_profile_id FROM extracurricular_activities "
+            "WHERE id = ? AND is_deleted = 0",
+            (activity.id,)
+        )
+        existing = cursor.fetchone()
+        if existing:
+            AccessControl.require_profile_scope(
+                existing["student_profile_id"], action="ExtracurricularDAL.update")
+            if activity.student_profile_id != existing["student_profile_id"]:
+                AccessControl.require_profile_scope(
+                    activity.student_profile_id,
+                    action="ExtracurricularDAL.update(new_profile)")
         
         achievements_json = json.dumps(activity.achievements, ensure_ascii=False) if activity.achievements else None
         
@@ -215,11 +262,16 @@ class ExtracurricularDAL:
         cursor = conn.cursor()
         
         cursor.execute(
-            "SELECT id FROM extracurricular_activities WHERE id = ? AND is_deleted = 0",
+            "SELECT student_profile_id FROM extracurricular_activities "
+            "WHERE id = ? AND is_deleted = 0",
             (activity_id,)
         )
-        if not cursor.fetchone():
+        existing = cursor.fetchone()
+        if not existing:
             return False
+        # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۴؛ فقط Scope)
+        AccessControl.require_profile_scope(
+            existing["student_profile_id"], action="ExtracurricularDAL.delete")
         
         now = utc_now_iso()
         cursor.execute("""
@@ -237,6 +289,17 @@ class ExtracurricularDAL:
         """بازیابی فعالیت حذف شده"""
         conn = self.db.get_connection()
         cursor = conn.cursor()
+
+        # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۴؛ فقط Scope)
+        cursor.execute(
+            "SELECT student_profile_id FROM extracurricular_activities "
+            "WHERE id = ? AND is_deleted = 1",
+            (activity_id,)
+        )
+        existing = cursor.fetchone()
+        if existing:
+            AccessControl.require_profile_scope(
+                existing["student_profile_id"], action="ExtracurricularDAL.restore")
         
         cursor.execute("""
             UPDATE extracurricular_activities SET

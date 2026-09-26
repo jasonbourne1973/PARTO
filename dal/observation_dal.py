@@ -15,6 +15,7 @@ from utils.behavior_analysis import (
     shares,
 )
 from utils.logger import get_logger
+from utils.pagination import normalize_limit_offset
 from utils.security import AccessControl, Permission
 from utils.time_utils import utc_now_iso
 
@@ -34,6 +35,13 @@ class ObservationDAL:
         می‌شوند (ساختار سه‌لایه شایستگی ← شاخص ← رفتار قابل مشاهده).
         توضیح کامل باگ قبلی در docstring متد `_row_to_observation` آمده است.
         """
+        # مرز مجوز backend (دور نوزدهم — سند ممیزی مدیر پروژه)
+        AccessControl.require_permission(
+            Permission.CREATE_OBSERVATION.value, action="ObservationDAL.create")
+        # مرز Scope (دور نوزدهم — مرحلهٔ ۴، DD-6): معلم فقط برای
+        # دانش‌آموزهای منتسب‌شدهٔ خودش می‌تواند مشاهده ثبت کند.
+        AccessControl.require_profile_scope(
+            observation.student_profile_id, action="ObservationDAL.create")
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
@@ -75,7 +83,12 @@ class ObservationDAL:
         cursor = self.db.execute_query(query, (observation_id,))
         row = cursor.fetchone()
         if row:
-            return self._row_to_observation(row)
+            observation = self._row_to_observation(row)
+            # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۴، DD-6): خواندن
+            # مستقیم با ID دیگر بدون بررسی Scope نیست.
+            AccessControl.require_profile_scope(
+                observation.student_profile_id, action="ObservationDAL.get_by_id")
+            return observation
         return None
     
     def get_by_student_profile(self, profile_id, limit=None, include_deleted=False):
@@ -122,8 +135,19 @@ class ObservationDAL:
         rows = cursor.fetchall()
         return [self._row_to_observation(row) for row in rows]
     
-    def get_all(self, limit=None, include_deleted=False, academic_year_id=None, staff_id=None):
-        """دریافت همه مشاهدات با فیلتر سال/معلم قبل از LIMIT."""
+    def get_all(self, limit=None, include_deleted=False, academic_year_id=None,
+                staff_id=None, offset=None):
+        """
+        دریافت همه مشاهدات با فیلتر سال/معلم قبل از LIMIT.
+
+        (دور نوزدهم، مرحلهٔ ۶) پارامتر offset به‌صورت سازگار با گذشته
+        اضافه شده (پیش‌فرض None یعنی بدون OFFSET، دقیقاً مثل قبل)؛
+        limit=None هم مثل قبل یعنی «بدون سقف» (برای خروجی‌های کامل مثل
+        Excel). این DAL هنوز کنترل صفحه‌بندی‌ای در UI ندارد — این پارامتر
+        فقط یک قابلیت آماده در لایهٔ داده است.
+        """
+        limit, offset = normalize_limit_offset(limit, offset)
+
         query = "SELECT o.* FROM observations o"
         joins = []
         where = []
@@ -132,6 +156,11 @@ class ObservationDAL:
             joins.append("JOIN student_academic_profiles sap ON o.student_profile_id = sap.id")
             where.append("sap.academic_year_id = ?")
             params.append(academic_year_id)
+            # (دور نوزدهم، مرحلهٔ ۷ — رفع باگ) پروندهٔ حذف‌شده نباید در فیلتر
+            # سال شمرده شود؛ این دقیقاً همان معناشناسیِ profile_dal.get_by_ids
+            # است که همه‌جای دیگرِ کد (از جمله dashboard_service قدیمی که
+            # get_by_ids را برای فیلتر سال صدا می‌زد) رعایت می‌کند.
+            where.append("sap.is_deleted = 0")
         if not include_deleted:
             where.append("o.is_deleted = 0")
         if staff_id is not None:
@@ -145,10 +174,137 @@ class ObservationDAL:
         if limit is not None:
             query += " LIMIT ?"
             params.append(limit)
+            if offset is not None:
+                query += " OFFSET ?"
+                params.append(offset)
         cursor = self.db.execute_query(query, params)
         rows = cursor.fetchall()
         return [self._row_to_observation(row) for row in rows]
+
+    def count_all(self, include_deleted=False, academic_year_id=None, staff_id=None):
+        """
+        شمارش مشاهدات با همان فیلترهای get_all (بدون LIMIT/OFFSET)
+
+        (دور نوزدهم، مرحلهٔ ۶) قابلیت پایه برای Pagination واقعی؛ فعلاً
+        مصرف‌کننده‌ای در UI ندارد (صفحهٔ مشاهدات کنترل صفحه‌بندی‌ای ندارد).
+        """
+        query = "SELECT COUNT(*) as cnt FROM observations o"
+        joins = []
+        where = []
+        params = []
+        if academic_year_id is not None:
+            joins.append("JOIN student_academic_profiles sap ON o.student_profile_id = sap.id")
+            where.append("sap.academic_year_id = ?")
+            params.append(academic_year_id)
+            where.append("sap.is_deleted = 0")
+        if not include_deleted:
+            where.append("o.is_deleted = 0")
+        if staff_id is not None:
+            where.append("o.staff_id = ?")
+            params.append(staff_id)
+        if joins:
+            query += " " + " ".join(joins)
+        if where:
+            query += " WHERE " + " AND ".join(where)
+        cursor = self.db.execute_query(query, params)
+        row = cursor.fetchone()
+        return row["cnt"] if row else 0
+
     
+    def get_dashboard_stats(self, staff_id=None, academic_year_id=None):
+        """
+        شمارش/تفکیک نوع رفتار مشاهدات با یک کوئری Aggregate (مرحلهٔ ۷ — PERF-01/08/09)
+
+        جایگزین الگوی قدیمیِ dashboard_service که کل جدول را با get_all()
+        در پایتون می‌خواند و با len()/sum() می‌شمرد. فیلترها دقیقاً همان
+        فیلترهای get_all/count_all را دارند (پروندهٔ حذف‌شده هم مثل آنجا
+        از فیلتر سال مستثنا می‌شود).
+
+        Returns:
+            dict: {'total', 'positive', 'negative', 'neutral'}
+        """
+        query = """
+            SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN o.behavior_type = 'مثبت' THEN 1 ELSE 0 END) as positive,
+                SUM(CASE WHEN o.behavior_type = 'منفی' THEN 1 ELSE 0 END) as negative
+            FROM observations o
+        """
+        joins = []
+        where = ["o.is_deleted = 0"]
+        params = []
+        if academic_year_id is not None:
+            joins.append("JOIN student_academic_profiles sap ON o.student_profile_id = sap.id")
+            where.append("sap.academic_year_id = ?")
+            params.append(academic_year_id)
+            where.append("sap.is_deleted = 0")
+        if staff_id is not None:
+            where.append("o.staff_id = ?")
+            params.append(staff_id)
+        if joins:
+            query += " " + " ".join(joins)
+        query += " WHERE " + " AND ".join(where)
+        cursor = self.db.execute_query(query, params)
+        row = cursor.fetchone()
+        total = (row["total"] if row else 0) or 0
+        positive = (row["positive"] if row else 0) or 0
+        negative = (row["negative"] if row else 0) or 0
+        # (دقیقاً همان معناشناسیِ کد قدیمی): neutral = بقیهٔ رکوردها،
+        # نه فقط behavior_type='خنثی' — یعنی NULL/مقدار غیرمنتظره هم اینجا
+        # حساب می‌شود، دقیقاً مثل `len(observations) - positive - negative`.
+        neutral = total - positive - negative
+        return {'total': total, 'positive': positive, 'negative': negative, 'neutral': neutral}
+
+    def get_monthly_trend(self, staff_id=None, academic_year_id=None):
+        """
+        شمارش/تفکیک نوع رفتار مشاهدات به تفکیک ماه (پیشوند ۷ کاراکتریِ
+        observation_date یعنی YYYY/MM) با یک کوئری GROUP BY (مرحلهٔ ۷)
+
+        جایگزین حلقهٔ پایتونیِ قدیمی روی کل مشاهدات؛ dashboard_service فقط
+        نتیجه را برای ماه‌های موردنظرش (۶ ماه اخیر) جست‌وجو می‌کند.
+
+        Returns:
+            dict: {month_key: {'count','positive','negative','neutral'}}
+        """
+        query = """
+            SELECT
+                substr(o.observation_date, 1, 7) as month_key,
+                COUNT(*) as count,
+                SUM(CASE WHEN o.behavior_type = 'مثبت' THEN 1 ELSE 0 END) as positive,
+                SUM(CASE WHEN o.behavior_type = 'منفی' THEN 1 ELSE 0 END) as negative
+            FROM observations o
+        """
+        joins = []
+        where = ["o.is_deleted = 0", "o.observation_date IS NOT NULL",
+                 "length(o.observation_date) >= 7"]
+        params = []
+        if academic_year_id is not None:
+            joins.append("JOIN student_academic_profiles sap ON o.student_profile_id = sap.id")
+            where.append("sap.academic_year_id = ?")
+            params.append(academic_year_id)
+            where.append("sap.is_deleted = 0")
+        if staff_id is not None:
+            where.append("o.staff_id = ?")
+            params.append(staff_id)
+        if joins:
+            query += " " + " ".join(joins)
+        query += " WHERE " + " AND ".join(where)
+        query += " GROUP BY month_key"
+        cursor = self.db.execute_query(query, params)
+        result = {}
+        for row in cursor.fetchall():
+            count = row["count"] or 0
+            positive = row["positive"] or 0
+            negative = row["negative"] or 0
+            # همان معناشناسیِ قدیمی: neutral = بقیهٔ رکوردهای همان ماه.
+            result[row["month_key"]] = {
+                'count': count,
+                'positive': positive,
+                'negative': negative,
+                'neutral': count - positive - negative,
+            }
+        return result
+
     def get_by_date_range(self, profile_id, start_date, end_date, include_deleted=False):
         """دریافت مشاهدات در بازه زمانی مشخص"""
         query = """
@@ -199,15 +355,27 @@ class ObservationDAL:
     
     def update(self, observation):
         """به‌روزرسانی مشاهده - فقط رکوردهای موجود"""
+        # مرز مجوز backend (دور نوزدهم)
+        AccessControl.require_permission(
+            Permission.EDIT_OBSERVATION.value, action="ObservationDAL.update")
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
         cursor.execute(
-            "SELECT id FROM observations WHERE id = ? AND is_deleted = 0",
+            "SELECT student_profile_id FROM observations WHERE id = ? AND is_deleted = 0",
             (observation.id,)
         )
-        if not cursor.fetchone():
+        existing = cursor.fetchone()
+        if not existing:
             raise Exception("رکورد مورد نظر یافت نشد یا حذف شده است.")
+
+        # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۴)
+        AccessControl.require_profile_scope(
+            existing["student_profile_id"], action="ObservationDAL.update")
+        if observation.student_profile_id != existing["student_profile_id"]:
+            AccessControl.require_profile_scope(
+                observation.student_profile_id,
+                action="ObservationDAL.update(new_profile)")
         
         cursor.execute("""
             UPDATE observations SET
@@ -248,11 +416,15 @@ class ObservationDAL:
         cursor = conn.cursor()
         
         cursor.execute(
-            "SELECT id FROM observations WHERE id = ? AND is_deleted = 0",
+            "SELECT student_profile_id FROM observations WHERE id = ? AND is_deleted = 0",
             (observation_id,)
         )
-        if not cursor.fetchone():
+        existing = cursor.fetchone()
+        if not existing:
             return False
+        # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۴)
+        AccessControl.require_profile_scope(
+            existing["student_profile_id"], action="ObservationDAL.delete")
         
         now = utc_now_iso()
         cursor.execute("""
@@ -276,12 +448,31 @@ class ObservationDAL:
         cursor = conn.cursor()
         
         cursor.execute(
-            "SELECT id FROM observations WHERE id = ? AND is_deleted = 1",
+            "SELECT student_profile_id FROM observations WHERE id = ? AND is_deleted = 1",
             (observation_id,)
         )
-        if not cursor.fetchone():
+        existing = cursor.fetchone()
+        if not existing:
             return False
-        
+        # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۴)
+        AccessControl.require_profile_scope(
+            existing["student_profile_id"], action="ObservationDAL.restore")
+
+        # مرحلهٔ ۸ (RESTORE-EDGE-01): پروندهٔ سالانهٔ والد باید هنوز
+        # وجود داشته و حذف نشده باشد — وگرنه یک مشاهدهٔ «فعال» روی یک
+        # پروندهٔ حذف‌شده ساخته می‌شود که در هیچ‌جای دیگری قابل مشاهده/
+        # فیلترکردنِ درست نیست.
+        parent = cursor.execute(
+            "SELECT 1 FROM student_academic_profiles WHERE id = ? AND is_deleted = 0",
+            (existing["student_profile_id"],)
+        ).fetchone()
+        if not parent:
+            raise ValueError(
+                "پروندهٔ سالانهٔ مربوط به این مشاهده حذف شده یا وجود "
+                "ندارد؛ پیش از بازیابیِ مشاهده باید ابتدا خودِ پرونده "
+                "را بازگردانی کنید."
+            )
+
         cursor.execute("""
             UPDATE observations SET
                 is_deleted = 0,
@@ -308,7 +499,20 @@ class ObservationDAL:
         return [self._row_to_observation(row) for row in rows]
     
     def permanent_delete(self, observation_id):
-        """حذف فیزیکی مشاهده - فقط برای موارد خاص استفاده شود"""
+        """
+        حذف فیزیکی مشاهده - فقط برای موارد خاص استفاده شود
+
+        (دور نوزدهم، مرحلهٔ ۸ — SEC-HARD-DELETE-01) قبلاً بدون هیچ
+        بررسیِ Permission، ردیف مستقیماً DELETE می‌شد. حالا مثل
+        delete()/restore() همین DAL، همان Permission بررسی می‌شود.
+        (وابستگی: interventions.observation_id/followups.observation_id
+        با ON DELETE SET NULL وصل‌اند — یعنی حذف این مشاهده رکورد دیگری
+        را از بین نمی‌برد، فقط لینکِ «کدام مشاهده باعث این مداخله شد» را
+        خالی می‌کند؛ پس نیاز به گاردِ وابستگیِ مسدودکننده نیست.)
+        """
+        AccessControl.require_permission(
+            Permission.DELETE_OBSERVATION.value, action="ObservationDAL.permanent_delete")
+
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
@@ -316,8 +520,9 @@ class ObservationDAL:
             "DELETE FROM observations WHERE id = ?",
             (observation_id,)
         )
+        affected = cursor.rowcount
         self.db.commit()
-        return True
+        return affected > 0
     
     # ============================================================
     # متدهای گروهی برای گزارش کلاس (ادامه از بخش قبلی)
@@ -1342,26 +1547,48 @@ class ObservationDAL:
     _SEARCH_COLUMNS = ('description', 'behavior', 'location', 'antecedent',
                        'consequence', 'tags', 'behavior_type')
 
-    def search(self, search_term, limit=None, include_deleted=False, academic_year_id=None):
+    def search(self, search_term, limit=None, include_deleted=False, academic_year_id=None,
+               offset=None):
         """جست‌وجوی متن آزاد در همه مشاهدات"""
-        return self._search_text(search_term, limit=limit, include_deleted=include_deleted, academic_year_id=academic_year_id)
+        return self._search_text(search_term, limit=limit, include_deleted=include_deleted,
+                                 academic_year_id=academic_year_id, offset=offset)
 
-    def search_by_student(self, student_id, search_term, limit=None, include_deleted=False, academic_year_id=None):
+    def search_by_student(self, student_id, search_term, limit=None, include_deleted=False,
+                          academic_year_id=None, offset=None):
         """جست‌وجوی متن آزاد در مشاهدات یک دانش‌آموز"""
         return self._search_text(search_term, student_id=student_id, limit=limit,
-                                 include_deleted=include_deleted, academic_year_id=academic_year_id)
+                                 include_deleted=include_deleted, academic_year_id=academic_year_id,
+                                 offset=offset)
 
-    def search_by_teacher(self, teacher_id, search_term, limit=None, include_deleted=False, academic_year_id=None):
+    def search_by_teacher(self, teacher_id, search_term, limit=None, include_deleted=False,
+                          academic_year_id=None, offset=None):
         """جست‌وجوی متن آزاد در مشاهدات ثبت‌شده توسط یک معلم"""
         return self._search_text(search_term, teacher_id=teacher_id, limit=limit,
-                                 include_deleted=include_deleted, academic_year_id=academic_year_id)
+                                 include_deleted=include_deleted, academic_year_id=academic_year_id,
+                                 offset=offset)
 
-    def _search_text(self, search_term, student_id=None, teacher_id=None,
-                     limit=None, include_deleted=False, academic_year_id=None):
-        """پیاده‌سازی مشترک جست‌وجو (ساختار کوئری همانند get_by_student)"""
+    def count_search(self, search_term, student_id=None, teacher_id=None,
+                      include_deleted=False, academic_year_id=None):
+        """
+        شمارش نتایج جست‌وجوی متن آزاد (بدون LIMIT/OFFSET) — بند مرحلهٔ ۶
+
+        همان فیلترهای _search_text را با WHERE یکسان اعمال می‌کند تا برای
+        Pagination واقعی قابل استفاده باشد.
+        """
         if search_term is None or not str(search_term).strip():
-            return []
+            return 0
+        where, params, joins = self._search_where(
+            search_term, student_id=student_id, teacher_id=teacher_id,
+            include_deleted=include_deleted, academic_year_id=academic_year_id)
+        query = "SELECT COUNT(*) as cnt FROM observations o%s WHERE %s" % (
+            joins, " AND ".join(where))
+        cursor = self.db.execute_query(query, params)
+        row = cursor.fetchone()
+        return row["cnt"] if row else 0
 
+    def _search_where(self, search_term, student_id=None, teacher_id=None,
+                       include_deleted=False, academic_year_id=None):
+        """ساخت مشترک WHERE/params/joins جست‌وجو (استفادهٔ _search_text و count_search)"""
         term = self._escape_like(search_term)
         like = " OR ".join("o.%s %s" % (c, self._LIKE) for c in self._SEARCH_COLUMNS)
 
@@ -1387,12 +1614,29 @@ class ObservationDAL:
         if not include_deleted:
             where.append("o.is_deleted = 0")
 
+        return where, params, joins
+
+    def _search_text(self, search_term, student_id=None, teacher_id=None,
+                     limit=None, include_deleted=False, academic_year_id=None, offset=None):
+        """پیاده‌سازی مشترک جست‌وجو (ساختار کوئری همانند get_by_student)"""
+        if search_term is None or not str(search_term).strip():
+            return []
+
+        limit, offset = normalize_limit_offset(limit, offset)
+
+        where, params, joins = self._search_where(
+            search_term, student_id=student_id, teacher_id=teacher_id,
+            include_deleted=include_deleted, academic_year_id=academic_year_id)
+
         query = "SELECT o.* FROM observations o%s WHERE %s" % (joins, " AND ".join(where))
         query += " ORDER BY o.observation_date DESC"
 
         if limit is not None:
             query += " LIMIT ?"
             params.append(limit)
+            if offset is not None:
+                query += " OFFSET ?"
+                params.append(offset)
 
         cursor = self.db.execute_query(query, params)
         rows = cursor.fetchall()

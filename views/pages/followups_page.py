@@ -157,6 +157,9 @@ class FollowUpsPage(YearAwarePage, QWidget):
             QPushButton:hover { background-color: #7d3c98; }
         """)
         self.add_btn.clicked.connect(self.add_followup)
+        # (دور نوزدهم) هماهنگ با CREATE_FOLLOWUP در DAL — UI↔backend یک مرز
+        self.add_btn.setEnabled(
+            AccessControl.has_permission(Permission.CREATE_FOLLOWUP.value))
         toolbar.addWidget(self.add_btn)
         
         layout.addLayout(toolbar)

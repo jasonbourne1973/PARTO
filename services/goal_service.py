@@ -284,7 +284,7 @@ class GoalService(BaseService):
             return self.goal_dal.get_deleted()
         except Exception as e:
             self.logger.error(f"خطا در دریافت اهداف حذف‌شده: {e}", exc_info=True)
-            raise ServiceError(f"خطا در دریافت فهرست حذف‌شده‌ها: {e!s}")
+            raise self._safe_service_error(e, "خطا در دریافت فهرست حذف‌شده‌ها.") from e
 
     def get_goal_stats(self, profile_id):
         """دریافت آمار اهداف یک دانش‌آموز"""
