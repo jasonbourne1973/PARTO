@@ -455,10 +455,27 @@ class PromotionPage(YearAwarePage, QWidget):
             return existing
 
         # ۲) نبود؛ بساز — ولی با تاریخ‌های واقعی و اعتبارسنجی
+        #
+        # ===== اصلاح (فاز ۷ — DEF-07) =====
+        # نسخهٔ قبلی همین‌جا is_active=1 می‌گذاشت. AcademicYearDAL.create
+        # وقتی is_active=1 باشد، بلافاصله همهٔ سال‌های دیگر (از جمله
+        # سالِ مبدأیی که هنوز در حالِ ارتقاء‌دادنِ دانش‌آموزانش هستیم) را
+        # is_active=0 می‌کند — قبل از اینکه حلقهٔ ارتقاء حتی شروع شود.
+        # نتیجه: get_active_by_student برای «هیچ» دانش‌آموزی پروندهٔ
+        # فعلی‌اش را پیدا نمی‌کرد (چون سالِ آن پرونده دیگر «فعال» نبود)،
+        # پس همیشه شاخهٔ «بدونِ پروندهٔ فعال / بر اساسِ سابقه» اجرا
+        # می‌شد: پروندهٔ سالِ مبدأ هرگز INACTIVE نمی‌شد، و دانش‌آموزِ
+        # پایهٔ ۶ به‌جایِ فارغ‌التحصیل‌شدن، با پایهٔ ۶ در سالِ جدید
+        # دوباره ثبت‌نام می‌شد (شاخهٔ «فارغ‌التحصیلی» عملاً کدِ مرده بود).
+        # حالا سالِ جدید ابتدا با is_active=0 ساخته می‌شود و فقط پس از
+        # پایانِ کاملِ حلقهٔ ارتقاء (در promote_all_students/
+        # promote_selected_students/repeat_grade_students) با
+        # set_active فعال می‌شود — نتیجهٔ نهاییِ «سالِ جدید فعال است»
+        # همان قبلی می‌ماند، فقط ترتیب درست شد.
         from models.academic_year import AcademicYear
         new_year = AcademicYear()
         new_year.title = year_title
-        new_year.is_active = 1
+        new_year.is_active = 0
         new_year.is_archived = 0
 
         # تاریخ شروع و پایان از عنوان سال («1405-1406») استخراج می‌شود
@@ -667,6 +684,12 @@ class PromotionPage(YearAwarePage, QWidget):
                 except Exception as e:
                     errors.append(f"{student.full_name}: {e!s}")
             
+            # (فاز ۷ — DEF-07) فعال‌سازیِ سالِ مقصد فقط پس از پایانِ کاملِ
+            # حلقه: در طولِ حلقه، سالِ مبدأ باید «فعال» بماند تا
+            # get_active_by_student پروندهٔ فعلیِ هر دانش‌آموز را درست
+            # پیدا کند (شرحِ کامل در _get_or_create_target_year).
+            self.academic_year_dal.set_active(active_year.id)
+            
             msg = f"✅ {success_count} دانش‌آموز با موفقیت ارتقاء یافتند.\nسال تحصیلی جدید: {next_year}"
             if errors:
                 msg += "\n\n⚠️ خطاها:\n" + "\n".join(errors[:5])
@@ -710,6 +733,9 @@ class PromotionPage(YearAwarePage, QWidget):
                         success_count += 1
                 except Exception as e:
                     errors.append(f"{student.full_name}: {e!s}")
+            
+            # (فاز ۷ — DEF-07) دلیل کامل در _get_or_create_target_year
+            self.academic_year_dal.set_active(active_year.id)
             
             msg = f"✅ {success_count} دانش‌آموز با موفقیت ارتقاء یافتند.\nسال تحصیلی جدید: {next_year}"
             if errors:
@@ -814,6 +840,9 @@ class PromotionPage(YearAwarePage, QWidget):
                 msg += "\n\n⚠️ موارد انجام‌نشده:\n" + "\n".join(errors[:5])
                 if len(errors) > 5:
                     msg += f"\nو {len(errors) - 5} مورد دیگر..."
+
+            # (فاز ۷ — DEF-07) دلیل کامل در _get_or_create_target_year
+            self.academic_year_dal.set_active(target_year.id)
 
             QMessageBox.information(self, "نتیجه تکرار پایه", msg)
             self.selected_student_ids = []
