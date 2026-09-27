@@ -20,6 +20,7 @@ from models.student_academic_profile import StudentAcademicProfile
 from services.base_service import BaseService
 from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
+from utils.security import AccessControl
 
 
 class InterventionService(BaseService):
@@ -623,7 +624,16 @@ class InterventionService(BaseService):
         student = self.student_dal.get_by_id(student_id)
         if not student:
             raise ServiceError(f"دانش‌آموز با شناسه {student_id} یافت نشد.")
-        
+
+        # مرز Scope/IDOR (پیرو ممیزی تکمیلی — DEF-01): همان استدلال
+        # ObservationService._get_or_create_profile — student_id از قبل
+        # وجود دارد، پس Scope معنادار است. fail-fast: InterventionDAL.create/
+        # update پایین‌تر، در همان تراکنش اتمیک، همین Scope را روی همین
+        # پروفایل بررسی می‌کردند و رد آن باعث rollback کامل می‌شد؛ این
+        # افزودن رفتار قابل مشاهده را عوض نمی‌کند، فقط زودتر رد می‌کند.
+        AccessControl.require_student_scope(
+            student_id, action="InterventionService._get_or_create_profile")
+
         # دریافت سال تحصیلی فعال
         academic_year = self.academic_year_dal.get_active()
         if not academic_year:

@@ -18,6 +18,7 @@ from models.student_academic_profile import StudentAcademicProfile
 from services.base_service import BaseService
 from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
+from utils.security import AccessControl
 
 
 class ObservationService(BaseService):
@@ -570,7 +571,20 @@ class ObservationService(BaseService):
         student = self.student_dal.get_by_id(student_id)
         if not student:
             raise ServiceError(f"دانش‌آموز با شناسه {student_id} یافت نشد.")
-        
+
+        # مرز Scope/IDOR (پیرو ممیزی تکمیلی — DEF-01): بر خلاف مسیر
+        # «دانش‌آموز تازه‌ساخته‌شده» (student_service.py/student_form.py که
+        # عمداً بدون این بررسی‌اند — چون هنوز انتسابی وجود ندارد)، این‌جا
+        # student_id از قبل وجود دارد (همین چند خط بالاتر از students
+        # خوانده شد) و Scope کاملاً معنادار است. این بررسی fail-fast است؛
+        # حتی بدون آن هم ObservationDAL.create پایین‌تر، در همان تراکنش
+        # اتمیک، همین Scope را روی همین profile بررسی می‌کرد و رد آن
+        # باعث rollback کامل (از جمله این create پروندهٔ سالانه) می‌شد —
+        # پس این افزودن رفتار قابل مشاهده را تغییر نمی‌دهد، فقط زودتر و
+        # صریح‌تر رد می‌کند.
+        AccessControl.require_student_scope(
+            student_id, action="ObservationService._get_or_create_profile")
+
         # دریافت سال تحصیلی فعال
         academic_year = self.academic_year_dal.get_active()
         if not academic_year:
