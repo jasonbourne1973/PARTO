@@ -472,12 +472,15 @@ class StudentProfilePage(YearAwarePage, QWidget):
             self.student_select_combo.clear()
             self.student_select_combo.addItem("انتخاب دانش‌آموز...", None)
             if self.selected_year_id:
-                profile_map = {
-                    student.id: self.profile_dal.get_by_student_and_year(
-                        student.id, self.selected_year_id
-                    )
-                    for student in self.all_students
-                }
+                # (فاز ۶ — DEF-06) قبلاً برای هر دانش‌آموز یک کوئریِ
+                # جداگانه (N+1) زده می‌شد. متدِ گروهیِ
+                # get_by_students_and_year (دورِ هجدهم، دقیقاً برای همین
+                # منظور اضافه شده بود ولی اینجا هرگز صدا زده نمی‌شد) همان
+                # فیلترها (student_id + academic_year_id + is_deleted=0،
+                # کوچک‌ترین id در صورتِ تکرار) را با «یک» کوئری می‌دهد.
+                profile_map = self.profile_dal.get_by_students_and_year(
+                    (s.id for s in self.all_students), self.selected_year_id
+                )
             else:
                 profile_map = self.profile_dal.get_active_by_students(
                     s.id for s in self.all_students
