@@ -911,6 +911,9 @@ class FollowUpDAL:
                           " JOIN student_academic_profiles sap ON i.student_profile_id = sap.id")
             where.append("sap.academic_year_id = ?")
             params.append(academic_year_id)
+            # (دور بیستم، فاز ۲ — DEF-02) پروندهٔ حذف‌شده در فیلتر سال
+            # نباید شمرده شود؛ هم‌راستا با _base_filters همین DAL.
+            where.append("sap.is_deleted = 0")
             if not include_deleted:
                 where.append("i.is_deleted = 0")
 

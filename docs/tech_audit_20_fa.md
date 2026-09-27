@@ -226,8 +226,8 @@ DEF-02 آمده (چون DEF-04 به DEF-02 وابسته است) و DEF-05 قبل
 
 | فاز | موضوع | وضعیت |
 |---|---|---|
-| **۱** | DEF-01 — StudentAcademicProfileDAL create/update | **✅ انجام شد (این نوبت)** |
-| ۲ | DEF-02 — یکسان‌سازی فیلتر سال/حذف‌شده در ~۲۹ محل | ⏳ در انتظار تأیید کاربر برای شروع |
+| **۱** | DEF-01 — StudentAcademicProfileDAL create/update | **✅ انجام شد** |
+| **۲** | DEF-02 — یکسان‌سازی فیلتر سال/حذف‌شده در ~۲۹ محل | **✅ انجام شد (این نوبت)** |
 | ۳ | DEF-03 — Object-Level Scope در Batch APIs | ⏳ در انتظار |
 | ۴ | DEF-04 — اثبات کامل قرارداد Pagination (پس از فاز ۲) | ⏳ در انتظار |
 | ۵ | DEF-05 — Import/Export End-to-End | ⚠️ نیازمند تصمیمِ صریحِ کاربر دربارهٔ `keep_partial` پیش از شروع |
@@ -311,3 +311,125 @@ DEF-02 آمده (چون DEF-04 به DEF-02 وابسته است) و DEF-05 قبل
 - `tests/test_def01_profile_scope.py` (جدید)
 - `verify_fixes20.py` (جدید)
 - `docs/tech_audit_20_fa.md` (همین فایل، جدید)
+
+---
+
+## ✅ فاز ۲ — DEF-02: انجام شد
+
+### دامنهٔ واقعیِ بررسی‌شده
+
+طبق قولِ بخش ۱، همهٔ ~۲۹ محلی که `sap.academic_year_id` را در یک JOIN
+فیلتر می‌کردند تک‌به‌تک بازبینی شدند (نه فقط دو نمونهٔ صریحاً ذکرشده در
+سندِ کاربر). نتیجه به سه دسته تقسیم شد:
+
+**دستهٔ ۱ — قبلاً درست بود (بدون تغییر):** `ObservationDAL`/`InterventionDAL`
+`get_all`/`count_all`، `FollowUpDAL._base_filters`، `ClassDAL` (چند
+کوئریِ اول)، `StudentDAL` (چند کوئریِ آماری) — همه از دور نوزدهم، مرحلهٔ
+۷ به بعد از قبل `sap.is_deleted = 0` را همراه با فیلتر سال داشتند.
+
+**دستهٔ ۲ — نقصِ واقعی، اصلاح شد:**
+
+1. `dal/observation_dal.py :: get_by_student(student_id, academic_year_id)`
+   — نمونهٔ صریحِ سند. وقتی سال داده می‌شد، `sap.is_deleted=0` چک
+   نمی‌شد؛ یعنی این متد با `get_all(academic_year_id=...)` ناسازگار
+   بود (یکی مشاهدهٔ زیرِ پروندهٔ حذف‌شده را می‌شمرد، دیگری نه).
+2. `dal/intervention_dal.py :: get_by_student(...)` — همان نقص، عیناً.
+3. `dal/observation_dal.py :: _search_where()` — شاخهٔ
+   `academic_year_id is not None` فقط `sap.academic_year_id` را چک
+   می‌کرد، نه `sap.is_deleted`.
+4. `dal/intervention_dal.py :: _search_where()` — همان نقص.
+5. `dal/followup_dal.py :: _search_where()` — همان نقص (زنجیرهٔ
+   FollowUp→Intervention→Profile).
+6. **یافتهٔ جانبیِ مهم‌تر از خودِ DEF-02:**
+   `dal/observation_dal.py :: get_trend_by_class(..., academic_year_id=None)`
+   — پارامتر `academic_year_id` در امضای متد وجود داشت ولی **اصلاً در
+   کوئری استفاده نمی‌شد** (نه فقط ناسازگاریِ `is_deleted`، بلکه یک
+   فیلترِ کاملاً بی‌اثر). `services/class_report_service.py::get_class_report`
+   این متد را با `academic_year_id=class_obj.academic_year_id` صدا
+   می‌زند تا «روندِ مشاهداتِ همان سالِ گزارش» را بگیرد — ولی همیشه روندِ
+   **همهٔ سال‌ها** را برمی‌گرداند. اصلاح شد: هم فیلترِ سال واقعاً اعمال
+   می‌شود، هم (وقتی سال داده شود) `sap.is_deleted=0` هم‌راستا با بقیهٔ
+   کد.
+7. `services/class_report_service.py :: _get_class_intervention_stats`
+   — فیلترِ `sap.class_name`+`sap.academic_year_id` بدون `sap.is_deleted=0`.
+8. `services/class_report_service.py :: _get_class_followup_stats` —
+   همان نقص، به‌اضافهٔ یک یافتهٔ جانبیِ کوچک‌تر: `i.is_deleted = 0`
+   (مداخلهٔ والدِ پیگیری) هم اصلاً چک نمی‌شد؛ با اینکه `FollowUpDAL`
+   خودش همه‌جا (`_base_filters`، `_search_where`، `get_by_student_profile`)
+   این شرط را دارد. هر دو شرط اضافه شدند.
+
+**دستهٔ ۳ — مشکوک به نظر رسید ولی بعد از بررسیِ عمیق «قابلِ اجرا نیست»
+(کد مرده)، بدون تغییر ماند:**
+
+- `dal/class_dal.py :: get_class_observations_stats /
+  get_class_competency_stats / get_class_student_stats` — کوئریِ دومِ
+  هرکدام (`obs_query`) با `sap.student_id IN (...) AND
+  sap.academic_year_id=? AND sap.class_name=?` بدون `sap.is_deleted=0`.
+- `dal/student_dal.py :: get_students_without_observations` — زیرکوئریِ
+  `NOT EXISTS` با `sap2` مشابه.
+
+  **دلیلِ فنی:** جدولِ `student_academic_profiles` قید
+  `UNIQUE(student_id, academic_year_id)` دارد که **مستقل از `is_deleted`**
+  اعمال می‌شود (نه یک ایندکسِ جزئی/فیلترشده). یعنی حتی بعد از حذفِ نرم
+  یک پرونده، دیگر هیچ‌وقت نمی‌توان پروندهٔ دیگری برای همان
+  دانش‌آموز/همان سال ساخت (تلاش برایش با `IntegrityError` رد می‌شود —
+  در حینِ نوشتنِ تست عملاً همین اتفاق افتاد و باعثِ کشفِ این نکته شد).
+  نتیجه: برای هر (دانش‌آموز، سال) در طولِ تاریخ، **حداکثر یک ردیفِ
+  پرونده** می‌تواند وجود داشته باشد. پس در کوئریِ بیرونی‌ای که از قبل
+  `sap.is_deleted=0 AND sap.academic_year_id=?` را الزامی کرده (چه در
+  کوئریِ اولِ `class_dal.py`، چه در کوئریِ اصلیِ
+  `get_students_without_observations`)، اگر پروندهٔ آن سال حذف شده
+  باشد، دانش‌آموز از همان مرحله کنار گذاشته می‌شود و کوئریِ دوم/زیرکوئری
+  اصلاً به آن دانش‌آموز نمی‌رسد. افزودنِ `sap.is_deleted=0` در کوئریِ
+  دوم/زیرکوئری در این حالت **هرگز نتیجه را عوض نمی‌کند** — یک شرطِ
+  همیشه-درست/بی‌اثر است. برای پرهیز از کدِ اضافی و پیچیدگیِ بی‌فایده،
+  عمداً دست نخورد؛ دلیل در کنارِ کد (`dal/student_dal.py`) مستند شد.
+
+### تست‌ها
+
+- **`tests/test_def02_year_deleted_consistency.py`** (۱۳ تست جدید):
+  - `TestObservationGetByStudentYearDeletedProfile` (۳): شاملِ حالتِ
+    فعال، حذف‌شده (باید خالی شود + سازگار با `get_all`)، و بدونِ فیلترِ
+    سال (خارج از دامنه، رفتار قبلی حفظ).
+  - `TestInterventionGetByStudentYearDeletedProfile` (۲): همان الگو.
+  - `TestSearchYearDeletedProfile` (۳): جست‌وجوی
+    Observation/Intervention/FollowUp با `academic_year_id` + حذفِ
+    پرونده.
+  - `TestObservationTrendByClassYearFilter` (۲): اثباتِ اینکه فیلترِ
+    سال قبلاً کاملاً بی‌اثر بود (با دو سالِ متفاوت) و اکنون واقعاً کار
+    می‌کند؛ و اینکه پروندهٔ حذف‌شده هم از روندِ سال‌دار حذف می‌شود.
+  - `TestClassReportServiceYearDeletedProfile` (۳): آمارِ مداخله/پیگیریِ
+    کلاس بعد از حذفِ پرونده، و پیگیریِ زیرِ مداخلهٔ حذف‌شده.
+- **`verify_fixes21.py`** (بخش B، ۹ بررسی B1–B9): هم‌پوشان با تست‌های
+  بالا، روی یک دیتابیسِ SQLite واقعیِ جداگانه.
+
+### نتیجهٔ رگرسیون کامل (پس از فاز ۲)
+
+- `python3 -m unittest discover -s tests` → **۳۰۷ موفق / ۳۰۷** (۲۹۴ قبلی + ۱۳ تازه)
+- `python3 verify_fixes21.py` → **۹ موفق / ۹**
+- `verify_fixes2.py` تا `verify_fixes20.py` → بدون تغییر، همان دو
+  Failureِ شناخته‌شدهٔ قبلی و بس.
+- `ruff check .` → تمیز.
+
+### فایل‌های تغییریافته/جدید در فاز ۲
+
+- `dal/observation_dal.py` (تغییر: `get_by_student`, `get_grouped_by_class`,
+  `get_grouped_by_grade`, `get_trend_by_class`, `_search_where`)
+- `dal/intervention_dal.py` (تغییر: `get_by_student`, `_search_where`)
+- `dal/followup_dal.py` (تغییر: `_search_where`)
+- `dal/student_dal.py` (بدون تغییرِ رفتار؛ فقط کامنتِ توضیحیِ «چرا
+  اصلاح نشد» در `get_students_without_observations`)
+- `services/class_report_service.py` (تغییر: `_get_class_intervention_stats`,
+  `_get_class_followup_stats`)
+- `tests/test_def02_year_deleted_consistency.py` (جدید)
+- `verify_fixes21.py` (جدید)
+- `docs/tech_audit_20_fa.md` (همین فایل، به‌روزرسانی)
+
+> یادداشت: `dal/observation_dal.py :: get_grouped_by_class` و
+> `get_grouped_by_grade` هم برای یکسان‌سازی اصلاح شدند (وقتی سال داده
+> می‌شود، `sap.is_deleted=0` هم اضافه شد)، هرچند در جست‌وجوی کاملِ
+> فراخوان‌کننده‌ها (`grep`) هیچ محلی در سرویس‌ها/ویوها این دو متد را
+> صدا نمی‌زند — یعنی این دو متد در حالِ حاضر کدِ مُرده/بدونِ
+> فراخوان‌کننده در پروژه هستند. اصلاح انجام شد چون بی‌خطر است و همان
+> الگوی متدِ خواهرش (`get_by_student`) را یکسان نگه می‌دارد، اما هیچ
+> رفتارِ کاربریِ فعلی را تغییر نمی‌دهد.

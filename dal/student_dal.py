@@ -639,6 +639,17 @@ class StudentDAL:
             year_filter_sub = ""
             params = []
             if academic_year_id:
+                # (دور بیستم، فاز ۲ — DEF-02 — بررسی شد، قابل اجرا نبود)
+                # اضافه‌کردنِ sap2.is_deleted=0 اینجا بررسی شد، ولی چون
+                # UNIQUE(student_id, academic_year_id) در سطح دیتابیس
+                # اجازهٔ وجود دو ردیف پرونده (even one deleted) برای یک
+                # دانش‌آموز در یک سال را نمی‌دهد، صف بیرونیِ همین کوئری
+                # (sap.is_deleted=0 AND sap.academic_year_id=?) از قبل
+                # تضمین می‌کند اگر پروندهٔ آن سال حذف شده باشد، دانش‌آموز
+                # اصلاً وارد نتیجه نمی‌شود — یعنی افزودن فیلتر مشابه به
+                # sap2 در این زیرکوئری هرگز چیزی را تغییر نمی‌دهد (کد
+                # مرده/غیرقابل دسترس). برای پرهیز از پیچیدگیِ بی‌فایده،
+                # عمداً اضافه نشد.
                 year_filter_sub = "AND sap2.academic_year_id = ?"
                 params.append(academic_year_id)
 

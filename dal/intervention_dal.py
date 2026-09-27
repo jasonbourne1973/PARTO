@@ -117,10 +117,12 @@ class InterventionDAL:
     def get_by_student(self, student_id, academic_year_id=None, include_deleted=False):
         """دریافت مداخلات یک دانش‌آموز (با فیلتر سال تحصیلی)"""
         if academic_year_id:
+            # (دور بیستم، فاز ۲ — DEF-02) پروندهٔ حذف‌شده نباید در فیلتر
+            # سال شمرده شود؛ هم‌راستا با get_all/count_all همین DAL.
             query = """
                 SELECT i.* FROM interventions i
                 JOIN student_academic_profiles sap ON i.student_profile_id = sap.id
-                WHERE sap.student_id = ? AND sap.academic_year_id = ?
+                WHERE sap.student_id = ? AND sap.academic_year_id = ? AND sap.is_deleted = 0
             """
             params = [student_id, academic_year_id]
         else:
@@ -925,6 +927,9 @@ class InterventionDAL:
                 joins += " JOIN student_academic_profiles sap ON i.student_profile_id = sap.id"
             where.append("sap.academic_year_id = ?")
             params.append(academic_year_id)
+            # (دور بیستم، فاز ۲ — DEF-02) پروندهٔ حذف‌شده در فیلتر سال
+            # نباید شمرده شود؛ هم‌راستا با get_all/get_by_student همین DAL.
+            where.append("sap.is_deleted = 0")
 
         if not include_deleted:
             where.append("i.is_deleted = 0")

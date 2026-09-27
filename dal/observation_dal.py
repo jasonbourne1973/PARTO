@@ -112,10 +112,12 @@ class ObservationDAL:
     def get_by_student(self, student_id, academic_year_id=None, include_deleted=False):
         """دریافت مشاهدات یک دانش‌آموز (با فیلتر سال تحصیلی)"""
         if academic_year_id:
+            # (دور بیستم، فاز ۲ — DEF-02) پروندهٔ حذف‌شده نباید در فیلتر
+            # سال شمرده شود؛ هم‌راستا با get_all/count_all همین DAL.
             query = """
                 SELECT o.* FROM observations o
                 JOIN student_academic_profiles sap ON o.student_profile_id = sap.id
-                WHERE sap.student_id = ? AND sap.academic_year_id = ?
+                WHERE sap.student_id = ? AND sap.academic_year_id = ? AND sap.is_deleted = 0
             """
             params = [student_id, academic_year_id]
         else:
@@ -554,7 +556,7 @@ class ObservationDAL:
             params = [class_name]
 
             if academic_year_id:
-                query += " AND sap.academic_year_id = ?"
+                query += " AND sap.academic_year_id = ? AND sap.is_deleted = 0"
                 params.append(academic_year_id)
             
             if start_date:
@@ -603,7 +605,7 @@ class ObservationDAL:
             params = [grade]
             
             if academic_year_id:
-                query += " AND sap.academic_year_id = ?"
+                query += " AND sap.academic_year_id = ? AND sap.is_deleted = 0"
                 params.append(academic_year_id)
             if start_date:
                 query += " AND o.observation_date >= ?"
@@ -652,7 +654,16 @@ class ObservationDAL:
                 AND o.is_deleted = 0
             """
             params = [class_name]
-            
+
+            # (دور بیستم، فاز ۲ — DEF-02) پارامتر academic_year_id قبلاً
+            # در امضای متد وجود داشت ولی هرگز در کوئری استفاده نمی‌شد؛
+            # یعنی گزارش کلاس (class_report_service.get_class_report)
+            # که صریحاً این پارامتر را با سال همان کلاس صدا می‌زند،
+            # همیشه روند همهٔ سال‌ها را برمی‌گرداند، نه فقط سال گزارش.
+            if academic_year_id:
+                query += " AND sap.academic_year_id = ? AND sap.is_deleted = 0"
+                params.append(academic_year_id)
+
             if start_date:
                 query += " AND o.observation_date >= ?"
                 params.append(start_date)
@@ -1610,6 +1621,9 @@ class ObservationDAL:
                 joins += " JOIN student_academic_profiles sap ON o.student_profile_id = sap.id"
             where.append("sap.academic_year_id = ?")
             params.append(academic_year_id)
+            # (دور بیستم، فاز ۲ — DEF-02) پروندهٔ حذف‌شده در فیلتر سال
+            # نباید شمرده شود؛ هم‌راستا با get_all/get_by_student همین DAL.
+            where.append("sap.is_deleted = 0")
 
         if not include_deleted:
             where.append("o.is_deleted = 0")

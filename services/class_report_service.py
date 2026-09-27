@@ -212,12 +212,16 @@ class ClassReportService(BaseService):
             conn = self.db.get_connection()
             cursor = conn.cursor()
             
+            # (دور بیستم، فاز ۲ — DEF-02) پروندهٔ حذف‌شدهٔ همان سال نباید
+            # در آمار مداخلات کلاس شمرده شود؛ هم‌راستا با
+            # InterventionDAL.get_all/get_by_student.
             query = """
                 SELECT i.*
                 FROM interventions i
                 JOIN student_academic_profiles sap ON i.student_profile_id = sap.id
                 WHERE sap.class_name = ?
                 AND sap.academic_year_id = ?
+                AND sap.is_deleted = 0
                 AND i.is_deleted = 0
             """
             params = [class_name, academic_year_id]
@@ -261,6 +265,10 @@ class ClassReportService(BaseService):
             conn = self.db.get_connection()
             cursor = conn.cursor()
             
+            # (دور بیستم، فاز ۲ — DEF-02) پروندهٔ حذف‌شدهٔ همان سال، و
+            # نیز مداخلهٔ حذف‌شدهٔ والدِ پیگیری، نباید در آمار پیگیری‌های
+            # کلاس شمرده شوند؛ هم‌راستا با FollowUpDAL._base_filters که
+            # هر دو شرط را همزمان اعمال می‌کند.
             query = """
                 SELECT f.*
                 FROM followups f
@@ -268,6 +276,8 @@ class ClassReportService(BaseService):
                 JOIN student_academic_profiles sap ON i.student_profile_id = sap.id
                 WHERE sap.class_name = ?
                 AND sap.academic_year_id = ?
+                AND sap.is_deleted = 0
+                AND i.is_deleted = 0
                 AND f.is_deleted = 0
             """
             params = [class_name, academic_year_id]
