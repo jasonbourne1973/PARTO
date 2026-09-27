@@ -10,7 +10,7 @@ from models.intervention import Intervention
 from utils.batch_query import id_chunks, placeholders
 from utils.logger import get_logger
 from utils.pagination import normalize_limit_offset
-from utils.security import AccessControl, Permission
+from utils.security import AccessControl, Permission, PermissionDeniedError
 from utils.time_utils import utc_now_iso
 
 logger = get_logger(__name__)
@@ -80,7 +80,15 @@ class InterventionDAL:
         """
         دریافت چند مداخله با «یک» کوئری (بازرسی چهاردهم: رفع N+1)
 
-        معناشناسی مثل get_by_id (پیش‌فرض: حذف‌شده‌ها برنمی‌گردند).
+        معناشناسی مثل get_by_id (پیش‌فرض: حذف‌شده‌ها برنمی‌گردند)، از جمله
+        بررسی Scope (دور نوزدهم — مرحلهٔ سوم، DEF-03، DD-6). برخلاف
+        get_by_id که رد Scope را صریحاً با PermissionDeniedError اعلام
+        می‌کند، این متد صرفاً یک ابزار داخلیِ ساخت نگاشت/غنی‌سازی است که
+        همه‌جای کد با شناسه‌های برگرفته از یک فهرست از قبل واکشی‌شده
+        فراخوانی می‌شود؛ بنابراین مطابق «سیاست الف» موارد خارج از Scope
+        به‌جای بالا بردن استثنا، بی‌سروصدا از دیکشنری نتیجه حذف می‌شوند
+        (هم‌ارز با موارد حذف‌شده/ناموجود که همین‌طور None برمی‌گردانند و
+        فراخوان‌ها همین الان هم آن را یکسان مدیریت می‌کنند).
 
         Returns:
             dict: {intervention_id: Intervention}
@@ -93,6 +101,12 @@ class InterventionDAL:
             cursor = self.db.execute_query(query, tuple(chunk))
             for row in cursor.fetchall():
                 intervention = self._row_to_intervention(row)
+                try:
+                    AccessControl.require_profile_scope(
+                        intervention.student_profile_id,
+                        action="InterventionDAL.get_by_ids")
+                except PermissionDeniedError:
+                    continue
                 result[intervention.id] = intervention
         return result
 

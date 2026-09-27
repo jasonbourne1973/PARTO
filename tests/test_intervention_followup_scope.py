@@ -281,6 +281,48 @@ class TestInterventionDALObjectScope(InterventionFollowUpScopeTestBase):
             ROLE_PERMISSIONS[UserRole.TEACHER.value] = original
 
 
+class TestInterventionDALBatchScope(InterventionFollowUpScopeTestBase):
+    """
+    دور نوزدهم — مرحلهٔ ۳ (DEF-03): برابری Scope بین get_by_id و get_by_ids.
+
+    پیش از این رفع، get_by_ids هیچ بررسی Scope‌ای نداشت (بر خلاف
+    get_by_id که با require_profile_scope محافظت می‌شد) — یعنی TEACHER
+    می‌توانست با عبور شناسهٔ خارج از Scope به get_by_ids، مداخلهٔ
+    دانش‌آموزِ معلم دیگری را از طریق مسیر دسته‌ای بخواند و بند IDOR در
+    get_by_id را دور بزند. طبق «سیاست الف» (چون get_by_ids صرفاً ابزار
+    داخلیِ ساخت نگاشت/غنی‌سازی است، نه یک API با ورودی مستقیم کاربر)،
+    رد Scope هرگز استثنا بالا نمی‌برد؛ به‌جایش آن مورد بی‌سروصدا از
+    دیکشنری نتیجه حذف می‌شود.
+    """
+
+    def test_teacher_get_by_ids_omits_out_of_scope_silently(self):
+        self._login_teacher_with_assignment()
+        result = InterventionDAL().get_by_ids(
+            [self.assigned_intervention.id, self.unassigned_intervention.id])
+        self.assertIn(self.assigned_intervention.id, result)
+        self.assertNotIn(self.unassigned_intervention.id, result)
+
+    def test_teacher_get_by_ids_only_unassigned_returns_empty_no_raise(self):
+        self._login_teacher_with_assignment()
+        result = InterventionDAL().get_by_ids([self.unassigned_intervention.id])
+        self.assertEqual(result, {})
+
+    def test_manager_get_by_ids_sees_all(self):
+        self._login_staff(self._users["staff_id"])
+        result = InterventionDAL().get_by_ids(
+            [self.assigned_intervention.id, self.unassigned_intervention.id])
+        self.assertIn(self.assigned_intervention.id, result)
+        self.assertIn(self.unassigned_intervention.id, result)
+
+    def test_no_session_bypasses_scope_on_get_by_ids(self):
+        """بافت بدون نشست (DD-4): مثلاً کارهای پس‌زمینه/سیستمی."""
+        AccessControl.logout()
+        result = InterventionDAL().get_by_ids(
+            [self.assigned_intervention.id, self.unassigned_intervention.id])
+        self.assertIn(self.assigned_intervention.id, result)
+        self.assertIn(self.unassigned_intervention.id, result)
+
+
 class TestFollowUpDALObjectScope(InterventionFollowUpScopeTestBase):
     """سیم‌کشی واقعی IDOR و Cross-resource در FollowUpDAL"""
 

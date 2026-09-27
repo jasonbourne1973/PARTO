@@ -15,6 +15,11 @@ database/partow.db.restore_safety
 # ===== لاگ‌ها و خروجی‌های اجرا =====
 *.log
 logs/
+
+# ===== فایل‌های پیوستِ آپلودشده (دادهٔ زمانِ اجرا؛ در تست‌های
+# دستی/verify_fixes*.py با اجرایِ واقعیِ مسیرِ آپلود ساخته می‌شوند،
+# نه دادهٔ منبع — دور بیست‌ودوم) =====
+attachments/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
