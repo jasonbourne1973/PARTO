@@ -106,6 +106,11 @@ class InterventionDAL:
                         intervention.student_profile_id,
                         action="InterventionDAL.get_by_ids")
                 except PermissionDeniedError:
+                    # عمدی — «سیاست الف» (رجوع کنید به docstring بالا): مورد
+                    # خارج از Scope را بی‌سروصدا حذف کن، استثنا بالا نبر.
+                    logger.debug(
+                        f"get_by_ids: مداخلهٔ {intervention.id} خارج از Scope "
+                        "کاربر جاری است؛ از نتیجه حذف شد.")
                     continue
                 result[intervention.id] = intervention
         return result

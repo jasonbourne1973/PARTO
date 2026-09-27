@@ -349,7 +349,10 @@ class StudentsPage(YearAwarePage, QWidget):
         self.page_size_combo = QComboBox()
         self.page_size_combo.addItems(["10", "20", "50", "100"])
         self.page_size_combo.setCurrentText("20")
-        self.page_size_combo.currentTextChanged.connect(self.load_students)
+        # (دور بیست‌ودوم، DEF-04) قبلاً همیشه load_students صدا زده
+        # می‌شد؛ یعنی تغییرِ اندازهٔ صفحه در حینِ جست‌وجوی فعال، جست‌وجو را
+        # نادیده می‌گرفت. اکنون از طریقِ _reload_current_page می‌رود.
+        self.page_size_combo.currentTextChanged.connect(self._reload_current_page)
         pagination_layout.addWidget(self.page_size_combo)
         
         layout.addLayout(pagination_layout)
@@ -367,14 +370,23 @@ class StudentsPage(YearAwarePage, QWidget):
         self.tabs.setCurrentIndex(1)
     
     def on_show_deleted_toggled(self, checked):
-        """تغییر حالت نمایش حذف‌شده‌ها → بازگشت به صفحهٔ اول و بارگذاری دوباره"""
+        """
+        تغییر حالت نمایش حذف‌شده‌ها → بازگشت به صفحهٔ اول و بارگذاری دوباره
+
+        (دور بیست‌ودوم — فاز ۴، DEF-04) اگر جست‌وجویی فعال باشد، همان عبارت
+        روی حالت تازه (فعال/حذف‌شده) دوباره اعمال می‌شود؛ قبلاً این تغییر
+        بی‌قیدوشرط به `load_students()` (فهرست کامل بدون فیلتر جست‌وجو)
+        می‌رفت و متن جست‌وجو در کادر می‌ماند ولی نتیجه با آن هم‌خوان نبود.
+        """
         self.showing_deleted = bool(checked)
         self.current_page = 0
-        self.load_students()
+        self._reload_current_page()
 
     def load_students(self):
         """
         بارگذاری لیست دانش‌آموزان با Pagination واقعی (یا فهرست حذف‌شده‌ها)
+        — فهرست کامل، مستقل از عبارتِ جست‌وجو (رجوع کنید به search_students
+        برای مسیرِ فیلترشده).
 
         (دور نوزدهم، مرحلهٔ ۶ — اصلاح Query/Pagination) قبلاً این متد کل
         دانش‌آموزان فیلترشده را از دیتابیس می‌خواند و بعد در پایتون
@@ -409,7 +421,30 @@ class StudentsPage(YearAwarePage, QWidget):
             self.update_pagination_controls()
         except Exception as e:
             QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{e!s}")
-    
+
+    def _reload_current_page(self):
+        """
+        بارگذاریِ دوبارهٔ همان صفحهٔ جاری، با حفظِ فیلترِ جست‌وجویِ فعال
+        (اگر باشد) — دور بیست‌ودوم، فاز ۴ (DEF-04).
+
+        چرا لازم شد: `next_page`/`prev_page`، تغییرِ اندازهٔ صفحه و تغییرِ
+        حالتِ «نمایش حذف‌شده‌ها» قبلاً همیشه بی‌قیدوشرط `load_students()`
+        (فهرستِ کامل، بدون فیلتر) را صدا می‌زدند. یعنی وقتی کاربر عبارتی
+        جست‌وجو می‌کرد که به چند صفحه می‌رسید (`count_search` > اندازهٔ
+        صفحه، دکمهٔ «بعدی» فعال می‌شد) و روی «صفحهٔ بعد» کلیک می‌کرد، عبارتِ
+        جست‌وجو در کادر باقی می‌ماند ولی نتیجهٔ نمایش‌داده‌شده ناگهان فهرستِ
+        کاملِ نامرتبط (بر همان اندیسِ صفحه) بود — نقضِ آشکارِ قراردادِ
+        Pagination/COUNT برای «فهرستِ جست‌وجوشده». این متد آن نقص را با
+        بررسیِ متنِ فعلیِ کادرِ جست‌وجو و مسیردهی به `_run_search`/
+        `load_students` رفع می‌کند، بدون تغییرِ رفتارِ هیچ مسیرِ دیگر.
+        """
+        self.page_size = int(self.page_size_combo.currentText())
+        search_term = self.search_input.text().strip()
+        if search_term:
+            self._run_search(search_term)
+        else:
+            self.load_students()
+
     def reload_for_year(self, year_id):
         """
         بارگذاری دوبارهٔ فهرست دانش‌آموزان برای سال اعلام‌شده
@@ -417,9 +452,12 @@ class StudentsPage(YearAwarePage, QWidget):
         ستون «پایه/کلاس» از پروندهٔ سالانهٔ هر دانش‌آموز می‌آید؛ با تغییر
         سال، همان پرونده‌های سال جدید خوانده می‌شوند. صفحهٔ «پرونده
         دانش‌آموز» که داخل همین صفحه است هم انتخاب سال را می‌گیرد.
+
+        (دور بیست‌ودوم، DEF-04) جست‌وجوی فعال (اگر باشد) روی سال تازه هم
+        حفظ می‌شود، به‌جای بازگشتِ بی‌سروصدا به فهرستِ کامل.
         """
         self.current_page = 0
-        self.load_students()
+        self._reload_current_page()
         profile_page = getattr(self, "profile_page", None)
         setter = getattr(profile_page, "set_active_year", None)
         if callable(setter):
@@ -433,16 +471,16 @@ class StudentsPage(YearAwarePage, QWidget):
         self.next_page_btn.setEnabled(self.current_page < self.total_pages - 1)
     
     def prev_page(self):
-        """رفتن به صفحه قبل"""
+        """رفتن به صفحه قبل (با حفظِ جست‌وجوی فعال — DEF-04)"""
         if self.current_page > 0:
             self.current_page -= 1
-            self.load_students()
+            self._reload_current_page()
     
     def next_page(self):
-        """رفتن به صفحه بعد"""
+        """رفتن به صفحه بعد (با حفظِ جست‌وجوی فعال — DEF-04)"""
         if self.current_page < self.total_pages - 1:
             self.current_page += 1
-            self.load_students()
+            self._reload_current_page()
     
     def get_student_info(self, student_id):
         """دریافت اطلاعات پرونده فعال دانش‌آموز"""
@@ -554,22 +592,38 @@ class StudentsPage(YearAwarePage, QWidget):
     
     def search_students(self):
         """
-        جستجوی دانش‌آموزان با Pagination واقعی
+        جستجوی دانش‌آموزان با Pagination واقعی (شروع از صفحهٔ اول)
 
         (دور نوزدهم، مرحلهٔ ۶) مانند load_students، شمارش کل با COUNT
         (در SQL) و ردیف‌های صفحهٔ جاری با LIMIT/OFFSET گرفته می‌شوند؛
         دیگر فهرست کامل در پایتون فیلتر/برش زده نمی‌شود. جست‌وجو در حالت
         «نمایش حذف‌شده‌ها» هم اکنون در همان SQL (نه حلقهٔ پایتونی) روی
         فقط رکوردهای حذف‌شده انجام می‌شود.
+
+        (دور بیست‌ودوم، DEF-04) اجرای واقعیِ کوئری در `_run_search`
+        استخراج شد تا `next_page`/`prev_page`/تغییرِ اندازهٔ صفحه/تغییرِ
+        حالتِ حذف‌شده هم بتوانند همان جست‌وجو را روی صفحهٔ جاری (نه
+        بازنشانی‌شده به صفحهٔ اول) دوباره اجرا کنند.
         """
         search_term = self.search_input.text().strip()
-        
+
         if not search_term:
             self.load_students()
             return
-        
+
+        self.current_page = 0
+        self._run_search(search_term)
+
+    def _run_search(self, search_term):
+        """
+        اجرای واقعیِ کوئریِ جست‌وجو روی `self.current_page` فعلی (بدون
+        بازنشانیِ آن) — دور بیست‌ودوم، فاز ۴ (DEF-04).
+
+        فراخوان‌ها: `search_students` (بعد از صفر کردنِ صفحه برای عبارتِ
+        تازه) و `_reload_current_page` (برای ناوبری/تغییرِ اندازهٔ
+        صفحه/حالتِ حذف‌شده در حینِ جست‌وجوی فعال).
+        """
         try:
-            self.current_page = 0
             if self.showing_deleted:
                 # در حالت نمایش حذف‌شده‌ها، جست‌وجو روی همان فهرست حذف‌شده
                 # انجام می‌شود (وگرنه فهرستِ فعال جای حالت بازیابی را می‌گرفت).
@@ -580,6 +634,13 @@ class StudentsPage(YearAwarePage, QWidget):
 
             # (همان توضیح load_students: بدون max(1, ...) عمداً)
             self.total_pages = (self.total_count + self.page_size - 1) // self.page_size
+            # (دور بیست‌ودوم) هم‌راستا با load_students: اگر بینِ دو
+            # فراخوانی شمارش کم شده باشد (مثلاً حذفِ یک رکورد)، صفحهٔ
+            # جاری را به آخرین صفحهٔ معتبر Clamp کن؛ برایِ مسیرِ
+            # search_students (که همیشه از صفحهٔ ۰ شروع می‌کند) بی‌اثر است.
+            self.current_page = min(self.current_page, self.total_pages - 1)
+            if self.current_page < 0:
+                self.current_page = 0
 
             offset = self.current_page * self.page_size
             if self.showing_deleted:
