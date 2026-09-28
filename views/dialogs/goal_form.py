@@ -103,20 +103,20 @@ class GoalForm(QDialog):
         info_group = QGroupBox("📋 اطلاعات هدف")
         info_group.setStyleSheet("""
             QGroupBox {
-    color: #111111;
+    color: #17212B;
                 font-weight: bold;
-                border: 2px solid #8BC34A;
+                border: 2px solid #D0D5DD;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
-                background-color: #66BB6A;
+                background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #8BC34A;
+    background-color: #F2F6FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #111111;
+                color: #17212B;
             }
         """)
         form_layout = QFormLayout(info_group)
@@ -187,20 +187,20 @@ class GoalForm(QDialog):
         date_group = QGroupBox("📅 بازه زمانی")
         date_group.setStyleSheet("""
             QGroupBox {
-    color: #111111;
+    color: #17212B;
                 font-weight: bold;
-                border: 2px solid #8BC34A;
+                border: 2px solid #D0D5DD;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
-                background-color: #66BB6A;
+                background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #8BC34A;
+    background-color: #F2F6FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #111111;
+                color: #17212B;
             }
         """)
         date_layout = QVBoxLayout(date_group)
@@ -240,20 +240,20 @@ class GoalForm(QDialog):
         desc_group = QGroupBox("📄 توضیحات")
         desc_group.setStyleSheet("""
             QGroupBox {
-    color: #111111;
+    color: #17212B;
                 font-weight: bold;
-                border: 2px solid #8BC34A;
+                border: 2px solid #D0D5DD;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
-                background-color: #66BB6A;
+                background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #8BC34A;
+    background-color: #F2F6FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #111111;
+                color: #17212B;
             }
         """)
         desc_layout = QFormLayout(desc_group)
@@ -262,14 +262,14 @@ class GoalForm(QDialog):
         self.description_input = QTextEdit()
         self.description_input.setPlaceholderText("توضیحات کامل هدف...")
         self.description_input.setMaximumHeight(80)
-        self.description_input.setStyleSheet("border: 1px solid #D9C36A; border-radius: 4px; padding: 4px;")
+        self.description_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 4px;")
         TooltipManager.set_field_tooltip(self.description_input, 'description')
         desc_layout.addRow("📝 توضیحات:", self.description_input)
 
         self.criteria_input = QTextEdit()
         self.criteria_input.setPlaceholderText("معیارهای موفقیت (هر مورد در یک خط)...")
         self.criteria_input.setMaximumHeight(60)
-        self.criteria_input.setStyleSheet("border: 1px solid #D9C36A; border-radius: 4px; padding: 4px;")
+        self.criteria_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 4px;")
         desc_layout.addRow("✅ معیارهای موفقیت:", self.criteria_input)
 
         layout.addWidget(desc_group)
@@ -278,20 +278,20 @@ class GoalForm(QDialog):
         progress_group = QGroupBox("📊 پیشرفت و وضعیت")
         progress_group.setStyleSheet("""
             QGroupBox {
-    color: #111111;
+    color: #17212B;
                 font-weight: bold;
-                border: 2px solid #8BC34A;
+                border: 2px solid #D0D5DD;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
-                background-color: #66BB6A;
+                background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #8BC34A;
+    background-color: #F2F6FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #111111;
+                color: #17212B;
             }
         """)
         progress_layout = QFormLayout(progress_group)
@@ -311,7 +311,7 @@ class GoalForm(QDialog):
         self.progress_notes_input = QTextEdit()
         self.progress_notes_input.setPlaceholderText("یادداشت‌های پیشرفت...")
         self.progress_notes_input.setMaximumHeight(60)
-        self.progress_notes_input.setStyleSheet("border: 1px solid #D9C36A; border-radius: 4px; padding: 4px;")
+        self.progress_notes_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 4px;")
         progress_layout.addRow("📝 یادداشت پیشرفت:", self.progress_notes_input)
 
         self.status_combo = QComboBox()
@@ -323,7 +323,7 @@ class GoalForm(QDialog):
         self.result_input = QTextEdit()
         self.result_input.setPlaceholderText("نتیجه نهایی (در صورت تکمیل)...")
         self.result_input.setMaximumHeight(60)
-        self.result_input.setStyleSheet("border: 1px solid #D9C36A; border-radius: 4px; padding: 4px;")
+        self.result_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 4px;")
         progress_layout.addRow("📊 نتیجه:", self.result_input)
 
         layout.addWidget(progress_group)
@@ -336,15 +336,15 @@ class GoalForm(QDialog):
         self.save_btn.setMinimumHeight(40)
         self.save_btn.setStyleSheet("""
             QPushButton {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 10px 30px;
                 border: none;
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 14px;
             }
-            QPushButton:hover { background-color: #8BC34A; }
+            QPushButton:hover { background-color: #F2F6FA; }
         """)
         self.save_btn.clicked.connect(self.save_goal)
         button_layout.addWidget(self.save_btn)
@@ -353,8 +353,8 @@ class GoalForm(QDialog):
         self.cancel_btn.setMinimumHeight(40)
         self.cancel_btn.setStyleSheet("""
             QPushButton {
-                background-color: #C62828;
-                color: #F4C542;
+                background-color: #B42318;
+                color: #FFFFFF;
                 padding: 10px 20px;
                 border: none;
                 border-radius: 6px;

@@ -45,8 +45,8 @@ class HelpWidget(QFrame):
         """راه‌اندازی رابط کاربری"""
         self.setStyleSheet("""
             QFrame#HelpWidget {
-                background-color: #F4D35E;
-                border: 1px solid #F4C542;
+                background-color: #FFFAEB;
+                border: 1px solid #D9AF24;
                 border-radius: 6px;
             }
         """)
@@ -79,7 +79,7 @@ class HelpWidget(QFrame):
         self.title_label.setStyleSheet("""
             QLabel {
                 font-weight: bold;
-                color: #C62828;
+                color: #B42318;
                 font-size: 13px;
             }
         """)
@@ -95,7 +95,7 @@ class HelpWidget(QFrame):
         self.toggle_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
-                color: #C62828;
+                color: #B42318;
                 border: none;
                 font-size: 12px;
             }

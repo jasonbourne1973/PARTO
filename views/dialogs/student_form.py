@@ -190,22 +190,22 @@ class StudentForm(QDialog):
         self.save_btn = QPushButton("💾 ذخیره")
         self.save_btn.setStyleSheet("""
             QPushButton {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 10px 20px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #8BC34A; }
+            QPushButton:hover { background-color: #F2F6FA; }
         """)
         self.save_btn.clicked.connect(self.save_student)
 
         self.cancel_btn = QPushButton("❌ انصراف")
         self.cancel_btn.setStyleSheet("""
             QPushButton {
-                background-color: #C62828;
-                color: #F4C542;
+                background-color: #B42318;
+                color: #FFFFFF;
                 padding: 10px 20px;
                 border: none;
                 border-radius: 5px;

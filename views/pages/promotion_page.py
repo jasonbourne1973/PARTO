@@ -56,27 +56,27 @@ class PromotionPage(YearAwarePage, QWidget):
         
         if not self.embedded:
             title_label = QLabel("📈 مدیریت ارتقاء پایه")
-            title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; color: #F4C542; }")
+            title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; color: #17212B; }")
             layout.addWidget(title_label)
         
         # گروه سال تحصیلی
         info_group = QGroupBox("📅 تنظیمات سال تحصیلی (شمسی)")
         info_group.setStyleSheet("""
             QGroupBox {
-    color: #111111;
+    color: #17212B;
                 font-weight: bold;
-                border: 2px solid #8BC34A;
+                border: 2px solid #D0D5DD;
                 border-radius: 8px;
                 margin-top: 12px;
                 padding-top: 12px;
-                background-color: #66BB6A;
+                background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #8BC34A;
+    background-color: #F2F6FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #111111;
+                color: #17212B;
             }
         """)
         info_layout = QHBoxLayout(info_group)
@@ -103,20 +103,20 @@ class PromotionPage(YearAwarePage, QWidget):
         search_group = QGroupBox("🔍 جستجوی دانش‌آموز")
         search_group.setStyleSheet("""
             QGroupBox {
-    color: #111111;
+    color: #17212B;
                 font-weight: bold;
-                border: 2px solid #8BC34A;
+                border: 2px solid #D0D5DD;
                 border-radius: 8px;
                 margin-top: 12px;
                 padding-top: 12px;
-                background-color: #66BB6A;
+                background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #8BC34A;
+    background-color: #F2F6FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #111111;
+                color: #17212B;
             }
         """)
         search_layout = QHBoxLayout(search_group)
@@ -125,18 +125,18 @@ class PromotionPage(YearAwarePage, QWidget):
         self.search_input.setPlaceholderText("جستجوی نام، نام خانوادگی یا کد ملی...")
         self.search_input.setStyleSheet("""
             QLineEdit {
-    color: #F4C542;
+    color: #D9AF24;
     background-color: #08223A;
                 padding: 8px 12px;
-                border: 1px solid #8BC34A;
+                border: 1px solid #D0D5DD;
                 border-radius: 5px;
                 font-size: 13px;
                 min-width: 250px;
             }
             QLineEdit:focus {
-    color: #FFE8A3;
+    color: #FFFFFF;
     background-color: #0B2E4F;
-                border: 2px solid #F4C542;
+                border: 2px solid #D9AF24;
             }
         """)
         search_layout.addWidget(self.search_input)
@@ -144,14 +144,14 @@ class PromotionPage(YearAwarePage, QWidget):
         self.search_btn = QPushButton("🔍 جستجو")
         self.search_btn.setStyleSheet("""
             QPushButton {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #66BB6A; }
+            QPushButton:hover { background-color: #FFFFFF; }
         """)
         self.search_btn.clicked.connect(self.search_students)
         search_layout.addWidget(self.search_btn)
@@ -159,8 +159,8 @@ class PromotionPage(YearAwarePage, QWidget):
         self.clear_search_btn = QPushButton("✖ نمایش همه")
         self.clear_search_btn.setStyleSheet("""
             QPushButton {
-                background-color: #C62828;
-                color: #F4C542;
+                background-color: #B42318;
+                color: #FFFFFF;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
@@ -175,7 +175,7 @@ class PromotionPage(YearAwarePage, QWidget):
         
         # نمایش تعداد نتایج
         self.result_count_label = QLabel("")
-        self.result_count_label.setStyleSheet("color: #D9C36A; font-size: 13px;")
+        self.result_count_label.setStyleSheet("color: #667085; font-size: 13px;")
         search_layout.addWidget(self.result_count_label)
         
         layout.addWidget(search_group)
@@ -184,20 +184,20 @@ class PromotionPage(YearAwarePage, QWidget):
         action_group = QGroupBox("⚡ عملیات")
         action_group.setStyleSheet("""
             QGroupBox {
-    color: #111111;
+    color: #17212B;
                 font-weight: bold;
-                border: 2px solid #8BC34A;
+                border: 2px solid #D0D5DD;
                 border-radius: 8px;
                 margin-top: 12px;
                 padding-top: 12px;
-                background-color: #66BB6A;
+                background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #8BC34A;
+    background-color: #F2F6FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #111111;
+                color: #17212B;
             }
         """)
         action_layout = QHBoxLayout(action_group)
@@ -205,14 +205,14 @@ class PromotionPage(YearAwarePage, QWidget):
         self.promote_all_btn = QPushButton("📈 ارتقاء همه")
         self.promote_all_btn.setStyleSheet("""
             QPushButton {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 10px 20px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #8BC34A; }
+            QPushButton:hover { background-color: #F2F6FA; }
         """)
         self.promote_all_btn.clicked.connect(self.promote_all_students)
         action_layout.addWidget(self.promote_all_btn)
@@ -220,14 +220,14 @@ class PromotionPage(YearAwarePage, QWidget):
         self.promote_selected_btn = QPushButton("📌 ارتقاء انتخاب‌شده")
         self.promote_selected_btn.setStyleSheet("""
             QPushButton {
-                background-color: #F4D35E;
-                color: #111111;
+                background-color: #FFFAEB;
+                color: #17212B;
                 padding: 10px 20px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #F28C28; }
+            QPushButton:hover { background-color: #7A271A; }
         """)
         self.promote_selected_btn.clicked.connect(self.promote_selected_students)
         action_layout.addWidget(self.promote_selected_btn)
@@ -235,8 +235,8 @@ class PromotionPage(YearAwarePage, QWidget):
         self.repeat_grade_btn = QPushButton("🔄 تکرار پایه")
         self.repeat_grade_btn.setStyleSheet("""
             QPushButton {
-                background-color: #C62828;
-                color: #F4C542;
+                background-color: #B42318;
+                color: #FFFFFF;
                 padding: 10px 20px;
                 border: none;
                 border-radius: 5px;
@@ -263,24 +263,24 @@ class PromotionPage(YearAwarePage, QWidget):
         self.table.setAlternatingRowColors(True)
         self.table.setStyleSheet("""
             QTableWidget {
-    color: #F4C542;
+    color: #D9AF24;
                 background-color: #0B2E4F;
                 alternate-background-color: #0B2E4F;
-                gridline-color: #D9C36A;
-                border: 1px solid #D9C36A;
+                gridline-color: #E4E7EC;
+                border: 1px solid #D0D5DD;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #F4C542;
-    border-bottom: 1px solid #D9C36A;
+    color: #D9AF24;
+    border-bottom: 1px solid #D0D5DD;
     background-color: #0B2E4F; padding: 8px; }
             QTableWidget::item:hover {
-    color: #FFE8A3; background-color: #174F78; }
+    color: #FFFFFF; background-color: #174F78; }
             QHeaderView::section {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 8px;
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
                 font-weight: bold;
             }
         """)
@@ -302,7 +302,7 @@ class PromotionPage(YearAwarePage, QWidget):
             "💡 راهنما: روی هر ردیف کلیک کنید تا انتخاب شود. "
             "دانش‌آموزان پایه ششم فارغ‌التحصیل می‌شوند."
         )
-        help_label.setStyleSheet("color: #D9C36A; font-size: 12px; margin-top: 5px;")
+        help_label.setStyleSheet("color: #667085; font-size: 12px; margin-top: 5px;")
         help_label.setWordWrap(True)
         layout.addWidget(help_label)
     

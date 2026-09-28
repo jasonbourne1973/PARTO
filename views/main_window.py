@@ -367,10 +367,14 @@ class MainWindow(QMainWindow):
         self.btn_logout = QPushButton("🚪 خروج")
         self.btn_logout.setObjectName("btnLogout")
         self.btn_logout.setCursor(Qt.CursorShape.PointingHandCursor)
+        # اصلاحِ ظاهری: رنگِ قبلیِ دکمهٔ خروج (#F4D35E، همان توکنِ
+        # «هشدار») به‌اشتباه از پالتِ هشدار/خطا استفاده می‌کرد، درحالی‌که
+        # خروج از حساب یک اقدامِ خنثیِ عادی است نه یک وضعیتِ هشدار. حالا
+        # هم‌رنگِ بقیهٔ آیتم‌هایِ منو (طلاییِ هویتِ سایدبار) است.
         self.btn_logout.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
-                color: #F4D35E;
+                color: #F4C542;
                 border: none;
                 border-top: 1px solid #174F78;
                 padding: 12px 16px;
@@ -381,7 +385,7 @@ class MainWindow(QMainWindow):
             }
             QPushButton:hover {
                 background-color: #174F78;
-                color: #F4D35E;
+                color: #FFE8A3;
             }
         """)
         self.btn_logout.clicked.connect(lambda checked=False: self.logout(confirm=True))

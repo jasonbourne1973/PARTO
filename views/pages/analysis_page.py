@@ -79,7 +79,7 @@ class AnalysisPage(YearAwarePage, QWidget):
         toolbar = QHBoxLayout()
         
         title_label = QLabel("📈 تحلیل روند رشد")
-        title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; color: #F4C542; }")
+        title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; color: #17212B; }")
         toolbar.addWidget(title_label)
         toolbar.addStretch()
         
@@ -103,18 +103,18 @@ class AnalysisPage(YearAwarePage, QWidget):
         self.search_input.setPlaceholderText("جستجوی نام یا کد ملی...")
         self.search_input.setStyleSheet("""
             QLineEdit {
-    color: #F4C542;
+    color: #D9AF24;
     background-color: #08223A;
                 padding: 5px 10px;
-                border: 1px solid #8BC34A;
+                border: 1px solid #D0D5DD;
                 border-radius: 5px;
                 font-size: 13px;
                 min-width: 150px;
             }
             QLineEdit:focus {
-    color: #FFE8A3;
+    color: #FFFFFF;
     background-color: #0B2E4F;
-                border: 2px solid #F4C542;
+                border: 2px solid #D9AF24;
             }
         """)
         toolbar.addWidget(self.search_input)
@@ -123,7 +123,7 @@ class AnalysisPage(YearAwarePage, QWidget):
         self.search_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0B2E4F;
-                color: #F4C542;
+                color: #D9AF24;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
@@ -138,8 +138,8 @@ class AnalysisPage(YearAwarePage, QWidget):
         self.clear_search_btn.setFixedSize(30, 30)
         self.clear_search_btn.setStyleSheet("""
             QPushButton {
-                background-color: #C62828;
-                color: #F4C542;
+                background-color: #B42318;
+                color: #FFFFFF;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
@@ -166,20 +166,20 @@ class AnalysisPage(YearAwarePage, QWidget):
         date_group = QGroupBox("📅 بازه زمانی تحلیل (شمسی)")
         date_group.setStyleSheet("""
             QGroupBox {
-    color: #111111;
+    color: #17212B;
                 font-weight: bold;
-                border: 2px solid #8BC34A;
+                border: 2px solid #D0D5DD;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
-                background-color: #66BB6A;
+                background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #8BC34A;
+    background-color: #F2F6FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #111111;
+                color: #17212B;
             }
         """)
         
@@ -197,8 +197,8 @@ class AnalysisPage(YearAwarePage, QWidget):
         self.analyze_btn = QPushButton("📊 تحلیل")
         self.analyze_btn.setStyleSheet("""
             QPushButton {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 10px 30px;
                 border: none;
                 border-radius: 5px;
@@ -206,7 +206,7 @@ class AnalysisPage(YearAwarePage, QWidget):
                 font-size: 14px;
                 min-height: 40px;
             }
-            QPushButton:hover { background-color: #8BC34A; }
+            QPushButton:hover { background-color: #F2F6FA; }
         """)
         self.analyze_btn.clicked.connect(self.load_analysis)
         date_form_layout.addRow("", self.analyze_btn)
@@ -218,22 +218,22 @@ class AnalysisPage(YearAwarePage, QWidget):
         self.chart_tabs = QTabWidget()
         self.chart_tabs.setStyleSheet("""
             QTabWidget::pane {
-    color: #111111;
-                border: 1px solid #8BC34A;
+    color: #17212B;
+                border: 1px solid #D0D5DD;
                 border-radius: 5px;
-                background-color: #66BB6A;
+                background-color: #FFFFFF;
             }
             QTabBar::tab {
-    color: #111111;
-    border: 1px solid #8BC34A;
-    background-color: #66BB6A;
+    color: #17212B;
+    border: 1px solid #D0D5DD;
+    background-color: #FFFFFF;
                 padding: 8px 16px;
                 font-weight: bold;
             }
             QTabBar::tab:selected {
-    border-color: #F4C542;
-                background-color: #8BC34A;
-                color: #111111;
+    border-color: #D9AF24;
+                background-color: #F2F6FA;
+                color: #17212B;
             }
         """)
         
@@ -243,7 +243,7 @@ class AnalysisPage(YearAwarePage, QWidget):
         self.trend_tab.setLayout(trend_layout)
         self.trend_figure = Figure(figsize=(10, 4), dpi=100)
         self.trend_canvas = FigureCanvas(self.trend_figure)
-        self.trend_canvas.setStyleSheet("background-color: #0B2E4F; border: 1px solid #D9C36A; border-radius: 5px;")
+        self.trend_canvas.setStyleSheet("background-color: #0B2E4F; border: 1px solid #D0D5DD; border-radius: 5px;")
         trend_layout.addWidget(self.trend_canvas)
         self.chart_tabs.addTab(self.trend_tab, "📈 روند شدت")
         
@@ -253,7 +253,7 @@ class AnalysisPage(YearAwarePage, QWidget):
         self.pie_tab.setLayout(pie_layout)
         self.pie_figure = Figure(figsize=(6, 4), dpi=100)
         self.pie_canvas = FigureCanvas(self.pie_figure)
-        self.pie_canvas.setStyleSheet("background-color: #0B2E4F; border: 1px solid #D9C36A; border-radius: 5px;")
+        self.pie_canvas.setStyleSheet("background-color: #0B2E4F; border: 1px solid #D0D5DD; border-radius: 5px;")
         pie_layout.addWidget(self.pie_canvas)
         self.chart_tabs.addTab(self.pie_tab, "🍩 توزیع مشاهدات")
         
@@ -263,7 +263,7 @@ class AnalysisPage(YearAwarePage, QWidget):
         self.competency_tab.setLayout(competency_layout)
         self.competency_figure = Figure(figsize=(8, 4), dpi=100)
         self.competency_canvas = FigureCanvas(self.competency_figure)
-        self.competency_canvas.setStyleSheet("background-color: #0B2E4F; border: 1px solid #D9C36A; border-radius: 5px;")
+        self.competency_canvas.setStyleSheet("background-color: #0B2E4F; border: 1px solid #D0D5DD; border-radius: 5px;")
         competency_layout.addWidget(self.competency_canvas)
         self.chart_tabs.addTab(self.competency_tab, "📊 شایستگی‌ها")
         
@@ -273,7 +273,7 @@ class AnalysisPage(YearAwarePage, QWidget):
         self.location_tab.setLayout(location_layout)
         self.location_figure = Figure(figsize=(8, 4), dpi=100)
         self.location_canvas = FigureCanvas(self.location_figure)
-        self.location_canvas.setStyleSheet("background-color: #0B2E4F; border: 1px solid #D9C36A; border-radius: 5px;")
+        self.location_canvas.setStyleSheet("background-color: #0B2E4F; border: 1px solid #D0D5DD; border-radius: 5px;")
         location_layout.addWidget(self.location_canvas)
         self.chart_tabs.addTab(self.location_tab, "📍 محیط‌ها")
         
@@ -285,9 +285,9 @@ class AnalysisPage(YearAwarePage, QWidget):
         self.analysis_text.setMaximumHeight(150)
         self.analysis_text.setStyleSheet("""
             QTextEdit {
-    color: #F4C542;
+    color: #D9AF24;
                 background-color: #08223A;
-                border: 1px solid #8BC34A;
+                border: 1px solid #D0D5DD;
                 border-radius: 5px;
                 padding: 10px;
                 font-size: 13px;
@@ -578,7 +578,7 @@ class AnalysisPage(YearAwarePage, QWidget):
 
         ax.plot(sorted_dates, positives, 'o-', linewidth=2, color='#2E7D32',
                 label='رفتار مثبت')
-        ax.plot(sorted_dates, negatives, 'o-', linewidth=2, color='#C62828',
+        ax.plot(sorted_dates, negatives, 'o-', linewidth=2, color='#B42318',
                 label='رفتار منفی')
         ax.plot(sorted_dates, neutrals, 'o-', linewidth=1.5, color='#9E9E9E',
                 label='خنثی')
@@ -607,7 +607,7 @@ class AnalysisPage(YearAwarePage, QWidget):
         
         labels = ['مثبت', 'منفی', 'خنثی']
         sizes = [positive, negative, neutral]
-        colors = ['#8BC34A', '#C62828', '#F4D35E']
+        colors = ['#2E7D32', '#B42318', '#F79009']
         explode = (0.05, 0.05, 0.05)
         
         if sum(sizes) > 0:
@@ -651,9 +651,9 @@ class AnalysisPage(YearAwarePage, QWidget):
             negative_values = [item[1]['negative'] for item in items]
             
             ax.bar([p - 0.2 for p in positions], positive_values, width=0.4,
-                   color='#66BB6A', edgecolor='#2E7D32', label='رفتار مثبت')
+                   color='#2E7D32', edgecolor='#1B5E20', label='رفتار مثبت')
             ax.bar([p + 0.2 for p in positions], negative_values, width=0.4,
-                   color='#C62828', edgecolor='#8E1B1B', label='رفتار منفی')
+                   color='#B42318', edgecolor='#7A271A', label='رفتار منفی')
             ax.set_xticks(list(positions))
             ax.set_xticklabels(names)
             
@@ -689,7 +689,7 @@ class AnalysisPage(YearAwarePage, QWidget):
             names = [item[0] for item in items]
             values = [item[1] for item in items]
             
-            bars = ax.bar(names, values, color='#0B2E4F', edgecolor='#F4C542')
+            bars = ax.bar(names, values, color='#0B2E4F', edgecolor='#D9AF24')
             
             # نمایش اعداد روی میله‌ها
             for bar, val in zip(bars, values):

@@ -67,7 +67,7 @@ class RecommendationWidget(QWidget):
         header_layout = QHBoxLayout()
         
         title_label = QLabel("💡 پیشنهادات هوشمند")
-        title_label.setStyleSheet("font-size: 15px; font-weight: bold; color: #F4C542;")
+        title_label.setStyleSheet("font-size: 15px; font-weight: bold; color: #D9AF24;")
         header_layout.addWidget(title_label)
         
         header_layout.addStretch()
@@ -77,7 +77,7 @@ class RecommendationWidget(QWidget):
         self.generate_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0B2E4F;
-                color: #F4C542;
+                color: #D9AF24;
                 border: none;
                 border-radius: 6px;
                 padding: 4px 14px;
@@ -109,12 +109,12 @@ class RecommendationWidget(QWidget):
                 margin: 2px;
             }
             QScrollBar::handle:vertical {
-                background-color: #D9C36A;
+                background-color: #F8FAFC;
                 border-radius: 2px;
                 min-height: 30px;
             }
             QScrollBar::handle:vertical:hover {
-                background-color: #D9C36A;
+                background-color: #F8FAFC;
             }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
                 height: 0px;
@@ -132,12 +132,12 @@ class RecommendationWidget(QWidget):
         self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty_label.setStyleSheet("""
             QLabel {
-                color: #D9C36A;
+                color: #E4E7EC;
                 font-size: 13px;
                 padding: 30px 20px;
                 background-color: #0B2E4F;
                 border-radius: 8px;
-                border: 1px dashed #D9C36A;
+                border: 1px dashed #D0D5DD;
             }
         """)
         self.container_layout.addWidget(self.empty_label)
@@ -151,7 +151,7 @@ class RecommendationWidget(QWidget):
             QFrame {
                 background-color: #0B2E4F;
                 border-radius: 8px;
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
             }
         """)
         summary_layout = QHBoxLayout(self.summary_frame)
@@ -160,11 +160,11 @@ class RecommendationWidget(QWidget):
         
         self.summary_labels = {}
         statuses = [
-            ('total', '📊 کل', '#F4C542'),
+            ('total', '📊 کل', '#0B2E4F'),
             ('pending', '⏳ در انتظار', '#F59E0B'),
             ('accepted', '✅ پذیرفته شده', '#22C55E'),
             ('implemented', '🔄 اجرا شده', '#174F78'),
-            ('completed', '✔️ تکمیل شده', '#66BB6A')
+            ('completed', '✔️ تکمیل شده', '#2E7D32')
         ]
         
         for key, label, color in statuses:
@@ -238,7 +238,7 @@ class RecommendationWidget(QWidget):
         card.setStyleSheet("""
             QFrame {
                 background-color: #0B2E4F;
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
                 border-radius: 8px;
             }
         """)
@@ -252,7 +252,7 @@ class RecommendationWidget(QWidget):
         
         # عنوان
         title_label = QLabel(recommendation.title)
-        title_label.setStyleSheet("font-size: 13px; font-weight: bold; color: #F4C542;")
+        title_label.setStyleSheet("font-size: 13px; font-weight: bold; color: #17212B;")
         title_label.setWordWrap(True)
         top_row.addWidget(title_label, 2)
         
@@ -279,7 +279,7 @@ class RecommendationWidget(QWidget):
                 background-color: #08223A;
                 padding: 2px 10px;
                 border-radius: 10px;
-                color: #F4C542;
+                color: #D9AF24;
             }
         """)
         top_row.addWidget(status_label)
@@ -290,7 +290,7 @@ class RecommendationWidget(QWidget):
         middle_row = QHBoxLayout()
         
         category_label = QLabel(f"📂 {recommendation.category_display}")
-        category_label.setStyleSheet("font-size: 11px; color: #D9C36A;")
+        category_label.setStyleSheet("font-size: 11px; color: #667085;")
         middle_row.addWidget(category_label)
         
         middle_row.addStretch()
@@ -313,7 +313,7 @@ class RecommendationWidget(QWidget):
             # (BUG-NEW-03) متن هم‌رنگ زمینه بود و «اقدام پیشنهادی» دیده نمی‌شد
             action_label.setStyleSheet("""
                 font-size: 12px;
-                color: #F4C542;
+                color: #D9AF24;
                 background-color: #0B2E4F;
                 padding: 4px 8px;
                 border-radius: 4px;
@@ -325,7 +325,7 @@ class RecommendationWidget(QWidget):
         linked_id = getattr(recommendation, 'linked_intervention_id', None)
         if linked_id:
             linked_label = QLabel(f"🔗 مداخلهٔ ثبت‌شده بر اساس این پیشنهاد: #{linked_id}")
-            linked_label.setStyleSheet("font-size: 11px; color: #D9C36A;")
+            linked_label.setStyleSheet("font-size: 11px; color: #667085;")
             layout.addWidget(linked_label)
         
         # ===== دکمه‌های عملیات =====
@@ -374,7 +374,7 @@ class RecommendationWidget(QWidget):
             implement_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #174F78;
-                    color: #F4C542;
+                    color: #D9AF24;
                     border: none;
                     border-radius: 4px;
                     padding: 4px 12px;
@@ -392,7 +392,7 @@ class RecommendationWidget(QWidget):
             complete_btn = QPushButton("✔️ تکمیل")
             complete_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #66BB6A;
+                    background-color: #FFFFFF;
                     color: #0B2E4F;
                     border: none;
                     border-radius: 4px;

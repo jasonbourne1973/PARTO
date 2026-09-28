@@ -51,20 +51,20 @@ class AdvancedSearchDialog(QDialog):
         search_group = QGroupBox("🔍 معیارهای جستجو")
         search_group.setStyleSheet("""
             QGroupBox {
-    color: #111111;
-    background-color: #66BB6A;
+    color: #17212B;
+    background-color: #FFFFFF;
                 font-weight: bold;
-                border: 2px solid #8BC34A;
+                border: 2px solid #D0D5DD;
                 border-radius: 8px;
                 margin-top: 12px;
                 padding-top: 12px;
             }
             QGroupBox::title {
-    background-color: #8BC34A;
+    background-color: #F2F6FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #111111;
+                color: #17212B;
             }
         """)
         
@@ -112,15 +112,15 @@ class AdvancedSearchDialog(QDialog):
         self.search_btn = QPushButton("🔍 جستجو")
         self.search_btn.setStyleSheet("""
             QPushButton {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 10px 30px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
                 font-size: 14px;
             }
-            QPushButton:hover { background-color: #8BC34A; }
+            QPushButton:hover { background-color: #F2F6FA; }
         """)
         self.search_btn.clicked.connect(self.perform_search)
         btn_layout.addWidget(self.search_btn)
@@ -128,8 +128,8 @@ class AdvancedSearchDialog(QDialog):
         self.clear_btn = QPushButton("🗑️ پاک کردن")
         self.clear_btn.setStyleSheet("""
             QPushButton {
-                background-color: #C62828;
-                color: #F4C542;
+                background-color: #B42318;
+                color: #FFFFFF;
                 padding: 10px 30px;
                 border: none;
                 border-radius: 5px;
@@ -148,20 +148,20 @@ class AdvancedSearchDialog(QDialog):
         result_group = QGroupBox("📋 نتایج جستجو")
         result_group.setStyleSheet("""
             QGroupBox {
-    color: #111111;
-    background-color: #66BB6A;
+    color: #17212B;
+    background-color: #FFFFFF;
                 font-weight: bold;
-                border: 2px solid #8BC34A;
+                border: 2px solid #D0D5DD;
                 border-radius: 8px;
                 margin-top: 12px;
                 padding-top: 12px;
             }
             QGroupBox::title {
-    background-color: #8BC34A;
+    background-color: #F2F6FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #111111;
+                color: #17212B;
             }
         """)
         
@@ -169,7 +169,7 @@ class AdvancedSearchDialog(QDialog):
         result_group.setLayout(result_layout)
         
         self.result_count_label = QLabel("تعداد نتایج: 0")
-        self.result_count_label.setStyleSheet("color: #D9C36A; font-size: 13px;")
+        self.result_count_label.setStyleSheet("color: #667085; font-size: 13px;")
         result_layout.addWidget(self.result_count_label)
         
         self.result_table = QTableWidget()
@@ -180,24 +180,24 @@ class AdvancedSearchDialog(QDialog):
         self.result_table.setAlternatingRowColors(True)
         self.result_table.setStyleSheet("""
             QTableWidget {
-    color: #F4C542;
+    color: #D9AF24;
                 background-color: #0B2E4F;
                 alternate-background-color: #0B2E4F;
-                gridline-color: #D9C36A;
-                border: 1px solid #D9C36A;
+                gridline-color: #E4E7EC;
+                border: 1px solid #D0D5DD;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #F4C542;
-    border-bottom: 1px solid #D9C36A;
+    color: #D9AF24;
+    border-bottom: 1px solid #D0D5DD;
     background-color: #0B2E4F; padding: 8px; }
             QTableWidget::item:hover {
-    color: #FFE8A3; background-color: #174F78; }
+    color: #FFFFFF; background-color: #174F78; }
             QHeaderView::section {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 8px;
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
                 font-weight: bold;
             }
         """)

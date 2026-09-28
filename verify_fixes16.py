@@ -2323,7 +2323,7 @@ else:
 
 action_block = rec_src.split('action_label.setStyleSheet("""')[1].split('""")')[0]
 check("J", "BUG-NEW-03: برچسب «اقدام پیشنهادی» دیگر هم‌رنگ زمینه نیست (متن طلایی روی سرمه‌ای)؛ اسکن کنتراست اکنون استایل‌های چندخطی بدون selector را هم می‌بیند (۴ نشان نامرئی داشبورد هم اصلاح شد)",
-      "color: #F4C542;" in action_block and "background-color: #0B2E4F;" in action_block
+      "color: #D9AF24;" in action_block and "background-color: #0B2E4F;" in action_block
       and not re.search(r'color: #66BB6A;\n\s+background-color: #66BB6A;', read("views/pages/dashboard_page.py"))
       and not re.search(r'color: #0B2E4F;\n\s+background-color: #0B2E4F;', read("views/pages/dashboard_page.py")),
       "")

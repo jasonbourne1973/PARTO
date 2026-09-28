@@ -100,20 +100,20 @@ class ActivityForm(QDialog):
         info_group = QGroupBox("📋 اطلاعات فعالیت")
         info_group.setStyleSheet("""
             QGroupBox {
-    color: #111111;
+    color: #17212B;
                 font-weight: bold;
-                border: 2px solid #8BC34A;
+                border: 2px solid #D0D5DD;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
-                background-color: #66BB6A;
+                background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #8BC34A;
+    background-color: #F2F6FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #111111;
+                color: #17212B;
             }
         """)
         form_layout = QFormLayout(info_group)
@@ -197,20 +197,20 @@ class ActivityForm(QDialog):
         participation_group = QGroupBox("🎯 مشارکت")
         participation_group.setStyleSheet("""
             QGroupBox {
-    color: #111111;
+    color: #17212B;
                 font-weight: bold;
-                border: 2px solid #8BC34A;
+                border: 2px solid #D0D5DD;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
-                background-color: #66BB6A;
+                background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #8BC34A;
+    background-color: #F2F6FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #111111;
+                color: #17212B;
             }
         """)
         part_layout = QFormLayout(participation_group)
@@ -241,20 +241,20 @@ class ActivityForm(QDialog):
         desc_group = QGroupBox("📄 توضیحات و نتیجه")
         desc_group.setStyleSheet("""
             QGroupBox {
-    color: #111111;
+    color: #17212B;
                 font-weight: bold;
-                border: 2px solid #8BC34A;
+                border: 2px solid #D0D5DD;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
-                background-color: #66BB6A;
+                background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #8BC34A;
+    background-color: #F2F6FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #111111;
+                color: #17212B;
             }
         """)
         desc_layout = QFormLayout(desc_group)
@@ -263,27 +263,27 @@ class ActivityForm(QDialog):
         self.description_input = QTextEdit()
         self.description_input.setPlaceholderText("توضیحات کامل فعالیت...")
         self.description_input.setMaximumHeight(80)
-        self.description_input.setStyleSheet("border: 1px solid #D9C36A; border-radius: 4px; padding: 4px;")
+        self.description_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 4px;")
         TooltipManager.set_field_tooltip(self.description_input, 'description')
         desc_layout.addRow("📝 توضیحات:", self.description_input)
 
         self.result_input = QTextEdit()
         self.result_input.setPlaceholderText("نتیجه فعالیت...")
         self.result_input.setMaximumHeight(60)
-        self.result_input.setStyleSheet("border: 1px solid #D9C36A; border-radius: 4px; padding: 4px;")
+        self.result_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 4px;")
         TooltipManager.set_field_tooltip(self.result_input, 'result')
         desc_layout.addRow("📊 نتیجه:", self.result_input)
 
         self.achievements_input = QTextEdit()
         self.achievements_input.setPlaceholderText("دستاوردها (هر مورد در یک خط)...")
         self.achievements_input.setMaximumHeight(60)
-        self.achievements_input.setStyleSheet("border: 1px solid #D9C36A; border-radius: 4px; padding: 4px;")
+        self.achievements_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 4px;")
         desc_layout.addRow("🏅 دستاوردها:", self.achievements_input)
 
         self.feedback_input = QTextEdit()
         self.feedback_input.setPlaceholderText("بازخورد...")
         self.feedback_input.setMaximumHeight(60)
-        self.feedback_input.setStyleSheet("border: 1px solid #D9C36A; border-radius: 4px; padding: 4px;")
+        self.feedback_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 4px;")
         desc_layout.addRow("💬 بازخورد:", self.feedback_input)
 
         layout.addWidget(desc_group)
@@ -292,20 +292,20 @@ class ActivityForm(QDialog):
         status_group = QGroupBox("📌 وضعیت")
         status_group.setStyleSheet("""
             QGroupBox {
-    color: #111111;
+    color: #17212B;
                 font-weight: bold;
-                border: 2px solid #8BC34A;
+                border: 2px solid #D0D5DD;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
-                background-color: #66BB6A;
+                background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #8BC34A;
+    background-color: #F2F6FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #111111;
+                color: #17212B;
             }
         """)
         status_layout = QFormLayout(status_group)
@@ -327,15 +327,15 @@ class ActivityForm(QDialog):
         self.save_btn.setMinimumHeight(40)
         self.save_btn.setStyleSheet("""
             QPushButton {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 10px 30px;
                 border: none;
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 14px;
             }
-            QPushButton:hover { background-color: #8BC34A; }
+            QPushButton:hover { background-color: #F2F6FA; }
         """)
         self.save_btn.clicked.connect(self.save_activity)
         button_layout.addWidget(self.save_btn)
@@ -344,8 +344,8 @@ class ActivityForm(QDialog):
         self.cancel_btn.setMinimumHeight(40)
         self.cancel_btn.setStyleSheet("""
             QPushButton {
-                background-color: #C62828;
-                color: #F4C542;
+                background-color: #B42318;
+                color: #FFFFFF;
                 padding: 10px 20px;
                 border: none;
                 border-radius: 6px;

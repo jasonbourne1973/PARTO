@@ -262,7 +262,7 @@ class HelpWidget(QDialog):
                 font-size: 12px;
             }
             QLineEdit:focus {
-                border: 2px solid #3498db;
+                border: 2px solid #0B2E4F;
             }
         """)
         self.search_input.textChanged.connect(self.on_search_changed)
@@ -287,7 +287,7 @@ class HelpWidget(QDialog):
                 background-color: #e8f0fe;
             }
             QListWidget::item:selected {
-                background-color: #3498db;
+                background-color: #0B2E4F;
                 color: white;
             }
         """)
@@ -365,7 +365,7 @@ class HelpWidget(QDialog):
         self.next_btn = QPushButton("بعدی ▶")
         self.next_btn.setStyleSheet("""
             QPushButton {
-                background-color: #3498db;
+                background-color: #0B2E4F;
                 color: white;
                 border: none;
                 border-radius: 4px;
@@ -373,7 +373,7 @@ class HelpWidget(QDialog):
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #2980b9;
+                background-color: #174F78;
             }
             QPushButton:disabled {
                 background-color: #bdc3c7;
