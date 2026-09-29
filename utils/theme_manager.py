@@ -1,9 +1,7 @@
 """مدیریت ظاهر واحد PARTO.
 
-این ماژول عمداً دیگر سیستم چندتمی ندارد. کل برنامه فقط یک Design System ثابت
-دارد و استایل‌های مستقیم قدیمیِ ویجت‌ها نیز هنگام اجرا به همان پالت واحد
-نرمال می‌شوند. این تغییر فقط مربوط به UI است و به منطق، DAL، سرویس و دیتابیس
-دست نمی‌زند.
+این ماژول یک Design System ساده و اداری را اعمال می‌کند: سفید، خاکستری روشن
+و خاکستری تیره. هیچ تم آبی/طلایی یا تم قابل انتخابی در UI وجود ندارد.
 """
 
 from __future__ import annotations
@@ -30,49 +28,55 @@ class _ThemeEventFilter(QObject):
 
 
 class ThemeManager:
-    """مدیر Design System واحد PARTO؛ هیچ Theme قابل انتخابی وجود ندارد."""
+    """مدیر Design System واحد PARTO."""
 
     SETTINGS_ORG = "PARTOW"
     SETTINGS_APP = "PARTOW"
     DEFAULT_THEME = "default"
 
-    # فقط یک ظاهر وجود دارد. این mapping صرفاً برای جلوگیری از شکستن APIهای
-    # قدیمی است؛ کاربر هیچ Theme دیگری نمی‌تواند انتخاب یا ذخیره کند.
     THEMES: ClassVar[dict[str, dict[str, str]]] = {
-        "default": {"title": "ظاهر استاندارد PARTO"}
+        "default": {"title": "ظاهر استاندارد اداری"}
     }
 
     COLORS: ClassVar[dict[str, str]] = {
-        "bg": "#F5F7FA",
+        "bg": "#F5F6F8",
         "surface": "#FFFFFF",
-        "surface_alt": "#F8FAFC",
-        "text": "#17212B",
-        "text_secondary": "#667085",
-        "text_muted": "#98A2B3",
+        "surface_alt": "#F9FAFB",
+        "text": "#344054",
+        "text_strong": "#1D2939",
+        "text_muted": "#667085",
         "border": "#D0D5DD",
-        "border_light": "#E4E7EC",
-        "primary": "#0B2E4F",
-        "primary_hover": "#174F78",
-        "primary_pressed": "#08223A",
-        "accent": "#D9AF24",
+        "border_light": "#EAECF0",
+        "primary": "#344054",
+        "primary_hover": "#1D2939",
+        "primary_pressed": "#101828",
+        "accent": "#475467",
         "success": "#2E7D32",
         "warning": "#F79009",
         "error": "#B42318",
-        "info": "#175CD3",
+        "info": "#667085",
     }
 
-    # رنگ‌های legacy که در View/Dialog/Widgetهای قدیمی باقی مانده‌اند.
-    # هیچ رنگ جدیدی اینجا ایجاد نمی‌شود؛ همه به Design System نگاشت می‌شوند.
+    # رنگ‌های قدیمی UI را به پالت خنثی جدید نگاشت می‌کنیم تا استایل‌های
+    # مستقیم موجود در View/Dialogها نیز همان ظاهر اداری را حفظ کنند.
     _OLD_COLORS = {
-        "#F4C542": "#D9AF24",
-        "#FFE8A3": "#E4E7EC",
+        "#F4C542": "#344054",
+        "#FFE8A3": "#EAECF0",
         "#D9C36A": "#667085",
         "#66BB6A": "#2E7D32",
         "#8BC34A": "#D0D5DD",
-        "#111111": "#17212B",
-        "#000000": "#17212B",
-        "#F4D35E": "#D9AF24",
-        "#061B2D": "#0B2E4F",
+        "#111111": "#344054",
+        "#000000": "#344054",
+        "#F4D35E": "#475467",
+        "#061B2D": "#1D2939",
+        "#0B2E4F": "#344054",
+        "#174F78": "#475467",
+        "#08223A": "#1D2939",
+        "#D9AF24": "#475467",
+        "#B8860B": "#344054",
+        "#FFE8A3": "#EAECF0",
+        "#DCEAF5": "#E4E7EC",
+        "#E7EEF5": "#F2F4F7",
     }
 
     def __init__(self, app: Optional[QApplication] = None):
@@ -86,7 +90,7 @@ class ThemeManager:
 
     @classmethod
     def saved_theme(cls) -> str:
-        """سازگاری با API قدیمی؛ دیگر چیزی از QSettings خوانده نمی‌شود."""
+        """سازگاری با API قدیمی؛ چیزی از QSettings خوانده نمی‌شود."""
         return cls.DEFAULT_THEME
 
     @classmethod
@@ -96,7 +100,7 @@ class ThemeManager:
 
     @classmethod
     def transform_style(cls, stylesheet: str, theme_name: str = DEFAULT_THEME) -> str:
-        """تمام رنگ‌های legacy را به پالت واحد تبدیل می‌کند."""
+        """رنگ‌های legacy را به پالت خنثی و اداری تبدیل می‌کند."""
         if not stylesheet:
             return stylesheet
         pattern = re.compile("|".join(re.escape(token) for token in cls._OLD_COLORS), re.I)
@@ -113,46 +117,36 @@ class ThemeManager:
 
     @classmethod
     def _normalize_widget_style(cls, widget: QWidget, style: str) -> str:
-        """استایل مستقیم را به Design System واحد متصل می‌کند."""
+        """استایل مستقیم قدیمی را به Design System خنثی متصل می‌کند."""
         if not style:
             return style
 
-        menu = cls.is_menu_widget(widget)
         replacements = dict(cls._OLD_COLORS)
 
-        # Sidebar تیره است؛ متن آن باید روشن و با کنتراست بالا بماند.
-        if menu:
+        # Sidebar هم مانند سایر بخش‌ها خنثی و روشن است؛ فقط حالت فعال کمی
+        # تیره‌تر می‌شود تا ناوبری واضح بماند.
+        if cls.is_menu_widget(widget):
             replacements.update({
-                "#F4C542": "#FFFFFF",
-                "#FFE8A3": "#FFFFFF",
-                "#D9C36A": "#E4E7EC",
-                "#66BB6A": "#D9AF24",
-                "#F4D35E": "#FFFFFF",
-            })
-        else:
-            replacements.update({
-                "#F4C542": "#0B2E4F",
-                "#FFE8A3": "#174F78",
+                "#F4C542": "#344054",
+                "#FFE8A3": "#1D2939",
                 "#D9C36A": "#667085",
-                "#66BB6A": "#2E7D32",
-                "#F4D35E": "#D9AF24",
+                "#66BB6A": "#475467",
+                "#F4D35E": "#344054",
             })
 
         pattern = re.compile("|".join(re.escape(token) for token in replacements), re.I)
         normalized = pattern.sub(lambda m: replacements.get(m.group(0).upper(), m.group(0)), style)
 
-        # گرادیان‌های تزئینی قدیمی باعث می‌شوند صفحه‌های مختلف ظاهر متفاوتی
-        # داشته باشند. خارج از Sidebar، گرادیان به سطح ساده و واحد تبدیل می‌شود.
-        if not menu and "qlineargradient" in normalized.lower():
+        if "qlineargradient" in normalized.lower():
             normalized = re.sub(
                 r"background\s*:\s*qlineargradient\([^;]*\);?",
-                "background: #F5F7FA;",
+                "background: #F5F6F8;",
                 normalized,
                 flags=re.IGNORECASE | re.DOTALL,
             )
             normalized = re.sub(
                 r"background-color\s*:\s*qlineargradient\([^;]*\);?",
-                "background-color: #F5F7FA;",
+                "background-color: #F5F6F8;",
                 normalized,
                 flags=re.IGNORECASE | re.DOTALL,
             )
@@ -161,7 +155,7 @@ class ThemeManager:
 
     @classmethod
     def _hide_legacy_theme_selector(cls, root: QWidget) -> None:
-        """کنترل Theme قدیمی را از UI حذف می‌کند؛ برنامه فقط یک ظاهر دارد."""
+        """کنترل انتخاب Theme قدیمی را از UI حذف می‌کند."""
         for combo in root.findChildren(QComboBox):
             if combo.toolTip() == "انتخاب ظاهر برنامه":
                 combo.hide()
@@ -171,8 +165,8 @@ class ThemeManager:
                     index = parent.layout().indexOf(combo)
                     if index >= 0:
                         item = parent.layout().itemAt(index)
-                        if item is not None:
-                            item.widget().hide() if item.widget() else None
+                        if item is not None and item.widget():
+                            item.widget().hide()
                         if index > 0:
                             previous_item = parent.layout().itemAt(index - 1)
                             previous = previous_item.widget() if previous_item else None
