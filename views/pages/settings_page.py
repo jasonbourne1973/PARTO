@@ -132,7 +132,7 @@ class SettingsPage(YearAwarePage, QWidget):
                 font-weight: bold;
             }
             QTabBar::tab:selected {
-    border-color: #D9AF24;
+    border-color: #475467;
                 background-color: #F2F6FA;
                 color: #17212B;
             }
@@ -234,17 +234,17 @@ class SettingsPage(YearAwarePage, QWidget):
         self.year_table.setAlternatingRowColors(True)
         self.year_table.setStyleSheet("""
             QTableWidget {
-    color: #D9AF24;
-                background-color: #0B2E4F;
-                alternate-background-color: #0B2E4F;
+    color: #475467;
+                background-color: #344054;
+                alternate-background-color: #344054;
                 gridline-color: #E4E7EC;
                 border: 1px solid #D0D5DD;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #D9AF24;
+    color: #475467;
     border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F; padding: 8px; }
+    background-color: #344054; padding: 8px; }
             QHeaderView::section {
                 background-color: #FFFFFF;
                 color: #17212B;
@@ -461,17 +461,17 @@ class SettingsPage(YearAwarePage, QWidget):
         self.staff_table.setAlternatingRowColors(True)
         self.staff_table.setStyleSheet("""
             QTableWidget {
-    color: #D9AF24;
-                background-color: #0B2E4F;
-                alternate-background-color: #0B2E4F;
+    color: #475467;
+                background-color: #344054;
+                alternate-background-color: #344054;
                 gridline-color: #E4E7EC;
                 border: 1px solid #D0D5DD;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #D9AF24;
+    color: #475467;
     border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F; padding: 8px; }
+    background-color: #344054; padding: 8px; }
             QHeaderView::section {
                 background-color: #FFFFFF;
                 color: #17212B;
@@ -709,17 +709,17 @@ class SettingsPage(YearAwarePage, QWidget):
         self.user_table.setAlternatingRowColors(True)
         self.user_table.setStyleSheet("""
             QTableWidget {
-    color: #D9AF24;
-                background-color: #0B2E4F;
-                alternate-background-color: #0B2E4F;
+    color: #475467;
+                background-color: #344054;
+                alternate-background-color: #344054;
                 gridline-color: #E4E7EC;
                 border: 1px solid #D0D5DD;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #D9AF24;
+    color: #475467;
     border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F; padding: 8px; }
+    background-color: #344054; padding: 8px; }
             QHeaderView::section {
                 background-color: #FFFFFF;
                 color: #17212B;
@@ -1212,31 +1212,31 @@ class SettingsPage(YearAwarePage, QWidget):
         
         about_text = QLabel(f"""
         <div style='text-align: center; padding: 20px;'>
-            <h1 style='color: #D9AF24; font-size: 28px;'>{APP_NAME}</h1>
-            <h2 style='color: #0B2E4F; font-size: 18px;'>پرونده ارزیابی و رشد توانمندی دانش‌آموز</h2>
+            <h1 style='color: #475467; font-size: 28px;'>{APP_NAME}</h1>
+            <h2 style='color: #344054; font-size: 18px;'>پرونده ارزیابی و رشد توانمندی دانش‌آموز</h2>
             <br>
             
-            <div style='background-color: #0B2E4F; padding: 15px; border-radius: 10px; margin: 10px 20px;'>
-                <p style='font-size: 14px; color: #D9AF24;'>
+            <div style='background-color: #344054; padding: 15px; border-radius: 10px; margin: 10px 20px;'>
+                <p style='font-size: 14px; color: #475467;'>
                     <b>نسخه:</b> {APP_VERSION}
                 </p>
-                <p style='font-size: 14px; color: #D9AF24;'>
+                <p style='font-size: 14px; color: #475467;'>
                     <b>توسعه‌دهنده:</b> {APP_AUTHOR}
                 </p>
             </div>
             
             <br>
             
-            <div style='background-color: #174F78; padding: 15px; border-radius: 10px; margin: 10px 20px;'>
-                <p style='font-size: 14px; color: #D9AF24;'>
+            <div style='background-color: #475467; padding: 15px; border-radius: 10px; margin: 10px 20px;'>
+                <p style='font-size: 14px; color: #475467;'>
                     <b>📧 پشتیبانی:</b> 
-                    <a href='mailto:{APP_EMAIL}' style='color: #0B2E4F; text-decoration: none;'>
+                    <a href='mailto:{APP_EMAIL}' style='color: #344054; text-decoration: none;'>
                         {APP_EMAIL}
                     </a>
                 </p>
                 <p style='font-size: 14px; color: #17212B;'>
                     <b>🌐 وب‌سایت:</b> 
-                    <a href='http://{APP_WEBSITE}' style='color: #0B2E4F; text-decoration: none;'>
+                    <a href='http://{APP_WEBSITE}' style='color: #344054; text-decoration: none;'>
                         {APP_WEBSITE}
                     </a>
                 </p>
@@ -1612,7 +1612,7 @@ class SettingsPage(YearAwarePage, QWidget):
         self._editing_class_id = None
         self.cancel_edit_class_btn = QPushButton("✖ انصراف از ویرایش")
         self.cancel_edit_class_btn.setStyleSheet(
-            "QPushButton { background-color: #08223A; color: #D9AF24; padding: 8px 20px; "
+            "QPushButton { background-color: #1D2939; color: #475467; padding: 8px 20px; "
             "border: 1px solid #D0D5DD; border-radius: 5px; }")
         self.cancel_edit_class_btn.clicked.connect(self.cancel_edit_class)
         self.cancel_edit_class_btn.setVisible(False)
@@ -1627,17 +1627,17 @@ class SettingsPage(YearAwarePage, QWidget):
         self.class_table.setAlternatingRowColors(True)
         self.class_table.setStyleSheet("""
             QTableWidget {
-    color: #D9AF24;
-                background-color: #0B2E4F;
-                alternate-background-color: #0B2E4F;
+    color: #475467;
+                background-color: #344054;
+                alternate-background-color: #344054;
                 gridline-color: #E4E7EC;
                 border: 1px solid #D0D5DD;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #D9AF24;
+    color: #475467;
     border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F; padding: 8px; }
+    background-color: #344054; padding: 8px; }
             QHeaderView::section {
                 background-color: #FFFFFF;
                 color: #17212B;
