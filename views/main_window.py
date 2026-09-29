@@ -207,7 +207,7 @@ class MainWindow(QMainWindow):
         menu_frame.setObjectName("MenuFrame")
         menu_frame.setStyleSheet("""
             QFrame#MenuFrame {
-                background-color: #0B2E4F;
+                background-color: #344054;
                 border: none;
             }
         """)
@@ -233,14 +233,14 @@ class MainWindow(QMainWindow):
         menu_scroll.setStyleSheet("""
             QScrollArea {
                 border: none;
-                background-color: #0B2E4F;
+                background-color: #344054;
             }
         """)
-        menu_scroll.viewport().setStyleSheet("background-color: #0B2E4F;")
+        menu_scroll.viewport().setStyleSheet("background-color: #344054;")
 
         menu_content = QWidget()
         menu_content.setFixedWidth(menu_width)
-        menu_content.setStyleSheet("background-color: #0B2E4F;")
+        menu_content.setStyleSheet("background-color: #344054;")
         menu_layout = QVBoxLayout(menu_content)
         menu_layout.setContentsMargins(0, 0, 0, 0)
         menu_layout.setSpacing(2)
@@ -249,7 +249,7 @@ class MainWindow(QMainWindow):
         user_frame = QFrame()
         user_frame.setStyleSheet("""
             QFrame {
-                background-color: #08223A;
+                background-color: #1D2939;
                 padding: 8px;
                 margin: 0px 0px 5px 0px;
             }
@@ -259,22 +259,22 @@ class MainWindow(QMainWindow):
         user_layout.setSpacing(2)
         user_frame.setLayout(user_layout)
 
-        # دور هجدهم — BUG-GUI-01: رنگ قبلی (#08223A) دقیقاً همان
+        # دور هجدهم — BUG-GUI-01: رنگ قبلی (#1D2939) دقیقاً همان
         # پس‌زمینهٔ user_frame بود؛ یعنی آیکون و نام کاربر عملاً
-        # نامرئی بودند. حالا #F4C542 (همان طلایی پالت) با نسبت
-        # کنتراست ~9:1 روی #08223A (آزمون محاسباتی در verify_fixes18).
+        # نامرئی بودند. حالا #344054 (همان طلایی پالت) با نسبت
+        # کنتراست ~9:1 روی #1D2939 (آزمون محاسباتی در verify_fixes18).
         user_icon_label = QLabel("👤")
-        user_icon_label.setStyleSheet("font-size: 20px; color: #F4C542;")
+        user_icon_label.setStyleSheet("font-size: 20px; color: #344054;")
         user_icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         user_layout.addWidget(user_icon_label)
 
         self.user_name_label = QLabel(self.current_username or "کاربر")
-        self.user_name_label.setStyleSheet("color: #F4C542; font-size: 13px; font-weight: bold;")
+        self.user_name_label.setStyleSheet("color: #344054; font-size: 13px; font-weight: bold;")
         self.user_name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         user_layout.addWidget(self.user_name_label)
 
         self.user_role_label = QLabel(self.current_user_role or "نقش")
-        self.user_role_label.setStyleSheet("color: #D9C36A; font-size: 11px;")
+        self.user_role_label.setStyleSheet("color: #667085; font-size: 11px;")
         self.user_role_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         user_layout.addWidget(self.user_role_label)
 
@@ -282,7 +282,7 @@ class MainWindow(QMainWindow):
 
         # ===== عنوان برنامه =====
         title_label = QLabel(APP_NAME)
-        title_label.setStyleSheet("color: #F4C542; font-size: 18px; font-weight: bold; padding: 12px 5px; border-bottom: 2px solid #66BB6A;")
+        title_label.setStyleSheet("color: #344054; font-size: 18px; font-weight: bold; padding: 12px 5px; border-bottom: 2px solid #66BB6A;")
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         menu_layout.addWidget(title_label)
 
@@ -338,7 +338,7 @@ class MainWindow(QMainWindow):
             btn.setStyleSheet("""
                 QPushButton {
                     background-color: transparent;
-                    color: #F4C542;
+                    color: #344054;
                     border: none;
                     border-radius: 0px;
                     padding: 10px 16px;
@@ -348,12 +348,12 @@ class MainWindow(QMainWindow):
                     min-height: 40px;
                 }
                 QPushButton:hover {
-                    background-color: #174F78;
-                    color: #FFE8A3;
+                    background-color: #475467;
+                    color: #EAECF0;
                 }
                 QPushButton:pressed {
-                    background-color: #08223A;
-                    color: #FFE8A3;
+                    background-color: #1D2939;
+                    color: #EAECF0;
                 }
             """)
             btn.clicked.connect(lambda checked, idx=page_index: self.stacked_widget.setCurrentIndex(idx))
@@ -367,16 +367,16 @@ class MainWindow(QMainWindow):
         self.btn_logout = QPushButton("🚪 خروج")
         self.btn_logout.setObjectName("btnLogout")
         self.btn_logout.setCursor(Qt.CursorShape.PointingHandCursor)
-        # اصلاحِ ظاهری: رنگِ قبلیِ دکمهٔ خروج (#F4D35E، همان توکنِ
+        # اصلاحِ ظاهری: رنگِ قبلیِ دکمهٔ خروج (#475467، همان توکنِ
         # «هشدار») به‌اشتباه از پالتِ هشدار/خطا استفاده می‌کرد، درحالی‌که
         # خروج از حساب یک اقدامِ خنثیِ عادی است نه یک وضعیتِ هشدار. حالا
         # هم‌رنگِ بقیهٔ آیتم‌هایِ منو (طلاییِ هویتِ سایدبار) است.
         self.btn_logout.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
-                color: #F4C542;
+                color: #344054;
                 border: none;
-                border-top: 1px solid #174F78;
+                border-top: 1px solid #475467;
                 padding: 12px 16px;
                 text-align: right;
                 font-size: 13px;
@@ -384,8 +384,8 @@ class MainWindow(QMainWindow):
                 min-height: 40px;
             }
             QPushButton:hover {
-                background-color: #174F78;
-                color: #FFE8A3;
+                background-color: #475467;
+                color: #EAECF0;
             }
         """)
         self.btn_logout.clicked.connect(lambda checked=False: self.logout(confirm=True))
@@ -408,9 +408,9 @@ class MainWindow(QMainWindow):
                 background: qlineargradient(
                     x1: 0, y1: 0, x2: 1, y2: 1,
                     stop: 0 #061B2D,
-                    stop: 0.35 #0B2E4F,
-                    stop: 0.65 #174F78,
-                    stop: 1 #08223A
+                    stop: 0.35 #344054,
+                    stop: 0.65 #475467,
+                    stop: 1 #1D2939
                 );
             }
         """)
@@ -421,12 +421,12 @@ class MainWindow(QMainWindow):
 
         # ===== هدر =====
         header_frame = QFrame()
-        header_frame.setStyleSheet("background-color: #0B2E4F; border-bottom: 1px solid #D9C36A; padding: 5px 15px;")
+        header_frame.setStyleSheet("background-color: #344054; border-bottom: 1px solid #667085; padding: 5px 15px;")
         header_layout = QHBoxLayout()
         header_frame.setLayout(header_layout)
 
         header_title = QLabel(f"📋 {APP_NAME}")
-        header_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #F4C542;")
+        header_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #344054;")
         header_layout.addWidget(header_title)
         header_layout.addStretch()
 
@@ -435,7 +435,7 @@ class MainWindow(QMainWindow):
         header_layout.addWidget(user_info_label)
 
         version_label = QLabel(f"نسخه {APP_VERSION}")
-        version_label.setStyleSheet("font-size: 11px; color: #D9C36A; padding: 0 10px;")
+        version_label.setStyleSheet("font-size: 11px; color: #667085; padding: 0 10px;")
         header_layout.addWidget(version_label)
 
         header_layout.addStretch()
@@ -445,7 +445,7 @@ class MainWindow(QMainWindow):
         self.notification_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.notification_btn.setStyleSheet("""
             QPushButton { background-color: transparent; border: none; font-size: 18px; border-radius: 18px; }
-            QPushButton:hover { background-color: #08223A; }
+            QPushButton:hover { background-color: #1D2939; }
         """)
         self.notification_btn.clicked.connect(self.toggle_notifications)
         header_layout.addWidget(self.notification_btn)
@@ -482,10 +482,10 @@ class MainWindow(QMainWindow):
         self.year_combo = QComboBox()
         self.year_combo.setMinimumWidth(120)
         self.year_combo.setStyleSheet("""
-            QComboBox { background-color: #08223A; color: #F4C542; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 12px; border: 1px solid #8BC34A; }
+            QComboBox { background-color: #1D2939; color: #344054; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 12px; border: 1px solid #98A2B3; }
             QComboBox::drop-down { border: none; }
             QComboBox::down-arrow { image: none; }
-            QComboBox:hover { background-color: #174F78; }
+            QComboBox:hover { background-color: #475467; }
         """)
         self.year_combo.currentIndexChanged.connect(self.on_year_changed)
         header_layout.addWidget(self.year_combo)
@@ -634,7 +634,7 @@ class MainWindow(QMainWindow):
 
     def _create_welcome_page(self):
         welcome_page = QWidget()
-        welcome_page.setStyleSheet("background-color: #08223A;")
+        welcome_page.setStyleSheet("background-color: #1D2939;")
         welcome_layout = QVBoxLayout()
         welcome_page.setLayout(welcome_layout)
 
@@ -691,7 +691,7 @@ class MainWindow(QMainWindow):
             QLabel {
                 font-size: 32px;
                 font-weight: bold;
-                color: #08223A;
+                color: #1D2939;
                 padding: 15px 30px;
                 background-color: rgba(255, 255, 255, 0.75);
                 border-radius: 15px;
@@ -706,7 +706,7 @@ class MainWindow(QMainWindow):
         user_label.setStyleSheet("""
             QLabel {
                 font-size: 22px;
-                color: #F4C542;
+                color: #344054;
                 padding: 10px 25px;
                 background-color: rgba(255, 255, 255, 0.5);
                 border-radius: 10px;
@@ -720,7 +720,7 @@ class MainWindow(QMainWindow):
         desc_label.setStyleSheet("""
             QLabel {
                 font-size: 16px;
-                color: #D9C36A;
+                color: #667085;
                 padding: 10px 25px;
                 background-color: rgba(255, 255, 255, 0.4);
                 border-radius: 10px;
@@ -735,7 +735,7 @@ class MainWindow(QMainWindow):
         version_info.setStyleSheet("""
             QLabel {
                 font-size: 13px;
-                color: #D9C36A;
+                color: #667085;
                 padding: 8px 20px;
                 background-color: rgba(255, 255, 255, 0.3);
                 border-radius: 8px;
