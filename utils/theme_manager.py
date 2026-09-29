@@ -36,13 +36,12 @@ class ThemeManager:
     SETTINGS_APP = "PARTOW"
     DEFAULT_THEME = "default"
 
-    # تنها یک Theme نگه داشته شده تا کدهای قدیمیِ فراخوانی‌کننده نشکنند.
-    # این گزینه در UI مخفی می‌شود و هیچ تنظیمی برای تغییر Theme ذخیره نمی‌شود.
+    # فقط یک ظاهر وجود دارد. این mapping صرفاً برای جلوگیری از شکستن APIهای
+    # قدیمی است؛ کاربر هیچ Theme دیگری نمی‌تواند انتخاب یا ذخیره کند.
     THEMES: ClassVar[dict[str, dict[str, str]]] = {
         "default": {"title": "ظاهر استاندارد PARTO"}
     }
 
-    # رنگ‌های اصلی Design System واحد.
     COLORS: ClassVar[dict[str, str]] = {
         "bg": "#F5F7FA",
         "surface": "#FFFFFF",
@@ -62,14 +61,18 @@ class ThemeManager:
         "info": "#175CD3",
     }
 
+    # رنگ‌های legacy که در View/Dialog/Widgetهای قدیمی باقی مانده‌اند.
+    # هیچ رنگ جدیدی اینجا ایجاد نمی‌شود؛ همه به Design System نگاشت می‌شوند.
     _OLD_COLORS = {
         "#F4C542": "#D9AF24",
-        "#FFE8A3": "#0B2E4F",
+        "#FFE8A3": "#E4E7EC",
         "#D9C36A": "#667085",
         "#66BB6A": "#2E7D32",
         "#8BC34A": "#D0D5DD",
         "#111111": "#17212B",
         "#000000": "#17212B",
+        "#F4D35E": "#D9AF24",
+        "#061B2D": "#0B2E4F",
     }
 
     def __init__(self, app: Optional[QApplication] = None):
@@ -83,7 +86,7 @@ class ThemeManager:
 
     @classmethod
     def saved_theme(cls) -> str:
-        """برای سازگاری API قدیمی؛ دیگر چیزی از QSettings خوانده نمی‌شود."""
+        """سازگاری با API قدیمی؛ دیگر چیزی از QSettings خوانده نمی‌شود."""
         return cls.DEFAULT_THEME
 
     @classmethod
@@ -93,7 +96,7 @@ class ThemeManager:
 
     @classmethod
     def transform_style(cls, stylesheet: str, theme_name: str = DEFAULT_THEME) -> str:
-        """رنگ‌های قدیمی را به پالت واحد تبدیل می‌کند."""
+        """تمام رنگ‌های legacy را به پالت واحد تبدیل می‌کند."""
         if not stylesheet:
             return stylesheet
         pattern = re.compile("|".join(re.escape(token) for token in cls._OLD_COLORS), re.I)
@@ -110,21 +113,21 @@ class ThemeManager:
 
     @classmethod
     def _normalize_widget_style(cls, widget: QWidget, style: str) -> str:
-        """استایل مستقیم را بدون ایجاد رنگ جدید به Design System متصل می‌کند."""
+        """استایل مستقیم را به Design System واحد متصل می‌کند."""
         if not style:
             return style
 
         menu = cls.is_menu_widget(widget)
         replacements = dict(cls._OLD_COLORS)
 
-        # در Sidebar تیره، متن روشن لازم است؛ بیرون Sidebar طلایی/سبز قدیمی
-        # نباید به متن کم‌کنتراست تبدیل شود.
+        # Sidebar تیره است؛ متن آن باید روشن و با کنتراست بالا بماند.
         if menu:
             replacements.update({
                 "#F4C542": "#FFFFFF",
                 "#FFE8A3": "#FFFFFF",
                 "#D9C36A": "#E4E7EC",
                 "#66BB6A": "#D9AF24",
+                "#F4D35E": "#FFFFFF",
             })
         else:
             replacements.update({
@@ -132,36 +135,58 @@ class ThemeManager:
                 "#FFE8A3": "#174F78",
                 "#D9C36A": "#667085",
                 "#66BB6A": "#2E7D32",
+                "#F4D35E": "#D9AF24",
             })
 
         pattern = re.compile("|".join(re.escape(token) for token in replacements), re.I)
-        return pattern.sub(lambda m: replacements.get(m.group(0).upper(), m.group(0)), style)
+        normalized = pattern.sub(lambda m: replacements.get(m.group(0).upper(), m.group(0)), style)
+
+        # گرادیان‌های تزئینی قدیمی باعث می‌شوند صفحه‌های مختلف ظاهر متفاوتی
+        # داشته باشند. خارج از Sidebar، گرادیان به سطح ساده و واحد تبدیل می‌شود.
+        if not menu and "qlineargradient" in normalized.lower():
+            normalized = re.sub(
+                r"background\s*:\s*qlineargradient\([^;]*\);?",
+                "background: #F5F7FA;",
+                normalized,
+                flags=re.IGNORECASE | re.DOTALL,
+            )
+            normalized = re.sub(
+                r"background-color\s*:\s*qlineargradient\([^;]*\);?",
+                "background-color: #F5F7FA;",
+                normalized,
+                flags=re.IGNORECASE | re.DOTALL,
+            )
+
+        return normalized
 
     @classmethod
     def _hide_legacy_theme_selector(cls, root: QWidget) -> None:
-        """Theme selector قدیمی را پنهان می‌کند تا تنها یک ظاهر در UI وجود داشته باشد."""
+        """کنترل Theme قدیمی را از UI حذف می‌کند؛ برنامه فقط یک ظاهر دارد."""
         for combo in root.findChildren(QComboBox):
             if combo.toolTip() == "انتخاب ظاهر برنامه":
                 combo.hide()
+                combo.setEnabled(False)
                 parent = combo.parentWidget()
                 if parent and parent.layout():
                     index = parent.layout().indexOf(combo)
-                    if index > 0:
-                        item = parent.layout().itemAt(index - 1)
-                        previous = item.widget() if item else None
-                        if isinstance(previous, QLabel) and "تم" in previous.text():
-                            previous.hide()
+                    if index >= 0:
+                        item = parent.layout().itemAt(index)
+                        if item is not None:
+                            item.widget().hide() if item.widget() else None
+                        if index > 0:
+                            previous_item = parent.layout().itemAt(index - 1)
+                            previous = previous_item.widget() if previous_item else None
+                            if isinstance(previous, QLabel) and "تم" in previous.text():
+                                previous.hide()
 
     def apply_to_widget(self, widget: QWidget) -> None:
-        if self.is_menu_widget(widget):
-            # Sidebar نیز از همین Design System استفاده می‌کند، اما به‌خاطر
-            # زمینه تیره متن آن باید روشن بماند.
-            pass
         if not hasattr(widget, "_partow_base_stylesheet"):
             widget._partow_base_stylesheet = widget.styleSheet()
         base_style = getattr(widget, "_partow_base_stylesheet", "")
         if base_style:
-            widget.setStyleSheet(self._normalize_widget_style(widget, base_style))
+            normalized = self._normalize_widget_style(widget, base_style)
+            if normalized != widget.styleSheet():
+                widget.setStyleSheet(normalized)
 
     def apply_to_tree(self, root: QWidget) -> None:
         self._hide_legacy_theme_selector(root)
@@ -176,7 +201,8 @@ class ThemeManager:
 
         path = self.stylesheet_path()
         if path.exists() and self.app is not None:
-            self.app.setStyleSheet(path.read_text(encoding="utf-8"))
+            stylesheet = path.read_text(encoding="utf-8")
+            self.app.setStyleSheet(self.transform_style(stylesheet))
 
         if root is not None:
             self.apply_to_tree(root)
