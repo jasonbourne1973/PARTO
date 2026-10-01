@@ -91,7 +91,7 @@ class LoginDialog(QDialog):
 
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setStyleSheet("background-color: #1A252F; max-height: 1px; margin: 10px 0;")
+        separator.setStyleSheet("background-color: #2C3E50; max-height: 1px; margin: 10px 0;")
         logo_layout.addWidget(separator)
 
         main_layout.addLayout(logo_layout)
@@ -108,7 +108,7 @@ class LoginDialog(QDialog):
         self.username_input.setStyleSheet("""
             QLineEdit {
     color: #3498DB;
-    background-color: #1A252F;
+    background-color: #2C3E50;
                 border: 1px solid #DEE2E6;
                 border-radius: 6px;
                 padding: 8px 12px;
@@ -130,7 +130,7 @@ class LoginDialog(QDialog):
         self.password_input.setStyleSheet("""
             QLineEdit {
     color: #3498DB;
-    background-color: #1A252F;
+    background-color: #2C3E50;
                 border: 1px solid #DEE2E6;
                 border-radius: 6px;
                 padding: 8px 12px;
@@ -179,7 +179,7 @@ class LoginDialog(QDialog):
                 font-weight: bold;
                 padding: 10px;
             }
-            QPushButton:hover { background-color: #1A252F; }
+            QPushButton:hover { background-color: #2C3E50; }
             QPushButton:disabled { background-color: #F8F9FA; }
         """)
         self.login_btn.clicked.connect(self.login)
@@ -207,7 +207,7 @@ class LoginDialog(QDialog):
         self.change_pass_btn = QPushButton("تغییر رمز عبور")
         self.change_pass_btn.setStyleSheet("""
             QPushButton {
-                background-color: #FFFAEB;
+                background-color: #F8F9FA;
                 color: #2C3E50;
                 border: none;
                 border-radius: 5px;
@@ -215,7 +215,7 @@ class LoginDialog(QDialog):
                 font-size: 12px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #7A271A; }
+            QPushButton:hover { background-color: #C0392B; }
         """)
         self.change_pass_btn.clicked.connect(self.open_change_password)
         bottom_layout.addWidget(self.change_pass_btn)
@@ -234,7 +234,7 @@ class LoginDialog(QDialog):
                 font-size: 12px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #9E1B1B; }
+            QPushButton:hover { background-color: #C0392B; }
         """)
         self.exit_btn.clicked.connect(self.reject)
         bottom_layout.addWidget(self.exit_btn)
