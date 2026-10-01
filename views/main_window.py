@@ -249,7 +249,7 @@ class MainWindow(QMainWindow):
         user_frame = QFrame()
         user_frame.setStyleSheet("""
             QFrame {
-                background-color: #1A252F;
+                background-color: #ECF0F1;
                 padding: 8px;
                 margin: 0px 0px 5px 0px;
             }
@@ -269,7 +269,7 @@ class MainWindow(QMainWindow):
         user_layout.addWidget(user_icon_label)
 
         self.user_name_label = QLabel(self.current_username or "کاربر")
-        self.user_name_label.setStyleSheet("color: #2C3E50; font-size: 13px; font-weight: bold;")
+        self.user_name_label.setStyleSheet("color: #ECF0F1; font-size: 13px; font-weight: bold;")
         self.user_name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         user_layout.addWidget(self.user_name_label)
 
@@ -282,7 +282,7 @@ class MainWindow(QMainWindow):
 
         # ===== عنوان برنامه =====
         title_label = QLabel(APP_NAME)
-        title_label.setStyleSheet("color: #2C3E50; font-size: 18px; font-weight: bold; padding: 12px 5px; border-bottom: 2px solid #66BB6A;")
+        title_label.setStyleSheet("color: #F4C542; font-size: 18px; font-weight: bold; padding: 12px 5px; border-bottom: 2px solid #34495E;")
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         menu_layout.addWidget(title_label)
 
@@ -352,7 +352,7 @@ class MainWindow(QMainWindow):
                     color: #ECF0F1;
                 }
                 QPushButton:pressed {
-                    background-color: #1A252F;
+                    background-color: #ECF0F1;
                     color: #ECF0F1;
                 }
             """)
@@ -376,7 +376,7 @@ class MainWindow(QMainWindow):
                 background-color: transparent;
                 color: #2C3E50;
                 border: none;
-                border-top: 1px solid #3498DB;
+                border-top: 1px solid #40566B;
                 padding: 12px 16px;
                 text-align: right;
                 font-size: 13px;
@@ -421,7 +421,7 @@ class MainWindow(QMainWindow):
 
         # ===== هدر =====
         header_frame = QFrame()
-        header_frame.setStyleSheet("background-color: #2C3E50; border-bottom: 1px solid #7F8C8D; padding: 5px 15px;")
+        header_frame.setStyleSheet("background-color: #FFFFFF; border-bottom: 1px solid #DEE2E6; padding: 5px 15px;")
         header_layout = QHBoxLayout()
         header_frame.setLayout(header_layout)
 
@@ -435,7 +435,7 @@ class MainWindow(QMainWindow):
         header_layout.addWidget(user_info_label)
 
         version_label = QLabel(f"نسخه {APP_VERSION}")
-        version_label.setStyleSheet("font-size: 11px; color: #7F8C8D; padding: 0 10px;")
+        version_label.setStyleSheet("font-size: 11px; color: #95A5A6; padding: 0 10px;")
         header_layout.addWidget(version_label)
 
         header_layout.addStretch()
@@ -445,7 +445,7 @@ class MainWindow(QMainWindow):
         self.notification_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.notification_btn.setStyleSheet("""
             QPushButton { background-color: transparent; border: none; font-size: 18px; border-radius: 18px; }
-            QPushButton:hover { background-color: #1A252F; }
+            QPushButton:hover { background-color: #F1F5F9; }
         """)
         self.notification_btn.clicked.connect(self.toggle_notifications)
         header_layout.addWidget(self.notification_btn)
@@ -482,7 +482,7 @@ class MainWindow(QMainWindow):
         self.year_combo = QComboBox()
         self.year_combo.setMinimumWidth(120)
         self.year_combo.setStyleSheet("""
-            QComboBox { background-color: #1A252F; color: #2C3E50; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 12px; border: 1px solid #BDC3C7; }
+            QComboBox { background-color: #E8F0FE; color: #2C3E50; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 12px; border: 1px solid #BDC3C7; }
             QComboBox::drop-down { border: none; }
             QComboBox::down-arrow { image: none; }
             QComboBox:hover { background-color: #3498DB; }
@@ -634,7 +634,7 @@ class MainWindow(QMainWindow):
 
     def _create_welcome_page(self):
         welcome_page = QWidget()
-        welcome_page.setStyleSheet("background-color: #1A252F;")
+        welcome_page.setStyleSheet("background-color: #ECF0F1;")
         welcome_layout = QVBoxLayout()
         welcome_page.setLayout(welcome_layout)
 
