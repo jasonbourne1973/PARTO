@@ -73,7 +73,7 @@ class ObservationsPage(YearAwarePage, QWidget):
         toolbar = QHBoxLayout()
         
         title_label = QLabel("📝 ثبت مشاهدات (مدل ABC)")
-        title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; color: #17212B; }")
+        title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; color: #2C3E50; }")
         toolbar.addWidget(title_label)
         toolbar.addStretch()
         
@@ -98,18 +98,18 @@ class ObservationsPage(YearAwarePage, QWidget):
         self.search_input.setPlaceholderText("جستجوی متن در مشاهدات...")
         self.search_input.setStyleSheet("""
             QLineEdit {
-    color: #D9AF24;
-    background-color: #08223A;
+    color: #3498DB;
+    background-color: #1A252F;
                 padding: 5px 10px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
                 font-size: 13px;
                 min-width: 180px;
             }
             QLineEdit:focus {
     color: #FFFFFF;
-    background-color: #0B2E4F;
-                border: 2px solid #D9AF24;
+    background-color: #2C3E50;
+                border: 2px solid #3498DB;
             }
         """)
         self.search_input.returnPressed.connect(self.apply_advanced_search)
@@ -118,14 +118,14 @@ class ObservationsPage(YearAwarePage, QWidget):
         self.search_btn = QPushButton("🔍 جستجو")
         self.search_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0B2E4F;
-                color: #D9AF24;
+                background-color: #2C3E50;
+                color: #3498DB;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #08223A; }
+            QPushButton:hover { background-color: #1A252F; }
         """)
         self.search_btn.clicked.connect(self.apply_advanced_search)
         toolbar.addWidget(self.search_btn)
@@ -135,7 +135,7 @@ class ObservationsPage(YearAwarePage, QWidget):
         self.advanced_search_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
@@ -150,7 +150,7 @@ class ObservationsPage(YearAwarePage, QWidget):
         self.clear_search_btn.setFixedSize(30, 30)
         self.clear_search_btn.setStyleSheet("""
             QPushButton {
-                background-color: #B42318;
+                background-color: #C0392B;
                 color: #FFFFFF;
                 border: none;
                 border-radius: 5px;
@@ -165,7 +165,7 @@ class ObservationsPage(YearAwarePage, QWidget):
         self.add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -185,20 +185,20 @@ class ObservationsPage(YearAwarePage, QWidget):
         self.advanced_panel = QGroupBox("🔍 جستجوی پیشرفته")
         self.advanced_panel.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
                 background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         self.advanced_panel.setVisible(False)
@@ -244,13 +244,13 @@ class ObservationsPage(YearAwarePage, QWidget):
         self.apply_filter_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #F2F6FA; }
+            QPushButton:hover { background-color: #F8F9FA; }
         """)
         self.apply_filter_btn.clicked.connect(self.apply_advanced_search)
         advanced_layout.addWidget(self.apply_filter_btn)
@@ -258,7 +258,7 @@ class ObservationsPage(YearAwarePage, QWidget):
         self.clear_filters_btn = QPushButton("🗑️ پاک کردن فیلترها")
         self.clear_filters_btn.setStyleSheet("""
             QPushButton {
-                background-color: #B42318;
+                background-color: #C0392B;
                 color: #FFFFFF;
                 padding: 5px 15px;
                 border: none;
@@ -285,22 +285,22 @@ class ObservationsPage(YearAwarePage, QWidget):
         self.table.setAlternatingRowColors(True)
         self.table.setStyleSheet("""
             QTableWidget {
-    color: #D9AF24;
-                background-color: #0B2E4F;
-                alternate-background-color: #0B2E4F;
-                gridline-color: #E4E7EC;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #2C3E50;
+                alternate-background-color: #2C3E50;
+                gridline-color: #DEE2E6;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #D9AF24;
-    border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F; padding: 8px; }
+    color: #3498DB;
+    border-bottom: 1px solid #DEE2E6;
+    background-color: #2C3E50; padding: 8px; }
             QHeaderView::section {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 font-weight: bold;
             }
         """)
@@ -549,14 +549,14 @@ class ObservationsPage(YearAwarePage, QWidget):
             
             view_btn = QPushButton("👁️")
             view_btn.setFixedSize(30, 30)
-            view_btn.setStyleSheet("background-color: #0B2E4F; color: #D9AF24; border: none; border-radius: 4px;")
+            view_btn.setStyleSheet("background-color: #2C3E50; color: #3498DB; border: none; border-radius: 4px;")
             view_btn.clicked.connect(lambda checked, o=obs: self.view_observation(o))
             btn_layout.addWidget(view_btn)
             
             if AccessControl.has_permission(Permission.DELETE_OBSERVATION.value):
                 delete_btn = QPushButton("🗑️")
                 delete_btn.setFixedSize(30, 30)
-                delete_btn.setStyleSheet("background-color: #B42318; color: #FFFFFF; border: none; border-radius: 4px;")
+                delete_btn.setStyleSheet("background-color: #C0392B; color: #FFFFFF; border: none; border-radius: 4px;")
                 delete_btn.clicked.connect(lambda checked, o=obs: self.delete_observation(o))
                 btn_layout.addWidget(delete_btn)
             
