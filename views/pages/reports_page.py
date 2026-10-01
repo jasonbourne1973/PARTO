@@ -96,7 +96,7 @@ class ReportsPage(YearAwarePage, QWidget):
         toolbar = QHBoxLayout()
         
         title_label = QLabel("📄 گزارش‌ها")
-        title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; color: #17212B; }")
+        title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; color: #2C3E50; }")
         toolbar.addWidget(title_label)
         toolbar.addStretch()
         
@@ -121,18 +121,18 @@ class ReportsPage(YearAwarePage, QWidget):
         self.search_input.setPlaceholderText("جستجوی نام یا کد ملی...")
         self.search_input.setStyleSheet("""
             QLineEdit {
-    color: #D9AF24;
-    background-color: #08223A;
+    color: #3498DB;
+    background-color: #1A252F;
                 padding: 5px 10px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
                 font-size: 13px;
                 min-width: 150px;
             }
             QLineEdit:focus {
     color: #FFFFFF;
-    background-color: #0B2E4F;
-                border: 2px solid #D9AF24;
+    background-color: #2C3E50;
+                border: 2px solid #3498DB;
             }
         """)
         toolbar.addWidget(self.search_input)
@@ -140,14 +140,14 @@ class ReportsPage(YearAwarePage, QWidget):
         self.search_btn = QPushButton("🔍 جستجو")
         self.search_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0B2E4F;
-                color: #D9AF24;
+                background-color: #2C3E50;
+                color: #3498DB;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #08223A; }
+            QPushButton:hover { background-color: #1A252F; }
         """)
         self.search_btn.clicked.connect(self.search_student)
         toolbar.addWidget(self.search_btn)
@@ -156,7 +156,7 @@ class ReportsPage(YearAwarePage, QWidget):
         self.clear_search_btn.setFixedSize(30, 30)
         self.clear_search_btn.setStyleSheet("""
             QPushButton {
-                background-color: #B42318;
+                background-color: #C0392B;
                 color: #FFFFFF;
                 border: none;
                 border-radius: 5px;
@@ -180,7 +180,7 @@ class ReportsPage(YearAwarePage, QWidget):
         self.parent_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFAEB;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -195,13 +195,13 @@ class ReportsPage(YearAwarePage, QWidget):
         self.excel_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #F2F6FA; }
+            QPushButton:hover { background-color: #F8F9FA; }
         """)
         self.excel_btn.clicked.connect(self.export_excel)
         toolbar.addWidget(self.excel_btn)
@@ -211,7 +211,7 @@ class ReportsPage(YearAwarePage, QWidget):
         self.pdf_btn = QPushButton("📄 خروجی PDF")
         self.pdf_btn.setStyleSheet("""
             QPushButton {
-                background-color: #B42318;
+                background-color: #C0392B;
                 color: #FFFFFF;
                 padding: 8px 15px;
                 border: none;
@@ -228,7 +228,7 @@ class ReportsPage(YearAwarePage, QWidget):
         self.ai_export_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -243,12 +243,12 @@ class ReportsPage(YearAwarePage, QWidget):
         self.insufficient_data_label = QLabel("")
         self.insufficient_data_label.setStyleSheet("""
             QLabel {
-                background-color: #B42318;
+                background-color: #C0392B;
                 color: #FFFFFF;
                 padding: 10px;
                 border-radius: 5px;
                 font-weight: bold;
-                border: 1px solid #D9AF24;
+                border: 1px solid #3498DB;
             }
         """)
         self.insufficient_data_label.setVisible(False)
@@ -258,22 +258,22 @@ class ReportsPage(YearAwarePage, QWidget):
         self.tabs = QTabWidget()
         self.tabs.setStyleSheet("""
             QTabWidget::pane {
-    color: #17212B;
-                border: 1px solid #D0D5DD;
+    color: #2C3E50;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
                 background-color: #FFFFFF;
             }
             QTabBar::tab {
-    color: #17212B;
-    border: 1px solid #D0D5DD;
+    color: #2C3E50;
+    border: 1px solid #DEE2E6;
     background-color: #FFFFFF;
                 padding: 10px 20px;
                 font-weight: bold;
             }
             QTabBar::tab:selected {
-    border-color: #D9AF24;
-                background-color: #F2F6FA;
-                color: #17212B;
+    border-color: #3498DB;
+                background-color: #F8F9FA;
+                color: #2C3E50;
             }
         """)
         
@@ -595,9 +595,9 @@ class ReportsPage(YearAwarePage, QWidget):
         self.summary_text.setReadOnly(True)
         self.summary_text.setStyleSheet("""
             QTextEdit {
-    color: #D9AF24;
-                background-color: #08223A;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #1A252F;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
                 padding: 15px;
                 font-size: 13px;
@@ -819,7 +819,7 @@ class ReportsPage(YearAwarePage, QWidget):
         tab.setLayout(layout)
         
         info_label = QLabel("🔗 قابلیت ردیابی - کلیک روی هر شناسه، رکورد اصلی را نمایش می‌دهد")
-        info_label.setStyleSheet("font-size: 13px; color: #667085; padding: 5px;")
+        info_label.setStyleSheet("font-size: 13px; color: #7F8C8D; padding: 5px;")
         layout.addWidget(info_label)
         
         self.traceability_table = QTableWidget()
@@ -828,24 +828,24 @@ class ReportsPage(YearAwarePage, QWidget):
         self.traceability_table.setAlternatingRowColors(True)
         self.traceability_table.setStyleSheet("""
             QTableWidget {
-    color: #D9AF24;
-                background-color: #0B2E4F;
-                alternate-background-color: #0B2E4F;
-                gridline-color: #E4E7EC;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #2C3E50;
+                alternate-background-color: #2C3E50;
+                gridline-color: #DEE2E6;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #D9AF24;
-    border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F; padding: 8px; }
+    color: #3498DB;
+    border-bottom: 1px solid #DEE2E6;
+    background-color: #2C3E50; padding: 8px; }
             QTableWidget::item:hover {
-    color: #FFFFFF; background-color: #174F78; }
+    color: #FFFFFF; background-color: #34495E; }
             QHeaderView::section {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 font-weight: bold;
             }
         """)
@@ -924,24 +924,24 @@ class ReportsPage(YearAwarePage, QWidget):
         self.obs_table.setAlternatingRowColors(True)
         self.obs_table.setStyleSheet("""
             QTableWidget {
-    color: #D9AF24;
-                background-color: #0B2E4F;
-                alternate-background-color: #0B2E4F;
-                gridline-color: #E4E7EC;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #2C3E50;
+                alternate-background-color: #2C3E50;
+                gridline-color: #DEE2E6;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #D9AF24;
-    border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F; padding: 8px; }
+    color: #3498DB;
+    border-bottom: 1px solid #DEE2E6;
+    background-color: #2C3E50; padding: 8px; }
             QTableWidget::item:hover {
-    color: #FFFFFF; background-color: #174F78; }
+    color: #FFFFFF; background-color: #34495E; }
             QHeaderView::section {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 font-weight: bold;
             }
         """)
@@ -1005,24 +1005,24 @@ class ReportsPage(YearAwarePage, QWidget):
         self.inter_table.setAlternatingRowColors(True)
         self.inter_table.setStyleSheet("""
             QTableWidget {
-    color: #D9AF24;
-                background-color: #0B2E4F;
-                alternate-background-color: #0B2E4F;
-                gridline-color: #E4E7EC;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #2C3E50;
+                alternate-background-color: #2C3E50;
+                gridline-color: #DEE2E6;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #D9AF24;
-    border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F; padding: 8px; }
+    color: #3498DB;
+    border-bottom: 1px solid #DEE2E6;
+    background-color: #2C3E50; padding: 8px; }
             QTableWidget::item:hover {
-    color: #FFFFFF; background-color: #174F78; }
+    color: #FFFFFF; background-color: #34495E; }
             QHeaderView::section {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 font-weight: bold;
             }
         """)
@@ -1076,24 +1076,24 @@ class ReportsPage(YearAwarePage, QWidget):
         self.follow_table.setAlternatingRowColors(True)
         self.follow_table.setStyleSheet("""
             QTableWidget {
-    color: #D9AF24;
-                background-color: #0B2E4F;
-                alternate-background-color: #0B2E4F;
-                gridline-color: #E4E7EC;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #2C3E50;
+                alternate-background-color: #2C3E50;
+                gridline-color: #DEE2E6;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #D9AF24;
-    border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F; padding: 8px; }
+    color: #3498DB;
+    border-bottom: 1px solid #DEE2E6;
+    background-color: #2C3E50; padding: 8px; }
             QTableWidget::item:hover {
-    color: #FFFFFF; background-color: #174F78; }
+    color: #FFFFFF; background-color: #34495E; }
             QHeaderView::section {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 font-weight: bold;
             }
         """)
@@ -1143,7 +1143,7 @@ class ReportsPage(YearAwarePage, QWidget):
         
         self.figure = Figure(figsize=(10, 8), dpi=100)
         self.canvas = FigureCanvas(self.figure)
-        self.canvas.setStyleSheet("background-color: #0B2E4F; border: 1px solid #D0D5DD; border-radius: 5px;")
+        self.canvas.setStyleSheet("background-color: #2C3E50; border: 1px solid #DEE2E6; border-radius: 5px;")
         layout.addWidget(self.canvas)
         
         return tab
@@ -1181,7 +1181,7 @@ class ReportsPage(YearAwarePage, QWidget):
             ax.bar([p - 0.2 for p in positions], positive_values, width=0.4,
                    color='#2E7D32', label='رفتار مثبت')
             ax.bar([p + 0.2 for p in positions], negative_values, width=0.4,
-                   color='#B42318', label='رفتار منفی')
+                   color='#C0392B', label='رفتار منفی')
             ax.set_xticks(list(positions))
             ax.set_xticklabels(names)
             ax.set_ylabel('تعداد رفتار ثبت‌شده')
@@ -1202,9 +1202,9 @@ class ReportsPage(YearAwarePage, QWidget):
         ax.plot(angles, positive_plot, 'o-', linewidth=2, color='#2E7D32',
                 label='رفتار مثبت')
         ax.fill(angles, positive_plot, alpha=0.20, color='#2E7D32')
-        ax.plot(angles, negative_plot, 'o-', linewidth=2, color='#B42318',
+        ax.plot(angles, negative_plot, 'o-', linewidth=2, color='#C0392B',
                 label='رفتار منفی')
-        ax.fill(angles, negative_plot, alpha=0.20, color='#B42318')
+        ax.fill(angles, negative_plot, alpha=0.20, color='#C0392B')
         
         ax.set_xticks(angles[:-1])
         ax.set_xticklabels(names, size=8)
