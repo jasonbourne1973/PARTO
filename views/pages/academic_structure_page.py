@@ -101,7 +101,7 @@ class AcademicStructurePage(YearAwarePage, QWidget):
             QLabel {
                 font-size: 20px;
                 font-weight: bold;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 5px 0;
             }
         """)
@@ -116,15 +116,15 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         self.year_combo.currentIndexChanged.connect(self.on_year_changed)
         self.year_combo.setStyleSheet("""
             QComboBox {
-    color: #D9AF24;
+    color: #3498DB;
                 padding: 5px 10px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
-                background-color: #08223A;
+                background-color: #1A252F;
                 font-size: 13px;
             }
             QComboBox:hover {
-                border-color: #0B2E4F;
+                border-color: #2C3E50;
             }
         """)
         toolbar.addWidget(self.year_combo)
@@ -135,15 +135,15 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         self.refresh_btn = QPushButton("🔄 به‌روزرسانی")
         self.refresh_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0B2E4F;
-                color: #D9AF24;
+                background-color: #2C3E50;
+                color: #3498DB;
                 padding: 6px 15px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #08223A;
+                background-color: #1A252F;
             }
         """)
         self.refresh_btn.clicked.connect(self.refresh_all)
@@ -155,23 +155,23 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         self.tabs = QTabWidget()
         self.tabs.setStyleSheet("""
             QTabWidget::pane {
-    color: #17212B;
-                border: 1px solid #D0D5DD;
+    color: #2C3E50;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
                 background-color: #FFFFFF;
             }
             QTabBar::tab {
-    color: #17212B;
-    border: 1px solid #D0D5DD;
+    color: #2C3E50;
+    border: 1px solid #DEE2E6;
     background-color: #FFFFFF;
                 padding: 10px 20px;
                 font-weight: bold;
                 font-size: 13px;
             }
             QTabBar::tab:selected {
-    border-color: #D9AF24;
-                background-color: #F2F6FA;
-                color: #17212B;
+    border-color: #3498DB;
+                background-color: #F8F9FA;
+                color: #2C3E50;
             }
         """)
         
@@ -217,12 +217,12 @@ class AcademicStructurePage(YearAwarePage, QWidget):
                 border-radius: 4px;
             }
             QScrollBar::handle:vertical {
-                background-color: #F8FAFC;
+                background-color: #F8F9FA;
                 border-radius: 4px;
                 min-height: 30px;
             }
             QScrollBar::handle:vertical:hover {
-                background-color: #F8FAFC;
+                background-color: #F8F9FA;
             }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
                 height: 0px;
@@ -237,20 +237,20 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         form_group = QGroupBox("➕ افزودن کلاس جدید")
         form_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
                 background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         form_layout = QGridLayout()
@@ -262,16 +262,16 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         self.class_name_input.setPlaceholderText("مثال: الف، ب، ج، ...")
         self.class_name_input.setStyleSheet("""
             QLineEdit {
-    color: #D9AF24;
-    background-color: #08223A;
+    color: #3498DB;
+    background-color: #1A252F;
                 padding: 6px 10px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 border-radius: 4px;
             }
             QLineEdit:focus {
     color: #FFFFFF;
-    background-color: #0B2E4F;
-                border: 2px solid #D9AF24;
+    background-color: #2C3E50;
+                border: 2px solid #3498DB;
             }
         """)
         form_layout.addWidget(self.class_name_input, 0, 1)
@@ -284,11 +284,11 @@ class AcademicStructurePage(YearAwarePage, QWidget):
             self.class_grade_combo.addItem(f"پایه {grade_names[grade]}", grade)
         self.class_grade_combo.setStyleSheet("""
             QComboBox {
-    color: #D9AF24;
+    color: #3498DB;
                 padding: 6px 10px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 border-radius: 4px;
-                background-color: #08223A;
+                background-color: #1A252F;
             }
             QComboBox:hover {
                 border-color: #F04438;
@@ -302,11 +302,11 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         self.class_teacher_combo.addItem("بدون معلم", None)
         self.class_teacher_combo.setStyleSheet("""
             QComboBox {
-    color: #D9AF24;
+    color: #3498DB;
                 padding: 6px 10px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 border-radius: 4px;
-                background-color: #08223A;
+                background-color: #1A252F;
             }
             QComboBox:hover {
                 border-color: #F04438;
@@ -321,16 +321,16 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         self.class_capacity_spin.setValue(30)
         self.class_capacity_spin.setStyleSheet("""
             QSpinBox {
-    color: #D9AF24;
-    background-color: #08223A;
+    color: #3498DB;
+    background-color: #1A252F;
                 padding: 6px 10px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 border-radius: 4px;
             }
             QSpinBox:focus {
     color: #FFFFFF;
-    background-color: #0B2E4F;
-                border: 2px solid #D9AF24;
+    background-color: #2C3E50;
+                border: 2px solid #3498DB;
             }
         """)
         form_layout.addWidget(self.class_capacity_spin, 3, 1)
@@ -357,8 +357,8 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         self._editing_class_id = None
         self.cancel_edit_class_btn = QPushButton("✖ انصراف از ویرایش")
         self.cancel_edit_class_btn.setStyleSheet(
-            "QPushButton { background-color: #08223A; color: #D9AF24; padding: 8px 20px; "
-            "border: 1px solid #D0D5DD; border-radius: 5px; }")
+            "QPushButton { background-color: #1A252F; color: #3498DB; padding: 8px 20px; "
+            "border: 1px solid #DEE2E6; border-radius: 5px; }")
         self.cancel_edit_class_btn.clicked.connect(self.cancel_edit_class)
         self.cancel_edit_class_btn.setVisible(False)
         form_layout.addWidget(self.cancel_edit_class_btn, 5, 0, 1, 2)
@@ -367,7 +367,7 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         
         # ===== جدول کلاس‌ها =====
         table_label = QLabel("📋 لیست کلاس‌ها")
-        table_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #17212B; padding: 5px 0;")
+        table_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #2C3E50; padding: 5px 0;")
         container_layout.addWidget(table_label)
         
         self.class_table = QTableWidget()
@@ -376,28 +376,28 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         self.class_table.setAlternatingRowColors(True)
         self.class_table.setStyleSheet("""
             QTableWidget {
-    color: #D9AF24;
-                background-color: #0B2E4F;
-                alternate-background-color: #0B2E4F;
-                gridline-color: #E4E7EC;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #2C3E50;
+                alternate-background-color: #2C3E50;
+                gridline-color: #DEE2E6;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #D9AF24;
-    border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F;
+    color: #3498DB;
+    border-bottom: 1px solid #DEE2E6;
+    background-color: #2C3E50;
                 padding: 8px;
             }
             QTableWidget::item:hover {
     color: #FFFFFF;
-                background-color: #174F78;
+                background-color: #34495E;
             }
             QHeaderView::section {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 font-weight: bold;
             }
         """)
@@ -438,15 +438,15 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         self.assign_teacher_combo.currentIndexChanged.connect(self.load_assign_students)
         self.assign_teacher_combo.setStyleSheet("""
             QComboBox {
-    color: #D9AF24;
+    color: #3498DB;
                 padding: 5px 10px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
-                background-color: #08223A;
+                background-color: #1A252F;
                 font-size: 13px;
             }
             QComboBox:hover {
-                border-color: #D0D5DD;
+                border-color: #DEE2E6;
             }
         """)
         assign_toolbar.addWidget(self.assign_teacher_combo)
@@ -458,7 +458,7 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         self.assign_new_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 6px 15px;
                 border: none;
                 border-radius: 5px;
@@ -482,28 +482,28 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         self.assign_table.setAlternatingRowColors(True)
         self.assign_table.setStyleSheet("""
             QTableWidget {
-    color: #D9AF24;
-                background-color: #0B2E4F;
-                alternate-background-color: #0B2E4F;
-                gridline-color: #E4E7EC;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #2C3E50;
+                alternate-background-color: #2C3E50;
+                gridline-color: #DEE2E6;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #D9AF24;
-    border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F;
+    color: #3498DB;
+    border-bottom: 1px solid #DEE2E6;
+    background-color: #2C3E50;
                 padding: 8px;
             }
             QTableWidget::item:hover {
     color: #FFFFFF;
-                background-color: #174F78;
+                background-color: #34495E;
             }
             QHeaderView::section {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 font-weight: bold;
             }
         """)
@@ -541,15 +541,15 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         self.ts_teacher_combo.currentIndexChanged.connect(self.load_teacher_students)
         self.ts_teacher_combo.setStyleSheet("""
             QComboBox {
-    color: #D9AF24;
+    color: #3498DB;
                 padding: 5px 10px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
-                background-color: #08223A;
+                background-color: #1A252F;
                 font-size: 13px;
             }
             QComboBox:hover {
-                border-color: #08223A;
+                border-color: #1A252F;
             }
         """)
         ts_toolbar.addWidget(self.ts_teacher_combo)
@@ -558,7 +558,7 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         
         # تعداد دانش‌آموزان
         self.ts_count_label = QLabel("تعداد: 0 دانش‌آموز")
-        self.ts_count_label.setStyleSheet("font-size: 13px; color: #667085; font-weight: bold;")
+        self.ts_count_label.setStyleSheet("font-size: 13px; color: #7F8C8D; font-weight: bold;")
         ts_toolbar.addWidget(self.ts_count_label)
         
         layout.addLayout(ts_toolbar)
@@ -570,8 +570,8 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         left_frame = QFrame()
         left_frame.setStyleSheet("""
             QFrame {
-                background-color: #0B2E4F;
-                border: 1px solid #D0D5DD;
+                background-color: #2C3E50;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
         """)
@@ -579,7 +579,7 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         left_frame.setLayout(left_layout)
         
         list_title = QLabel("📋 لیست دانش‌آموزان")
-        list_title.setStyleSheet("font-size: 13px; font-weight: bold; color: #D9AF24; padding: 5px;")
+        list_title.setStyleSheet("font-size: 13px; font-weight: bold; color: #3498DB; padding: 5px;")
         left_layout.addWidget(list_title)
         
         self.ts_students_table = QTableWidget()
@@ -590,32 +590,32 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         self.ts_students_table.setAlternatingRowColors(True)
         self.ts_students_table.setStyleSheet("""
             QTableWidget {
-    color: #D9AF24;
-                background-color: #0B2E4F;
-                alternate-background-color: #0B2E4F;
-                gridline-color: #E4E7EC;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #2C3E50;
+                alternate-background-color: #2C3E50;
+                gridline-color: #DEE2E6;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #D9AF24;
-    border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F;
+    color: #3498DB;
+    border-bottom: 1px solid #DEE2E6;
+    background-color: #2C3E50;
                 padding: 8px;
             }
             QTableWidget::item:hover {
     color: #FFFFFF;
-                background-color: #174F78;
+                background-color: #34495E;
             }
             QTableWidget::item:selected {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
             }
             QHeaderView::section {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 font-weight: bold;
             }
         """)
@@ -637,8 +637,8 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         right_frame = QFrame()
         right_frame.setStyleSheet("""
             QFrame {
-                background-color: #0B2E4F;
-                border: 1px solid #D0D5DD;
+                background-color: #2C3E50;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
         """)
@@ -646,18 +646,18 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         right_frame.setLayout(right_layout)
         
         details_title = QLabel("📋 جزئیات دانش‌آموز")
-        details_title.setStyleSheet("font-size: 13px; font-weight: bold; color: #D9AF24; padding: 5px;")
+        details_title.setStyleSheet("font-size: 13px; font-weight: bold; color: #3498DB; padding: 5px;")
         right_layout.addWidget(details_title)
         
         self.ts_details_text = QTextEdit()
         self.ts_details_text.setReadOnly(True)
         self.ts_details_text.setStyleSheet("""
             QTextEdit {
-    color: #D9AF24;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                border: 1px solid #DEE2E6;
                 padding: 10px;
                 font-size: 13px;
-                background-color: #08223A;
+                background-color: #1A252F;
                 line-height: 1.8;
             }
         """)
@@ -669,7 +669,7 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         view_profile_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -840,13 +840,13 @@ class AcademicStructurePage(YearAwarePage, QWidget):
                 
                 edit_btn = QPushButton("✏️")
                 edit_btn.setFixedSize(30, 30)
-                edit_btn.setStyleSheet("background-color: #FFFAEB; color: #17212B; border: none; border-radius: 4px;")
+                edit_btn.setStyleSheet("background-color: #FFFAEB; color: #2C3E50; border: none; border-radius: 4px;")
                 edit_btn.clicked.connect(lambda checked, c=class_obj: self.edit_class(c))
                 btn_layout.addWidget(edit_btn)
                 
                 delete_btn = QPushButton("🗑️")
                 delete_btn.setFixedSize(30, 30)
-                delete_btn.setStyleSheet("background-color: #B42318; color: #FFFFFF; border: none; border-radius: 4px;")
+                delete_btn.setStyleSheet("background-color: #C0392B; color: #FFFFFF; border: none; border-radius: 4px;")
                 delete_btn.clicked.connect(lambda checked, c=class_obj: self.delete_class(c))
                 btn_layout.addWidget(delete_btn)
                 
@@ -998,13 +998,13 @@ class AcademicStructurePage(YearAwarePage, QWidget):
                 
                 edit_btn = QPushButton("✏️")
                 edit_btn.setFixedSize(30, 30)
-                edit_btn.setStyleSheet("background-color: #FFFAEB; color: #17212B; border: none; border-radius: 4px;")
+                edit_btn.setStyleSheet("background-color: #FFFAEB; color: #2C3E50; border: none; border-radius: 4px;")
                 edit_btn.clicked.connect(lambda checked, a=assignment: self.edit_assignment(a))
                 btn_layout.addWidget(edit_btn)
                 
                 delete_btn = QPushButton("🗑️")
                 delete_btn.setFixedSize(30, 30)
-                delete_btn.setStyleSheet("background-color: #B42318; color: #FFFFFF; border: none; border-radius: 4px;")
+                delete_btn.setStyleSheet("background-color: #C0392B; color: #FFFFFF; border: none; border-radius: 4px;")
                 delete_btn.clicked.connect(lambda checked, a=assignment: self.delete_assignment(a))
                 btn_layout.addWidget(delete_btn)
                 
