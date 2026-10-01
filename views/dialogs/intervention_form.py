@@ -96,10 +96,10 @@ class InterventionForm(QDialog):
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("QScrollArea { border: none; background-color: #08223A; }")
+        scroll.setStyleSheet("QScrollArea { border: none; background-color: #1A252F; }")
 
         container = QWidget()
-        container.setStyleSheet("background-color: #08223A;")
+        container.setStyleSheet("background-color: #1A252F;")
         layout = QVBoxLayout(container)
         layout.setSpacing(12)
         layout.setContentsMargins(15, 15, 15, 15)
@@ -111,20 +111,20 @@ class InterventionForm(QDialog):
         info_group = QGroupBox("📋 اطلاعات پایه")
         info_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 12px;
                 padding-top: 12px;
                 background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         form_layout = QFormLayout(info_group)
@@ -158,20 +158,20 @@ class InterventionForm(QDialog):
         type_group = QGroupBox("🎯 نوع مداخله")
         type_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 12px;
                 padding-top: 12px;
                 background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         type_layout = QFormLayout(type_group)
@@ -204,20 +204,20 @@ class InterventionForm(QDialog):
         desc_group = QGroupBox("📝 توضیحات مداخله")
         desc_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 12px;
                 padding-top: 12px;
                 background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         desc_layout = QFormLayout(desc_group)
@@ -225,7 +225,7 @@ class InterventionForm(QDialog):
         self.description_input = QTextEdit()
         self.description_input.setPlaceholderText("شرح کامل مداخله انجام‌شده...")
         self.description_input.setMaximumHeight(100)
-        self.description_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 5px;")
+        self.description_input.setStyleSheet("border: 1px solid #DEE2E6; border-radius: 4px; padding: 5px;")
         # تنظیم Tooltip
         TooltipManager.set_field_tooltip(self.description_input, 'description')
         desc_layout.addRow("توضیحات:", self.description_input)
@@ -233,7 +233,7 @@ class InterventionForm(QDialog):
         self.goal_input = QTextEdit()
         self.goal_input.setPlaceholderText("هدف از مداخله (اختیاری)...")
         self.goal_input.setMaximumHeight(60)
-        self.goal_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 5px;")
+        self.goal_input.setStyleSheet("border: 1px solid #DEE2E6; border-radius: 4px; padding: 5px;")
         # تنظیم Tooltip
         TooltipManager.set_field_tooltip(self.goal_input, 'goal')
         desc_layout.addRow("🎯 هدف:", self.goal_input)
@@ -241,7 +241,7 @@ class InterventionForm(QDialog):
         self.result_input = QTextEdit()
         self.result_input.setPlaceholderText("نتیجه مداخله (در صورت مشخص بودن)...")
         self.result_input.setMaximumHeight(60)
-        self.result_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 5px;")
+        self.result_input.setStyleSheet("border: 1px solid #DEE2E6; border-radius: 4px; padding: 5px;")
         # تنظیم Tooltip
         TooltipManager.set_field_tooltip(self.result_input, 'result')
         desc_layout.addRow("📊 نتیجه:", self.result_input)
@@ -251,20 +251,20 @@ class InterventionForm(QDialog):
         status_group = QGroupBox("📌 وضعیت")
         status_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 12px;
                 padding-top: 12px;
                 background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         status_layout = QFormLayout(status_group)
@@ -286,7 +286,7 @@ class InterventionForm(QDialog):
         self.save_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 12px 40px;
                 border: none;
                 border-radius: 6px;
@@ -294,14 +294,14 @@ class InterventionForm(QDialog):
                 font-size: 14px;
                 min-height: 40px;
             }
-            QPushButton:hover { background-color: #F2F6FA; }
+            QPushButton:hover { background-color: #F8F9FA; }
         """)
         self.save_btn.clicked.connect(self.save_intervention)
 
         self.cancel_btn = QPushButton("❌ انصراف")
         self.cancel_btn.setStyleSheet("""
             QPushButton {
-                background-color: #B42318;
+                background-color: #C0392B;
                 color: #FFFFFF;
                 padding: 12px 40px;
                 border: none;
