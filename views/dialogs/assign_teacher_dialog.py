@@ -94,20 +94,20 @@ class AssignTeacherDialog(QDialog):
         info_group = QGroupBox("📋 اطلاعات اختصاص معلم")
         info_group.setStyleSheet("""
             QGroupBox {
-    color: #111111;
+    color: #17212B;
                 font-weight: bold;
-                border: 2px solid #8BC34A;
+                border: 2px solid #D0D5DD;
                 border-radius: 8px;
                 margin-top: 12px;
                 padding-top: 12px;
-                background-color: #66BB6A;
+                background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #8BC34A;
+    background-color: #F2F6FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #111111;
+                color: #17212B;
             }
         """)
         form_layout = QFormLayout(info_group)
@@ -149,7 +149,7 @@ class AssignTeacherDialog(QDialog):
 
         if not self.is_edit_mode:
             self.student_count_label = QLabel(f"تعداد دانش‌آموزان انتخاب‌شده: {len(self.student_ids)}")
-            self.student_count_label.setStyleSheet("color: #D9C36A; font-size: 13px;")
+            self.student_count_label.setStyleSheet("color: #667085; font-size: 13px;")
             form_layout.addRow("📊 تعداد:", self.student_count_label)
 
         layout.addWidget(info_group)
@@ -160,8 +160,8 @@ class AssignTeacherDialog(QDialog):
         self.save_btn = QPushButton("💾 ذخیره" if self.is_edit_mode else "✅ اختصاص معلم")
         self.save_btn.setStyleSheet("""
             QPushButton {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 12px 40px;
                 border: none;
                 border-radius: 6px;
@@ -169,7 +169,7 @@ class AssignTeacherDialog(QDialog):
                 font-size: 14px;
                 min-height: 40px;
             }
-            QPushButton:hover { background-color: #66BB6A; }
+            QPushButton:hover { background-color: #FFFFFF; }
         """)
         self.save_btn.clicked.connect(self.save_assignment)
         button_layout.addWidget(self.save_btn)
@@ -177,8 +177,8 @@ class AssignTeacherDialog(QDialog):
         self.cancel_btn = QPushButton("❌ انصراف")
         self.cancel_btn.setStyleSheet("""
             QPushButton {
-                background-color: #C62828;
-                color: #F4C542;
+                background-color: #B42318;
+                color: #FFFFFF;
                 padding: 12px 40px;
                 border: none;
                 border-radius: 6px;

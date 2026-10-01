@@ -1,390 +1,168 @@
 /* ============================================================
-   تم سراسری PARTOW - آبی تیره، زرد طلایی و سبز
-   هیچ رنگ سفید خالصی در این فایل استفاده نشده است.
+   استایل اصلی برنامه PARTO — مرجع نسخه قدیمی
    ============================================================ */
 
-/* ===== تنظیمات عمومی ===== */
 QWidget {
     font-family: "Vazirmatn";
     font-size: 13px;
-    color: #F4C542;
 }
 
-QMainWindow {
-    background: qlineargradient(
-        x1: 0, y1: 0, x2: 1, y2: 1,
-        stop: 0 #061B2D,
-        stop: 0.30 #0B2E4F,
-        stop: 0.58 #123F64,
-        stop: 0.78 #174F78,
-        stop: 1 #08223A
-    );
-}
+QMainWindow { background-color: #f8f9fa; }
 
-/* ===== منوی سمت چپ؛ بدون تغییر در پالت قبلی ===== */
-QFrame#MenuFrame {
-    background-color: #0B2E4F;
-    border: none;
-}
+QFrame#MenuFrame { background-color: #2c3e50; border: none; }
 
 QPushButton[class="MenuButton"] {
     background-color: transparent;
-    color: #F4C542;
+    color: #ecf0f1;
     border: none;
     border-radius: 0px;
     padding: 12px 16px;
-    text-align: right;
+    text-align: left;
     font-weight: 500;
     font-size: 13px;
     min-height: 40px;
     margin: 2px 0px;
 }
-
 QPushButton[class="MenuButton"]:hover {
-    background-color: #174F78;
-    color: #FFE8A3;
-    border-right: 3px solid #F4C542;
+    background-color: #34495e;
+    border-right: 3px solid #3498db;
 }
-
 QPushButton[class="MenuButton"]:checked,
 QPushButton[class="MenuButton"]:pressed {
-    background-color: #08223A;
-    color: #FFE8A3;
-    border-right: 3px solid #F4C542;
+    background-color: #1a252f;
+    border-right: 3px solid #3498db;
+    color: #3498db;
 }
-
-QPushButton[class="MenuButton"]:disabled {
-    color: #D9C36A;
-    background-color: transparent;
-}
+QPushButton[class="MenuButton"]:disabled { color: #7f8c8d; }
 
 QPushButton#btnLogout {
-    background-color: #C62828;
-    color: #111111;
+    background-color: transparent;
+    color: #e74c3c;
     border: none;
-    border-top: 1px solid #F28C28;
+    border-top: 1px solid #34495e;
     padding: 12px 16px;
-    text-align: right;
+    text-align: left;
     font-weight: bold;
     font-size: 13px;
     min-height: 40px;
 }
+QPushButton#btnLogout:hover { background-color: #34495e; }
 
-QPushButton#btnLogout:hover {
-    background-color: #F28C28;
-    color: #111111;
-}
-
-/* ===== دکمه‌ها ===== */
 QPushButton {
-    border: 1px solid #D9C36A;
+    border: none;
     border-radius: 6px;
     padding: 8px 16px;
     font-weight: 600;
     min-height: 32px;
-    background-color: #0B2E4F;
-    color: #F4C542;
 }
+QPushButton:disabled { background-color: #bdc3c7; color: #7f8c8d; }
 
-QPushButton:hover {
-    background-color: #174F78;
-    color: #FFE8A3;
-}
+QPushButton[class="btn-primary"] { background-color: #3498db; color: white; }
+QPushButton[class="btn-primary"]:hover { background-color: #2980b9; }
+QPushButton[class="btn-success"] { background-color: #27ae60; color: white; }
+QPushButton[class="btn-success"]:hover { background-color: #2ecc71; }
+QPushButton[class="btn-warning"] { background-color: #f39c12; color: white; }
+QPushButton[class="btn-warning"]:hover { background-color: #e67e22; }
+QPushButton[class="btn-danger"] { background-color: #e74c3c; color: white; }
+QPushButton[class="btn-danger"]:hover { background-color: #ef5350; }
 
-QPushButton:disabled {
-    background-color: #08223A;
-    color: #D9C36A;
-    border-color: #526170;
-}
-
-QPushButton[class="btn-primary"] {
-    background-color: #174F78;
-    color: #F4C542;
-    border: 1px solid #D9C36A;
-}
-QPushButton[class="btn-primary"]:hover {
-    background-color: #2A6796;
-    color: #FFE8A3;
-}
-
-QPushButton[class="btn-success"] {
-    background-color: #66BB6A;
-    color: #111111;
-    border-color: #8BC34A;
-}
-QPushButton[class="btn-success"]:hover {
-    background-color: #8BC34A;
-    color: #111111;
-}
-
-QPushButton[class="btn-warning"] {
-    background-color: #F4D35E;
-    color: #C62828;
-    border-color: #D9C36A;
-}
-QPushButton[class="btn-warning"]:hover {
-    background-color: #FFE8A3;
-    color: #C62828;
-}
-
-QPushButton[class="btn-danger"] {
-    background-color: #F28C28;
-    color: #111111;
-    border-color: #F4D35E;
-}
-QPushButton[class="btn-danger"]:hover {
-    background-color: #FFAA45;
-    color: #111111;
-}
-
-/* ===== کادرها و کارت‌ها ===== */
-QFrame[class="Card"],
-QGroupBox {
-    background-color: #66BB6A;
-    color: #111111;
-    border: 1px solid #8BC34A;
+QFrame[class="Card"] {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
     border-radius: 8px;
-    padding: 10px;
+    padding: 12px;
 }
+QFrame[class="Card"]:hover { border-color: #3498db; }
 
-QFrame[class="Card"]:hover {
-    background-color: #8BC34A;
-    border-color: #F4C542;
-}
-
-QGroupBox::title {
-    subcontrol-origin: margin;
-    color: #111111;
-    background-color: #8BC34A;
-    padding: 0 8px;
-}
-
-/* ===== جدول‌ها: همه یکسان ===== */
-QTableWidget,
-QTreeWidget {
-    background-color: #0B2E4F;
-    color: #F4C542;
-    border: 1px solid #D9C36A;
+QTableWidget {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
     border-radius: 6px;
-    gridline-color: #D9C36A;
-    selection-background-color: #66BB6A;
-    selection-color: #F4C542;
+    gridline-color: #ecf0f1;
+    padding: 4px;
 }
-
-QTableWidget::item,
-QTreeWidget::item {
-    background-color: #0B2E4F;
-    color: #F4C542;
-    padding: 6px;
-    border-bottom: 1px solid #D9C36A;
-}
-
-QTableWidget::item:hover,
-QTreeWidget::item:hover {
-    background-color: #174F78;
-    color: #FFE8A3;
-}
-
-QTableWidget::item:selected,
-QTreeWidget::item:selected {
-    background-color: #66BB6A;
-    color: #F4C542;
-}
-
-QHeaderView::section,
-QTreeWidget::header {
-    background-color: #66BB6A;
-    color: #111111;
+QTableWidget::item { padding: 6px; }
+QTableWidget::item:hover { background-color: #e8f0fe; }
+QTableWidget::item:selected { background-color: #3498db; color: white; }
+QHeaderView::section {
+    background-color: #2c3e50;
+    color: white;
     padding: 8px 12px;
-    border: 1px solid #D9C36A;
+    border: none;
     font-weight: bold;
 }
 
-QTreeWidget::branch {
-    background-color: #0B2E4F;
-}
-
-/* ===== تب‌ها ===== */
 QTabWidget::pane {
-    background-color: #66BB6A;
-    color: #111111;
-    border: 1px solid #8BC34A;
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
     border-radius: 6px;
     padding: 8px;
 }
-
 QTabBar::tab {
     padding: 10px 20px;
     font-weight: bold;
-    background-color: #66BB6A;
-    color: #111111;
-    border: 1px solid #8BC34A;
+    background-color: #f1f2f6;
+    border: 1px solid transparent;
     border-bottom: none;
     border-top-left-radius: 6px;
     border-top-right-radius: 6px;
     margin-right: 2px;
 }
-
 QTabBar::tab:selected {
-    background-color: #8BC34A;
-    border-color: #F4C542;
-    border-bottom: 2px solid #F4C542;
-    color: #111111;
+    background-color: #ffffff;
+    border-color: #dee2e6;
+    border-bottom: 2px solid #3498db;
+    color: #3498db;
 }
+QTabBar::tab:hover { background-color: #e2e8f0; }
 
-QTabBar::tab:hover {
-    background-color: #F4D35E;
-    color: #111111;
-}
-
-/* ===== ورودی‌ها ===== */
-QComboBox,
-QLineEdit,
-QSpinBox,
-QDateEdit,
-QTextEdit {
+QComboBox {
     padding: 6px 12px;
-    border: 1px solid #8BC34A;
+    border: 1px solid #dee2e6;
     border-radius: 6px;
-    background-color: #08223A;
-    color: #F4C542;
+    background-color: #ffffff;
     min-height: 32px;
 }
-
-QComboBox:hover,
-QLineEdit:hover,
-QSpinBox:hover,
-QDateEdit:hover,
-QTextEdit:hover {
-    border-color: #F4C542;
-    background-color: #0B2E4F;
-}
-
-QComboBox:focus,
-QLineEdit:focus,
-QSpinBox:focus,
-QDateEdit:focus,
-QTextEdit:focus {
-    border: 2px solid #F4C542;
-    background-color: #0B2E4F;
-    color: #FFE8A3;
-}
-
-QComboBox::drop-down {
-    border: none;
-    width: 24px;
-}
-
+QComboBox:hover { border-color: #3498db; }
+QComboBox::drop-down { border: none; width: 24px; }
 QComboBox::down-arrow {
     image: none;
     border-left: 5px solid transparent;
     border-right: 5px solid transparent;
-    border-top: 6px solid #F4C542;
+    border-top: 6px solid #7f8c8d;
 }
 
-QComboBox QAbstractItemView {
-    background-color: #08223A;
-    color: #F4C542;
-    selection-background-color: #66BB6A;
-    selection-color: #111111;
-    border: 1px solid #D9C36A;
+QLineEdit, QSpinBox, QDateEdit, QTextEdit {
+    padding: 6px 12px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    background-color: #ffffff;
+    min-height: 32px;
 }
-
-/* ===== نوار پیشرفت ===== */
-QProgressBar {
-    background-color: #08223A;
-    color: #F4C542;
-    border: 1px solid #D9C36A;
-    border-radius: 5px;
-    text-align: center;
-}
-
-QProgressBar::chunk {
-    background-color: #66BB6A;
-    border-radius: 4px;
-}
-
-/* ===== Scrollbar ===== */
-QScrollBar:vertical,
-QScrollBar:horizontal {
-    background-color: #061B2D;
-    border-radius: 4px;
-    margin: 2px;
+QLineEdit:focus, QSpinBox:focus, QDateEdit:focus, QTextEdit:focus {
+    border: 2px solid #3498db;
 }
 
 QScrollBar:vertical {
+    background-color: #f1f2f6;
     width: 8px;
-}
-
-QScrollBar:horizontal {
-    height: 8px;
-}
-
-QScrollBar::handle:vertical,
-QScrollBar::handle:horizontal {
-    background-color: #8BC34A;
     border-radius: 4px;
+    margin: 2px;
 }
-
-QScrollBar::handle:vertical:hover,
-QScrollBar::handle:horizontal:hover {
-    background-color: #F4C542;
+QScrollBar::handle:vertical {
+    background-color: #bdc3c7;
+    border-radius: 4px;
+    min-height: 30px;
 }
-
-QScrollBar::add-line:vertical,
-QScrollBar::sub-line:vertical,
-QScrollBar::add-line:horizontal,
-QScrollBar::sub-line:horizontal {
-    height: 0px;
-    width: 0px;
-}
-
-/* ===== اعلان، اخطار و هشدار ===== */
-QMessageBox,
-QMessageBox QWidget,
-QDialog[role="warning"] {
-    background-color: #F4D35E;
-    color: #C62828;
-}
-
-QMessageBox QLabel,
-QLabel[class="warning"],
-QLabel[class="alert"],
-QLabel[class="error"] {
-    background-color: #F4D35E;
-    color: #C62828;
-}
-
-QMessageBox QPushButton {
-    background-color: #F4D35E;
-    color: #C62828;
-    border: 1px solid #C62828;
-}
+QScrollBar::handle:vertical:hover { background-color: #95a5a6; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
 
 QLabel#NotificationBadge {
-    background-color: #F4D35E;
-    color: #C62828;
-    border: 1px solid #C62828;
+    background-color: #e74c3c;
+    color: white;
     border-radius: 10px;
     font-weight: bold;
     font-size: 10px;
     padding: 0px;
 }
-
-QToolTip {
-    background-color: #F4D35E;
-    color: #C62828;
-    border: 1px solid #C62828;
-    padding: 5px;
-}
-
-/* ===== پس‌زمینه محتوای اصلی ===== */
-QWidget#MainContainer {
-    background: qlineargradient(
-        x1: 0, y1: 0, x2: 1, y2: 1,
-        stop: 0 #061B2D,
-        stop: 0.35 #0B2E4F,
-        stop: 0.70 #123F64,
-        stop: 1 #08223A
-    );
-}
+QWidget#MainContainer { background-color: #f8f9fa; }

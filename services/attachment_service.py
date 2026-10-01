@@ -18,7 +18,7 @@ from models.attachment import Attachment
 from services.base_service import BaseService
 from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
-from utils.security import Security
+from utils.security import AccessControl, Permission, PermissionDeniedError, Security
 from utils.time_utils import utc_now
 
 
@@ -28,7 +28,129 @@ class AttachmentService(BaseService):
     
     تمام منطق مربوط به فایل‌های پیوست در این سرویس قرار دارد.
     """
-    
+
+    # ===== مرز مجوز backend برای پیوست (دور نوزدهم — سند ممیزی مدیر پروژه،
+    # SEC-ATT-01/02) =====
+    # برای «پیوست» هیچ Permission اختصاصی در enum تعریف نشده (نه CREATE
+    # نه VIEW نه DELETE) — دقیقاً مثل وضعیت BUG-NAV-02 (DD-1). به‌جای
+    # اختراع مجوز جدید (که سیاست تازه‌ای می‌سازد)، طبق تصمیم صریح مدیر
+    # پروژه (DD-6)، عملیات پیوست از همان Permission موجودیت والدش
+    # استفاده می‌کند: آپلود = «ویرایش» والد، خواندن = «مشاهدهٔ» والد،
+    # حذف/بازیابی = «حذف» والد (هم‌راستا با DD-2). اگر entity_type در
+    # این نگاشت نباشد (مثلاً counseling_session/extracurricular_activity/
+    # individual_goal که سیاست‌شان هنوز طبق DD-1 نامشخص است)، بررسی انجام
+    # نمی‌شود — چون Agent حق حدس سیاست دسترسی جدید را ندارد.
+    ENTITY_PERMISSION_MAP: ClassVar[dict[str, dict[str, str]]] = {
+        'student': {
+            'view': Permission.VIEW_STUDENTS.value,
+            'edit': Permission.EDIT_STUDENT.value,
+            'delete': Permission.DELETE_STUDENT.value,
+        },
+        'observation': {
+            'view': Permission.VIEW_OBSERVATIONS.value,
+            'edit': Permission.EDIT_OBSERVATION.value,
+            'delete': Permission.DELETE_OBSERVATION.value,
+        },
+        'intervention': {
+            'view': Permission.VIEW_INTERVENTIONS.value,
+            'edit': Permission.EDIT_INTERVENTION.value,
+            'delete': Permission.DELETE_INTERVENTION.value,
+        },
+        'followup': {
+            'view': Permission.VIEW_FOLLOWUPS.value,
+            'edit': Permission.EDIT_FOLLOWUP.value,
+            'delete': Permission.DELETE_FOLLOWUP.value,
+        },
+    }
+
+    def _require_entity_permission(self, entity_type, level, action=None):
+        """اعمال مرز مجوز پیوست بر اساس Permission موجودیت والد (DD-6)"""
+        mapping = self.ENTITY_PERMISSION_MAP.get(entity_type)
+        if not mapping:
+            self.logger.debug(
+                f"پیوست entity_type={entity_type!r}: سیاست دسترسی تعریف‌شده "
+                "ندارد (DD-1) — بررسی مجوز انجام نشد.")
+            return
+        permission = mapping.get(level)
+        if not permission:
+            return
+        AccessControl.require_permission(
+            permission, action=action or f"AttachmentService.{level}:{entity_type}")
+
+    # ===== مرز Scope/IDOR برای پیوست (دور نوزدهم — مرحلهٔ ۴، DD-6) =====
+    # پیوست‌ها بدون بررسی «آیا این entity_id/entity_id به دانش‌آموزِ
+    # درون Scope کاربر جاری تعلق دارد؟» بودند — یعنی معلمی با دانستنِ
+    # attachment_id/entity_id می‌توانست پیوست دانش‌آموز خارج از Scope
+    # خودش را ببیند/دانلود/حذف کند، حتی اگر Permission سطح موجودیت
+    # درست بود. این نگاشت روی هر ۷ نوع entity_type شناخته‌شده اعمال
+    # می‌شود (برخلاف ENTITY_PERMISSION_MAP که فقط ۴ تای اول را دارد،
+    # چون آن سه‌تای دیگر طبق DD-1 هنوز Permission ندارند — ولی طبق
+    # تصمیم صریح مدیر پروژه، dd1_scope=add_scope_only، Scope مستقل از
+    # Permission روی آن‌ها هم اعمال می‌شود).
+    ENTITY_SCOPE_CHECKER: ClassVar[dict[str, str]] = {
+        'student': 'require_student_scope',
+        'observation': 'require_observation_scope',
+        'intervention': 'require_intervention_scope',
+        'followup': 'require_followup_scope',
+        'counseling_session': 'require_counseling_session_scope',
+        'extracurricular_activity': 'require_extracurricular_activity_scope',
+        'individual_goal': 'require_goal_scope',
+    }
+
+    def _require_entity_scope(self, entity_type, entity_id, action=None):
+        """اعمال مرز Scope پیوست بر اساس نوع موجودیت والد و entity_id"""
+        checker_name = self.ENTITY_SCOPE_CHECKER.get(entity_type)
+        if not checker_name:
+            self.logger.debug(
+                f"پیوست entity_type={entity_type!r}: نگاشت Scope تعریف‌شده "
+                "ندارد — بررسی Scope انجام نشد.")
+            return
+        checker = getattr(AccessControl, checker_name)
+        checker(entity_id, action=action or f"AttachmentService.scope:{entity_type}")
+
+    # ===== مرحلهٔ ۸ — RESTORE-EDGE-01: قبل از بازیابیِ پیوست، وجود/عدم‌حذفِ
+    # موجودیت والد بررسی می‌شود =====
+    # قبلاً restore_attachment فقط Permission/Scope موجودیت والد را چک
+    # می‌کرد؛ اگر خودِ موجودیت والد (مثلاً همان مشاهده/مداخله‌ای که پیوست
+    # به آن وصل است) جداگانه حذف منطقی شده باشد ولی هنوز بازگردانده
+    # نشده باشد، بازیابیِ پیوست موفق می‌شد و یک «پیوستِ فعال روی موجودیتِ
+    # حذف‌شده» می‌ساخت — حالتی ناسازگار که هیچ صفحه‌ای برایش طراحی نشده.
+    ENTITY_TABLE_MAP: ClassVar[dict[str, str]] = {
+        'student': 'students',
+        'observation': 'observations',
+        'intervention': 'interventions',
+        'followup': 'followups',
+        'counseling_session': 'counseling_sessions',
+        'extracurricular_activity': 'extracurricular_activities',
+        'individual_goal': 'individual_goals',
+    }
+
+    def _require_parent_entity_available(self, entity_type, entity_id, action=None):
+        """
+        اطمینان از این‌که موجودیت والدِ پیوست هنوز وجود دارد و حذف‌ (منطقی)
+        نشده است — پیش‌نیاز بازیابیِ پیوست (RESTORE-EDGE-01).
+
+        اگر entity_type در نگاشت نباشد (نوع ناشناخته)، مثل بقیهٔ مرزهای
+        این سرویس محافظه‌کارانه رد می‌شود (بررسی انجام نمی‌شود، نه این‌که
+        حدس زده شود) — هم‌راستا با DD-1/دامنهٔ محدود Scope/Permission.
+        """
+        table = self.ENTITY_TABLE_MAP.get(entity_type)
+        if not table:
+            self.logger.debug(
+                f"پیوست entity_type={entity_type!r}: نگاشت جدول برای بررسی "
+                "وجودِ والد تعریف‌شده ندارد — بررسی انجام نشد.")
+            return
+        row = self.attachment_dal.db.execute_query(
+            f"SELECT 1 FROM {table} WHERE id = ? AND is_deleted = 0",
+            (entity_id,)
+        ).fetchone()
+        if row is None:
+            raise ValidationError(
+                "موجودیتِ والدِ این پیوست حذف شده یا دیگر وجود ندارد؛ "
+                "پیش از بازیابیِ پیوست باید ابتدا خودِ آن موجودیت را "
+                "بازگردانی کنید."
+            )
+
     # انواع فایل‌های مجاز
     ALLOWED_FILE_TYPES: ClassVar[dict[str, str]] = {
         'image': ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'tiff', 'ico'],
@@ -76,6 +198,14 @@ class AttachmentService(BaseService):
             ValidationError: در صورت عدم اعتبار فایل
         """
         def _upload():
+            # 0. مرز مجوز backend: آپلود = ویرایش موجودیت والد (SEC-ATT-02)
+            self._require_entity_permission(
+                entity_type, 'edit', action='AttachmentService.upload_attachment')
+            # 0.5 مرز Scope/IDOR (مرحلهٔ ۴): آپلود روی موجودیتِ خارج از
+            # Scope کاربر جاری ممنوع است.
+            self._require_entity_scope(
+                entity_type, entity_id, action='AttachmentService.upload_attachment')
+
             # 1. اعتبارسنجی فایل
             self._validate_file(file_data, file_name)
             
@@ -184,22 +314,39 @@ class AttachmentService(BaseService):
             attachment = self.attachment_dal.get_by_id(attachment_id)
             if not attachment:
                 raise ServiceError(f"پیوست با شناسه {attachment_id} یافت نشد.")
+            # مرز مجوز backend: خواندن = مشاهدهٔ موجودیت والد (SEC-ATT-01).
+            # عمداً *بعد* از دریافت رکورد است تا بدانیم entity_type چیست؛
+            # PermissionDeniedError زودتر از هر افشای محتوای پیوست raise می‌شود.
+            self._require_entity_permission(
+                attachment.entity_type, 'view', action='AttachmentService.get_attachment')
+            self._require_entity_scope(
+                attachment.entity_type, attachment.entity_id,
+                action='AttachmentService.get_attachment')
             self._enrich_attachment(attachment)
             return attachment
+        except PermissionDeniedError:
+            raise
         except Exception as e:
             self.logger.error(f"خطا در دریافت پیوست: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
+            raise self._safe_service_error(e, "خطا در دریافت اطلاعات.") from e
     
     def get_attachments_by_entity(self, entity_type, entity_id):
         """دریافت پیوست‌های یک موجودیت"""
         try:
+            self._require_entity_permission(
+                entity_type, 'view', action='AttachmentService.get_attachments_by_entity')
+            self._require_entity_scope(
+                entity_type, entity_id,
+                action='AttachmentService.get_attachments_by_entity')
             attachments = self.attachment_dal.get_by_entity(entity_type, entity_id)
             for att in attachments:
                 self._enrich_attachment(att)
             return attachments
+        except PermissionDeniedError:
+            raise
         except Exception as e:
             self.logger.error(f"خطا در دریافت پیوست‌ها: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
+            raise self._safe_service_error(e, "خطا در دریافت اطلاعات.") from e
     
     def delete_attachment(self, attachment_id, user_id=None, ip_address=None):
         """حذف پیوست"""
@@ -207,7 +354,14 @@ class AttachmentService(BaseService):
             attachment = self.attachment_dal.get_by_id(attachment_id)
             if not attachment:
                 raise ServiceError(f"پیوست با شناسه {attachment_id} یافت نشد.")
-            
+
+            # مرز مجوز backend: حذف = مجوز حذف موجودیت والد
+            self._require_entity_permission(
+                attachment.entity_type, 'delete', action='AttachmentService.delete_attachment')
+            self._require_entity_scope(
+                attachment.entity_type, attachment.entity_id,
+                action='AttachmentService.delete_attachment')
+
             old_value = {
                 'id': attachment.id,
                 'file_name': attachment.file_name,
@@ -239,9 +393,16 @@ class AttachmentService(BaseService):
             for att in attachments:
                 self.delete_attachment(att.id, user_id)
             return True
+        except PermissionDeniedError:
+            # (دور نوزدهم) مرز مجوز backend نباید در ServiceError عمومی
+            # پنهان شود — این متد به‌جای مسدود کردن کاربر بی‌مجوز با یک
+            # خطای صریح، در غیر این صورت آن را به «خطای عمومی حذف» تبدیل
+            # می‌کرد و فراخوان دیگر نمی‌توانست PermissionDeniedError را
+            # به‌طور خاص تشخیص دهد (هم‌خانواده با رفع base_service.py).
+            raise
         except Exception as e:
             self.logger.error(f"خطا در حذف پیوست‌ها: {e}")
-            raise ServiceError(f"خطا در حذف: {e!s}")
+            raise self._safe_service_error(e, "خطا در حذف.") from e
     
     def restore_attachment(self, attachment_id, user_id=None, ip_address=None):
         """
@@ -255,6 +416,10 @@ class AttachmentService(BaseService):
           • سقف MAX_ATTACHMENTS_PER_ENTITY با پیوست‌های بازیابی‌شده هم
             سنجیده می‌شود؛ اگر بازیابی از سقف بگذرد → خطای صریح.
           • نتیجهٔ واقعی DAL بررسی و با بازخوانی از DB اثبات می‌شود.
+          • (مرحلهٔ ۸، RESTORE-EDGE-01) اگر موجودیت والد (همان
+            observation/intervention/... که پیوست به آن وصل است) خودش
+            حذف‌شده باشد، بازیابی رد می‌شود — تا پیوستِ فعال روی رکوردِ
+            حذف‌شده به‌وجود نیاید.
 
         Args:
             attachment_id: شناسهٔ پیوست حذف‌شده
@@ -267,7 +432,8 @@ class AttachmentService(BaseService):
         Raises:
             ServiceError: رکورد ناموجود/حذف‌نشده، فایل فیزیکی گم‌شده یا
                 اثرنکردن بازیابی روی دیتابیس
-            ValidationError: عبور از سقف تعداد پیوست موجودیت
+            ValidationError: عبور از سقف تعداد پیوست موجودیت، یا موجودیت
+                والد حذف‌شده/ناموجود (RESTORE-EDGE-01)
         """
         def _restore():
             # 1. رکورد باید واقعاً حذف‌شده باشد
@@ -279,6 +445,20 @@ class AttachmentService(BaseService):
             if not getattr(deleted, 'is_deleted', 0):
                 raise ServiceError(
                     "این پیوست حذف نشده است؛ بازیابی لازم نیست.")
+
+            # مرز مجوز backend: بازیابی = همان مجوز حذف موجودیت والد (DD-2)
+            self._require_entity_permission(
+                deleted.entity_type, 'delete', action='AttachmentService.restore_attachment')
+            self._require_entity_scope(
+                deleted.entity_type, deleted.entity_id,
+                action='AttachmentService.restore_attachment')
+
+            # 1.5 مرحلهٔ ۸ (RESTORE-EDGE-01): موجودیت والد باید هنوز وجود
+            #     داشته باشد و حذف نشده باشد — وگرنه پیوستِ بازیابی‌شده
+            #     روی یک رکوردِ حذف‌شده «آویزان» می‌ماند.
+            self._require_parent_entity_available(
+                deleted.entity_type, deleted.entity_id,
+                action='AttachmentService.restore_attachment')
 
             # 2. BUG-ATT-05: فایل فیزیکی باید وجود داشته باشد — پیش از
             #    هر تغییری در دیتابیس. بازیابیِ رکوردی که فایلش نیست
@@ -338,6 +518,13 @@ class AttachmentService(BaseService):
     def get_deleted_attachments_by_entity(self, entity_type, entity_id):
         """فهرست پیوست‌های حذف‌شدهٔ یک موجودیت (برای مسیر بازیابی در UI)"""
         try:
+            # مرز مجوز backend: دیدن سطل‌آشغال = همان مجوز حذف موجودیت والد
+            self._require_entity_permission(
+                entity_type, 'delete',
+                action='AttachmentService.get_deleted_attachments_by_entity')
+            self._require_entity_scope(
+                entity_type, entity_id,
+                action='AttachmentService.get_deleted_attachments_by_entity')
             deleted = self.attachment_dal.get_deleted_by_entity(
                 entity_type, entity_id)
             # همان غنی‌سازی فهرست فعال (آیکون/حجم نمایشی) تا UI یکدست بماند
@@ -345,12 +532,16 @@ class AttachmentService(BaseService):
             for att in deleted:
                 self._enrich_attachment(att)
             return deleted
+        except PermissionDeniedError:
+            # (دور نوزدهم) همان دلیل delete_attachments_by_entity: نوع
+            # استثنای مجوز باید دقیق و قابل‌تشخیص برای فراخوان بماند.
+            raise
         except Exception as e:
             self.logger.error(
                 "خطا در دریافت پیوست‌های حذف‌شده: "
                 f"{e}", exc_info=True)
-            raise ServiceError(
-                f"خطا در دریافت فهرست حذف‌شده‌ها: {e!s}")
+            raise self._safe_service_error(
+                e, "خطا در دریافت فهرست حذف‌شده‌ها.") from e
 
     def get_attachment_path(self, attachment_id):
         """دریافت مسیر فیزیکی فایل پیوست"""
@@ -369,7 +560,7 @@ class AttachmentService(BaseService):
                 return f.read()
         except Exception as e:
             self.logger.error(f"خطا در خواندن فایل: {e}")
-            raise ServiceError(f"خطا در خواندن فایل: {e!s}")
+            raise self._safe_service_error(e, "خطا در خواندن فایل.") from e
     
     def get_attachments_summary(self, entity_type, entity_id):
         """دریافت خلاصه پیوست‌های یک موجودیت"""
@@ -403,6 +594,12 @@ class AttachmentService(BaseService):
                     (att.description and search_lower in att.description.lower())):
                     results.append(att)
             return results
+        except PermissionDeniedError:
+            # (دور نوزدهم) قبلاً هر خطایی (از جمله رد مجوز) به «فهرست
+            # خالی» تبدیل می‌شد — یعنی دقیقاً همان الگوی «رد مجوز پنهان
+            # به‌شکل نبودِ نتیجه» که طبق تصمیم صریح کاربر (DD-6) ممنوع
+            # است؛ رد مجوز باید آشکار بماند، نه به شکل «چیزی پیدا نشد».
+            raise
         except Exception as e:
             self.logger.error(f"خطا در جستجوی پیوست‌ها: {e}")
             return []

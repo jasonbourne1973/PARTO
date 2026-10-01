@@ -60,7 +60,7 @@ class ShamsiDateInput(QWidget):
         self.today_btn.setFixedWidth(50)
         self.today_btn.setStyleSheet("""
             QPushButton {
-                background-color: #3498db;
+                background-color: #0B2E4F;
                 color: white;
                 border: none;
                 border-radius: 3px;
@@ -68,7 +68,7 @@ class ShamsiDateInput(QWidget):
                 font-size: 11px;
             }
             QPushButton:hover {
-                background-color: #2980b9;
+                background-color: #174F78;
             }
         """)
         self.today_btn.clicked.connect(self.set_today)

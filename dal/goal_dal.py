@@ -8,6 +8,7 @@ import sqlite3
 from database.connection import DatabaseConnection
 from models.individual_goal import IndividualGoal
 from utils.logger import get_logger
+from utils.security import AccessControl
 from utils.time_utils import utc_now_iso
 
 logger = get_logger(__name__)
@@ -21,6 +22,10 @@ class GoalDAL:
     
     def create(self, goal):
         """ایجاد هدف جدید"""
+        # مرز Scope (دور نوزدهم — مرحلهٔ ۴، DD-6 + dd1_scope=add_scope_only؛
+        # طبق DD-1 این موجودیت هنوز Permission‌ای ندارد، فقط Scope)
+        AccessControl.require_profile_scope(
+            goal.student_profile_id, action="GoalDAL.create")
         conn = self.db.get_connection()
         cursor = conn.cursor()
         
@@ -69,7 +74,11 @@ class GoalDAL:
         cursor = self.db.execute_query(query, (goal_id,))
         row = cursor.fetchone()
         if row:
-            return self._row_to_goal(row)
+            goal = self._row_to_goal(row)
+            # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۴؛ فقط Scope)
+            AccessControl.require_profile_scope(
+                goal.student_profile_id, action="GoalDAL.get_by_id")
+            return goal
         return None
     
     def get_by_student_profile(self, profile_id, include_deleted=False):
@@ -172,6 +181,20 @@ class GoalDAL:
         """به‌روزرسانی هدف"""
         conn = self.db.get_connection()
         cursor = conn.cursor()
+
+        # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۴؛ فقط Scope)
+        cursor.execute(
+            "SELECT student_profile_id FROM individual_goals "
+            "WHERE id = ? AND is_deleted = 0",
+            (goal.id,)
+        )
+        existing = cursor.fetchone()
+        if existing:
+            AccessControl.require_profile_scope(
+                existing["student_profile_id"], action="GoalDAL.update")
+            if goal.student_profile_id != existing["student_profile_id"]:
+                AccessControl.require_profile_scope(
+                    goal.student_profile_id, action="GoalDAL.update(new_profile)")
         
         success_criteria_json = json.dumps(goal.success_criteria, ensure_ascii=False) if goal.success_criteria else None
         
@@ -269,11 +292,16 @@ class GoalDAL:
         cursor = conn.cursor()
         
         cursor.execute(
-            "SELECT id FROM individual_goals WHERE id = ? AND is_deleted = 0",
+            "SELECT student_profile_id FROM individual_goals "
+            "WHERE id = ? AND is_deleted = 0",
             (goal_id,)
         )
-        if not cursor.fetchone():
+        existing = cursor.fetchone()
+        if not existing:
             return False
+        # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۴؛ فقط Scope)
+        AccessControl.require_profile_scope(
+            existing["student_profile_id"], action="GoalDAL.delete")
         
         now = utc_now_iso()
         cursor.execute("""
@@ -291,6 +319,17 @@ class GoalDAL:
         """بازیابی هدف حذف شده"""
         conn = self.db.get_connection()
         cursor = conn.cursor()
+
+        # مرز Scope/IDOR (دور نوزدهم — مرحلهٔ ۴؛ فقط Scope)
+        cursor.execute(
+            "SELECT student_profile_id FROM individual_goals "
+            "WHERE id = ? AND is_deleted = 1",
+            (goal_id,)
+        )
+        existing = cursor.fetchone()
+        if existing:
+            AccessControl.require_profile_scope(
+                existing["student_profile_id"], action="GoalDAL.restore")
         
         cursor.execute("""
             UPDATE individual_goals SET

@@ -75,7 +75,7 @@ class IndicatorsPage(YearAwarePage, QWidget):
             QLabel {
                 font-size: 20px;
                 font-weight: bold;
-                color: #F4C542;
+                color: #17212B;
             }
         """)
         toolbar.addWidget(title_label)
@@ -115,18 +115,18 @@ class IndicatorsPage(YearAwarePage, QWidget):
         self.search_input.setPlaceholderText("جستجوی نام یا کد ملی...")
         self.search_input.setStyleSheet("""
             QLineEdit {
-    color: #F4C542;
+    color: #D9AF24;
     background-color: #08223A;
                 padding: 5px 10px;
-                border: 1px solid #8BC34A;
+                border: 1px solid #D0D5DD;
                 border-radius: 5px;
                 font-size: 13px;
                 min-width: 150px;
             }
             QLineEdit:focus {
-    color: #FFE8A3;
+    color: #FFFFFF;
     background-color: #0B2E4F;
-                border: 2px solid #F4C542;
+                border: 2px solid #D9AF24;
             }
         """)
         toolbar.addWidget(self.search_input)
@@ -135,7 +135,7 @@ class IndicatorsPage(YearAwarePage, QWidget):
         self.search_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0B2E4F;
-                color: #F4C542;
+                color: #D9AF24;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
@@ -150,8 +150,8 @@ class IndicatorsPage(YearAwarePage, QWidget):
         self.clear_search_btn.setFixedSize(30, 30)
         self.clear_search_btn.setStyleSheet("""
             QPushButton {
-                background-color: #C62828;
-                color: #F4C542;
+                background-color: #B42318;
+                color: #FFFFFF;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
@@ -167,12 +167,12 @@ class IndicatorsPage(YearAwarePage, QWidget):
         self.insufficient_data_label = QLabel("")
         self.insufficient_data_label.setStyleSheet("""
             QLabel {
-                background-color: #C62828;
+                background-color: #B42318;
                 color: #FFFFFF;
                 padding: 10px;
                 border-radius: 5px;
                 font-weight: bold;
-                border: 1px solid #F4C542;
+                border: 1px solid #D9AF24;
             }
         """)
         self.insufficient_data_label.setVisible(False)
@@ -190,24 +190,24 @@ class IndicatorsPage(YearAwarePage, QWidget):
         self.tree.setColumnWidth(2, 120)
         self.tree.setStyleSheet("""
             QTreeWidget {
-    color: #F4C542;
-    gridline-color: #D9C36A;
+    color: #D9AF24;
+    gridline-color: #E4E7EC;
                 background-color: #0B2E4F;
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
                 border-radius: 5px;
             }
             QTreeWidget::item {
-    color: #F4C542;
-    border-bottom: 1px solid #D9C36A;
+    color: #D9AF24;
+    border-bottom: 1px solid #D0D5DD;
     background-color: #0B2E4F;
                 padding: 5px;
             }
             QTreeWidget::item:selected {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
             }
             QTreeWidget::item:hover {
-    color: #FFE8A3;
+    color: #FFFFFF;
                 background-color: #174F78;
             }
         """)
@@ -219,9 +219,9 @@ class IndicatorsPage(YearAwarePage, QWidget):
         self.details_panel.setReadOnly(True)
         self.details_panel.setStyleSheet("""
             QTextEdit {
-    color: #F4C542;
+    color: #D9AF24;
                 background-color: #08223A;
-                border: 1px solid #8BC34A;
+                border: 1px solid #D0D5DD;
                 border-radius: 5px;
                 padding: 10px;
                 font-size: 13px;
@@ -238,7 +238,7 @@ class IndicatorsPage(YearAwarePage, QWidget):
         refresh_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0B2E4F;
-                color: #F4C542;
+                color: #D9AF24;
                 padding: 10px 20px;
                 border: none;
                 border-radius: 5px;

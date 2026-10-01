@@ -22,7 +22,6 @@ from dal.student_dal import StudentDAL
 from dal.teacher_assignment_dal import TeacherAssignmentDAL
 from services.base_service import BaseService
 from services.trend_analysis_service import TrendAnalysisService
-from utils.error_handler import ServiceError
 from utils.logger import get_logger
 from utils.persian_date import PersianDate
 
@@ -48,43 +47,13 @@ class DashboardService(BaseService):
         self.audit_log_dal = AuditLogDAL()
         self.competency_dal = CompetencyDAL()
         self.logger = get_logger(self.__class__.__name__)
-    
-    def _filter_by_year(self, records, year_id):
-        """
-        فیلتر مشاهده/مداخله بر اساس سال تحصیلیِ پروندهٔ مربوطه
 
-        (بازرسی چهاردهم — رفع N+1) قبلاً برای «هر» رکورد یک
-        profile_dal.get_by_id زده می‌شد؛ حالا پرونده‌های موردنیاز یک‌جا
-        خوانده می‌شوند. معناشناسی همان است: رکوردی می‌ماند که پرونده‌اش
-        موجود (حذف‌نشده) و متعلق به همان سال باشد.
-        """
-        profile_map = self.profile_dal.get_by_ids(
-            r.student_profile_id for r in records)
-        filtered = []
-        for record in records:
-            profile = profile_map.get(record.student_profile_id)
-            if profile and profile.academic_year_id == year_id:
-                filtered.append(record)
-        return filtered
-
-    def _filter_followups_by_year(self, followups, year_id):
-        """فیلتر پیگیری‌ها از مسیر پیگیری ← مداخله ← پرونده ← سال."""
-        intervention_map = self.intervention_dal.get_by_ids(
-            f.intervention_id for f in followups
-        )
-        profile_map = self.profile_dal.get_by_ids(
-            intervention.student_profile_id
-            for intervention in intervention_map.values()
-        )
-        filtered = []
-        for followup in followups:
-            intervention = intervention_map.get(followup.intervention_id)
-            if not intervention:
-                continue
-            profile = profile_map.get(intervention.student_profile_id)
-            if profile and profile.academic_year_id == year_id:
-                filtered.append(followup)
-        return filtered
+    # (دور نوزدهم، مرحلهٔ ۷) متدهای _filter_by_year/_filter_followups_by_year
+    # که این‌جا بودند حذف شدند: با جایگزینیِ get_all()←Aggregate SQL در
+    # _get_general_stats/_get_observation_trend/_get_teacher_stats دیگر هیچ
+    # فراخوانی‌ای نداشتند (فیلتر سال حالا مستقیماً در خودِ کوئری DAL انجام
+    # می‌شود، نه با یک پاسِ پایتونیِ جداگانه روی نتیجه). این دو متد private
+    # بودند و در هیچ فایل دیگری (از جمله تست‌ها) صدا زده نمی‌شدند.
 
     def get_dashboard_data(self, teacher_id=None, year_id=None):
         """
@@ -152,7 +121,7 @@ class DashboardService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در دریافت داده‌های داشبورد: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
+            raise self._safe_service_error(e, "خطا در دریافت اطلاعات.") from e
     
     # ============================================================
     # متدهای جدید تحلیلی
@@ -255,7 +224,17 @@ class DashboardService(BaseService):
             }
     
     def _get_general_stats(self, teacher_id=None, year_id=None):
-        """دریافت آمار کلی - فقط تعداد و بدون مقایسه"""
+        """
+        دریافت آمار کلی - فقط تعداد و بدون مقایسه
+
+        (دور نوزدهم، مرحلهٔ ۷ — PERF-01/08/09) قبلاً observation_dal/
+        intervention_dal/followup_dal با get_all() کامل خوانده می‌شدند و
+        شمارش/تفکیک نوع رفتار در پایتون (len/sum) انجام می‌شد؛ حالا هر سه
+        با یک کوئری Aggregate (COUNT/SUM/GROUP BY) مستقیم در DB شمرده
+        می‌شوند. اعداد خروجی دقیقاً همان قبلی است (بخش «آمار دانش‌آموزان»
+        دست‌نخورده ماند چون از قبل با get_by_ids/get_active_by_students
+        دسته‌ای بود، نه get_all() بدون فیلتر).
+        """
         try:
             if teacher_id:
                 assignments = self.assignment_dal.get_by_teacher(teacher_id, year_id)
@@ -265,41 +244,14 @@ class DashboardService(BaseService):
                 students = [student_map.get(sid) for sid in student_ids if sid]
             else:
                 students = self.student_dal.get_all()
-            
-            if teacher_id:
-                observations = self.observation_dal.get_all()
-                observations = [o for o in observations if o.staff_id == teacher_id]
-                if year_id:
-                    observations = self._filter_by_year(observations, year_id)
-            else:
-                observations = self.observation_dal.get_all()
-                if year_id:
-                    observations = self._filter_by_year(observations, year_id)
-            
-            if teacher_id:
-                interventions = self.intervention_dal.get_all()
-                interventions = [i for i in interventions if i.staff_id == teacher_id]
-                if year_id:
-                    interventions = self._filter_by_year(interventions, year_id)
-            else:
-                interventions = self.intervention_dal.get_all()
-                if year_id:
-                    interventions = self._filter_by_year(interventions, year_id)
-            
-            if teacher_id:
-                followups = self.followup_dal.get_all()
-                followups = [f for f in followups if f.staff_id == teacher_id]
-            else:
-                followups = self.followup_dal.get_all()
-            if year_id:
-                followups = self._filter_followups_by_year(followups, year_id)
-            
-            positive = sum(1 for o in observations if o.behavior_type == "مثبت")
-            negative = sum(1 for o in observations if o.behavior_type == "منفی")
-            neutral = len(observations) - positive - negative
-            
-            pending = sum(1 for f in followups if f.status == "pending")
-            
+
+            obs_stats = self.observation_dal.get_dashboard_stats(
+                staff_id=teacher_id, academic_year_id=year_id)
+            interventions_count = self.intervention_dal.count_all(
+                staff_id=teacher_id, academic_year_id=year_id)
+            followup_stats = self.followup_dal.get_dashboard_stats(
+                staff_id=teacher_id, academic_year_id=year_id)
+
             if year_id:
                 active_profiles = sum(
                     1
@@ -322,14 +274,14 @@ class DashboardService(BaseService):
             return {
                 'students_count': len(students),
                 'active_profiles': active_profiles,
-                'observations_count': len(observations),
-                'interventions_count': len(interventions),
-                'followups_count': len(followups),
-                'positive_count': positive,
-                'negative_count': negative,
-                'neutral_count': neutral,
-                'pending_followups': pending,
-                'has_data': len(observations) > 0 or len(interventions) > 0
+                'observations_count': obs_stats['total'],
+                'interventions_count': interventions_count,
+                'followups_count': followup_stats['total'],
+                'positive_count': obs_stats['positive'],
+                'negative_count': obs_stats['negative'],
+                'neutral_count': obs_stats['neutral'],
+                'pending_followups': followup_stats['pending'],
+                'has_data': obs_stats['total'] > 0 or interventions_count > 0
             }
         except Exception as e:
             self.logger.error(f"خطا در دریافت آمار کلی: {e}")
@@ -379,7 +331,14 @@ class DashboardService(BaseService):
             return "نیازمند توجه"
     
     def _get_observation_trend(self, teacher_id=None, year_id=None):
-        """دریافت روند ثبت مشاهدات - بدون مقایسه با دیگران"""
+        """
+        دریافت روند ثبت مشاهدات - بدون مقایسه با دیگران
+
+        (دور نوزدهم، مرحلهٔ ۷ — PERF-01/08/09) قبلاً کل جدول مشاهدات با
+        get_all() خوانده می‌شد و شمارش هر ماه با یک حلقهٔ پایتونی روی همهٔ
+        رکوردها انجام می‌شد؛ حالا یک کوئری GROUP BY در DB این تفکیک را
+        انجام می‌دهد و اینجا فقط ۶ ماه موردنظر از نتیجه جست‌وجو می‌شوند.
+        """
         try:
             today = jdatetime.date.today()
             current_month = today.month
@@ -406,30 +365,16 @@ class DashboardService(BaseService):
                     'negative': 0,
                     'neutral': 0
                 })
-            
-            if teacher_id:
-                observations = self.observation_dal.get_all()
-                observations = [o for o in observations if o.staff_id == teacher_id]
-                if year_id:
-                    observations = self._filter_by_year(observations, year_id)
-            else:
-                observations = self.observation_dal.get_all()
-                if year_id:
-                    observations = self._filter_by_year(observations, year_id)
-            
-            for obs in observations:
-                if obs.observation_date and len(obs.observation_date) >= 7:
-                    obs_month = obs.observation_date[:7]
-                    for month_data in months_data:
-                        if month_data['month'] == obs_month:
-                            month_data['count'] += 1
-                            if obs.behavior_type == "مثبت":
-                                month_data['positive'] += 1
-                            elif obs.behavior_type == "منفی":
-                                month_data['negative'] += 1
-                            else:
-                                month_data['neutral'] += 1
-                            break
+
+            monthly_trend = self.observation_dal.get_monthly_trend(
+                staff_id=teacher_id, academic_year_id=year_id)
+            for month_data in months_data:
+                bucket = monthly_trend.get(month_data['month'])
+                if bucket:
+                    month_data['count'] = bucket['count']
+                    month_data['positive'] = bucket['positive']
+                    month_data['negative'] = bucket['negative']
+                    month_data['neutral'] = bucket['neutral']
             
             months_data.reverse()
             
@@ -485,7 +430,16 @@ class DashboardService(BaseService):
         }
 
     def _get_teacher_stats(self, teacher_id, year_id=None):
-        """دریافت آمار یک معلم خاص"""
+        """
+        دریافت آمار یک معلم خاص
+
+        (دور نوزدهم، مرحلهٔ ۷ — PERF-01/08/09) همان جایگزینیِ get_all()←
+        Aggregate در _get_general_stats اینجا هم اعمال شد. نکته: طبق
+        رفتار قبلیِ همین متد، followups بر خلاف observations/interventions
+        هرگز بر اساس year_id فیلتر نمی‌شد (فقط staff_id) — این رفتار (چه
+        بگ باشد چه عمدی) دقیقاً حفظ شد چون خارج از حیطهٔ PERF-01/08/09 است
+        و تغییرش عددهای موجود داشبورد معلم را عوض می‌کرد.
+        """
         try:
             teacher = self.staff_dal.get_by_id(teacher_id)
             if not teacher:
@@ -495,34 +449,29 @@ class DashboardService(BaseService):
             student_ids = [a.student_id for a in assignments if getattr(a, 'is_active', 0) == 1]
             student_map = self.student_dal.get_by_ids(student_ids)
             students = [student_map.get(sid) for sid in student_ids if sid]
-            
-            observations = self.observation_dal.get_all()
-            observations = [o for o in observations if o.staff_id == teacher_id]
-            if year_id:
-                observations = self._filter_by_year(observations, year_id)
-            
-            interventions = self.intervention_dal.get_all()
-            interventions = [i for i in interventions if i.staff_id == teacher_id]
-            if year_id:
-                interventions = self._filter_by_year(interventions, year_id)
-            
-            followups = self.followup_dal.get_all()
-            followups = [f for f in followups if f.staff_id == teacher_id]
-            
-            positive = sum(1 for o in observations if o.behavior_type == "مثبت")
-            positive_percent = (positive / len(observations) * 100) if observations else 0
-            pending = sum(1 for f in followups if f.status == "pending")
-            
+
+            obs_stats = self.observation_dal.get_dashboard_stats(
+                staff_id=teacher_id, academic_year_id=year_id)
+            interventions_count = self.intervention_dal.count_all(
+                staff_id=teacher_id, academic_year_id=year_id)
+            # نکته: عمداً بدون academic_year_id (رفتار قدیمی حفظ شد، بالا توضیح داده شد)
+            followup_stats = self.followup_dal.get_dashboard_stats(staff_id=teacher_id)
+
+            positive_percent = (
+                (obs_stats['positive'] / obs_stats['total'] * 100)
+                if obs_stats['total'] else 0
+            )
+
             return {
                 'teacher_name': getattr(teacher, 'full_name', 'نامشخص'),
                 'teacher_id': teacher_id,
                 'students_count': len(students),
-                'observations_count': len(observations),
-                'interventions_count': len(interventions),
-                'followups_count': len(followups),
+                'observations_count': obs_stats['total'],
+                'interventions_count': interventions_count,
+                'followups_count': followup_stats['total'],
                 'positive_percent': round(positive_percent, 1),
-                'pending_followups': pending,
-                'has_data': len(observations) > 0 or len(interventions) > 0
+                'pending_followups': followup_stats['pending'],
+                'has_data': obs_stats['total'] > 0 or interventions_count > 0
             }
             
         except Exception as e:
@@ -589,5 +538,5 @@ class DashboardService(BaseService):
             self.logger.error(f"خطا در دریافت روند دانش‌آموز: {e}")
             return {
                 'success': False,
-                'error': str(e)
+                'error': 'خطا در دریافت روند دانش‌آموز.'
             }

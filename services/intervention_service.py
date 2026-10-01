@@ -20,6 +20,7 @@ from models.student_academic_profile import StudentAcademicProfile
 from services.base_service import BaseService
 from utils.error_handler import ServiceError, ValidationError
 from utils.logger import get_logger
+from utils.security import AccessControl
 
 
 class InterventionService(BaseService):
@@ -310,7 +311,7 @@ class InterventionService(BaseService):
             return intervention
         except Exception as e:
             self.logger.error(f"خطا در دریافت مداخله: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
+            raise self._safe_service_error(e, "خطا در دریافت اطلاعات.") from e
     
     def get_interventions_by_student(self, student_id, year_id=None, limit=None):
         """
@@ -346,7 +347,7 @@ class InterventionService(BaseService):
             return interventions
         except Exception as e:
             self.logger.error(f"خطا در دریافت مداخلات دانش‌آموز: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
+            raise self._safe_service_error(e, "خطا در دریافت اطلاعات.") from e
     
     def get_interventions_by_teacher(self, teacher_id, year_id=None, limit=None):
         """
@@ -389,7 +390,7 @@ class InterventionService(BaseService):
             return interventions
         except Exception as e:
             self.logger.error(f"خطا در دریافت مداخلات معلم: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
+            raise self._safe_service_error(e, "خطا در دریافت اطلاعات.") from e
     
     def get_all_interventions(self, limit=None, include_staff_info=False, year_id=None):
         """
@@ -411,7 +412,7 @@ class InterventionService(BaseService):
             return interventions
         except Exception as e:
             self.logger.error(f"خطا در دریافت همه مداخلات: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
+            raise self._safe_service_error(e, "خطا در دریافت اطلاعات.") from e
     
     def update_status(self, intervention_id, new_status, user_id=None, ip_address=None):
         """
@@ -507,7 +508,7 @@ class InterventionService(BaseService):
             }
         except Exception as e:
             self.logger.error(f"خطا در دریافت خلاصه مداخلات: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
+            raise self._safe_service_error(e, "خطا در دریافت اطلاعات.") from e
     
     def get_available_observations_for_intervention(self, student_id):
         """
@@ -623,7 +624,16 @@ class InterventionService(BaseService):
         student = self.student_dal.get_by_id(student_id)
         if not student:
             raise ServiceError(f"دانش‌آموز با شناسه {student_id} یافت نشد.")
-        
+
+        # مرز Scope/IDOR (پیرو ممیزی تکمیلی — DEF-01): همان استدلال
+        # ObservationService._get_or_create_profile — student_id از قبل
+        # وجود دارد، پس Scope معنادار است. fail-fast: InterventionDAL.create/
+        # update پایین‌تر، در همان تراکنش اتمیک، همین Scope را روی همین
+        # پروفایل بررسی می‌کردند و رد آن باعث rollback کامل می‌شد؛ این
+        # افزودن رفتار قابل مشاهده را عوض نمی‌کند، فقط زودتر رد می‌کند.
+        AccessControl.require_student_scope(
+            student_id, action="InterventionService._get_or_create_profile")
+
         # دریافت سال تحصیلی فعال
         academic_year = self.academic_year_dal.get_active()
         if not academic_year:
@@ -709,7 +719,7 @@ class InterventionService(BaseService):
             return False, str(e).split('\n')
         except Exception as e:
             self.logger.debug(f"خطای مدیریت‌شده در validate_intervention (مسیر جایگزین): {e}")
-            return False, [str(e)]
+            return False, ["خطای غیرمنتظره در اعتبارسنجی."]
 
     def search_interventions(self, search_term, limit=None, year_id=None):
         """
@@ -729,7 +739,7 @@ class InterventionService(BaseService):
             return interventions
         except Exception as e:
             self.logger.error(f"خطا در جستجوی مداخلات: {e}")
-            raise ServiceError(f"خطا در جستجو: {e!s}")
+            raise self._safe_service_error(e, "خطا در جستجو.") from e
     
     def search_interventions_by_student(self, student_id, search_term, year_id=None):
         """
@@ -749,7 +759,7 @@ class InterventionService(BaseService):
             return interventions
         except Exception as e:
             self.logger.error(f"خطا در جستجوی مداخلات دانش‌آموز: {e}")
-            raise ServiceError(f"خطا در جستجو: {e!s}")
+            raise self._safe_service_error(e, "خطا در جستجو.") from e
     
     def search_interventions_by_teacher(self, teacher_id, search_term, year_id=None):
         """
@@ -769,4 +779,4 @@ class InterventionService(BaseService):
             return interventions
         except Exception as e:
             self.logger.error(f"خطا در جستجوی مداخلات معلم: {e}")
-            raise ServiceError(f"خطا در جستجو: {e!s}")
+            raise self._safe_service_error(e, "خطا در جستجو.") from e

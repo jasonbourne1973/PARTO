@@ -82,7 +82,7 @@ class ChangePasswordDialog(QDialog):
             QLabel {
                 font-size: 20px;
                 font-weight: bold;
-                color: #F4C542;
+                color: #17212B;
                 padding: 10px 0;
             }
         """)
@@ -93,7 +93,7 @@ class ChangePasswordDialog(QDialog):
         subtitle_label.setStyleSheet("""
             QLabel {
                 font-size: 13px;
-                color: #D9C36A;
+                color: #667085;
                 padding: 0 0 10px 0;
             }
         """)
@@ -109,21 +109,21 @@ class ChangePasswordDialog(QDialog):
         self.username_input.setMinimumHeight(36)
         self.username_input.setStyleSheet("""
             QLineEdit {
-    color: #F4C542;
+    color: #D9AF24;
     background-color: #08223A;
-                border: 1px solid #8BC34A;
+                border: 1px solid #D0D5DD;
                 border-radius: 6px;
                 padding: 6px 12px;
                 font-size: 13px;
             }
             QLineEdit:focus {
-    color: #FFE8A3;
-    background-color: #0B2E4F; border: 2px solid #F4C542; }
+    color: #FFFFFF;
+    background-color: #0B2E4F; border: 2px solid #D9AF24; }
         """)
         form_layout.addRow("نام کاربری:", self.username_input)
 
         self.current_password_label = QLabel("رمز فعلی:")
-        self.current_password_label.setStyleSheet("font-size: 13px; font-weight: 600; color: #F4C542;")
+        self.current_password_label.setStyleSheet("font-size: 13px; font-weight: 600; color: #D9AF24;")
 
         self.current_password_input = QLineEdit()
         self.current_password_input.setPlaceholderText("رمز عبور فعلی را وارد کنید")
@@ -131,16 +131,16 @@ class ChangePasswordDialog(QDialog):
         self.current_password_input.setMinimumHeight(36)
         self.current_password_input.setStyleSheet("""
             QLineEdit {
-    color: #F4C542;
+    color: #D9AF24;
     background-color: #08223A;
-                border: 1px solid #8BC34A;
+                border: 1px solid #D0D5DD;
                 border-radius: 6px;
                 padding: 6px 12px;
                 font-size: 13px;
             }
             QLineEdit:focus {
-    color: #FFE8A3;
-    background-color: #0B2E4F; border: 2px solid #F4C542; }
+    color: #FFFFFF;
+    background-color: #0B2E4F; border: 2px solid #D9AF24; }
         """)
         TooltipManager.set_tooltip(self.current_password_input, "رمز عبور فعلی خود را وارد کنید.")
         form_layout.addRow(self.current_password_label, self.current_password_input)
@@ -151,16 +151,16 @@ class ChangePasswordDialog(QDialog):
         self.new_password_input.setMinimumHeight(36)
         self.new_password_input.setStyleSheet("""
             QLineEdit {
-    color: #F4C542;
+    color: #D9AF24;
     background-color: #08223A;
-                border: 1px solid #8BC34A;
+                border: 1px solid #D0D5DD;
                 border-radius: 6px;
                 padding: 6px 12px;
                 font-size: 13px;
             }
             QLineEdit:focus {
-    color: #FFE8A3;
-    background-color: #0B2E4F; border: 2px solid #F4C542; }
+    color: #FFFFFF;
+    background-color: #0B2E4F; border: 2px solid #D9AF24; }
         """)
         TooltipManager.set_tooltip(self.new_password_input, "رمز عبور جدید باید حداقل ۸ کاراکتر باشد و شامل حروف بزرگ، کوچک، اعداد و یک نویسهٔ خاص (!@#$%^&*) باشد.")
         form_layout.addRow("رمز جدید:", self.new_password_input)
@@ -171,16 +171,16 @@ class ChangePasswordDialog(QDialog):
         self.confirm_password_input.setMinimumHeight(36)
         self.confirm_password_input.setStyleSheet("""
             QLineEdit {
-    color: #F4C542;
+    color: #D9AF24;
     background-color: #08223A;
-                border: 1px solid #8BC34A;
+                border: 1px solid #D0D5DD;
                 border-radius: 6px;
                 padding: 6px 12px;
                 font-size: 13px;
             }
             QLineEdit:focus {
-    color: #FFE8A3;
-    background-color: #0B2E4F; border: 2px solid #F4C542; }
+    color: #FFFFFF;
+    background-color: #0B2E4F; border: 2px solid #D9AF24; }
         """)
         TooltipManager.set_tooltip(self.confirm_password_input, "رمز عبور جدید را دوباره وارد کنید تا مطابقت آن تأیید شود.")
         form_layout.addRow("تکرار رمز جدید:", self.confirm_password_input)
@@ -195,7 +195,7 @@ class ChangePasswordDialog(QDialog):
         self.show_password_check.setStyleSheet("""
             QCheckBox {
                 font-size: 12px;
-                color: #D9C36A;
+                color: #667085;
             }
             QCheckBox::indicator {
                 width: 16px;
@@ -217,15 +217,15 @@ class ChangePasswordDialog(QDialog):
         self.save_btn.setMinimumHeight(40)
         self.save_btn.setStyleSheet("""
             QPushButton {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 border: none;
                 border-radius: 6px;
                 font-size: 14px;
                 font-weight: bold;
                 padding: 8px 20px;
             }
-            QPushButton:hover { background-color: #8BC34A; }
+            QPushButton:hover { background-color: #F2F6FA; }
         """)
         self.save_btn.clicked.connect(self.change_password)
         button_layout.addWidget(self.save_btn)
@@ -234,8 +234,8 @@ class ChangePasswordDialog(QDialog):
         self.cancel_btn.setMinimumHeight(40)
         self.cancel_btn.setStyleSheet("""
             QPushButton {
-                background-color: #C62828;
-                color: #F4C542;
+                background-color: #B42318;
+                color: #FFFFFF;
                 border: none;
                 border-radius: 6px;
                 font-size: 14px;
@@ -254,7 +254,7 @@ class ChangePasswordDialog(QDialog):
         self.error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.error_label.setStyleSheet("""
             QLabel {
-                color: #C62828;
+                color: #B42318;
                 font-size: 12px;
                 min-height: 20px;
             }

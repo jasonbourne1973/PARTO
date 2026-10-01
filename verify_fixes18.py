@@ -105,9 +105,55 @@ QMessageBox.warning = staticmethod(
 QMessageBox.question = staticmethod(
     lambda *a, **k: QMessageBox.StandardButton.Yes)
 
+from dal.intervention_dal import InterventionDAL
+
+# (دور نوزدهم، مرحلهٔ ۸ — RESTORE-EDGE-01) از این پس restore_attachment
+# وجودِ واقعیِ موجودیت والد (نه فقط entity_id فرضی) را بررسی می‌کند؛ پس
+# این اسکریپت هم به یک مشاهده/مداخلهٔ واقعی نیاز دارد، نه شناسه‌های
+# ۴۲/۹ی صرفاً نمادین بدون رکورد پشتیبان.
+from dal.observation_dal import ObservationDAL
+from dal.student_academic_profile_dal import StudentAcademicProfileDAL
+from dal.student_dal import StudentDAL
+from models.intervention import Intervention
+from models.observation import Observation
+from models.student import Student
+from models.student_academic_profile import StudentAcademicProfile
 from views.dialogs.attachment_dialog import AttachmentDialog
 
-ENTITY = ("observation", 42)
+with contextlib.redirect_stdout(io.StringIO()):
+    _year_row_18 = conn.execute(
+        "SELECT id FROM academic_years WHERE is_active = 1 LIMIT 1").fetchone()
+    _entity_student = Student()
+    _entity_student.first_name = "آزمون"
+    _entity_student.last_name = "پیوست‌۱۸"
+    _entity_student.national_code = "8300000001"
+    _entity_student = StudentDAL().create(_entity_student)
+
+    _entity_profile = StudentAcademicProfile()
+    _entity_profile.student_id = _entity_student.id
+    _entity_profile.academic_year_id = _year_row_18["id"]
+    _entity_profile.grade = 1
+    _entity_profile.class_name = "اول-الف"
+    _entity_profile = StudentAcademicProfileDAL().create(_entity_profile)
+
+    _entity_obs = Observation()
+    _entity_obs.student_profile_id = _entity_profile.id
+    _entity_obs.staff_id = 1
+    _entity_obs.observation_date = "1404/01/01"
+    _entity_obs.description = "مشاهدهٔ زمینه‌ساز پیوست دور ۱۸"
+    _entity_obs.behavior_type = "خنثی"
+    _entity_obs = ObservationDAL().create(_entity_obs)
+
+    _entity_inter = Intervention()
+    _entity_inter.student_profile_id = _entity_profile.id
+    _entity_inter.staff_id = 1
+    _entity_inter.type = "گفتگوی فردی"
+    _entity_inter.date = "1404/01/01"
+    _entity_inter.description = "مداخلهٔ زمینه‌ساز پیوست دور ۱۸"
+    _entity_inter = InterventionDAL().create(_entity_inter)
+
+ENTITY = ("observation", _entity_obs.id)
+LIMITED_ENTITY_ID = _entity_inter.id
 
 
 def make_attachment(name, content, entity=ENTITY):
@@ -213,7 +259,7 @@ dlg.close()
 dlg.deleteLater()
 
 # ---------- A6: BUG-ATT-06 — سقف ۲۰ با بازیابی هم سنجیده می‌شود ----------
-LIMITED = ("intervention", 9)
+LIMITED = ("intervention", LIMITED_ENTITY_ID)
 for i in range(20):
     make_attachment(f"lim_{i:02d}.txt", f"c{i}".encode(), LIMITED)
 first = SERVICE.get_attachments_by_entity(LIMITED[0], LIMITED[1])[0]
@@ -802,9 +848,13 @@ MigrationManager.migrate(conn_mig)  # دوباره به آخرین نسخه
 check("D", "D10: re-upgrade به نسخهٔ ۹ پس از شکست میانی",
       MigrationManager.get_current_version(conn_mig) == 9)
 check("D", "D10: داده پس از پایین/بالای migration دست‌نخورده است",
+      # نکته: عدد ۴ (نه ۳) از مرحلهٔ ۸ (RESTORE-EDGE-01) به بعد درست است؛
+      # بخش A حالا برای بازیابیِ واقعی پیوست به یک مشاهدهٔ واقعیِ زمینه‌ساز
+      # (ENTITY) نیاز دارد که پیش از فیکسچر D0 ساخته می‌شود — پس ۳ مشاهدهٔ
+      # D0 + همان ۱ مشاهدهٔ زمینه‌ساز = ۴.
       conn_mig.execute(
           "SELECT COUNT(*) FROM observations WHERE is_deleted = 0"
-      ).fetchone()[0] == 3)
+      ).fetchone()[0] == 4)
 
 # ---------- D11: Constraint در دیتابیس تازه و قدیمی (بند ۳۰) ----------
 # تازه: CHECK باید مقدار نامعتبر را رد کند

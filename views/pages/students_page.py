@@ -63,7 +63,13 @@ class StudentsPage(YearAwarePage, QWidget):
         self.student_service = StudentService()
         
         self.students = []
+        # (دور نوزدهم، مرحلهٔ ۶) all_students دیگر «کل فهرست فیلترشده» را در
+        # هر بارگذاری/جست‌وجو نگه نمی‌دارد (آن الگو یعنی لود کامل جدول در
+        # هر تغییر صفحه/کاراکتر جست‌وجو). این فهرست فقط هنگام خروجی Excel
+        # (export_to_excel) به‌صورت جداگانه و کامل واکشی می‌شود؛ صفحه‌بندی
+        # نمایش از total_count + LIMIT/OFFSET واقعی SQL استفاده می‌کند.
         self.all_students = []
+        self.total_count = 0
         self.showing_deleted = False
         self.current_page = 0
         self.page_size = 20
@@ -82,7 +88,7 @@ class StudentsPage(YearAwarePage, QWidget):
             QLabel {
                 font-size: 20px;
                 font-weight: bold;
-                color: #F4C542;
+                color: #17212B;
             }
         """)
         main_layout.addWidget(title_label)
@@ -90,23 +96,23 @@ class StudentsPage(YearAwarePage, QWidget):
         self.tabs = QTabWidget()
         self.tabs.setStyleSheet("""
             QTabWidget::pane {
-    color: #111111;
-                border: 1px solid #8BC34A;
+    color: #17212B;
+                border: 1px solid #D0D5DD;
                 border-radius: 5px;
-                background-color: #66BB6A;
+                background-color: #FFFFFF;
             }
             QTabBar::tab {
-    color: #111111;
-    border: 1px solid #8BC34A;
-    background-color: #66BB6A;
+    color: #17212B;
+    border: 1px solid #D0D5DD;
+    background-color: #FFFFFF;
                 padding: 10px 20px;
                 font-weight: bold;
                 font-size: 13px;
             }
             QTabBar::tab:selected {
-    border-color: #F4C542;
-                background-color: #8BC34A;
-                color: #111111;
+    border-color: #D9AF24;
+                background-color: #F2F6FA;
+                color: #17212B;
             }
         """)
         
@@ -128,18 +134,18 @@ class StudentsPage(YearAwarePage, QWidget):
         self.search_input.setPlaceholderText("نام، نام خانوادگی، کد ملی...")
         self.search_input.setStyleSheet("""
             QLineEdit {
-    color: #F4C542;
+    color: #D9AF24;
     background-color: #08223A;
                 padding: 8px;
-                border: 1px solid #8BC34A;
+                border: 1px solid #D0D5DD;
                 border-radius: 5px;
                 font-size: 13px;
                 min-width: 200px;
             }
             QLineEdit:focus {
-    color: #FFE8A3;
+    color: #FFFFFF;
     background-color: #0B2E4F;
-                border: 2px solid #F4C542;
+                border: 2px solid #D9AF24;
             }
         """)
         self.search_input.textChanged.connect(self.search_students)
@@ -149,14 +155,14 @@ class StudentsPage(YearAwarePage, QWidget):
         self.advanced_search_btn = QPushButton("🔍 پیشرفته")
         self.advanced_search_btn.setStyleSheet("""
             QPushButton {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #66BB6A; }
+            QPushButton:hover { background-color: #FFFFFF; }
         """)
         self.advanced_search_btn.clicked.connect(self.open_advanced_search)
         toolbar.addWidget(self.advanced_search_btn)
@@ -165,7 +171,7 @@ class StudentsPage(YearAwarePage, QWidget):
         self.add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0B2E4F;
-                color: #F4C542;
+                color: #D9AF24;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -176,31 +182,39 @@ class StudentsPage(YearAwarePage, QWidget):
             }
         """)
         self.add_btn.clicked.connect(self.add_student)
+        # (دور نوزدهم) دکمهٔ افزودن هم مثل دکمهٔ حذف با همان مرز backend
+        # هماهنگ می‌شود (DD-5) — بدون CREATE_STUDENT، UI و backend هر دو
+        # اجازهٔ ساخت دانش‌آموز جدید نمی‌دهند.
+        self.add_btn.setEnabled(
+            AccessControl.has_permission(Permission.CREATE_STUDENT.value))
         toolbar.addWidget(self.add_btn)
         
         # ===== دکمه‌های ایمپورت و اکسل (جدید) =====
         self.import_btn = QPushButton("📥 ایمپورت از Excel")
         self.import_btn.setStyleSheet("""
             QPushButton {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #8BC34A;
+                background-color: #F2F6FA;
             }
         """)
         self.import_btn.clicked.connect(self.import_from_excel)
+        # (دور نوزدهم) ایمپورت هم CREATE_STUDENT لازم دارد؛ همان مرز UI↔backend
+        self.import_btn.setEnabled(
+            AccessControl.has_permission(Permission.CREATE_STUDENT.value))
         toolbar.addWidget(self.import_btn)
         
         self.export_btn = QPushButton("📤 خروجی Excel")
         self.export_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0B2E4F;
-                color: #F4C542;
+                color: #D9AF24;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -216,15 +230,15 @@ class StudentsPage(YearAwarePage, QWidget):
         self.sample_btn = QPushButton("📄 دریافت نمونه")
         self.sample_btn.setStyleSheet("""
             QPushButton {
-                background-color: #F4D35E;
-                color: #111111;
+                background-color: #FFFAEB;
+                color: #17212B;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #F28C28;
+                background-color: #7A271A;
             }
         """)
         self.sample_btn.clicked.connect(self.download_sample_excel)
@@ -250,28 +264,28 @@ class StudentsPage(YearAwarePage, QWidget):
         self.table.setAlternatingRowColors(True)
         self.table.setStyleSheet("""
             QTableWidget {
-    color: #F4C542;
+    color: #D9AF24;
                 background-color: #0B2E4F;
                 alternate-background-color: #0B2E4F;
-                gridline-color: #D9C36A;
-                border: 1px solid #D9C36A;
+                gridline-color: #E4E7EC;
+                border: 1px solid #D0D5DD;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #F4C542;
-    border-bottom: 1px solid #D9C36A;
+    color: #D9AF24;
+    border-bottom: 1px solid #D0D5DD;
     background-color: #0B2E4F;
                 padding: 8px;
             }
             QTableWidget::item:hover {
-    color: #FFE8A3;
+    color: #FFFFFF;
                 background-color: #174F78;
             }
             QHeaderView::section {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 8px;
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
                 font-weight: bold;
             }
         """)
@@ -294,7 +308,7 @@ class StudentsPage(YearAwarePage, QWidget):
         pagination_layout = QHBoxLayout()
         
         self.page_label = QLabel("صفحه 1 از 1")
-        self.page_label.setStyleSheet("font-size: 13px; color: #D9C36A;")
+        self.page_label.setStyleSheet("font-size: 13px; color: #667085;")
         pagination_layout.addWidget(self.page_label)
         
         pagination_layout.addStretch()
@@ -304,13 +318,13 @@ class StudentsPage(YearAwarePage, QWidget):
         self.prev_page_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0B2E4F;
-                color: #F4C542;
+                color: #D9AF24;
                 padding: 5px 10px;
                 border: none;
                 border-radius: 3px;
             }
             QPushButton:hover { background-color: #08223A; }
-            QPushButton:disabled { background-color: #D9C36A; }
+            QPushButton:disabled { background-color: #F8FAFC; }
         """)
         self.prev_page_btn.clicked.connect(self.prev_page)
         pagination_layout.addWidget(self.prev_page_btn)
@@ -320,13 +334,13 @@ class StudentsPage(YearAwarePage, QWidget):
         self.next_page_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0B2E4F;
-                color: #F4C542;
+                color: #D9AF24;
                 padding: 5px 10px;
                 border: none;
                 border-radius: 3px;
             }
             QPushButton:hover { background-color: #08223A; }
-            QPushButton:disabled { background-color: #D9C36A; }
+            QPushButton:disabled { background-color: #F8FAFC; }
         """)
         self.next_page_btn.clicked.connect(self.next_page)
         pagination_layout.addWidget(self.next_page_btn)
@@ -335,7 +349,10 @@ class StudentsPage(YearAwarePage, QWidget):
         self.page_size_combo = QComboBox()
         self.page_size_combo.addItems(["10", "20", "50", "100"])
         self.page_size_combo.setCurrentText("20")
-        self.page_size_combo.currentTextChanged.connect(self.load_students)
+        # (دور بیست‌ودوم، DEF-04) قبلاً همیشه load_students صدا زده
+        # می‌شد؛ یعنی تغییرِ اندازهٔ صفحه در حینِ جست‌وجوی فعال، جست‌وجو را
+        # نادیده می‌گرفت. اکنون از طریقِ _reload_current_page می‌رود.
+        self.page_size_combo.currentTextChanged.connect(self._reload_current_page)
         pagination_layout.addWidget(self.page_size_combo)
         
         layout.addLayout(pagination_layout)
@@ -353,34 +370,81 @@ class StudentsPage(YearAwarePage, QWidget):
         self.tabs.setCurrentIndex(1)
     
     def on_show_deleted_toggled(self, checked):
-        """تغییر حالت نمایش حذف‌شده‌ها → بازگشت به صفحهٔ اول و بارگذاری دوباره"""
+        """
+        تغییر حالت نمایش حذف‌شده‌ها → بازگشت به صفحهٔ اول و بارگذاری دوباره
+
+        (دور بیست‌ودوم — فاز ۴، DEF-04) اگر جست‌وجویی فعال باشد، همان عبارت
+        روی حالت تازه (فعال/حذف‌شده) دوباره اعمال می‌شود؛ قبلاً این تغییر
+        بی‌قیدوشرط به `load_students()` (فهرست کامل بدون فیلتر جست‌وجو)
+        می‌رفت و متن جست‌وجو در کادر می‌ماند ولی نتیجه با آن هم‌خوان نبود.
+        """
         self.showing_deleted = bool(checked)
         self.current_page = 0
-        self.load_students()
+        self._reload_current_page()
 
     def load_students(self):
-        """بارگذاری لیست دانش‌آموزان با Pagination (یا فهرست حذف‌شده‌ها)"""
+        """
+        بارگذاری لیست دانش‌آموزان با Pagination واقعی (یا فهرست حذف‌شده‌ها)
+        — فهرست کامل، مستقل از عبارتِ جست‌وجو (رجوع کنید به search_students
+        برای مسیرِ فیلترشده).
+
+        (دور نوزدهم، مرحلهٔ ۶ — اصلاح Query/Pagination) قبلاً این متد کل
+        دانش‌آموزان فیلترشده را از دیتابیس می‌خواند و بعد در پایتون
+        صفحه‌بندی (slice) می‌کرد؛ حالا شمارش کل با COUNT و ردیف‌های همان
+        صفحه با LIMIT/OFFSET واقعی گرفته می‌شوند.
+        """
         try:
             self.page_size = int(self.page_size_combo.currentText())
             if self.showing_deleted:
                 # مسیر بازیابی: فقط رکوردهای حذف‌شده، از لایهٔ سرویس
-                self.all_students = self.student_service.get_deleted_students()
+                self.total_count = self.student_service.count_deleted_students()
             else:
-                self.all_students = self.student_dal.get_all()
-            self.total_pages = (len(self.all_students) + self.page_size - 1) // self.page_size
+                self.total_count = self.student_dal.count_all()
+
+            # (بدون max(1, ...) عمداً؛ فرمول دقیقاً همان قدیمی است — فهرست
+            # خالی باید total_pages=0 بدهد، برچسب صفحه در
+            # update_pagination_controls جداگانه با max(1, ...) نمایش داده
+            # می‌شود؛ همان قراردادی که verify_fixes17 §D2 آزمون می‌کند.)
+            self.total_pages = (self.total_count + self.page_size - 1) // self.page_size
             self.current_page = min(self.current_page, self.total_pages - 1)
             if self.current_page < 0:
                 self.current_page = 0
-            
-            start = self.current_page * self.page_size
-            end = min(start + self.page_size, len(self.all_students))
-            self.students = self.all_students[start:end]
-            
+
+            offset = self.current_page * self.page_size
+            if self.showing_deleted:
+                self.students = self.student_service.get_deleted_students(
+                    self.page_size, offset)
+            else:
+                self.students = self.student_dal.get_all(self.page_size, offset)
+
             self.display_students(self.students)
             self.update_pagination_controls()
         except Exception as e:
             QMessageBox.critical(self, "خطا", f"مشکل در بارگذاری دانش‌آموزان:\n{e!s}")
-    
+
+    def _reload_current_page(self):
+        """
+        بارگذاریِ دوبارهٔ همان صفحهٔ جاری، با حفظِ فیلترِ جست‌وجویِ فعال
+        (اگر باشد) — دور بیست‌ودوم، فاز ۴ (DEF-04).
+
+        چرا لازم شد: `next_page`/`prev_page`، تغییرِ اندازهٔ صفحه و تغییرِ
+        حالتِ «نمایش حذف‌شده‌ها» قبلاً همیشه بی‌قیدوشرط `load_students()`
+        (فهرستِ کامل، بدون فیلتر) را صدا می‌زدند. یعنی وقتی کاربر عبارتی
+        جست‌وجو می‌کرد که به چند صفحه می‌رسید (`count_search` > اندازهٔ
+        صفحه، دکمهٔ «بعدی» فعال می‌شد) و روی «صفحهٔ بعد» کلیک می‌کرد، عبارتِ
+        جست‌وجو در کادر باقی می‌ماند ولی نتیجهٔ نمایش‌داده‌شده ناگهان فهرستِ
+        کاملِ نامرتبط (بر همان اندیسِ صفحه) بود — نقضِ آشکارِ قراردادِ
+        Pagination/COUNT برای «فهرستِ جست‌وجوشده». این متد آن نقص را با
+        بررسیِ متنِ فعلیِ کادرِ جست‌وجو و مسیردهی به `_run_search`/
+        `load_students` رفع می‌کند، بدون تغییرِ رفتارِ هیچ مسیرِ دیگر.
+        """
+        self.page_size = int(self.page_size_combo.currentText())
+        search_term = self.search_input.text().strip()
+        if search_term:
+            self._run_search(search_term)
+        else:
+            self.load_students()
+
     def reload_for_year(self, year_id):
         """
         بارگذاری دوبارهٔ فهرست دانش‌آموزان برای سال اعلام‌شده
@@ -388,9 +452,12 @@ class StudentsPage(YearAwarePage, QWidget):
         ستون «پایه/کلاس» از پروندهٔ سالانهٔ هر دانش‌آموز می‌آید؛ با تغییر
         سال، همان پرونده‌های سال جدید خوانده می‌شوند. صفحهٔ «پرونده
         دانش‌آموز» که داخل همین صفحه است هم انتخاب سال را می‌گیرد.
+
+        (دور بیست‌ودوم، DEF-04) جست‌وجوی فعال (اگر باشد) روی سال تازه هم
+        حفظ می‌شود، به‌جای بازگشتِ بی‌سروصدا به فهرستِ کامل.
         """
         self.current_page = 0
-        self.load_students()
+        self._reload_current_page()
         profile_page = getattr(self, "profile_page", None)
         setter = getattr(profile_page, "set_active_year", None)
         if callable(setter):
@@ -404,16 +471,16 @@ class StudentsPage(YearAwarePage, QWidget):
         self.next_page_btn.setEnabled(self.current_page < self.total_pages - 1)
     
     def prev_page(self):
-        """رفتن به صفحه قبل"""
+        """رفتن به صفحه قبل (با حفظِ جست‌وجوی فعال — DEF-04)"""
         if self.current_page > 0:
             self.current_page -= 1
-            self.load_students()
+            self._reload_current_page()
     
     def next_page(self):
-        """رفتن به صفحه بعد"""
+        """رفتن به صفحه بعد (با حفظِ جست‌وجوی فعال — DEF-04)"""
         if self.current_page < self.total_pages - 1:
             self.current_page += 1
-            self.load_students()
+            self._reload_current_page()
     
     def get_student_info(self, student_id):
         """دریافت اطلاعات پرونده فعال دانش‌آموز"""
@@ -467,17 +534,20 @@ class StudentsPage(YearAwarePage, QWidget):
             edit_btn.setFixedSize(30, 30)
             edit_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #F4D35E;
-                    color: #111111;
+                    background-color: #FFFAEB;
+                    color: #17212B;
                     border: none;
                     border-radius: 4px;
                     font-size: 14px;
                 }
                 QPushButton:hover {
-                    background-color: #F28C28;
+                    background-color: #7A271A;
                 }
             """)
             edit_btn.clicked.connect(lambda checked, s=student: self.edit_student(s))
+            # (دور نوزدهم) هماهنگ با EDIT_STUDENT در DAL — UI↔backend یک مرز
+            edit_btn.setEnabled(
+                AccessControl.has_permission(Permission.EDIT_STUDENT.value))
             btn_layout.addWidget(edit_btn)
             
             if AccessControl.has_permission(Permission.DELETE_STUDENT.value):
@@ -485,8 +555,8 @@ class StudentsPage(YearAwarePage, QWidget):
                 delete_btn.setFixedSize(30, 30)
                 delete_btn.setStyleSheet("""
                     QPushButton {
-                        background-color: #C62828;
-                        color: #F4C542;
+                        background-color: #B42318;
+                        color: #FFFFFF;
                         border: none;
                         border-radius: 4px;
                         font-size: 14px;
@@ -503,8 +573,8 @@ class StudentsPage(YearAwarePage, QWidget):
             profile_btn.setFixedSize(30, 30)
             profile_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #66BB6A;
-                    color: #111111;
+                    background-color: #FFFFFF;
+                    color: #17212B;
                     border: none;
                     border-radius: 4px;
                     font-size: 14px;
@@ -521,31 +591,64 @@ class StudentsPage(YearAwarePage, QWidget):
             self.table.setRowHeight(row, 40)
     
     def search_students(self):
-        """جستجوی دانش‌آموزان با Pagination"""
+        """
+        جستجوی دانش‌آموزان با Pagination واقعی (شروع از صفحهٔ اول)
+
+        (دور نوزدهم، مرحلهٔ ۶) مانند load_students، شمارش کل با COUNT
+        (در SQL) و ردیف‌های صفحهٔ جاری با LIMIT/OFFSET گرفته می‌شوند؛
+        دیگر فهرست کامل در پایتون فیلتر/برش زده نمی‌شود. جست‌وجو در حالت
+        «نمایش حذف‌شده‌ها» هم اکنون در همان SQL (نه حلقهٔ پایتونی) روی
+        فقط رکوردهای حذف‌شده انجام می‌شود.
+
+        (دور بیست‌ودوم، DEF-04) اجرای واقعیِ کوئری در `_run_search`
+        استخراج شد تا `next_page`/`prev_page`/تغییرِ اندازهٔ صفحه/تغییرِ
+        حالتِ حذف‌شده هم بتوانند همان جست‌وجو را روی صفحهٔ جاری (نه
+        بازنشانی‌شده به صفحهٔ اول) دوباره اجرا کنند.
+        """
         search_term = self.search_input.text().strip()
-        
+
         if not search_term:
             self.load_students()
             return
-        
+
+        self.current_page = 0
+        self._run_search(search_term)
+
+    def _run_search(self, search_term):
+        """
+        اجرای واقعیِ کوئریِ جست‌وجو روی `self.current_page` فعلی (بدون
+        بازنشانیِ آن) — دور بیست‌ودوم، فاز ۴ (DEF-04).
+
+        فراخوان‌ها: `search_students` (بعد از صفر کردنِ صفحه برای عبارتِ
+        تازه) و `_reload_current_page` (برای ناوبری/تغییرِ اندازهٔ
+        صفحه/حالتِ حذف‌شده در حینِ جست‌وجوی فعال).
+        """
         try:
             if self.showing_deleted:
                 # در حالت نمایش حذف‌شده‌ها، جست‌وجو روی همان فهرست حذف‌شده
                 # انجام می‌شود (وگرنه فهرستِ فعال جای حالت بازیابی را می‌گرفت).
-                needle = search_term.casefold()
-                self.all_students = [
-                    s for s in self.student_service.get_deleted_students()
-                    if needle in (f"{s.first_name or ''} {s.last_name or ''}").casefold()
-                    or needle in (s.national_code or '').casefold()
-                ]
+                self.total_count = self.student_service.count_search_deleted_students(
+                    search_term)
             else:
-                self.all_students = self.student_dal.search(search_term)
-            self.total_pages = (len(self.all_students) + self.page_size - 1) // self.page_size
-            self.current_page = 0
-            
-            start = self.current_page * self.page_size
-            end = min(start + self.page_size, len(self.all_students))
-            self.students = self.all_students[start:end]
+                self.total_count = self.student_dal.count_search(search_term)
+
+            # (همان توضیح load_students: بدون max(1, ...) عمداً)
+            self.total_pages = (self.total_count + self.page_size - 1) // self.page_size
+            # (دور بیست‌ودوم) هم‌راستا با load_students: اگر بینِ دو
+            # فراخوانی شمارش کم شده باشد (مثلاً حذفِ یک رکورد)، صفحهٔ
+            # جاری را به آخرین صفحهٔ معتبر Clamp کن؛ برایِ مسیرِ
+            # search_students (که همیشه از صفحهٔ ۰ شروع می‌کند) بی‌اثر است.
+            self.current_page = min(self.current_page, self.total_pages - 1)
+            if self.current_page < 0:
+                self.current_page = 0
+
+            offset = self.current_page * self.page_size
+            if self.showing_deleted:
+                self.students = self.student_service.search_deleted_students(
+                    search_term, self.page_size, offset)
+            else:
+                self.students = self.student_dal.search(
+                    search_term, limit=self.page_size, offset=offset)
             
             self.display_students(self.students)
             self.update_pagination_controls()
@@ -661,7 +764,32 @@ class StudentsPage(YearAwarePage, QWidget):
     # ===== متدهای جدید برای Excel =====
     
     def export_to_excel(self):
-        """خروجی Excel از دانش‌آموزان"""
+        """
+        خروجی Excel از دانش‌آموزان
+
+        (دور نوزدهم، مرحلهٔ ۶) از این پس load_students/search_students
+        فقط ردیف‌های همان صفحه را نگه می‌دارند؛ خروجی Excel باید تمام
+        دانش‌آموزانِ منطبق با فیلتر جاری (نه فقط صفحهٔ نمایشی) باشد،
+        بنابراین اینجا — و فقط اینجا، در لحظهٔ کلیک خروجی — یک واکشیِ
+        کامل (بدون LIMIT) با همان فیلتر جاری (حذف‌شده/فعال + متن جست‌وجو)
+        انجام می‌شود؛ رفتار قابل‌مشاهده با قبل از این تغییر یکسان است.
+        """
+        search_term = self.search_input.text().strip()
+        try:
+            if self.showing_deleted:
+                if search_term:
+                    self.all_students = self.student_service.search_deleted_students(
+                        search_term)
+                else:
+                    self.all_students = self.student_service.get_deleted_students()
+            elif search_term:
+                self.all_students = self.student_dal.search(search_term)
+            else:
+                self.all_students = self.student_dal.get_all()
+        except Exception as e:
+            QMessageBox.critical(self, "خطا", f"مشکل در خروجی:\n{e!s}")
+            return
+
         export_students = self.all_students or self.students
         if not export_students:
             QMessageBox.warning(

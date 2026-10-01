@@ -118,7 +118,7 @@ class RecommendationService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در تولید پیشنهادات: {e}")
-            raise ServiceError(f"خطا در تولید پیشنهادات: {e!s}")
+            raise self._safe_service_error(e, "خطا در تولید پیشنهادات.") from e
     
     def _collect_student_data(self, profile_id):
         """
@@ -305,7 +305,7 @@ class RecommendationService(BaseService):
                 # اگر پاک‌سازی هم شکست بخورد، خطای اصلی مهم‌تر است
                 self.logger.debug(f"پاک‌سازی تراکنش ناموفق بود: {cleanup_error}")
             self.logger.error(f"خطا در ذخیره پیشنهاد: {e}")
-            raise ServiceError(f"ذخیرهٔ پیشنهاد «{getattr(result, 'title', '')}» شکست خورد: {e}") from e
+            raise ServiceError(f"ذخیرهٔ پیشنهاد «{getattr(result, 'title', '')}» شکست خورد.", user_visible=False) from e
 
     @staticmethod
     def _safe_observation_ids(value):
@@ -403,7 +403,7 @@ class RecommendationService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در پذیرش پیشنهاد: {e}")
-            raise ServiceError(f"خطا: {e!s}")
+            raise self._safe_service_error(e, "خطا در پذیرش پیشنهاد.") from e
     
     def reject_recommendation(self, recommendation_id, notes=None, staff_id=None):
         """
@@ -430,7 +430,7 @@ class RecommendationService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در رد پیشنهاد: {e}")
-            raise ServiceError(f"خطا: {e!s}")
+            raise self._safe_service_error(e, "خطا در رد پیشنهاد.") from e
     
     def implement_recommendation(self, recommendation_id, staff_id=None, intervention_id=None):
         """
@@ -463,7 +463,7 @@ class RecommendationService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در اجرای پیشنهاد: {e}")
-            raise ServiceError(f"خطا: {e!s}")
+            raise self._safe_service_error(e, "خطا در اجرای پیشنهاد.") from e
     
     def complete_recommendation(self, recommendation_id, feedback=None, staff_id=None):
         """
@@ -490,7 +490,7 @@ class RecommendationService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در تکمیل پیشنهاد: {e}")
-            raise ServiceError(f"خطا: {e!s}")
+            raise self._safe_service_error(e, "خطا در تکمیل پیشنهاد.") from e
     
     def _enrich_recommendation(self, recommendation):
         """افزودن اطلاعات تکمیلی به پیشنهاد"""

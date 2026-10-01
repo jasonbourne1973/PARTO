@@ -112,7 +112,7 @@ class TrendAnalysisService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در تحلیل روند: {e}")
-            return self._empty_trend(error=str(e))
+            return self._empty_trend(error="خطا در تحلیل روند.")
     
     def get_student_timeline(self, profile_id):
         """
@@ -298,7 +298,7 @@ class TrendAnalysisService(BaseService):
             
         except Exception as e:
             self.logger.error(f"خطا در دریافت خلاصه پیشرفت: {e}")
-            return {'has_data': False, 'message': f'خطا: {e!s}'}
+            return {'has_data': False, 'message': 'خطا در دریافت خلاصه پیشرفت.'}
 
     # ============================================================
     # متدهای تحلیل چندساله (جدید)
@@ -393,7 +393,7 @@ class TrendAnalysisService(BaseService):
             self.logger.error(f"خطا در تحلیل روند چندساله: {e}")
             return {
                 'success': False,
-                'error': str(e),
+                'error': 'خطا در تحلیل روند چندساله.',
                 'has_data': False
             }
 

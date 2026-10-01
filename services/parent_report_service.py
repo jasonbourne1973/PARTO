@@ -525,4 +525,4 @@ class ParentReportService(BaseService):
 
         except Exception as e:
             self.logger.error(f"خطا در ساخت PDF گزارش والدین: {e}")
-            return False, f"خطا در ساخت PDF: {e!s}"
+            return False, "خطا در ساخت PDF."

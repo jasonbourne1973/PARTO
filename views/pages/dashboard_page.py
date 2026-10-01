@@ -110,12 +110,12 @@ class DashboardPage(YearAwarePage, QWidget):
                 margin: 2px;
             }
             QScrollBar::handle:vertical {
-                background-color: #D9C36A;
+                background-color: #F8FAFC;
                 border-radius: 4px;
                 min-height: 35px;
             }
             QScrollBar::handle:vertical:hover {
-                background-color: #D9C36A;
+                background-color: #F8FAFC;
             }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
                 height: 0px;
@@ -149,15 +149,15 @@ class DashboardPage(YearAwarePage, QWidget):
         self.dashboard_tabs.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.dashboard_tabs.setStyleSheet("""
             QTabWidget::pane {
-    color: #111111;
-                border: 1px solid #8BC34A;
+    color: #17212B;
+                border: 1px solid #D0D5DD;
                 border-radius: 8px;
-                background-color: #66BB6A;
+                background-color: #FFFFFF;
             }
             QTabBar::tab {
-    border: 1px solid #8BC34A;
-                background-color: #66BB6A;
-                color: #111111;
+    border: 1px solid #D0D5DD;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 10px 22px;
                 margin-left: 2px;
                 font-size: 12px;
@@ -166,13 +166,13 @@ class DashboardPage(YearAwarePage, QWidget):
                 border-top-right-radius: 7px;
             }
             QTabBar::tab:selected {
-    border-color: #F4C542;
-                background-color: #8BC34A;
-                color: #111111;
+    border-color: #D9AF24;
+                background-color: #F2F6FA;
+                color: #17212B;
             }
             QTabBar::tab:hover {
-                background-color: #F4D35E;
-                color: #111111;
+                background-color: #FFFAEB;
+                color: #17212B;
             }
         """)
         self.dashboard_tabs.addTab(dashboard_main_container, "📊 داشبورد اصلی")
@@ -189,7 +189,7 @@ class DashboardPage(YearAwarePage, QWidget):
         header_card.setStyleSheet("""
             QFrame#HeaderCard {
                 background-color: #0B2E4F;
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
                 border-radius: 12px;
             }
         """)
@@ -203,10 +203,10 @@ class DashboardPage(YearAwarePage, QWidget):
         title_box.setSpacing(3)
 
         title_label = QLabel("📊 داشبورد مدیریت و پایش سلامت دانش‌آموزان")
-        title_label.setStyleSheet("font-size: 16px; font-weight: 800; color: #F4C542;")
+        title_label.setStyleSheet("font-size: 16px; font-weight: 800; color: #17212B;")
 
         subtitle_label = QLabel("نمای کلی از وضعیت توانمندی‌ها، مشاهدات و فعالیت‌های جاری مدرسه")
-        subtitle_label.setStyleSheet("font-size: 11px; color: #D9C36A;")
+        subtitle_label.setStyleSheet("font-size: 11px; color: #667085;")
 
         title_box.addWidget(title_label)
         title_box.addWidget(subtitle_label)
@@ -223,10 +223,10 @@ class DashboardPage(YearAwarePage, QWidget):
         self.teacher_combo.setStyleSheet("""
             QComboBox {
                 padding: 4px 12px;
-                border: 1px solid #8BC34A;
+                border: 1px solid #D0D5DD;
                 border-radius: 8px;
                 background-color: #08223A;
-                color: #F4C542;
+                color: #D9AF24;
                 font-size: 11.5px;
                 font-weight: 600;
             }
@@ -244,7 +244,7 @@ class DashboardPage(YearAwarePage, QWidget):
         self.refresh_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0B2E4F;
-                color: #F4C542;
+                color: #D9AF24;
                 border: none;
                 border-radius: 8px;
                 padding: 6px 16px;
@@ -270,8 +270,8 @@ class DashboardPage(YearAwarePage, QWidget):
         cards_config = [
             ("دانش‌آموزان", "کل دانش‌آموزان", "👨‍🎓", "#0B2E4F", "#0B2E4F", "پرونده‌های فعال سامانه"),
             ("مشاهدات", "مشاهدات ثبت‌شده", "📝", "#D97706", "#FFFBEB", "رفتاری و آموزشی"),
-            ("مداخلات", "مداخلات انجام‌شده", "🛠️", "#7C3AED", "#66BB6A", "راهبردهای بهبود"),
-            ("پیگیری باز", "پیگیری‌های باز", "🔔", "#DC2626", "#F4D35E", "نیازمند اقدام فوری"),
+            ("مداخلات", "مداخلات انجام‌شده", "🛠️", "#7C3AED", "#F4F0FE", "راهبردهای بهبود"),
+            ("پیگیری باز", "پیگیری‌های باز", "🔔", "#B42318", "#FEF3F2", "نیازمند اقدام فوری"),
         ]
 
         for i, (key, title, icon, accent_color, bg_light, subtext) in enumerate(cards_config):
@@ -291,7 +291,7 @@ class DashboardPage(YearAwarePage, QWidget):
         card.setStyleSheet(f"""
             QFrame#{card_id} {{
                 background-color: #0B2E4F;
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
                 border-top: 3px solid {accent_color};
                 border-radius: 12px;
             }}
@@ -308,10 +308,10 @@ class DashboardPage(YearAwarePage, QWidget):
         info_box.setSpacing(2)
 
         title_label = QLabel(title)
-        title_label.setStyleSheet("font-size: 12px; font-weight: 700; color: #F4C542;")
+        title_label.setStyleSheet("font-size: 12px; font-weight: 700; color: #17212B;")
 
         sub_label = QLabel(subtext)
-        sub_label.setStyleSheet("font-size: 10px; color: #D9C36A;")
+        sub_label.setStyleSheet("font-size: 10px; color: #667085;")
 
         info_box.addWidget(title_label)
         info_box.addWidget(sub_label)
@@ -359,7 +359,7 @@ class DashboardPage(YearAwarePage, QWidget):
         chart_card.setStyleSheet("""
             QFrame#ChartCard {
                 background-color: #0B2E4F;
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
                 border-radius: 12px;
             }
         """)
@@ -373,10 +373,10 @@ class DashboardPage(YearAwarePage, QWidget):
         c_title_box.setSpacing(2)
 
         chart_title = QLabel("📈 تحلیل روند ماهانه ثبت مشاهدات")
-        chart_title.setStyleSheet("font-size: 13.5px; font-weight: 700; color: #F4C542;")
+        chart_title.setStyleSheet("font-size: 13.5px; font-weight: 700; color: #17212B;")
 
         chart_sub = QLabel("نمایش تغییرات بر اساس داده‌های ثبت‌شده - بدون مقایسه با دیگران")
-        chart_sub.setStyleSheet("font-size: 11px; color: #D9C36A;")
+        chart_sub.setStyleSheet("font-size: 11px; color: #667085;")
 
         c_title_box.addWidget(chart_title)
         c_title_box.addWidget(chart_sub)
@@ -387,7 +387,7 @@ class DashboardPage(YearAwarePage, QWidget):
         legend_badge.setStyleSheet("""
             font-size: 11px;
             font-weight: 600;
-            color: #F4C542;
+            color: #D9AF24;
             background-color: #0B2E4F;
             padding: 3px 10px;
             border-radius: 12px;
@@ -417,7 +417,7 @@ class DashboardPage(YearAwarePage, QWidget):
         reminders_card.setStyleSheet("""
             QFrame#RemindersCard {
                 background-color: #0B2E4F;
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
                 border-radius: 12px;
             }
         """)
@@ -430,9 +430,9 @@ class DashboardPage(YearAwarePage, QWidget):
         rem_t_box.setSpacing(2)
 
         rem_title = QLabel("🔔 پیگیری‌های در انتظار")
-        rem_title.setStyleSheet("font-size: 13.5px; font-weight: 700; color: #F4C542;")
+        rem_title.setStyleSheet("font-size: 13.5px; font-weight: 700; color: #17212B;")
         rem_sub = QLabel("مواردی که نیاز به اقدام دارند")
-        rem_sub.setStyleSheet("font-size: 11px; color: #D9C36A;")
+        rem_sub.setStyleSheet("font-size: 11px; color: #667085;")
         rem_t_box.addWidget(rem_title)
         rem_t_box.addWidget(rem_sub)
         rem_hdr.addLayout(rem_t_box)
@@ -442,11 +442,11 @@ class DashboardPage(YearAwarePage, QWidget):
         self.reminder_summary_label.setStyleSheet("""
             font-size: 11px;
             font-weight: bold;
-            color: #111111;
-            background-color: #66BB6A;
+            color: #17212B;
+            background-color: #FFFFFF;
             padding: 3px 10px;
             border-radius: 12px;
-            border: 1px solid #8BC34A;
+            border: 1px solid #D0D5DD;
         """)
         rem_hdr.addWidget(self.reminder_summary_label)
         rem_layout.addLayout(rem_hdr)
@@ -479,7 +479,7 @@ class DashboardPage(YearAwarePage, QWidget):
         activity_card.setStyleSheet("""
             QFrame#ActivityCard {
                 background-color: #0B2E4F;
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
                 border-radius: 12px;
             }
         """)
@@ -492,9 +492,9 @@ class DashboardPage(YearAwarePage, QWidget):
         act_t_box.setSpacing(2)
 
         act_title = QLabel("🔄 آخرین فعالیت‌های سامانه")
-        act_title.setStyleSheet("font-size: 13.5px; font-weight: 700; color: #F4C542;")
+        act_title.setStyleSheet("font-size: 13.5px; font-weight: 700; color: #17212B;")
         act_sub = QLabel("گزارش تغییرات و رویدادهای اخیر")
-        act_sub.setStyleSheet("font-size: 11px; color: #D9C36A;")
+        act_sub.setStyleSheet("font-size: 11px; color: #667085;")
         act_t_box.addWidget(act_title)
         act_t_box.addWidget(act_sub)
         act_hdr.addLayout(act_t_box)
@@ -504,11 +504,11 @@ class DashboardPage(YearAwarePage, QWidget):
         act_live.setStyleSheet("""
             font-size: 11px;
             font-weight: 600;
-            color: #111111;
-            background-color: #66BB6A;
+            color: #17212B;
+            background-color: #FFFFFF;
             padding: 3px 10px;
             border-radius: 12px;
-            border: 1px solid #8BC34A;
+            border: 1px solid #D0D5DD;
         """)
         act_hdr.addWidget(act_live)
         act_layout.addLayout(act_hdr)
@@ -541,31 +541,31 @@ class DashboardPage(YearAwarePage, QWidget):
         """استایل جداول"""
         return """
             QTableWidget {
-    gridline-color: #D9C36A;
+    gridline-color: #E4E7EC;
                 background-color: #0B2E4F;
                 alternate-background-color: #0B2E4F;
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
                 border-radius: 8px;
                 font-size: 11.5px;
-                color: #F4C542;
+                color: #D9AF24;
                 outline: 0;
             }
             QTableWidget::item {
-    color: #F4C542;
+    color: #D9AF24;
     background-color: #0B2E4F;
                 padding: 6px 10px;
-                border-bottom: 1px solid #D9C36A;
+                border-bottom: 1px solid #D0D5DD;
             }
             QTableWidget::item:selected {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
             }
             QHeaderView::section {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 6px 10px;
-                border: 1px solid #D9C36A;
-                border-bottom: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
+                border-bottom: 1px solid #D0D5DD;
                 font-weight: 700;
                 font-size: 11px;
             }
@@ -646,7 +646,7 @@ class DashboardPage(YearAwarePage, QWidget):
 
         if not labels or sum(counts) == 0:
             ax.text(0.5, 0.5, 'داده‌ای برای نمایش وجود ندارد',
-                    ha='center', va='center', fontsize=11, color='#D9C36A')
+                    ha='center', va='center', fontsize=11, color='#667085')
             ax.axis('off')
             self.chart_canvas.draw()
             return
@@ -659,25 +659,25 @@ class DashboardPage(YearAwarePage, QWidget):
 
         # رسم میله‌ها
         ax.bar(x - width/2, positive, width, label='مثبت', 
-               color='#8BC34A', edgecolor='none', alpha=0.8)
+               color='#2E7D32', edgecolor='none', alpha=0.8)
         ax.bar(x + width/2, negative, width, label='منفی',
-               color='#C62828', edgecolor='none', alpha=0.8)
+               color='#B42318', edgecolor='none', alpha=0.8)
 
         ax.set_xticks(x)
         ax.set_xticklabels(labels_fa, fontsize=9, color='#475569', fontweight='600')
 
         max_val = max(counts) if counts else 10
         ax.set_ylim(0, max_val * 1.3)
-        ax.tick_params(axis='both', which='both', length=0, labelsize=9, colors='#D9C36A')
+        ax.tick_params(axis='both', which='both', length=0, labelsize=9, colors='#667085')
 
-        ax.yaxis.grid(True, linestyle='--', alpha=0.5, color='#D9C36A', zorder=0)
+        ax.yaxis.grid(True, linestyle='--', alpha=0.5, color='#E4E7EC', zorder=0)
         ax.xaxis.grid(False)
 
         for spine in ax.spines.values():
             spine.set_visible(False)
 
         ax.legend(loc='upper right', fontsize=9, frameon=True,
-                  facecolor='#0B2E4F', edgecolor='#D9C36A', framealpha=0.9)
+                  facecolor='#FFFFFF', edgecolor='#D0D5DD', framealpha=0.9)
 
         self.chart_figure.subplots_adjust(left=0.08, right=0.96, top=0.92, bottom=0.18)
         self.chart_canvas.draw()
@@ -696,21 +696,21 @@ class DashboardPage(YearAwarePage, QWidget):
                     font-size: 11px;
                     font-weight: bold;
                     color: #DC2626;
-                    background-color: #F4D35E;
+                    background-color: #FFFAEB;
                     padding: 3px 10px;
                     border-radius: 12px;
-                    border: 1px solid #C62828;
+                    border: 1px solid #B42318;
                 """)
             else:
                 self.reminder_summary_label.setText("✅ همه به موقع")
                 self.reminder_summary_label.setStyleSheet("""
                     font-size: 11px;
                     font-weight: bold;
-                    color: #111111;
-                    background-color: #66BB6A;
+                    color: #17212B;
+                    background-color: #FFFFFF;
                     padding: 3px 10px;
                     border-radius: 12px;
-                    border: 1px solid #8BC34A;
+                    border: 1px solid #D0D5DD;
                 """)
 
             overdue_list = reminders.get('overdue_list', [])
@@ -726,7 +726,7 @@ class DashboardPage(YearAwarePage, QWidget):
             else:
                 empty_item = QTableWidgetItem("🎉 هیچ پیگیری معوق یا نیازمند اقدامی وجود ندارد.")
                 empty_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                empty_item.setForeground(QColor("#66BB6A"))
+                empty_item.setForeground(QColor("#2E7D32"))
                 self.reminder_table.setItem(0, 0, empty_item)
                 self.reminder_table.setSpan(0, 0, 1, 4)
                 self.reminder_table.setRowHeight(0, 40)
@@ -738,13 +738,13 @@ class DashboardPage(YearAwarePage, QWidget):
         """بارگذاری فعالیت‌های اخیر"""
         try:
             action_map = {
-                'create': ('➕ ایجاد', '#66BB6A'),
+                'create': ('➕ ایجاد', '#2E7D32'),
                 'edit': ('✏️ ویرایش', '#0B2E4F'),
-                'delete_soft': ('🗑️ حذف', '#DC2626'),
-                'delete': ('🗑️ حذف دائم', '#991B1B'),
-                'restore': ('↩️ بازیابی', '#66BB6A'),
+                'delete_soft': ('🗑️ حذف', '#B42318'),
+                'delete': ('🗑️ حذف دائم', '#7A271A'),
+                'restore': ('↩️ بازیابی', '#2E7D32'),
                 'login_success': ('🔓 ورود', '#7C3AED'),
-                'logout': ('🚪 خروج', '#D9C36A'),
+                'logout': ('🚪 خروج', '#667085'),
                 'export': ('📤 خروجی', '#D97706'),
             }
 

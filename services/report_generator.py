@@ -2069,7 +2069,7 @@ class ReportGenerator:
             
         except Exception as e:
             self.logger.debug(f"خطای مدیریت‌شده در export_to_pdf (مسیر جایگزین): {e}")
-            return False, f"خطا در ساخت فایل PDF: {e!s}"
+            return False, "خطا در ساخت فایل PDF."
     
     # ============================================================
     # خروجی Excel (موجود)
@@ -2316,4 +2316,4 @@ class ReportGenerator:
             
         except Exception as e:
             self.logger.debug(f"خطای مدیریت‌شده در export_to_excel (مسیر جایگزین): {e}")
-            return False, f"خطا در ساخت فایل Excel: {e!s}"
+            return False, "خطا در ساخت فایل Excel."

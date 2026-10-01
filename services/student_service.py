@@ -354,13 +354,21 @@ class StudentService(BaseService):
 
         return self.execute_in_transaction(_restore)
 
-    def get_deleted_students(self):
+    def get_deleted_students(self, limit=None, offset=None):
         """لیست دانش‌آموزان حذف‌شده (برای مسیر بازیابی در UI)"""
         try:
-            return self.student_dal.get_deleted()
+            return self.student_dal.get_deleted(limit, offset)
         except Exception as e:
             self.logger.error(f"خطا در دریافت دانش‌آموزان حذف‌شده: {e}", exc_info=True)
-            raise ServiceError(f"خطا در دریافت فهرست حذف‌شده‌ها: {e!s}")
+            raise self._safe_service_error(e, "خطا در دریافت فهرست حذف‌شده‌ها.") from e
+
+    def count_deleted_students(self):
+        """شمارش کل دانش‌آموزان حذف‌شده (برای Pagination — بدون LIMIT/OFFSET)"""
+        try:
+            return self.student_dal.count_deleted()
+        except Exception as e:
+            self.logger.error(f"خطا در شمارش دانش‌آموزان حذف‌شده: {e}", exc_info=True)
+            raise self._safe_service_error(e, "خطا در دریافت فهرست حذف‌شده‌ها.") from e
 
     def get_student(self, student_id):
         """دریافت دانش‌آموز با شناسه"""
@@ -371,7 +379,7 @@ class StudentService(BaseService):
             return student
         except Exception as e:
             self.logger.error(f"خطا در دریافت دانش‌آموز: {e}")
-            raise ServiceError(f"خطا در دریافت اطلاعات: {e!s}")
+            raise self._safe_service_error(e, "خطا در دریافت اطلاعات.") from e
     
     def get_all_students(self, limit=None, offset=None):
         """دریافت لیست همه دانش‌آموزان"""
@@ -379,17 +387,64 @@ class StudentService(BaseService):
             return self.student_dal.get_all(limit, offset)
         except Exception as e:
             self.logger.error(f"خطا در دریافت لیست دانش‌آموزان: {e}")
-            raise ServiceError(f"خطا در دریافت لیست: {e!s}")
-    
-    def search_students(self, search_term):
+            raise self._safe_service_error(e, "خطا در دریافت لیست.") from e
+
+    def count_students(self):
+        """شمارش کل دانش‌آموزان فعال (برای Pagination — بدون LIMIT/OFFSET)"""
+        try:
+            return self.student_dal.count_all()
+        except Exception as e:
+            self.logger.error(f"خطا در شمارش دانش‌آموزان: {e}")
+            raise self._safe_service_error(e, "خطا در دریافت لیست.") from e
+
+    def search_students(self, search_term, limit=None, offset=None):
         """جستجوی دانش‌آموزان"""
         try:
             if not search_term or len(search_term.strip()) < 1:
-                return self.get_all_students()
-            return self.student_dal.search(search_term.strip())
+                return self.get_all_students(limit, offset)
+            return self.student_dal.search(search_term.strip(), limit=limit, offset=offset)
         except Exception as e:
             self.logger.error(f"خطا در جستجوی دانش‌آموزان: {e}")
-            raise ServiceError(f"خطا در جستجو: {e!s}")
+            raise self._safe_service_error(e, "خطا در جستجو.") from e
+
+    def count_search_students(self, search_term):
+        """شمارش نتایج جستجو (برای Pagination — بدون LIMIT/OFFSET)"""
+        try:
+            if not search_term or len(search_term.strip()) < 1:
+                return self.count_students()
+            return self.student_dal.count_search(search_term.strip())
+        except Exception as e:
+            self.logger.error(f"خطا در شمارش نتایج جستجو: {e}")
+            raise self._safe_service_error(e, "خطا در جستجو.") from e
+
+    def search_deleted_students(self, search_term, limit=None, offset=None):
+        """
+        جست‌وجوی متنی در فهرست دانش‌آموزان حذف‌شده (حالت «نمایش حذف‌شده‌ها»)
+
+        (دور نوزدهم، مرحلهٔ ۶) قبلاً این جست‌وجو با یک حلقهٔ پایتونی روی
+        کل فهرست حذف‌شدهٔ لودشده در حافظه انجام می‌شد؛ حالا مستقیماً در
+        SQL (با LIMIT/OFFSET واقعی) اجرا می‌شود.
+        """
+        try:
+            if not search_term or len(search_term.strip()) < 1:
+                return self.get_deleted_students(limit, offset)
+            return self.student_dal.search(
+                search_term.strip(), only_deleted=True, limit=limit, offset=offset)
+        except Exception as e:
+            self.logger.error(f"خطا در جستجوی دانش‌آموزان حذف‌شده: {e}")
+            raise self._safe_service_error(e, "خطا در جستجو.") from e
+
+    def count_search_deleted_students(self, search_term):
+        """شمارش نتایج جست‌وجوی متنی در فهرست حذف‌شده‌ها (برای Pagination)"""
+        try:
+            if not search_term or len(search_term.strip()) < 1:
+                return self.count_deleted_students()
+            return self.student_dal.count_search(search_term.strip(), only_deleted=True)
+        except Exception as e:
+            self.logger.error(f"خطا در شمارش جستجوی دانش‌آموزان حذف‌شده: {e}")
+            raise self._safe_service_error(e, "خطا در جستجو.") from e
+
+
 
     def get_student_trend(self, student_id, academic_year_id=None, period='monthly'):
         """
@@ -423,7 +478,7 @@ class StudentService(BaseService):
             self.logger.error(f"خطا در دریافت روند دانش‌آموز: {e}")
             return {
                 'success': False,
-                'error': str(e)
+                'error': 'خطا در دریافت روند دانش‌آموز.'
             }
     
     def get_student_timeline(self, student_id, academic_year_id=None):
@@ -481,5 +536,5 @@ class StudentService(BaseService):
             self.logger.error(f"خطا در دریافت پیشرفت دانش‌آموز: {e}")
             return {
                 'has_data': False,
-                'message': f'خطا: {e!s}'
+                'message': 'خطا در دریافت پیشرفت دانش‌آموز.'
             }

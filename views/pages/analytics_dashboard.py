@@ -100,12 +100,12 @@ class AnalyticsDashboardPage(YearAwarePage, QWidget):
                 margin: 2px;
             }
             QScrollBar::handle:vertical {
-                background-color: #D9C36A;
+                background-color: #F8FAFC;
                 border-radius: 4px;
                 min-height: 35px;
             }
             QScrollBar::handle:vertical:hover {
-                background-color: #D9C36A;
+                background-color: #F8FAFC;
             }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
                 height: 0px;
@@ -143,7 +143,7 @@ class AnalyticsDashboardPage(YearAwarePage, QWidget):
         header_card.setStyleSheet("""
             QFrame#HeaderCard {
                 background-color: #0B2E4F;
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
                 border-radius: 12px;
             }
         """)
@@ -157,10 +157,10 @@ class AnalyticsDashboardPage(YearAwarePage, QWidget):
         title_box.setSpacing(3)
         
         title_label = QLabel("📊 داشبورد تحلیلی")
-        title_label.setStyleSheet("font-size: 18px; font-weight: 800; color: #F4C542;")
+        title_label.setStyleSheet("font-size: 18px; font-weight: 800; color: #17212B;")
         
         subtitle_label = QLabel("نمایش شاخص‌های تحلیلی، الگوهای رفتاری و دانش‌آموزان نیازمند توجه")
-        subtitle_label.setStyleSheet("font-size: 11px; color: #D9C36A;")
+        subtitle_label.setStyleSheet("font-size: 11px; color: #667085;")
         
         title_box.addWidget(title_label)
         title_box.addWidget(subtitle_label)
@@ -178,10 +178,10 @@ class AnalyticsDashboardPage(YearAwarePage, QWidget):
         self.teacher_combo.setStyleSheet("""
             QComboBox {
                 padding: 4px 12px;
-                border: 1px solid #8BC34A;
+                border: 1px solid #D0D5DD;
                 border-radius: 8px;
                 background-color: #08223A;
-                color: #F4C542;
+                color: #D9AF24;
                 font-size: 11.5px;
                 font-weight: 600;
             }
@@ -202,10 +202,10 @@ class AnalyticsDashboardPage(YearAwarePage, QWidget):
         self.year_combo.setStyleSheet("""
             QComboBox {
                 padding: 4px 12px;
-                border: 1px solid #8BC34A;
+                border: 1px solid #D0D5DD;
                 border-radius: 8px;
                 background-color: #08223A;
-                color: #F4C542;
+                color: #D9AF24;
                 font-size: 11.5px;
                 font-weight: 600;
             }
@@ -223,7 +223,7 @@ class AnalyticsDashboardPage(YearAwarePage, QWidget):
         self.refresh_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0B2E4F;
-                color: #F4C542;
+                color: #D9AF24;
                 border: none;
                 border-radius: 8px;
                 padding: 6px 16px;
@@ -248,8 +248,8 @@ class AnalyticsDashboardPage(YearAwarePage, QWidget):
         
         cards_config = [
             ("مشاهدات", "کل مشاهدات", "📝", "#0B2E4F", "#0B2E4F", "رفتارهای ثبت‌شده"),
-            ("مثبت", "مشاهدات مثبت", "✅", "#16A34A", "#66BB6A", "رفتارهای سازنده"),
-            ("منفی", "مشاهدات منفی", "❌", "#DC2626", "#F4D35E", "رفتارهای نامطلوب"),
+            ("مثبت", "مشاهدات مثبت", "✅", "#2E7D32", "#E8F5E9", "رفتارهای سازنده"),
+            ("منفی", "مشاهدات منفی", "❌", "#B42318", "#FEF3F2", "رفتارهای نامطلوب"),
             ("در انتظار", "پیگیری‌های باز", "🔔", "#D97706", "#FFFBEB", "نیازمند اقدام"),
         ]
         
@@ -270,7 +270,7 @@ class AnalyticsDashboardPage(YearAwarePage, QWidget):
         card.setStyleSheet(f"""
             QFrame#{card_id} {{
                 background-color: #0B2E4F;
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
                 border-top: 3px solid {accent_color};
                 border-radius: 12px;
             }}
@@ -287,10 +287,10 @@ class AnalyticsDashboardPage(YearAwarePage, QWidget):
         info_box.setSpacing(2)
         
         title_label = QLabel(title)
-        title_label.setStyleSheet("font-size: 12px; font-weight: 700; color: #F4C542;")
+        title_label.setStyleSheet("font-size: 12px; font-weight: 700; color: #17212B;")
         
         sub_label = QLabel(subtext)
-        sub_label.setStyleSheet("font-size: 10px; color: #D9C36A;")
+        sub_label.setStyleSheet("font-size: 10px; color: #667085;")
         
         info_box.addWidget(title_label)
         info_box.addWidget(sub_label)
@@ -361,7 +361,7 @@ class AnalyticsDashboardPage(YearAwarePage, QWidget):
         card.setStyleSheet("""
             QFrame {
                 background-color: #0B2E4F;
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
                 border-radius: 12px;
             }
         """)
@@ -373,7 +373,7 @@ class AnalyticsDashboardPage(YearAwarePage, QWidget):
         # هدر
         header_layout = QHBoxLayout()
         title_label = QLabel(title)
-        title_label.setStyleSheet("font-size: 13px; font-weight: 700; color: #F4C542;")
+        title_label.setStyleSheet("font-size: 13px; font-weight: 700; color: #17212B;")
         header_layout.addWidget(title_label)
         header_layout.addStretch()
         layout.addLayout(header_layout)
@@ -400,7 +400,7 @@ class AnalyticsDashboardPage(YearAwarePage, QWidget):
         students_card.setStyleSheet("""
             QFrame#StudentsCard {
                 background-color: #0B2E4F;
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
                 border-radius: 12px;
             }
         """)
@@ -415,10 +415,10 @@ class AnalyticsDashboardPage(YearAwarePage, QWidget):
         title_box.setSpacing(2)
         
         title_label = QLabel("👤 دانش‌آموزان نیازمند توجه")
-        title_label.setStyleSheet("font-size: 14px; font-weight: 700; color: #F4C542;")
+        title_label.setStyleSheet("font-size: 14px; font-weight: 700; color: #17212B;")
         
         sub_label = QLabel("دانش‌آموزانی که هیچ مشاهده‌ای ندارند یا نیاز به پیگیری ویژه دارند")
-        sub_label.setStyleSheet("font-size: 11px; color: #D9C36A;")
+        sub_label.setStyleSheet("font-size: 11px; color: #667085;")
         
         title_box.addWidget(title_label)
         title_box.addWidget(sub_label)
@@ -430,10 +430,10 @@ class AnalyticsDashboardPage(YearAwarePage, QWidget):
             font-size: 12px;
             font-weight: 600;
             color: #DC2626;
-            background-color: #F4D35E;
+            background-color: #FFFAEB;
             padding: 3px 12px;
             border-radius: 12px;
-            border: 1px solid #C62828;
+            border: 1px solid #B42318;
         """)
         header_layout.addWidget(self.students_count_label)
         
@@ -448,31 +448,31 @@ class AnalyticsDashboardPage(YearAwarePage, QWidget):
         self.students_table.setMinimumHeight(100)
         self.students_table.setStyleSheet("""
             QTableWidget {
-    gridline-color: #D9C36A;
+    gridline-color: #E4E7EC;
                 background-color: #0B2E4F;
                 alternate-background-color: #0B2E4F;
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
                 border-radius: 8px;
                 font-size: 11.5px;
-                color: #F4C542;
+                color: #D9AF24;
                 outline: 0;
             }
             QTableWidget::item {
-    color: #F4C542;
+    color: #D9AF24;
     background-color: #0B2E4F;
                 padding: 6px 10px;
-                border-bottom: 1px solid #D9C36A;
+                border-bottom: 1px solid #D0D5DD;
             }
             QTableWidget::item:selected {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
             }
             QHeaderView::section {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 6px 10px;
-                border: 1px solid #D9C36A;
-                border-bottom: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
+                border-bottom: 1px solid #D0D5DD;
                 font-weight: 700;
                 font-size: 11px;
             }
@@ -501,7 +501,7 @@ class AnalyticsDashboardPage(YearAwarePage, QWidget):
         trend_card.setStyleSheet("""
             QFrame#TrendCard {
                 background-color: #0B2E4F;
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
                 border-radius: 12px;
             }
         """)
@@ -516,10 +516,10 @@ class AnalyticsDashboardPage(YearAwarePage, QWidget):
         title_box.setSpacing(2)
         
         title_label = QLabel("📈 روند تغییرات")
-        title_label.setStyleSheet("font-size: 14px; font-weight: 700; color: #F4C542;")
+        title_label.setStyleSheet("font-size: 14px; font-weight: 700; color: #17212B;")
         
         sub_label = QLabel("روند ثبت مشاهدات در ۶ ماه اخیر")
-        sub_label.setStyleSheet("font-size: 11px; color: #D9C36A;")
+        sub_label.setStyleSheet("font-size: 11px; color: #667085;")
         
         title_box.addWidget(title_label)
         title_box.addWidget(sub_label)
@@ -631,7 +631,7 @@ class AnalyticsDashboardPage(YearAwarePage, QWidget):
         if obs_dist.get('total', 0) > 0:
             labels = ['مثبت', 'منفی', 'خنثی']
             values = [obs_dist.get('positive', 0), obs_dist.get('negative', 0), obs_dist.get('neutral', 0)]
-            colors = ['#8BC34A', '#C62828', '#F4D35E']
+            colors = ['#2E7D32', '#B42318', '#F79009']
             canvas = ChartHelper.create_pie_chart(labels, values, colors, "توزیع مشاهدات")
         else:
             canvas = ChartHelper._create_empty_chart("داده‌ای برای نمایش وجود ندارد")

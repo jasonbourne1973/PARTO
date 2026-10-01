@@ -269,7 +269,7 @@ class ExtracurricularService(BaseService):
             return self.activity_dal.get_deleted()
         except Exception as e:
             self.logger.error(f"خطا در دریافت فعالیت‌های حذف‌شده: {e}", exc_info=True)
-            raise ServiceError(f"خطا در دریافت فهرست حذف‌شده‌ها: {e!s}")
+            raise self._safe_service_error(e, "خطا در دریافت فهرست حذف‌شده‌ها.") from e
 
     def get_activity_stats(self, profile_id):
         """دریافت آمار فعالیت‌های یک دانش‌آموز"""

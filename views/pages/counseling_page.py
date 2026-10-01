@@ -78,7 +78,7 @@ class CounselingPage(YearAwarePage, QWidget):
         toolbar = QHBoxLayout()
         
         title_label = QLabel("🧑‍⚕️ مدیریت جلسات مشاوره")
-        title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; color: #F4C542; }")
+        title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; color: #17212B; }")
         toolbar.addWidget(title_label)
         toolbar.addStretch()
         
@@ -105,8 +105,8 @@ class CounselingPage(YearAwarePage, QWidget):
         self.add_btn = QPushButton("➕ ثبت جلسه جدید")
         self.add_btn.setStyleSheet("""
             QPushButton {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -142,22 +142,22 @@ class CounselingPage(YearAwarePage, QWidget):
         self.table.setAlternatingRowColors(True)
         self.table.setStyleSheet("""
             QTableWidget {
-    color: #F4C542;
+    color: #D9AF24;
                 background-color: #0B2E4F;
                 alternate-background-color: #0B2E4F;
-                gridline-color: #D9C36A;
-                border: 1px solid #D9C36A;
+                gridline-color: #E4E7EC;
+                border: 1px solid #D0D5DD;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #F4C542;
-    border-bottom: 1px solid #D9C36A;
+    color: #D9AF24;
+    border-bottom: 1px solid #D0D5DD;
     background-color: #0B2E4F; padding: 8px; }
             QHeaderView::section {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 8px;
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
                 font-weight: bold;
             }
         """)
@@ -186,20 +186,20 @@ class CounselingPage(YearAwarePage, QWidget):
         details_group = QGroupBox("📋 جزئیات جلسه")
         details_group.setStyleSheet("""
             QGroupBox {
-    color: #111111;
+    color: #17212B;
                 font-weight: bold;
-                border: 2px solid #8BC34A;
+                border: 2px solid #D0D5DD;
                 border-radius: 8px;
                 margin-top: 12px;
                 padding-top: 12px;
-                background-color: #66BB6A;
+                background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #8BC34A;
+    background-color: #F2F6FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #111111;
+                color: #17212B;
             }
         """)
         details_layout = QVBoxLayout(details_group)
@@ -208,8 +208,8 @@ class CounselingPage(YearAwarePage, QWidget):
         self.details_text.setReadOnly(True)
         self.details_text.setStyleSheet("""
             QTextEdit {
-    color: #F4C542;
-                border: 1px solid #8BC34A;
+    color: #D9AF24;
+                border: 1px solid #D0D5DD;
                 padding: 10px;
                 font-size: 13px;
                 background-color: #08223A;
@@ -226,7 +226,7 @@ class CounselingPage(YearAwarePage, QWidget):
         view_profile_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0B2E4F;
-                color: #F4C542;
+                color: #D9AF24;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -352,19 +352,19 @@ class CounselingPage(YearAwarePage, QWidget):
             
             view_btn = QPushButton("👁️")
             view_btn.setFixedSize(30, 30)
-            view_btn.setStyleSheet("background-color: #0B2E4F; color: #F4C542; border: none; border-radius: 4px;")
+            view_btn.setStyleSheet("background-color: #0B2E4F; color: #D9AF24; border: none; border-radius: 4px;")
             view_btn.clicked.connect(lambda checked, s=session: self.view_session(s))
             btn_layout.addWidget(view_btn)
             
             edit_btn = QPushButton("✏️")
             edit_btn.setFixedSize(30, 30)
-            edit_btn.setStyleSheet("background-color: #F4D35E; color: #111111; border: none; border-radius: 4px;")
+            edit_btn.setStyleSheet("background-color: #FFFAEB; color: #17212B; border: none; border-radius: 4px;")
             edit_btn.clicked.connect(lambda checked, s=session: self.edit_session(s))
             btn_layout.addWidget(edit_btn)
             
             delete_btn = QPushButton("🗑️")
             delete_btn.setFixedSize(30, 30)
-            delete_btn.setStyleSheet("background-color: #C62828; color: #F4C542; border: none; border-radius: 4px;")
+            delete_btn.setStyleSheet("background-color: #B42318; color: #FFFFFF; border: none; border-radius: 4px;")
             delete_btn.clicked.connect(lambda checked, s=session: self.delete_session(s))
             btn_layout.addWidget(delete_btn)
             

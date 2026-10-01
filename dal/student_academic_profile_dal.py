@@ -10,6 +10,7 @@ from database.connection import DatabaseConnection
 from models.student_academic_profile import StudentAcademicProfile
 from utils.batch_query import id_chunks, placeholders
 from utils.logger import get_logger
+from utils.security import AccessControl, Permission
 from utils.time_utils import utc_now_iso
 
 logger = get_logger(__name__)
@@ -22,7 +23,45 @@ class StudentAcademicProfileDAL:
         self.db = DatabaseConnection()
 
     def create(self, profile):
-        """ایجاد پرونده سالانه جدید"""
+        """
+        ایجاد پرونده سالانه جدید
+
+        (پیرو ممیزی تکمیلی — DEF-01) این متد عمداً بدون Permission/Scope
+        باقی مانده — بر خلاف update()/delete()/restore() که هر سه یک
+        Permission/Scope بی‌قیدوشرط دارند. دلیل، «تحلیل کامل Call Site»ی
+        است که مدیر پروژه صریحاً خواسته بود، نه فراموشی:
+
+        همهٔ فراخوانی‌کننده‌های فعلی create() دقیقاً یکی از این دو حالتند:
+
+          ۱) «دانش‌آموزِ همین لحظه ساخته‌شده» — services/student_service.py
+             (create_student) و views/dialogs/student_form.py (حالت
+             ایجاد): profile.student_id متعلق به دانش‌آموزی است که چند
+             خط بالاتر، در همان تراکنش، تازه ساخته شده. هیچ ردیفی در
+             teacher_assignments برای او نمی‌تواند وجود داشته باشد (انتساب
+             معلم یک عمل جداگانهٔ مدیریتی است، نه پیامد خودکار ساختِ
+             دانش‌آموز) — یعنی require_student_scope همیشه و برای همه،
+             حتی مدیر با بعد از انتساب، هیچ‌وقت اجرا هم نمی‌شود چون فقط
+             روی TEACHER اثر دارد؛ اما برای TEACHER همیشه False می‌داد و
+             قابلیتِ درستِ «معلم دانش‌آموز تازه می‌سازد» را می‌شکست
+             (رگرسیون واقعی، نه فرضی — با تست دستی تأیید شد).
+          ۲) «ایجاد خودکار در جریان ثبت مشاهده/مداخله» —
+             services/observation_service.py و
+             services/intervention_service.py (هر دو در _get_or_create_profile):
+             این‌جا student_id از قبل وجود دارد و Scope معنادار است، ولی
+             این‌جا Scope مستقیماً در خودِ _get_or_create_profile (قبل از
+             فراخوانی create) بررسی می‌شود — نه در این‌جا — چون فقط
+             فراخوانندهٔ سرویس می‌داند این student_id «تازه» است یا
+             «موجود»؛ خودِ DAL هیچ راهی برای تشخیص این دو حالت ندارد.
+             (پیش از این افزودن هم، ObservationDAL.create/InterventionDAL.create
+             بلافاصله بعد از این‌جا و در همان تراکنشِ اتمیک، همان Scope را
+             بررسی می‌کردند؛ رد Scope باعث rollback کاملِ تراکنش از جمله
+             همین create() می‌شد. افزودن بررسی زودهنگام در _get_or_create_profile
+             فقط fail-fast است، نه تغییر رفتار قابل مشاهده.)
+
+        نتیجه: بستنِ Scope در خودِ create() برای حالت (۱) رگرسیون واقعی
+        می‌سازد و برای حالت (۲) یا بی‌اثر است یا تکراری؛ پس محل درستِ
+        اجرای Scope برای create()، فراخوان‌کننده است، نه این متد مشترک.
+        """
         conn = self.db.get_connection()
         cursor = conn.cursor()
 
@@ -280,9 +319,62 @@ class StudentAcademicProfileDAL:
         (دور هفدهم — بند ۱۳ مأموریت) نتیجهٔ UPDATE بررسی می‌شود؛ اگر ردیفی
         تغییر نکرده باشد (پرونده وجود ندارد یا حذف‌شده است) `None` برمی‌گردد
         و در لاگ هشدار ثبت می‌شود تا «موفقیت صوری» باقی نماند.
+
+        (پیرو ممیزی تکمیلی — DEF-01) بر خلاف create() (که هنوز عمداً بدون
+        Permission/Scope است — دلیل کامل در docstring create() آمده)،
+        update() همیشه روی یک «پروندهٔ از پیش موجود» با یک «دانش‌آموزِ از
+        پیش موجود» عمل می‌کند؛ هیچ سناریوی واقعی‌ای در پروژه نیست که در آن
+        update() برای دانش‌آموزی صدا زده شود که همین لحظه ساخته شده باشد
+        (آن حالت مخصوص create() است). پس بر خلاف create()، این‌جا بستنِ
+        بی‌قیدوشرطِ Permission/Scope هیچ مسیر فعالِ درستی را خراب نمی‌کند:
+
+          • فراخوانی‌کننده‌های شناخته‌شده — views/dialogs/student_form.py
+            (حالت ویرایش) و views/pages/promotion_page.py — هر دو پیش از
+            این، EDIT_STUDENT دارند (فرم ویرایش دانش‌آموز از قبل با همین
+            مجوز StudentDAL.update را صدا می‌زند؛ صفحهٔ ارتقاء هم فقط با
+            مجوز MANAGE_ACADEMIC_YEARS در دسترس است که در ROLE_PERMISSIONS
+            همیشه همراه EDIT_STUDENT است) — پس افزودن EDIT_STUDENT این‌جا
+            برای آن‌ها بی‌اثر است، فقط صدازدنِ مستقیمِ بدون مجوز را می‌بندد.
+          • Scope هم طبق DD-6 فقط روی TEACHER اثر دارد؛ نقش‌های دیگر بدون
+            تغییر رفتار رد می‌شوند. تا پیش از این، فرم ویرایش دانش‌آموز
+            هیچ‌جای زنجیره‌اش (نه StudentDAL.update، نه این‌جا) Scope را
+            بررسی نمی‌کرد — یعنی یک معلم می‌توانست با فرم ویرایش، پروندهٔ
+            دانش‌آموزِ خارج از Scope خودش را هم تغییر دهد (چون کل تراکنش
+            save_student با db.begin_transaction() اتمیک است، رد این‌جا
+            هم ویرایشِ خودِ دانش‌آموز را rollback می‌کند). این افزودن یک
+            رفع باگ امنیتی واقعی است، نه صرفاً سخت‌گیریِ تزئینی.
+          • هم‌راستا با الگوی InterventionDAL.update: هم رکورد موجود
+            (پیش از تغییر) و هم دانش‌آموزِ مقصد (اگر با تغییرِ فیلد
+            student_id جابه‌جا شده باشد) باید در Scope باشند — وگرنه معلم
+            می‌توانست با تغییر فیلد student_id یک پرونده را به دانش‌آموزِ
+            خارج از Scope منتقل کند یا برعکس.
         """
         conn = self.db.get_connection()
         cursor = conn.cursor()
+
+        existing = cursor.execute(
+            "SELECT student_id FROM student_academic_profiles "
+            "WHERE id = ? AND is_deleted = 0",
+            (profile.id,)
+        ).fetchone()
+        if not existing:
+            logger.warning(
+                f"به‌روزرسانی پروندهٔ سالانه {profile.id} روی دیتابیس اثر "
+                "نکرد (پرونده وجود ندارد یا حذف‌شده است)."
+            )
+            return None
+
+        # مرز مجوز backend: به‌روزرسانی پروندهٔ سالانه = همان مجوز ویرایش دانش‌آموز
+        AccessControl.require_permission(
+            Permission.EDIT_STUDENT.value, action="StudentAcademicProfileDAL.update")
+        # مرز Scope/IDOR: هم دانش‌آموزِ فعلیِ پرونده و هم دانش‌آموزِ مقصد
+        # (اگر جابه‌جا شده باشد) باید در Scope کاربر جاری باشند.
+        AccessControl.require_student_scope(
+            existing["student_id"], action="StudentAcademicProfileDAL.update")
+        if profile.student_id != existing["student_id"]:
+            AccessControl.require_student_scope(
+                profile.student_id,
+                action="StudentAcademicProfileDAL.update(new_student)")
 
         try:
             cursor.execute("""
@@ -401,19 +493,35 @@ class StudentAcademicProfileDAL:
         حالا هم is_deleted=1 می‌شود (مثل بقیهٔ DALها، با ثبت زمان و
         کاربر و اجرای تریگر حسابرسی) و هم وضعیت به 'archived' می‌رود و
         در تاریخچهٔ وضعیت ثبت می‌شود.
+
+        (دور نوزدهم، مرحلهٔ ۸ — تکمیلِ یافتهٔ جانبی) این متد تا پیش از
+        این هیچ بررسیِ Permission/Scope نداشت (کلِ این DAL نداشت — مستند
+        در تحلیل مرحلهٔ ۸). چون هیچ Service/UI‌ای این‌جا صدا نمی‌زد (فقط
+        زیرساخت بود)، بدون ریسکِ شکستنِ رفتار موجود، همان مجوز/Scope
+        دانش‌آموزِ والد اضافه شد (بدون اختراع Permission تازه) — نه
+        create()/update() که چندین مسیر فعال (از جمله ایجاد خودکار
+        پرونده هنگام ثبت مشاهده/مداخله) دارند و نیازمند تحلیل جداگانه‌اند.
         """
+        # مرز مجوز backend: حذف پروندهٔ سالانه = همان مجوز حذف دانش‌آموز
+        AccessControl.require_permission(
+            Permission.DELETE_STUDENT.value, action="StudentAcademicProfileDAL.delete")
+
         conn = self.db.get_connection()
         cursor = conn.cursor()
 
         try:
             cursor.execute("""
-                SELECT status, status_history
+                SELECT student_id, status, status_history
                 FROM student_academic_profiles
                 WHERE id = ? AND is_deleted = 0
             """, (profile_id,))
             row = cursor.fetchone()
             if not row:
                 return False
+
+            # مرز Scope/IDOR: معلم فقط برای دانش‌آموزهای منتسب‌شدهٔ خودش
+            AccessControl.require_student_scope(
+                row["student_id"], action="StudentAcademicProfileDAL.delete")
 
             old_status = row['status']
             try:
@@ -462,19 +570,46 @@ class StudentAcademicProfileDAL:
         پرونده به معنی فعال‌کردن دوبارهٔ دانش‌آموز در سال جاری نیست و
         باید آگاهانه و جداگانه انجام شود (وگرنه یک پروندهٔ حذف‌شده
         می‌توانست ناگهان در داشبورد و لیست ارتقاء ظاهر شود).
+
+        (دور نوزدهم، مرحلهٔ ۸ — تکمیلِ یافتهٔ جانبی) همان مجوز/Scope که
+        به delete() اضافه شد، اینجا هم اضافه شد (بازیابی = همان مجوز حذف،
+        هم‌راستا با الگوی همهٔ DALهای دیگر).
         """
+        # مرز مجوز backend: بازیابی پروندهٔ سالانه = همان مجوز حذف دانش‌آموز
+        AccessControl.require_permission(
+            Permission.DELETE_STUDENT.value, action="StudentAcademicProfileDAL.restore")
+
         conn = self.db.get_connection()
         cursor = conn.cursor()
 
         try:
             cursor.execute("""
-                SELECT status, status_history
+                SELECT student_id, status, status_history
                 FROM student_academic_profiles
                 WHERE id = ? AND is_deleted = 1
             """, (profile_id,))
             row = cursor.fetchone()
             if not row:
                 return False
+
+            # مرز Scope/IDOR: معلم فقط برای دانش‌آموزهای منتسب‌شدهٔ خودش
+            AccessControl.require_student_scope(
+                row["student_id"], action="StudentAcademicProfileDAL.restore")
+
+            # مرحلهٔ ۸ (RESTORE-EDGE-01): دانش‌آموزِ والد باید هنوز وجود
+            # داشته و حذف نشده باشد — وگرنه یک پروندهٔ «فعال» روی یک
+            # دانش‌آموزِ حذف‌شده ساخته می‌شود (ناسازگار با هر جای دیگر
+            # کد که دانش‌آموز حذف‌شده را از فهرست‌ها/گزارش‌ها کنار می‌گذارد).
+            parent = cursor.execute(
+                "SELECT 1 FROM students WHERE id = ? AND is_deleted = 0",
+                (row["student_id"],)
+            ).fetchone()
+            if not parent:
+                raise ValueError(
+                    "دانش‌آموزِ مربوط به این پرونده حذف شده یا وجود "
+                    "ندارد؛ پیش از بازیابیِ پرونده باید ابتدا خودِ "
+                    "دانش‌آموز را بازگردانی کنید."
+                )
 
             try:
                 history = json.loads(row['status_history'] or "[]")

@@ -1662,10 +1662,17 @@ try:
 finally:
     AttachmentDAL.create = real_create
 files_after_dbfail = sorted(os.listdir(entity_folder))
-check("E", "اگر درج رکورد در دیتابیس شکست بخورد: پیام خطا، رکوردی ثبت نمی‌شود و فایل نوشته‌شده روی دیسک پاک می‌شود (قبلاً فایل یتیم می‌ماند)",
+# (دور نوزدهم، مرحلهٔ ۵ — ERR-01/ERR-LEAK-01) این بررسی قبلاً انتظار داشت
+# متن خامِ exception شبیه‌سازی‌شده ("db insert failed") داخل پیام کاربر
+# دیده شود — یعنی خودِ نشتِ Exception خام را به‌عنوان رفتار درست تأیید
+# می‌کرد. حالا دقیقاً برعکس: باید مطمئن شویم پیام کاربر پاک و امن است
+# (بدون متن خام sqlite/RuntimeError) ولی همچنان به‌عنوان خطای بحرانی
+# (crit) نمایش داده می‌شود؛ سایر بخش‌های بررسی (نبود فایل یتیم/رکورد)
+# دست‌نخورده می‌ماند.
+check("E", "اگر درج رکورد در دیتابیس شکست بخورد: پیام خطای امن (بدون متن خام) نمایش داده می‌شود، رکوردی ثبت نمی‌شود و فایل نوشته‌شده روی دیسک پاک می‌شود (قبلاً فایل یتیم می‌ماند)",
       files_after_dbfail == files_before
       and conn.execute("SELECT COUNT(*) FROM attachments WHERE is_deleted = 0").fetchone()[0] == count_before
-      and ui_msgs[n_msgs:] and ui_msgs[-1][0] == "crit" and "db insert failed" in ui_msgs[-1][1],
+      and ui_msgs[n_msgs:] and ui_msgs[-1][0] == "crit" and "db insert failed" not in ui_msgs[-1][1],
       f"files_diff={sorted(set(files_after_dbfail) ^ set(files_before))} msg={ui_msgs[-1:]}")
 
 # --- E5: جست‌وجو / پاک‌کردن جست‌وجو / انتخاب و پیش‌نمایش / دانلود
@@ -2316,7 +2323,7 @@ else:
 
 action_block = rec_src.split('action_label.setStyleSheet("""')[1].split('""")')[0]
 check("J", "BUG-NEW-03: برچسب «اقدام پیشنهادی» دیگر هم‌رنگ زمینه نیست (متن طلایی روی سرمه‌ای)؛ اسکن کنتراست اکنون استایل‌های چندخطی بدون selector را هم می‌بیند (۴ نشان نامرئی داشبورد هم اصلاح شد)",
-      "color: #F4C542;" in action_block and "background-color: #0B2E4F;" in action_block
+      "color: #D9AF24;" in action_block and "background-color: #0B2E4F;" in action_block
       and not re.search(r'color: #66BB6A;\n\s+background-color: #66BB6A;', read("views/pages/dashboard_page.py"))
       and not re.search(r'color: #0B2E4F;\n\s+background-color: #0B2E4F;', read("views/pages/dashboard_page.py")),
       "")

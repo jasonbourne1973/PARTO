@@ -152,6 +152,15 @@ if HAS_GIT:
     changed = subprocess.run(['git', 'diff', '--name-only', 'HEAD', '--', '*.py'],
                              capture_output=True, text=True, cwd=ROOT).stdout.split()
 compared, mismatch = 0, []
+# (بازطراحی ظاهریِ نسخهٔ ۲۱ — Design System) ThemeManager.TOKENS/THEMES
+# عمداً مقداردهی مجدد شده‌اند تا پالت رنگیِ برنامه به سند طراحیِ جدید
+# منتقل شود؛ این آزمون فقط تغییرِ ناخواسته/تصادفیِ ثابت‌ها را در بازآراییِ
+# نحوی رصد می‌کند، نه بازطراحیِ عمدیِ رنگ. بنابراین این دو ثابت از این
+# مقایسه معاف‌اند (تغییرشان توسط ask_user تأیید شده است).
+ALLOWED_VALUE_CHANGES = {
+    "ThemeManager.TOKENS",
+    "ThemeManager.THEMES",
+}
 for rel in changed:
     path = os.path.join(ROOT, rel)
     if not os.path.exists(path):
@@ -161,6 +170,8 @@ for rel in changed:
     before, after = class_literals(old), class_literals(read(path))
     compared += 1
     for key, val in before.items():
+        if key in ALLOWED_VALUE_CHANGES:
+            continue
         if key in after and after[key] != val:
             mismatch.append(f"{rel}:{key}")
 if HAS_GIT:

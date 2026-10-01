@@ -903,7 +903,11 @@ with contextlib.redirect_stdout(io.StringIO()):
     StudentDAL().delete(student_id_ok, 1)
 
 spage.show_deleted_check.setChecked(True)
-deleted_ids = [s.id for s in spage.all_students]
+# (دور نوزدهم، مرحلهٔ ۶) از spage.students استفاده می‌شود چون از این پس
+# all_students دیگر در هر بارگذاری کل فهرست فیلترشده را نگه نمی‌دارد
+# (فقط هنگام خروجی Excel واکشی می‌شود)؛ چون شمار حذف‌شده‌های این آزمون
+# خیلی کمتر از اندازهٔ پیش‌فرض صفحه است، spage.students معادل کامل است.
+deleted_ids = [s.id for s in spage.students]
 row = _row_of(spage, spage.students, student_id_ok)
 name_cell = spage.table.item(row, 2).text() if row is not None else None
 row_labels = [b.text() for b in _cell_buttons(spage, row, 6)] if row is not None else []
@@ -928,7 +932,7 @@ check("C",
       and len([m for m in restore_msgs if m[0] == "info"]) == 1
       and not [m for m in restore_msgs if m[0] == "crit"]
       and profiles_after == profiles_before
-      and student_id_ok not in [s.id for s in spage.all_students],
+      and student_id_ok not in [s.id for s in spage.students],
       f"btn={None if clicked is None else clicked.text()} flag={_db_flag('students', student_id_ok)} "
       f"msgs={[k for k, _ in restore_msgs]} before={len(profiles_before)} after={len(profiles_after)}")
 
@@ -943,15 +947,18 @@ with contextlib.redirect_stdout(io.StringIO()):
     StudentService().delete_student(victim_a.id, user_id=1)
     StudentService().delete_student(victim_b.id, user_id=1)
 
+# (دور نوزدهم، مرحلهٔ ۶) همان دلیل بالا: spage.students به‌جای
+# spage.all_students — شمار رکوردهای این آزمون به‌مراتب کمتر از اندازهٔ
+# صفحه است، پس دقیقاً همان مقایسه‌ها را می‌دهد.
 spage.search_input.setText("یکتاآزمون")
 spage.search_students()
-search_ids = [s.id for s in spage.all_students]
+search_ids = [s.id for s in spage.students]
 spage.search_input.clear()
 spage.load_students()
-all_deleted_ids = [s.id for s in spage.all_students]
+all_deleted_ids = [s.id for s in spage.students]
 spage.search_input.setText("سارا")
 spage.search_students()
-active_looking_ids = [s.id for s in spage.all_students]
+active_looking_ids = [s.id for s in spage.students]
 spage.search_input.clear()
 spage.load_students()
 active_ids = {s.id for s in StudentDAL().get_all()}
@@ -1320,7 +1327,7 @@ pagination_page.show_deleted_check.setChecked(False)
 pagination_page.page_size_combo.setCurrentText("20")
 for page_size in (10, 20, 50, 100):
     pagination_page.page_size_combo.setCurrentText(str(page_size))
-    total = len(pagination_page.all_students)
+    total = pagination_page.total_count  # (دور نوزدهم، مرحلهٔ ۶: COUNT واقعی، نه فهرست کامل بارگذاری‌شده)
     total_pages = pagination_page.total_pages
     pagination_page.current_page = total_pages - 1
     pagination_page.load_students()
@@ -1359,7 +1366,7 @@ for count in (0, 1, 20, 21, 40, 41):
     # و فهرست صفحه از تکرار قبلی می‌ماند.
     pagination_page.current_page = 0
     pagination_page.load_students()
-    total = len(pagination_page.all_students)
+    total = pagination_page.total_count  # (دور نوزدهم، مرحلهٔ ۶: COUNT واقعی، نه فهرست کامل بارگذاری‌شده)
     pages = pagination_page.total_pages
     first_page_rows = len(pagination_page.students)
     pagination_page.current_page = max(0, pages - 1)

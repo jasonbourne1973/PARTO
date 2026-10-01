@@ -71,7 +71,7 @@ class ClassReportPage(YearAwarePage, QWidget):
         
         # ===== عنوان =====
         title_label = QLabel("📊 گزارش کلاس")
-        title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; color: #F4C542; }")
+        title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; color: #17212B; }")
         layout.addWidget(title_label)
         
         # ===== نوار ابزار =====
@@ -83,9 +83,9 @@ class ClassReportPage(YearAwarePage, QWidget):
         self.year_combo.currentIndexChanged.connect(self.on_year_changed)
         self.year_combo.setStyleSheet("""
             QComboBox {
-    color: #F4C542;
+    color: #D9AF24;
                 padding: 5px 10px;
-                border: 1px solid #8BC34A;
+                border: 1px solid #D0D5DD;
                 border-radius: 5px;
                 background-color: #08223A;
             }
@@ -101,9 +101,9 @@ class ClassReportPage(YearAwarePage, QWidget):
         self.class_combo.currentIndexChanged.connect(self.on_class_changed)
         self.class_combo.setStyleSheet("""
             QComboBox {
-    color: #F4C542;
+    color: #D9AF24;
                 padding: 5px 10px;
-                border: 1px solid #8BC34A;
+                border: 1px solid #D0D5DD;
                 border-radius: 5px;
                 background-color: #08223A;
             }
@@ -128,14 +128,14 @@ class ClassReportPage(YearAwarePage, QWidget):
         self.generate_btn = QPushButton("📊 تولید گزارش")
         self.generate_btn.setStyleSheet("""
             QPushButton {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #8BC34A; }
+            QPushButton:hover { background-color: #F2F6FA; }
         """)
         self.generate_btn.clicked.connect(self.generate_report)
         toolbar.addWidget(self.generate_btn)
@@ -146,8 +146,8 @@ class ClassReportPage(YearAwarePage, QWidget):
         self.pdf_btn = QPushButton("📄 PDF")
         self.pdf_btn.setStyleSheet("""
             QPushButton {
-                background-color: #C62828;
-                color: #F4C542;
+                background-color: #B42318;
+                color: #FFFFFF;
                 padding: 6px 15px;
                 border: none;
                 border-radius: 5px;
@@ -161,14 +161,14 @@ class ClassReportPage(YearAwarePage, QWidget):
         self.excel_btn = QPushButton("📊 Excel")
         self.excel_btn.setStyleSheet("""
             QPushButton {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 6px 15px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #8BC34A; }
+            QPushButton:hover { background-color: #F2F6FA; }
         """)
         self.excel_btn.clicked.connect(self.export_excel)
         toolbar.addWidget(self.excel_btn)
@@ -179,12 +179,12 @@ class ClassReportPage(YearAwarePage, QWidget):
         self.insufficient_data_label = QLabel("")
         self.insufficient_data_label.setStyleSheet("""
             QLabel {
-                background-color: #C62828;
+                background-color: #B42318;
                 color: #FFFFFF;
                 padding: 10px;
                 border-radius: 5px;
                 font-weight: bold;
-                border: 1px solid #F4C542;
+                border: 1px solid #D9AF24;
             }
         """)
         self.insufficient_data_label.setVisible(False)
@@ -195,7 +195,7 @@ class ClassReportPage(YearAwarePage, QWidget):
         self.progress_bar.setVisible(False)
         self.progress_bar.setStyleSheet("""
             QProgressBar {
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
                 border-radius: 5px;
                 text-align: center;
                 height: 20px;
@@ -211,22 +211,22 @@ class ClassReportPage(YearAwarePage, QWidget):
         self.tabs = QTabWidget()
         self.tabs.setStyleSheet("""
             QTabWidget::pane {
-    color: #111111;
-                border: 1px solid #8BC34A;
+    color: #17212B;
+                border: 1px solid #D0D5DD;
                 border-radius: 5px;
-                background-color: #66BB6A;
+                background-color: #FFFFFF;
             }
             QTabBar::tab {
-    color: #111111;
-    border: 1px solid #8BC34A;
-    background-color: #66BB6A;
+    color: #17212B;
+    border: 1px solid #D0D5DD;
+    background-color: #FFFFFF;
                 padding: 10px 20px;
                 font-weight: bold;
             }
             QTabBar::tab:selected {
-    border-color: #F4C542;
-                background-color: #8BC34A;
-                color: #111111;
+    border-color: #D9AF24;
+                background-color: #F2F6FA;
+                color: #17212B;
             }
         """)
         
@@ -272,9 +272,9 @@ class ClassReportPage(YearAwarePage, QWidget):
         self.summary_text.setReadOnly(True)
         self.summary_text.setStyleSheet("""
             QTextEdit {
-    color: #F4C542;
+    color: #D9AF24;
                 background-color: #08223A;
-                border: 1px solid #8BC34A;
+                border: 1px solid #D0D5DD;
                 border-radius: 5px;
                 padding: 15px;
                 font-size: 13px;
@@ -301,22 +301,22 @@ class ClassReportPage(YearAwarePage, QWidget):
         self.competency_table.setAlternatingRowColors(True)
         self.competency_table.setStyleSheet("""
             QTableWidget {
-    color: #F4C542;
+    color: #D9AF24;
                 background-color: #0B2E4F;
                 alternate-background-color: #0B2E4F;
-                gridline-color: #D9C36A;
-                border: 1px solid #D9C36A;
+                gridline-color: #E4E7EC;
+                border: 1px solid #D0D5DD;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #F4C542;
-    border-bottom: 1px solid #D9C36A;
+    color: #D9AF24;
+    border-bottom: 1px solid #D0D5DD;
     background-color: #0B2E4F; padding: 8px; }
             QHeaderView::section {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 8px;
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
                 font-weight: bold;
             }
         """)
@@ -348,24 +348,24 @@ class ClassReportPage(YearAwarePage, QWidget):
         self.students_table.setAlternatingRowColors(True)
         self.students_table.setStyleSheet("""
             QTableWidget {
-    color: #F4C542;
+    color: #D9AF24;
                 background-color: #0B2E4F;
                 alternate-background-color: #0B2E4F;
-                gridline-color: #D9C36A;
-                border: 1px solid #D9C36A;
+                gridline-color: #E4E7EC;
+                border: 1px solid #D0D5DD;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #F4C542;
-    border-bottom: 1px solid #D9C36A;
+    color: #D9AF24;
+    border-bottom: 1px solid #D0D5DD;
     background-color: #0B2E4F; padding: 8px; }
             QTableWidget::item:hover {
-    color: #FFE8A3; background-color: #174F78; }
+    color: #FFFFFF; background-color: #174F78; }
             QHeaderView::section {
-                background-color: #66BB6A;
-                color: #111111;
+                background-color: #FFFFFF;
+                color: #17212B;
                 padding: 8px;
-                border: 1px solid #D9C36A;
+                border: 1px solid #D0D5DD;
                 font-weight: bold;
             }
         """)
@@ -392,7 +392,7 @@ class ClassReportPage(YearAwarePage, QWidget):
         
         self.figure = Figure(figsize=(10, 6), dpi=100)
         self.canvas = FigureCanvas(self.figure)
-        self.canvas.setStyleSheet("background-color: #0B2E4F; border: 1px solid #D9C36A; border-radius: 5px;")
+        self.canvas.setStyleSheet("background-color: #0B2E4F; border: 1px solid #D0D5DD; border-radius: 5px;")
         layout.addWidget(self.canvas)
         
         return tab
@@ -411,9 +411,9 @@ class ClassReportPage(YearAwarePage, QWidget):
         self.recommendations_text.setReadOnly(True)
         self.recommendations_text.setStyleSheet("""
             QTextEdit {
-    color: #F4C542;
+    color: #D9AF24;
                 background-color: #08223A;
-                border: 1px solid #8BC34A;
+                border: 1px solid #D0D5DD;
                 border-radius: 5px;
                 padding: 15px;
                 font-size: 13px;
@@ -666,7 +666,7 @@ class ClassReportPage(YearAwarePage, QWidget):
         if positive + negative + neutral > 0:
             labels = ['مثبت', 'منفی', 'خنثی']
             sizes = [positive, negative, neutral]
-            colors = ['#8BC34A', '#C62828', '#F4D35E']
+            colors = ['#2E7D32', '#B42318', '#F79009']
             
             ax1.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
             ax1.set_title('توزیع مشاهدات', fontsize=12, fontweight='bold')
@@ -691,9 +691,9 @@ class ClassReportPage(YearAwarePage, QWidget):
             negative_values = [item[1].get('negative', 0) for item in sorted_items]
             
             ax2.bar([p - 0.2 for p in positions], positive_values, width=0.4,
-                    color='#66BB6A', label='رفتار مثبت')
+                    color='#2E7D32', label='رفتار مثبت')
             ax2.bar([p + 0.2 for p in positions], negative_values, width=0.4,
-                    color='#C62828', label='رفتار منفی')
+                    color='#B42318', label='رفتار منفی')
             ax2.set_xticks(list(positions))
             ax2.set_xticklabels(names)
             
