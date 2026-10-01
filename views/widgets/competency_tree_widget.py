@@ -71,7 +71,7 @@ class CompetencyTreeWidget(QWidget):
         header_layout = QHBoxLayout()
         
         title_label = QLabel("📊 ساختار شایستگی‌ها")
-        title_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #17212B;")
+        title_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #2C3E50;")
         header_layout.addWidget(title_label)
         
         header_layout.addStretch()
@@ -81,18 +81,18 @@ class CompetencyTreeWidget(QWidget):
         self.search_input.setPlaceholderText("🔍 جستجو...")
         self.search_input.setStyleSheet("""
             QLineEdit {
-    color: #D9AF24;
-    background-color: #08223A;
+    color: #3498DB;
+    background-color: #1A252F;
                 padding: 4px 10px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 border-radius: 4px;
                 font-size: 12px;
                 min-width: 150px;
             }
             QLineEdit:focus {
     color: #FFFFFF;
-    background-color: #0B2E4F;
-                border: 2px solid #D9AF24;
+    background-color: #2C3E50;
+                border: 2px solid #3498DB;
             }
         """)
         self.search_input.textChanged.connect(self.search_competencies)
@@ -107,27 +107,27 @@ class CompetencyTreeWidget(QWidget):
         self.tree.setColumnWidth(1, 60)
         self.tree.setStyleSheet("""
             QTreeWidget {
-    color: #D9AF24;
-    gridline-color: #E4E7EC;
-                background-color: #0B2E4F;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+    gridline-color: #DEE2E6;
+                background-color: #2C3E50;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
                 padding: 5px;
                 min-height: 200px;
             }
             QTreeWidget::item {
-    color: #D9AF24;
-    border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F;
+    color: #3498DB;
+    border-bottom: 1px solid #DEE2E6;
+    background-color: #2C3E50;
                 padding: 4px;
             }
             QTreeWidget::item:selected {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
             }
             QTreeWidget::item:hover {
     color: #FFFFFF;
-                background-color: #174F78;
+                background-color: #34495E;
             }
             QTreeWidget::branch {
                 background-color: transparent;
@@ -146,14 +146,14 @@ class CompetencyTreeWidget(QWidget):
             self.select_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #FFFFFF;
-                    color: #17212B;
+                    color: #2C3E50;
                     padding: 6px 20px;
                     border: none;
                     border-radius: 4px;
                     font-weight: bold;
                 }
                 QPushButton:hover {
-                    background-color: #F2F6FA;
+                    background-color: #F8F9FA;
                 }
             """)
             self.select_btn.clicked.connect(self.emit_selection)
@@ -162,7 +162,7 @@ class CompetencyTreeWidget(QWidget):
             self.clear_btn = QPushButton("🗑️ پاک کردن انتخاب")
             self.clear_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #B42318;
+                    background-color: #C0392B;
                     color: #FFFFFF;
                     padding: 6px 20px;
                     border: none;
@@ -183,12 +183,12 @@ class CompetencyTreeWidget(QWidget):
         self.info_label = QLabel("هیچ آیتمی انتخاب نشده است")
         self.info_label.setStyleSheet("""
             QLabel {
-                color: #E4E7EC;
+                color: #DEE2E6;
                 font-size: 12px;
                 padding: 4px 8px;
-                background-color: #0B2E4F;
+                background-color: #2C3E50;
                 border-radius: 4px;
-                border: 1px solid #08223A;
+                border: 1px solid #1A252F;
             }
         """)
         self.info_label.setWordWrap(True)
@@ -299,7 +299,7 @@ class CompetencyTreeWidget(QWidget):
             self.info_label.setText(f"✅ انتخاب شده: {comp_name} (شایستگی)")
             self.info_label.setStyleSheet("""
                 QLabel {
-                    color: #17212B;
+                    color: #2C3E50;
                     font-size: 12px;
                     padding: 4px 8px;
                     background-color: #eafaf1;
@@ -327,12 +327,12 @@ class CompetencyTreeWidget(QWidget):
             self.info_label.setText(f"✅ انتخاب شده: {ind_name} (شاخص)")
             self.info_label.setStyleSheet("""
                 QLabel {
-                    color: #D9AF24;
+                    color: #3498DB;
                     font-size: 12px;
                     padding: 4px 8px;
-                    background-color: #174F78;
+                    background-color: #34495E;
                     border-radius: 4px;
-                    border: 1px solid #D0D5DD;
+                    border: 1px solid #DEE2E6;
                     font-weight: bold;
                 }
             """)
@@ -355,12 +355,12 @@ class CompetencyTreeWidget(QWidget):
             self.info_label.setText(f"✅ انتخاب شده: {beh_text} (رفتار قابل مشاهده)")
             self.info_label.setStyleSheet("""
                 QLabel {
-                    color: #17212B;
+                    color: #2C3E50;
                     font-size: 12px;
                     padding: 4px 8px;
                     background-color: #FFFFFF;
                     border-radius: 4px;
-                    border: 1px solid #D0D5DD;
+                    border: 1px solid #DEE2E6;
                     font-weight: bold;
                 }
             """)
@@ -399,12 +399,12 @@ class CompetencyTreeWidget(QWidget):
         self.info_label.setText("هیچ آیتمی انتخاب نشده است")
         self.info_label.setStyleSheet("""
             QLabel {
-                color: #E4E7EC;
+                color: #DEE2E6;
                 font-size: 12px;
                 padding: 4px 8px;
-                background-color: #0B2E4F;
+                background-color: #2C3E50;
                 border-radius: 4px;
-                border: 1px solid #08223A;
+                border: 1px solid #1A252F;
             }
         """)
         
@@ -552,7 +552,7 @@ class CompetencyTreeWidget(QWidget):
         
         self.info_label.setStyleSheet("""
             QLabel {
-                color: #17212B;
+                color: #2C3E50;
                 font-size: 12px;
                 padding: 4px 8px;
                 background-color: #eafaf1;
