@@ -120,7 +120,7 @@ class AcademicStructurePage(YearAwarePage, QWidget):
                 padding: 5px 10px;
                 border: 1px solid #DEE2E6;
                 border-radius: 5px;
-                background-color: #1A252F;
+                background-color: #2C3E50;
                 font-size: 13px;
             }
             QComboBox:hover {
@@ -143,7 +143,7 @@ class AcademicStructurePage(YearAwarePage, QWidget):
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #1A252F;
+                background-color: #2C3E50;
             }
         """)
         self.refresh_btn.clicked.connect(self.refresh_all)
@@ -263,7 +263,7 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         self.class_name_input.setStyleSheet("""
             QLineEdit {
     color: #3498DB;
-    background-color: #1A252F;
+    background-color: #2C3E50;
                 padding: 6px 10px;
                 border: 1px solid #DEE2E6;
                 border-radius: 4px;
@@ -288,10 +288,10 @@ class AcademicStructurePage(YearAwarePage, QWidget):
                 padding: 6px 10px;
                 border: 1px solid #DEE2E6;
                 border-radius: 4px;
-                background-color: #1A252F;
+                background-color: #2C3E50;
             }
             QComboBox:hover {
-                border-color: #F04438;
+                border-color: #E74C3C;
             }
         """)
         form_layout.addWidget(self.class_grade_combo, 1, 1)
@@ -306,10 +306,10 @@ class AcademicStructurePage(YearAwarePage, QWidget):
                 padding: 6px 10px;
                 border: 1px solid #DEE2E6;
                 border-radius: 4px;
-                background-color: #1A252F;
+                background-color: #2C3E50;
             }
             QComboBox:hover {
-                border-color: #F04438;
+                border-color: #E74C3C;
             }
         """)
         form_layout.addWidget(self.class_teacher_combo, 2, 1)
@@ -322,7 +322,7 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         self.class_capacity_spin.setStyleSheet("""
             QSpinBox {
     color: #3498DB;
-    background-color: #1A252F;
+    background-color: #2C3E50;
                 padding: 6px 10px;
                 border: 1px solid #DEE2E6;
                 border-radius: 4px;
@@ -339,7 +339,7 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         self.add_class_btn = QPushButton("➕ افزودن کلاس")
         self.add_class_btn.setStyleSheet("""
             QPushButton {
-                background-color: #7A271A;
+                background-color: #D35400;
                 color: #FFFFFF;
                 padding: 8px 20px;
                 border: none;
@@ -357,7 +357,7 @@ class AcademicStructurePage(YearAwarePage, QWidget):
         self._editing_class_id = None
         self.cancel_edit_class_btn = QPushButton("✖ انصراف از ویرایش")
         self.cancel_edit_class_btn.setStyleSheet(
-            "QPushButton { background-color: #1A252F; color: #3498DB; padding: 8px 20px; "
+            "QPushButton { background-color: #2C3E50; color: #3498DB; padding: 8px 20px; "
             "border: 1px solid #DEE2E6; border-radius: 5px; }")
         self.cancel_edit_class_btn.clicked.connect(self.cancel_edit_class)
         self.cancel_edit_class_btn.setVisible(False)
@@ -442,7 +442,7 @@ class AcademicStructurePage(YearAwarePage, QWidget):
                 padding: 5px 10px;
                 border: 1px solid #DEE2E6;
                 border-radius: 5px;
-                background-color: #1A252F;
+                background-color: #2C3E50;
                 font-size: 13px;
             }
             QComboBox:hover {
@@ -545,11 +545,11 @@ class AcademicStructurePage(YearAwarePage, QWidget):
                 padding: 5px 10px;
                 border: 1px solid #DEE2E6;
                 border-radius: 5px;
-                background-color: #1A252F;
+                background-color: #2C3E50;
                 font-size: 13px;
             }
             QComboBox:hover {
-                border-color: #1A252F;
+                border-color: #2C3E50;
             }
         """)
         ts_toolbar.addWidget(self.ts_teacher_combo)
@@ -657,7 +657,7 @@ class AcademicStructurePage(YearAwarePage, QWidget):
                 border: 1px solid #DEE2E6;
                 padding: 10px;
                 font-size: 13px;
-                background-color: #1A252F;
+                background-color: #2C3E50;
                 line-height: 1.8;
             }
         """)
@@ -840,7 +840,7 @@ class AcademicStructurePage(YearAwarePage, QWidget):
                 
                 edit_btn = QPushButton("✏️")
                 edit_btn.setFixedSize(30, 30)
-                edit_btn.setStyleSheet("background-color: #FFFAEB; color: #2C3E50; border: none; border-radius: 4px;")
+                edit_btn.setStyleSheet("background-color: #FEF9E7; color: #2C3E50; border: none; border-radius: 4px;")
                 edit_btn.clicked.connect(lambda checked, c=class_obj: self.edit_class(c))
                 btn_layout.addWidget(edit_btn)
                 
@@ -998,7 +998,7 @@ class AcademicStructurePage(YearAwarePage, QWidget):
                 
                 edit_btn = QPushButton("✏️")
                 edit_btn.setFixedSize(30, 30)
-                edit_btn.setStyleSheet("background-color: #FFFAEB; color: #2C3E50; border: none; border-radius: 4px;")
+                edit_btn.setStyleSheet("background-color: #FEF9E7; color: #2C3E50; border: none; border-radius: 4px;")
                 edit_btn.clicked.connect(lambda checked, a=assignment: self.edit_assignment(a))
                 btn_layout.addWidget(edit_btn)
                 
