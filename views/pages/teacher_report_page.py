@@ -93,7 +93,7 @@ class TeacherReportPage(YearAwarePage, QWidget):
         
         if not self.embedded:
             title_label = QLabel("📊 گزارش عملکرد معلم")
-            title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; color: #17212B; }")
+            title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; color: #2C3E50; }")
             layout.addWidget(title_label)
         
         # ===== نوار ابزار =====
@@ -130,13 +130,13 @@ class TeacherReportPage(YearAwarePage, QWidget):
         self.generate_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #F2F6FA; }
+            QPushButton:hover { background-color: #F8F9FA; }
         """)
         self.generate_btn.clicked.connect(self.generate_report)
         toolbar.addWidget(self.generate_btn)
@@ -148,13 +148,13 @@ class TeacherReportPage(YearAwarePage, QWidget):
         self.excel_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 6px 15px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #F2F6FA; }
+            QPushButton:hover { background-color: #F8F9FA; }
         """)
         self.excel_btn.clicked.connect(self.export_excel)
         toolbar.addWidget(self.excel_btn)
@@ -162,7 +162,7 @@ class TeacherReportPage(YearAwarePage, QWidget):
         self.pdf_btn = QPushButton("📄 PDF")
         self.pdf_btn.setStyleSheet("""
             QPushButton {
-                background-color: #B42318;
+                background-color: #C0392B;
                 color: #FFFFFF;
                 padding: 6px 15px;
                 border: none;
@@ -180,12 +180,12 @@ class TeacherReportPage(YearAwarePage, QWidget):
         self.insufficient_data_label = QLabel("")
         self.insufficient_data_label.setStyleSheet("""
             QLabel {
-                background-color: #B42318;
+                background-color: #C0392B;
                 color: #FFFFFF;
                 padding: 10px;
                 border-radius: 5px;
                 font-weight: bold;
-                border: 1px solid #D9AF24;
+                border: 1px solid #3498DB;
             }
         """)
         self.insufficient_data_label.setVisible(False)
@@ -196,13 +196,13 @@ class TeacherReportPage(YearAwarePage, QWidget):
         self.progress_bar.setVisible(False)
         self.progress_bar.setStyleSheet("""
             QProgressBar {
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
                 text-align: center;
                 height: 20px;
             }
             QProgressBar::chunk {
-                background-color: #0B2E4F;
+                background-color: #2C3E50;
                 border-radius: 5px;
             }
         """)
@@ -212,22 +212,22 @@ class TeacherReportPage(YearAwarePage, QWidget):
         self.tabs = QTabWidget()
         self.tabs.setStyleSheet("""
             QTabWidget::pane {
-    color: #17212B;
-                border: 1px solid #D0D5DD;
+    color: #2C3E50;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
                 background-color: #FFFFFF;
             }
             QTabBar::tab {
-    color: #17212B;
-    border: 1px solid #D0D5DD;
+    color: #2C3E50;
+    border: 1px solid #DEE2E6;
     background-color: #FFFFFF;
                 padding: 10px 20px;
                 font-weight: bold;
             }
             QTabBar::tab:selected {
-    border-color: #D9AF24;
-                background-color: #F2F6FA;
-                color: #17212B;
+    border-color: #3498DB;
+                background-color: #F8F9FA;
+                color: #2C3E50;
             }
         """)
         
@@ -253,9 +253,9 @@ class TeacherReportPage(YearAwarePage, QWidget):
         self.summary_text.setReadOnly(True)
         self.summary_text.setStyleSheet("""
             QTextEdit {
-    color: #D9AF24;
-                background-color: #08223A;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #1A252F;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
                 padding: 15px;
                 font-size: 13px;
@@ -280,22 +280,22 @@ class TeacherReportPage(YearAwarePage, QWidget):
         self.competency_table.setAlternatingRowColors(True)
         self.competency_table.setStyleSheet("""
             QTableWidget {
-    color: #D9AF24;
-                background-color: #0B2E4F;
-                alternate-background-color: #0B2E4F;
-                gridline-color: #E4E7EC;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #2C3E50;
+                alternate-background-color: #2C3E50;
+                gridline-color: #DEE2E6;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #D9AF24;
-    border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F; padding: 8px; }
+    color: #3498DB;
+    border-bottom: 1px solid #DEE2E6;
+    background-color: #2C3E50; padding: 8px; }
             QHeaderView::section {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 font-weight: bold;
             }
         """)
@@ -325,24 +325,24 @@ class TeacherReportPage(YearAwarePage, QWidget):
         self.students_table.setAlternatingRowColors(True)
         self.students_table.setStyleSheet("""
             QTableWidget {
-    color: #D9AF24;
-                background-color: #0B2E4F;
-                alternate-background-color: #0B2E4F;
-                gridline-color: #E4E7EC;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #2C3E50;
+                alternate-background-color: #2C3E50;
+                gridline-color: #DEE2E6;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #D9AF24;
-    border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F; padding: 8px; }
+    color: #3498DB;
+    border-bottom: 1px solid #DEE2E6;
+    background-color: #2C3E50; padding: 8px; }
             QTableWidget::item:hover {
-    color: #FFFFFF; background-color: #174F78; }
+    color: #FFFFFF; background-color: #34495E; }
             QHeaderView::section {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 font-weight: bold;
             }
         """)
@@ -369,7 +369,7 @@ class TeacherReportPage(YearAwarePage, QWidget):
         
         self.figure = Figure(figsize=(10, 6), dpi=100)
         self.canvas = FigureCanvas(self.figure)
-        self.canvas.setStyleSheet("background-color: #0B2E4F; border: 1px solid #D0D5DD; border-radius: 5px;")
+        self.canvas.setStyleSheet("background-color: #2C3E50; border: 1px solid #DEE2E6; border-radius: 5px;")
         layout.addWidget(self.canvas)
         
         return tab
@@ -388,9 +388,9 @@ class TeacherReportPage(YearAwarePage, QWidget):
         self.recommendations_text.setReadOnly(True)
         self.recommendations_text.setStyleSheet("""
             QTextEdit {
-    color: #D9AF24;
-                background-color: #08223A;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #1A252F;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
                 padding: 15px;
                 font-size: 13px;
@@ -869,7 +869,7 @@ class TeacherReportPage(YearAwarePage, QWidget):
         ax.bar([p - 0.2 for p in positions], positive_values, width=0.4,
                color='#2E7D32', label='رفتار مثبت')
         ax.bar([p + 0.2 for p in positions], negative_values, width=0.4,
-               color='#B42318', label='رفتار منفی')
+               color='#C0392B', label='رفتار منفی')
         ax.set_xticks(list(positions))
         ax.set_xticklabels(names)
         ax.set_ylabel('تعداد رفتار ثبت‌شده', fontsize=12)
