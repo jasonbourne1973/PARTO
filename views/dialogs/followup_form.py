@@ -70,10 +70,10 @@ class FollowUpForm(QDialog):
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("QScrollArea { border: none; background-color: #08223A; }")
+        scroll.setStyleSheet("QScrollArea { border: none; background-color: #1A252F; }")
 
         container = QWidget()
-        container.setStyleSheet("background-color: #08223A;")
+        container.setStyleSheet("background-color: #1A252F;")
         layout = QVBoxLayout(container)
         layout.setSpacing(12)
         layout.setContentsMargins(15, 15, 15, 15)
@@ -85,20 +85,20 @@ class FollowUpForm(QDialog):
         info_group = QGroupBox("📋 اطلاعات پایه")
         info_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 12px;
                 padding-top: 12px;
                 background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         form_layout = QFormLayout(info_group)
@@ -142,20 +142,20 @@ class FollowUpForm(QDialog):
         result_group = QGroupBox("📊 نتیجه پیگیری")
         result_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 12px;
                 padding-top: 12px;
                 background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         result_layout = QFormLayout(result_group)
@@ -174,7 +174,7 @@ class FollowUpForm(QDialog):
         self.result_description_input = QTextEdit()
         self.result_description_input.setPlaceholderText("شرح کامل نتیجه پیگیری...")
         self.result_description_input.setMaximumHeight(80)
-        self.result_description_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 5px;")
+        self.result_description_input.setStyleSheet("border: 1px solid #DEE2E6; border-radius: 4px; padding: 5px;")
         # تنظیم Tooltip
         TooltipManager.set_field_tooltip(self.result_description_input, 'result')
         result_layout.addRow("شرح نتیجه:", self.result_description_input)
@@ -184,20 +184,20 @@ class FollowUpForm(QDialog):
         desc_group = QGroupBox("📝 توضیحات پیگیری")
         desc_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 12px;
                 padding-top: 12px;
                 background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         desc_layout = QFormLayout(desc_group)
@@ -205,7 +205,7 @@ class FollowUpForm(QDialog):
         self.description_input = QTextEdit()
         self.description_input.setPlaceholderText("شرح کامل پیگیری انجام‌شده...")
         self.description_input.setMaximumHeight(100)
-        self.description_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 5px;")
+        self.description_input.setStyleSheet("border: 1px solid #DEE2E6; border-radius: 4px; padding: 5px;")
         # تنظیم Tooltip
         TooltipManager.set_field_tooltip(self.description_input, 'description')
         desc_layout.addRow("توضیحات:", self.description_input)
@@ -219,7 +219,7 @@ class FollowUpForm(QDialog):
         self.save_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 12px 40px;
                 border: none;
                 border-radius: 6px;
@@ -227,14 +227,14 @@ class FollowUpForm(QDialog):
                 font-size: 14px;
                 min-height: 40px;
             }
-            QPushButton:hover { background-color: #F2F6FA; }
+            QPushButton:hover { background-color: #F8F9FA; }
         """)
         self.save_btn.clicked.connect(self.save_followup)
 
         self.cancel_btn = QPushButton("❌ انصراف")
         self.cancel_btn.setStyleSheet("""
             QPushButton {
-                background-color: #B42318;
+                background-color: #C0392B;
                 color: #FFFFFF;
                 padding: 12px 40px;
                 border: none;
