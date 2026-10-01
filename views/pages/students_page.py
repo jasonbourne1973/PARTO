@@ -135,7 +135,7 @@ class StudentsPage(YearAwarePage, QWidget):
         self.search_input.setStyleSheet("""
             QLineEdit {
     color: #3498DB;
-    background-color: #1A252F;
+    background-color: #2C3E50;
                 padding: 8px;
                 border: 1px solid #DEE2E6;
                 border-radius: 5px;
@@ -178,7 +178,7 @@ class StudentsPage(YearAwarePage, QWidget):
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #1A252F;
+                background-color: #2C3E50;
             }
         """)
         self.add_btn.clicked.connect(self.add_student)
@@ -221,7 +221,7 @@ class StudentsPage(YearAwarePage, QWidget):
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #1A252F;
+                background-color: #2C3E50;
             }
         """)
         self.export_btn.clicked.connect(self.export_to_excel)
@@ -230,7 +230,7 @@ class StudentsPage(YearAwarePage, QWidget):
         self.sample_btn = QPushButton("📄 دریافت نمونه")
         self.sample_btn.setStyleSheet("""
             QPushButton {
-                background-color: #FFFAEB;
+                background-color: #F8F9FA;
                 color: #2C3E50;
                 padding: 8px 15px;
                 border: none;
@@ -238,7 +238,7 @@ class StudentsPage(YearAwarePage, QWidget):
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #7A271A;
+                background-color: #C0392B;
             }
         """)
         self.sample_btn.clicked.connect(self.download_sample_excel)
@@ -323,7 +323,7 @@ class StudentsPage(YearAwarePage, QWidget):
                 border: none;
                 border-radius: 3px;
             }
-            QPushButton:hover { background-color: #1A252F; }
+            QPushButton:hover { background-color: #2C3E50; }
             QPushButton:disabled { background-color: #F8F9FA; }
         """)
         self.prev_page_btn.clicked.connect(self.prev_page)
@@ -339,7 +339,7 @@ class StudentsPage(YearAwarePage, QWidget):
                 border: none;
                 border-radius: 3px;
             }
-            QPushButton:hover { background-color: #1A252F; }
+            QPushButton:hover { background-color: #2C3E50; }
             QPushButton:disabled { background-color: #F8F9FA; }
         """)
         self.next_page_btn.clicked.connect(self.next_page)
@@ -534,14 +534,14 @@ class StudentsPage(YearAwarePage, QWidget):
             edit_btn.setFixedSize(30, 30)
             edit_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #FFFAEB;
+                    background-color: #F8F9FA;
                     color: #2C3E50;
                     border: none;
                     border-radius: 4px;
                     font-size: 14px;
                 }
                 QPushButton:hover {
-                    background-color: #7A271A;
+                    background-color: #C0392B;
                 }
             """)
             edit_btn.clicked.connect(lambda checked, s=student: self.edit_student(s))
@@ -562,7 +562,7 @@ class StudentsPage(YearAwarePage, QWidget):
                         font-size: 14px;
                     }
                     QPushButton:hover {
-                        background-color: #9E1B1B;
+                        background-color: #C0392B;
                     }
                 """)
                 delete_btn.clicked.connect(
