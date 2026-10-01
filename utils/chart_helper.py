@@ -71,20 +71,20 @@ class ChartHelper:
         width = 0.25
         
         ax.bar(x - width, positive, width, label=ChartHelper._farsi('مثبت'), 
-               color='#2E7D32', edgecolor='none', alpha=0.8)
+               color='#27AE60', edgecolor='none', alpha=0.8)
         ax.bar(x, negative, width, label=ChartHelper._farsi('منفی'), 
-               color='#B42318', edgecolor='none', alpha=0.8)
+               color='#E74C3C', edgecolor='none', alpha=0.8)
         ax.bar(x + width, neutral, width, label=ChartHelper._farsi('خنثی'), 
-               color='#F79009', edgecolor='none', alpha=0.8)
+               color='#F39C12', edgecolor='none', alpha=0.8)
         
         ax.set_xticks(x)
         ax.set_xticklabels(labels, fontsize=9, color='#475569', fontweight='bold')
         
         max_val = max([sum(item) for item in zip(positive, negative, neutral)]) if trend_items else 10
         ax.set_ylim(0, max_val * 1.3)
-        ax.tick_params(axis='both', which='both', length=0, labelsize=9, colors='#667085')
+        ax.tick_params(axis='both', which='both', length=0, labelsize=9, colors='#7F8C8D')
         
-        ax.yaxis.grid(True, linestyle='--', alpha=0.5, color='#E4E7EC', zorder=0)
+        ax.yaxis.grid(True, linestyle='--', alpha=0.5, color='#DEE2E6', zorder=0)
         ax.xaxis.grid(False)
         
         for spine in ax.spines.values():
@@ -95,7 +95,7 @@ class ChartHelper:
                         color='#17212B', pad=15)
         
         ax.legend(loc='upper right', fontsize=9, frameon=True, 
-                  facecolor='#FFFFFF', edgecolor='#E4E7EC', framealpha=0.9)
+                  facecolor='#FFFFFF', edgecolor='#DEE2E6', framealpha=0.9)
         
         fig.subplots_adjust(left=0.08, right=0.96, top=0.88, bottom=0.18)
         
@@ -112,7 +112,7 @@ class ChartHelper:
         ax.set_facecolor('#FFFFFF')
         
         if not colors:
-            colors = ['#2E7D32', '#B42318', '#F79009', '#0B2E4F', '#175CD3']
+            colors = ['#27AE60', '#E74C3C', '#F39C12', '#0B2E4F', '#3498DB']
         
         labels_fa = [ChartHelper._farsi(str(label)) for label in labels]
         _wedges, _texts, autotexts = ax.pie(
@@ -155,15 +155,15 @@ class ChartHelper:
         width = 0.35
         
         ax.bar(x - width/2, [first_half_pos, second_half_pos], width, 
-               label=ChartHelper._farsi('مثبت'), color='#2E7D32', edgecolor='none', alpha=0.8)
+               label=ChartHelper._farsi('مثبت'), color='#27AE60', edgecolor='none', alpha=0.8)
         ax.bar(x + width/2, [first_half_neg, second_half_neg], width,
-               label=ChartHelper._farsi('منفی'), color='#B42318', edgecolor='none', alpha=0.8)
+               label=ChartHelper._farsi('منفی'), color='#E74C3C', edgecolor='none', alpha=0.8)
         
         ax.set_xticks(x)
         ax.set_xticklabels([ChartHelper._farsi('نیمسال اول'), ChartHelper._farsi('نیمسال دوم')], 
                           fontsize=11, color='#475569', fontweight='bold')
-        ax.tick_params(axis='both', which='both', length=0, labelsize=10, colors='#667085')
-        ax.yaxis.grid(True, linestyle='--', alpha=0.5, color='#E4E7EC', zorder=0)
+        ax.tick_params(axis='both', which='both', length=0, labelsize=10, colors='#7F8C8D')
+        ax.yaxis.grid(True, linestyle='--', alpha=0.5, color='#DEE2E6', zorder=0)
         ax.xaxis.grid(False)
         
         for spine in ax.spines.values():
@@ -174,7 +174,7 @@ class ChartHelper:
                         color='#17212B', pad=15)
         
         ax.legend(loc='upper right', fontsize=10, frameon=True, 
-                  facecolor='#FFFFFF', edgecolor='#E4E7EC', framealpha=0.9)
+                  facecolor='#FFFFFF', edgecolor='#DEE2E6', framealpha=0.9)
         
         trend_icon = progress_data.get('trend_icon', '')
         trend_text = progress_data.get('trend', '')
@@ -212,10 +212,10 @@ class ChartHelper:
                 colors.append('#0B2E4F')
                 labels.append('مشاهده')
             elif event['type'] == 'intervention':
-                colors.append('#F79009')
+                colors.append('#F39C12')
                 labels.append('مداخله')
             else:
-                colors.append('#2E7D32')
+                colors.append('#27AE60')
                 labels.append('پیگیری')
         
         ax.scatter([1] * len(display_events), y_positions, 
@@ -227,18 +227,18 @@ class ChartHelper:
         ax.set_yticklabels([ChartHelper._farsi(e['date'] or 'نامشخص') for e in display_events], 
                           fontsize=8, color='#475569')
         ax.set_yticks(y_positions)
-        ax.tick_params(axis='both', which='both', length=0, labelsize=9, colors='#667085')
+        ax.tick_params(axis='both', which='both', length=0, labelsize=9, colors='#7F8C8D')
         ax.set_xlim(0.5, 1.5)
         ax.set_xticks([])
         ax.xaxis.grid(False)
-        ax.yaxis.grid(True, linestyle='--', alpha=0.3, color='#E4E7EC')
+        ax.yaxis.grid(True, linestyle='--', alpha=0.3, color='#DEE2E6')
         
         for spine in ax.spines.values():
             spine.set_visible(False)
         
         info_text = f"مشاهدات: {obs_count} | مداخلات: {inter_count} | پیگیری‌ها: {follow_count}"
         fig.text(0.5, 0.02, ChartHelper._farsi(info_text), 
-                ha='center', fontsize=10, color='#E4E7EC')
+                ha='center', fontsize=10, color='#DEE2E6')
         
         fig.subplots_adjust(left=0.25, right=0.9, top=0.88, bottom=0.1)
         
@@ -279,7 +279,7 @@ class ChartHelper:
         values = [item[1] if isinstance(item, (list, tuple)) else 1 for item in items]
         
         if chart_type == 'pie':
-            colors = ['#2E7D32', '#B42318', '#F79009', '#0B2E4F', '#175CD3', '#94A3B8', '#B8860B']
+            colors = ['#27AE60', '#E74C3C', '#F39C12', '#0B2E4F', '#3498DB', '#94A3B8', '#2980B9']
             ax.pie(values, labels=labels, colors=colors[:len(labels)], 
                    autopct='%1.1f%%', startangle=90)
             if title:
@@ -294,7 +294,7 @@ class ChartHelper:
                 ax.set_title(ChartHelper._farsi(title), fontsize=14, fontweight='bold')
             if xlabel:
                 ax.set_xlabel(ChartHelper._farsi(xlabel), fontsize=11)
-            ax.xaxis.grid(True, linestyle='--', alpha=0.3, color='#E4E7EC')
+            ax.xaxis.grid(True, linestyle='--', alpha=0.3, color='#DEE2E6')
             for spine in ax.spines.values():
                 spine.set_visible(False)
         
@@ -306,7 +306,7 @@ class ChartHelper:
                 ax.set_xlabel(ChartHelper._farsi(xlabel), fontsize=11)
             if ylabel:
                 ax.set_ylabel(ChartHelper._farsi(ylabel), fontsize=11)
-            ax.yaxis.grid(True, linestyle='--', alpha=0.3, color='#E4E7EC')
+            ax.yaxis.grid(True, linestyle='--', alpha=0.3, color='#DEE2E6')
             for spine in ax.spines.values():
                 spine.set_visible(False)
             ax.tick_params(axis='x', rotation=30)
@@ -346,11 +346,11 @@ class ChartHelper:
         max_val = max(values) if values else 1
         for bar, val in zip(bars, values):
             if val >= max_val * 0.7:
-                bar.set_color('#2E7D32')
+                bar.set_color('#27AE60')
             elif val >= max_val * 0.4:
-                bar.set_color('#F79009')
+                bar.set_color('#F39C12')
             else:
-                bar.set_color('#B42318')
+                bar.set_color('#E74C3C')
         
         ax.set_xticks(x)
         ax.set_xticklabels(names, fontsize=9, rotation=30, ha='right')
@@ -358,7 +358,7 @@ class ChartHelper:
         if title:
             ax.set_title(ChartHelper._farsi(title), fontsize=14, fontweight='bold')
         ax.set_ylabel(ChartHelper._farsi('تعداد'), fontsize=11)
-        ax.yaxis.grid(True, linestyle='--', alpha=0.3, color='#E4E7EC')
+        ax.yaxis.grid(True, linestyle='--', alpha=0.3, color='#DEE2E6')
         
         # نمایش میانگین شدت روی میله‌ها
         for i, (bar, sev) in enumerate(zip(bars, avg_severities)):
@@ -393,21 +393,21 @@ class ChartHelper:
         
         # رنگ‌های متناسب با وضعیت
         status_colors = {
-            'planned': '#F79009',
+            'planned': '#F39C12',
             'in_progress': '#0B2E4F',
-            'done': '#2E7D32',
-            'completed': '#2E7D32',
-            'cancelled': '#B42318',
-            'pending': '#F79009',
+            'done': '#27AE60',
+            'completed': '#27AE60',
+            'cancelled': '#E74C3C',
+            'pending': '#F39C12',
             'continued': '#0B2E4F',
-            'closed': '#98A2B3',
-            'active': '#2E7D32',
-            'inactive': '#98A2B3'
+            'closed': '#BDC3C7',
+            'active': '#27AE60',
+            'inactive': '#BDC3C7'
         }
         
         labels = [ChartHelper._farsi(str(k)) for k in status_data]
         values = list(status_data.values())
-        colors = [status_colors.get(k, '#98A2B3') for k in status_data]
+        colors = [status_colors.get(k, '#BDC3C7') for k in status_data]
         
         # مرتب‌سازی بر اساس مقدار
         sorted_data = sorted(zip(labels, values, colors), key=lambda x: x[1], reverse=True)
@@ -459,7 +459,7 @@ class ChartHelper:
         if title:
             ax.set_title(ChartHelper._farsi(title), fontsize=14, fontweight='bold')
         ax.set_ylabel(ChartHelper._farsi('تعداد دانش‌آموزان'), fontsize=11)
-        ax.yaxis.grid(True, linestyle='--', alpha=0.3, color='#E4E7EC')
+        ax.yaxis.grid(True, linestyle='--', alpha=0.3, color='#DEE2E6')
         
         for spine in ax.spines.values():
             spine.set_visible(False)
@@ -474,6 +474,6 @@ class ChartHelper:
         ax = fig.add_subplot(111)
         ax.set_facecolor('#FFFFFF')
         ax.text(0.5, 0.5, ChartHelper._farsi(message),
-                ha='center', va='center', fontsize=12, color='#E4E7EC')
+                ha='center', va='center', fontsize=12, color='#DEE2E6')
         ax.axis('off')
         return FigureCanvas(fig)
