@@ -103,18 +103,18 @@ class StudentProfilePage(YearAwarePage, QWidget):
         self.search_input.setPlaceholderText("نام، نام خانوادگی یا کد ملی...")
         self.search_input.setStyleSheet("""
             QLineEdit {
-    color: #D9AF24;
-    background-color: #08223A;
+    color: #3498DB;
+    background-color: #1A252F;
                 padding: 5px 10px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
                 font-size: 13px;
                 min-width: 200px;
             }
             QLineEdit:focus {
     color: #FFFFFF;
-    background-color: #0B2E4F;
-                border: 2px solid #D9AF24;
+    background-color: #2C3E50;
+                border: 2px solid #3498DB;
             }
         """)
         search_layout.addWidget(self.search_input)
@@ -122,14 +122,14 @@ class StudentProfilePage(YearAwarePage, QWidget):
         self.search_btn = QPushButton("🔍 جستجو")
         self.search_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0B2E4F;
-                color: #D9AF24;
+                background-color: #2C3E50;
+                color: #3498DB;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #08223A; }
+            QPushButton:hover { background-color: #1A252F; }
         """)
         self.search_btn.clicked.connect(self.search_student)
         search_layout.addWidget(self.search_btn)
@@ -138,7 +138,7 @@ class StudentProfilePage(YearAwarePage, QWidget):
         self.clear_search_btn.setFixedSize(30, 30)
         self.clear_search_btn.setStyleSheet("""
             QPushButton {
-                background-color: #B42318;
+                background-color: #C0392B;
                 color: #FFFFFF;
                 border: none;
                 border-radius: 5px;
@@ -165,7 +165,7 @@ class StudentProfilePage(YearAwarePage, QWidget):
         self.header_frame.setStyleSheet("""
             QFrame {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #0B2E4F, stop:1 #174F78);
+                    stop:0 #2C3E50, stop:1 #34495E);
                 border-radius: 8px;
                 padding: 15px;
             }
@@ -174,13 +174,13 @@ class StudentProfilePage(YearAwarePage, QWidget):
         self.header_frame.setLayout(header_layout)
         
         self.student_name_label = QLabel("نام دانش‌آموز")
-        self.student_name_label.setStyleSheet("color: #17212B; font-size: 20px; font-weight: bold;")
+        self.student_name_label.setStyleSheet("color: #2C3E50; font-size: 20px; font-weight: bold;")
         header_layout.addWidget(self.student_name_label)
         
         header_layout.addSpacing(20)
         
         self.student_info_label = QLabel("پایه: - | کلاس: -")
-        self.student_info_label.setStyleSheet("color: #667085; font-size: 14px;")
+        self.student_info_label.setStyleSheet("color: #7F8C8D; font-size: 14px;")
         header_layout.addWidget(self.student_info_label)
         
         header_layout.addStretch()
@@ -191,17 +191,17 @@ class StudentProfilePage(YearAwarePage, QWidget):
         self.year_combo.setMinimumWidth(130)
         self.year_combo.setStyleSheet("""
             QComboBox {
-                background-color: #08223A;
-                color: #D9AF24;
+                background-color: #1A252F;
+                color: #3498DB;
                 padding: 5px 10px;
                 border-radius: 15px;
                 font-weight: bold;
                 font-size: 13px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
             }
             QComboBox::drop-down { border: none; }
             QComboBox::down-arrow { image: none; }
-            QComboBox:hover { background-color: #174F78; }
+            QComboBox:hover { background-color: #34495E; }
         """)
         self.year_combo.currentIndexChanged.connect(self.on_year_changed)
         header_layout.addWidget(self.year_combo)
@@ -209,7 +209,7 @@ class StudentProfilePage(YearAwarePage, QWidget):
         self.status_label = QLabel("وضعیت: -")
         self.status_label.setStyleSheet("""
             QLabel {
-                color: #17212B;
+                color: #2C3E50;
                 font-size: 14px;
                 font-weight: bold;
                 background-color: #FFFFFF;
@@ -228,14 +228,14 @@ class StudentProfilePage(YearAwarePage, QWidget):
         self.btn_observation = QPushButton("📝 ثبت مشاهده")
         self.btn_observation.setStyleSheet("""
             QPushButton {
-                background-color: #0B2E4F;
-                color: #D9AF24;
+                background-color: #2C3E50;
+                color: #3498DB;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #08223A; }
+            QPushButton:hover { background-color: #1A252F; }
         """)
         self.btn_observation.clicked.connect(self.add_observation)
         action_layout.addWidget(self.btn_observation)
@@ -259,7 +259,7 @@ class StudentProfilePage(YearAwarePage, QWidget):
         self.btn_followup.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
@@ -276,13 +276,13 @@ class StudentProfilePage(YearAwarePage, QWidget):
         self.btn_report.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #F2F6FA; }
+            QPushButton:hover { background-color: #F8F9FA; }
         """)
         self.btn_report.clicked.connect(self.generate_report)
         action_layout.addWidget(self.btn_report)
@@ -292,14 +292,14 @@ class StudentProfilePage(YearAwarePage, QWidget):
         self.btn_attachments = QPushButton("📎 پیوست‌ها")
         self.btn_attachments.setStyleSheet("""
             QPushButton {
-                background-color: #0B2E4F;
-                color: #D9AF24;
+                background-color: #2C3E50;
+                color: #3498DB;
                 padding: 8px 20px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #08223A; }
+            QPushButton:hover { background-color: #1A252F; }
         """)
         self.btn_attachments.clicked.connect(self.open_attachments)
         action_layout.addWidget(self.btn_attachments)
@@ -313,8 +313,8 @@ class StudentProfilePage(YearAwarePage, QWidget):
         timeline_frame = QFrame()
         timeline_frame.setStyleSheet("""
             QFrame {
-                background-color: #0B2E4F;
-                border: 1px solid #D0D5DD;
+                background-color: #2C3E50;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
         """)
@@ -322,7 +322,7 @@ class StudentProfilePage(YearAwarePage, QWidget):
         timeline_frame.setLayout(timeline_layout)
         
         timeline_title = QLabel("⏳ Timeline پرونده")
-        timeline_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #17212B; padding: 5px;")
+        timeline_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #2C3E50; padding: 5px;")
         timeline_layout.addWidget(timeline_title)
         
         self.timeline_list = QListWidget()
@@ -333,15 +333,15 @@ class StudentProfilePage(YearAwarePage, QWidget):
             }
             QListWidget::item {
                 padding: 8px;
-                border-bottom: 1px solid #08223A;
+                border-bottom: 1px solid #1A252F;
             }
             QListWidget::item:selected {
-                background-color: #174F78;
-                border: 1px solid #0B2E4F;
+                background-color: #34495E;
+                border: 1px solid #2C3E50;
                 border-radius: 5px;
             }
             QListWidget::item:hover {
-                background-color: #08223A;
+                background-color: #1A252F;
             }
         """)
         self.timeline_list.itemClicked.connect(self.on_timeline_item_clicked)
@@ -353,8 +353,8 @@ class StudentProfilePage(YearAwarePage, QWidget):
         details_frame = QFrame()
         details_frame.setStyleSheet("""
             QFrame {
-                background-color: #0B2E4F;
-                border: 1px solid #D0D5DD;
+                background-color: #2C3E50;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
         """)
@@ -362,18 +362,18 @@ class StudentProfilePage(YearAwarePage, QWidget):
         details_frame.setLayout(details_layout)
         
         details_title = QLabel("📋 جزئیات رویداد")
-        details_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #17212B; padding: 5px;")
+        details_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #2C3E50; padding: 5px;")
         details_layout.addWidget(details_title)
         
         self.details_text = QTextEdit()
         self.details_text.setReadOnly(True)
         self.details_text.setStyleSheet("""
             QTextEdit {
-    color: #D9AF24;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                border: 1px solid #DEE2E6;
                 padding: 10px;
                 font-size: 13px;
-                background-color: #08223A;
+                background-color: #1A252F;
             }
         """)
         self.details_text.setPlaceholderText("برای مشاهده جزئیات، روی هر رویداد در Timeline کلیک کنید...")
@@ -388,22 +388,22 @@ class StudentProfilePage(YearAwarePage, QWidget):
         self.tabs = QTabWidget()
         self.tabs.setStyleSheet("""
             QTabWidget::pane {
-    color: #17212B;
-                border: 1px solid #D0D5DD;
+    color: #2C3E50;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
                 background-color: #FFFFFF;
             }
             QTabBar::tab {
-    color: #17212B;
-    border: 1px solid #D0D5DD;
+    color: #2C3E50;
+    border: 1px solid #DEE2E6;
     background-color: #FFFFFF;
                 padding: 10px 20px;
                 font-weight: bold;
             }
             QTabBar::tab:selected {
-    border-color: #D9AF24;
-                background-color: #F2F6FA;
-                color: #17212B;
+    border-color: #3498DB;
+                background-color: #F8F9FA;
+                color: #2C3E50;
             }
         """)
         
@@ -547,27 +547,27 @@ class StudentProfilePage(YearAwarePage, QWidget):
         container.setLayout(container_layout)
         
         stats_frame = QFrame()
-        stats_frame.setStyleSheet("background-color: #0B2E4F; border: 1px solid #D0D5DD; border-radius: 8px; padding: 15px;")
+        stats_frame.setStyleSheet("background-color: #2C3E50; border: 1px solid #DEE2E6; border-radius: 8px; padding: 15px;")
         stats_layout = QHBoxLayout()
         stats_frame.setLayout(stats_layout)
         
         self.obs_count_label = QLabel("مشاهدات: 0")
-        self.obs_count_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #D9AF24;")
+        self.obs_count_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #3498DB;")
         stats_layout.addWidget(self.obs_count_label)
         
         stats_layout.addSpacing(30)
         self.inter_count_label = QLabel("مداخلات: 0")
-        self.inter_count_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #17212B;")
+        self.inter_count_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #2C3E50;")
         stats_layout.addWidget(self.inter_count_label)
         
         stats_layout.addSpacing(30)
         self.follow_count_label = QLabel("پیگیری‌ها: 0")
-        self.follow_count_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #17212B;")
+        self.follow_count_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #2C3E50;")
         stats_layout.addWidget(self.follow_count_label)
         
         stats_layout.addSpacing(30)
         self.pending_label = QLabel("پیگیری‌های باز: 0")
-        self.pending_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #B42318;")
+        self.pending_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #C0392B;")
         stats_layout.addWidget(self.pending_label)
         
         stats_layout.addStretch()
@@ -576,20 +576,20 @@ class StudentProfilePage(YearAwarePage, QWidget):
         strengths_frame = QGroupBox("⭐ نقاط قوت ثبت‌شده")
         strengths_frame.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
     background-color: #FFFFFF;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 12px;
                 padding-top: 12px;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         strengths_layout = QVBoxLayout()
@@ -602,20 +602,20 @@ class StudentProfilePage(YearAwarePage, QWidget):
         weaknesses_frame = QGroupBox("🔴 زمینه‌های نیازمند حمایت")
         weaknesses_frame.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
     background-color: #FFFFFF;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 12px;
                 padding-top: 12px;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         weaknesses_layout = QVBoxLayout()
@@ -641,22 +641,22 @@ class StudentProfilePage(YearAwarePage, QWidget):
         self.obs_table.setAlternatingRowColors(True)
         self.obs_table.setStyleSheet("""
             QTableWidget {
-    color: #D9AF24;
-                background-color: #0B2E4F;
-                alternate-background-color: #0B2E4F;
-                gridline-color: #E4E7EC;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #2C3E50;
+                alternate-background-color: #2C3E50;
+                gridline-color: #DEE2E6;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #D9AF24;
-    border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F; padding: 8px; }
+    color: #3498DB;
+    border-bottom: 1px solid #DEE2E6;
+    background-color: #2C3E50; padding: 8px; }
             QHeaderView::section {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 font-weight: bold;
             }
         """)
@@ -685,22 +685,22 @@ class StudentProfilePage(YearAwarePage, QWidget):
         self.inter_table.setAlternatingRowColors(True)
         self.inter_table.setStyleSheet("""
             QTableWidget {
-    color: #D9AF24;
-                background-color: #0B2E4F;
-                alternate-background-color: #0B2E4F;
-                gridline-color: #E4E7EC;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #2C3E50;
+                alternate-background-color: #2C3E50;
+                gridline-color: #DEE2E6;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #D9AF24;
-    border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F; padding: 8px; }
+    color: #3498DB;
+    border-bottom: 1px solid #DEE2E6;
+    background-color: #2C3E50; padding: 8px; }
             QHeaderView::section {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 font-weight: bold;
             }
         """)
@@ -729,22 +729,22 @@ class StudentProfilePage(YearAwarePage, QWidget):
         self.follow_table.setAlternatingRowColors(True)
         self.follow_table.setStyleSheet("""
             QTableWidget {
-    color: #D9AF24;
-                background-color: #0B2E4F;
-                alternate-background-color: #0B2E4F;
-                gridline-color: #E4E7EC;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #2C3E50;
+                alternate-background-color: #2C3E50;
+                gridline-color: #DEE2E6;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #D9AF24;
-    border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F; padding: 8px; }
+    color: #3498DB;
+    border-bottom: 1px solid #DEE2E6;
+    background-color: #2C3E50; padding: 8px; }
             QHeaderView::section {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 font-weight: bold;
             }
         """)
@@ -788,28 +788,28 @@ class StudentProfilePage(YearAwarePage, QWidget):
         )
         note.setWordWrap(True)
         note.setStyleSheet(
-            "background-color: #0B2E4F; color: #D9AF24; border: 1px solid #D0D5DD;"
+            "background-color: #2C3E50; color: #3498DB; border: 1px solid #DEE2E6;"
             "border-radius: 8px; padding: 12px; font-size: 13px;")
         layout.addWidget(note)
 
         # ----- زمینهٔ خانوادگی -----
         family_frame = QGroupBox("🏠 زمینهٔ خانوادگی (اطلاعات زمینه‌ای)")
         family_frame.setStyleSheet(
-            "QGroupBox { color: #17212B; background-color: #FFFFFF; font-weight: bold;"
-            "border: 2px solid #D0D5DD; border-radius: 8px; margin-top: 12px; padding: 10px; }")
+            "QGroupBox { color: #2C3E50; background-color: #FFFFFF; font-weight: bold;"
+            "border: 2px solid #DEE2E6; border-radius: 8px; margin-top: 12px; padding: 10px; }")
         family_layout = QVBoxLayout()
         family_frame.setLayout(family_layout)
         self.family_info_label = QLabel("اطلاعات زمینه‌ای خانواده ثبت نشده است.")
         self.family_info_label.setWordWrap(True)
-        self.family_info_label.setStyleSheet("color: #17212B; background: transparent;")
+        self.family_info_label.setStyleSheet("color: #2C3E50; background: transparent;")
         family_layout.addWidget(self.family_info_label)
         layout.addWidget(family_frame)
 
         # ----- گفت‌وگو با والدین -----
         interview_frame = QGroupBox("👨‍👩‍👦 گفت‌وگو با والدین")
         interview_frame.setStyleSheet(
-            "QGroupBox { color: #17212B; background-color: #FFFFFF; font-weight: bold;"
-            "border: 2px solid #D0D5DD; border-radius: 8px; margin-top: 12px; padding: 10px; }")
+            "QGroupBox { color: #2C3E50; background-color: #FFFFFF; font-weight: bold;"
+            "border: 2px solid #DEE2E6; border-radius: 8px; margin-top: 12px; padding: 10px; }")
         interview_layout = QVBoxLayout()
         interview_frame.setLayout(interview_layout)
 
@@ -826,7 +826,7 @@ class StudentProfilePage(YearAwarePage, QWidget):
             "گفت‌وگوها برای درک بهتر وضعیت دانش‌آموز ثبت می‌شوند؛ نتیجهٔ آن‌ها "
             "به‌عنوان «زمینه» در تحلیل دیده می‌شود، نه به‌عنوان برچسب.")
         self.interview_note_label.setWordWrap(True)
-        self.interview_note_label.setStyleSheet("color: #17212B; background: transparent;")
+        self.interview_note_label.setStyleSheet("color: #2C3E50; background: transparent;")
         interview_layout.addWidget(self.interview_note_label)
 
         layout.addWidget(interview_frame)
@@ -893,7 +893,7 @@ class StudentProfilePage(YearAwarePage, QWidget):
         
         # ===== خلاصه روند =====
         summary_frame = QFrame()
-        summary_frame.setStyleSheet("background-color: #0B2E4F; border-radius: 8px; padding: 10px;")
+        summary_frame.setStyleSheet("background-color: #2C3E50; border-radius: 8px; padding: 10px;")
         summary_layout = QGridLayout()
         summary_frame.setLayout(summary_layout)
         
@@ -909,11 +909,11 @@ class StudentProfilePage(YearAwarePage, QWidget):
         summary_layout.addWidget(self.trend_positive_label, 1, 1)
         
         self.trend_negative_label = QLabel("منفی: 0")
-        self.trend_negative_label.setStyleSheet("color: #B42318;")
+        self.trend_negative_label.setStyleSheet("color: #C0392B;")
         summary_layout.addWidget(self.trend_negative_label, 2, 0)
         
         self.trend_neutral_label = QLabel("خنثی: 0")
-        self.trend_neutral_label.setStyleSheet("color: #667085;")
+        self.trend_neutral_label.setStyleSheet("color: #7F8C8D;")
         summary_layout.addWidget(self.trend_neutral_label, 2, 1)
         
         self.trend_competencies_label = QLabel("زمینه‌های پرتکرار ثبت‌شده: -")
@@ -932,20 +932,20 @@ class StudentProfilePage(YearAwarePage, QWidget):
         trend_table_frame = QGroupBox("روند تغییرات در طول زمان")
         trend_table_frame.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
     background-color: #FFFFFF;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 12px;
                 padding-top: 12px;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         trend_table_layout = QVBoxLayout()
@@ -957,22 +957,22 @@ class StudentProfilePage(YearAwarePage, QWidget):
         self.trend_table.setAlternatingRowColors(True)
         self.trend_table.setStyleSheet("""
             QTableWidget {
-    color: #D9AF24;
-                background-color: #0B2E4F;
-                alternate-background-color: #0B2E4F;
-                gridline-color: #E4E7EC;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #2C3E50;
+                alternate-background-color: #2C3E50;
+                gridline-color: #DEE2E6;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #D9AF24;
-    border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F; padding: 5px; }
+    color: #3498DB;
+    border-bottom: 1px solid #DEE2E6;
+    background-color: #2C3E50; padding: 5px; }
             QHeaderView::section {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 5px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 font-weight: bold;
             }
         """)
@@ -1200,7 +1200,7 @@ class StudentProfilePage(YearAwarePage, QWidget):
             
             view_btn = QPushButton("👁️")
             view_btn.setFixedSize(30, 30)
-            view_btn.setStyleSheet("background-color: #0B2E4F; color: #D9AF24; border: none; border-radius: 4px;")
+            view_btn.setStyleSheet("background-color: #2C3E50; color: #3498DB; border: none; border-radius: 4px;")
             view_btn.clicked.connect(lambda checked, o=obs: self.view_observation(o))
             self.obs_table.setCellWidget(row, 5, view_btn)
     
@@ -1260,7 +1260,7 @@ class StudentProfilePage(YearAwarePage, QWidget):
             
             view_btn = QPushButton("👁️")
             view_btn.setFixedSize(30, 30)
-            view_btn.setStyleSheet("background-color: #FFFFFF; color: #17212B; border: none; border-radius: 4px;")
+            view_btn.setStyleSheet("background-color: #FFFFFF; color: #2C3E50; border: none; border-radius: 4px;")
             view_btn.clicked.connect(lambda checked, f=follow: self.view_followup(f))
             self.follow_table.setCellWidget(row, 5, view_btn)
     
@@ -1287,7 +1287,7 @@ class StudentProfilePage(YearAwarePage, QWidget):
         # نمایش روند کلی
         overall = trend['overall_trend']
         self.trend_status_label.setText(f"{overall['icon']} {overall['message']}")
-        self.trend_status_label.setStyleSheet(f"color: {overall.get('color', '#17212B')}; font-weight: bold;")
+        self.trend_status_label.setStyleSheet(f"color: {overall.get('color', '#2C3E50')}; font-weight: bold;")
         # یادآوری محتوایی: تعداد مشاهدات، شاخص رشد نیست (بازرسی یازدهم)
         # + مسیر تغییر بین بازه‌ها (بازرسی سیزدهم): جهت روند فقط از
         #   ابتدا/انتها گرفته نمی‌شود؛ گام‌های میانی هم نشان داده می‌شوند.
@@ -1342,7 +1342,7 @@ class StudentProfilePage(YearAwarePage, QWidget):
             elif period['positive_percent'] >= 40:
                 color = "#B54708"  # نارنجی
             else:
-                color = "#B42318"  # قرمز
+                color = "#C0392B"  # قرمز
             
             for col in range(6):
                 item = self.trend_table.item(row, col)
