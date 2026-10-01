@@ -42,7 +42,7 @@ def make_show_deleted_checkbox(page, handler_name, tooltip=None):
     checkbox = QCheckBox("نمایش حذف‌شده‌ها")
     checkbox.setToolTip(
         tooltip or "رکوردهای حذف‌شده را نشان می‌دهد تا بتوان آن‌ها را بازیابی کرد.")
-    checkbox.setStyleSheet("QCheckBox { color: #17212B; font-weight: bold; }")
+    checkbox.setStyleSheet("QCheckBox { color: #2C3E50; font-weight: bold; }")
     handler = getattr(page, handler_name, None)
     if callable(handler):
         checkbox.toggled.connect(handler)
@@ -60,7 +60,7 @@ def make_restore_button(record, handler, tooltip=None):
     button.setFixedSize(30, 30)
     button.setToolTip(tooltip or "بازیابی این رکورد حذف‌شده")
     button.setStyleSheet(
-        "background-color: #FFFFFF; color: #17212B; border: none; "
+        "background-color: #FFFFFF; color: #2C3E50; border: none; "
         "border-radius: 4px; font-size: 14px;")
     button.clicked.connect(lambda checked=False, r=record: handler(r))
     return button
