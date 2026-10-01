@@ -74,10 +74,10 @@ class CounselingSessionForm(QDialog):
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("QScrollArea { border: none; background-color: #0B2E4F; }")
+        scroll.setStyleSheet("QScrollArea { border: none; background-color: #2C3E50; }")
 
         container = QWidget()
-        container.setStyleSheet("background-color: #0B2E4F;")
+        container.setStyleSheet("background-color: #2C3E50;")
         layout = QVBoxLayout(container)
         layout.setSpacing(10)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -94,20 +94,20 @@ class CounselingSessionForm(QDialog):
         info_group = QGroupBox("📋 اطلاعات پایه")
         info_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
                 background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         form_layout = QFormLayout(info_group)
@@ -213,20 +213,20 @@ class CounselingSessionForm(QDialog):
         topic_group = QGroupBox("🎯 موضوع و اهداف")
         topic_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
                 background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         topic_layout = QFormLayout(topic_group)
@@ -240,7 +240,7 @@ class CounselingSessionForm(QDialog):
         self.goals_input = QTextEdit()
         self.goals_input.setPlaceholderText("اهداف جلسه (هر هدف در یک خط)...")
         self.goals_input.setMaximumHeight(60)
-        self.goals_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 4px;")
+        self.goals_input.setStyleSheet("border: 1px solid #DEE2E6; border-radius: 4px; padding: 4px;")
         topic_layout.addRow("🎯 اهداف:", self.goals_input)
 
         layout.addWidget(topic_group)
@@ -249,20 +249,20 @@ class CounselingSessionForm(QDialog):
         content_group = QGroupBox("📄 محتوای جلسه")
         content_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
                 background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         content_layout = QFormLayout(content_group)
@@ -271,13 +271,13 @@ class CounselingSessionForm(QDialog):
         self.summary_input = QTextEdit()
         self.summary_input.setPlaceholderText("خلاصه جلسه...")
         self.summary_input.setMaximumHeight(80)
-        self.summary_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 4px;")
+        self.summary_input.setStyleSheet("border: 1px solid #DEE2E6; border-radius: 4px; padding: 4px;")
         content_layout.addRow("📊 خلاصه:", self.summary_input)
 
         self.details_input = QTextEdit()
         self.details_input.setPlaceholderText("جزئیات کامل جلسه...")
         self.details_input.setMaximumHeight(120)
-        self.details_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 4px;")
+        self.details_input.setStyleSheet("border: 1px solid #DEE2E6; border-radius: 4px; padding: 4px;")
         content_layout.addRow("📝 جزئیات:", self.details_input)
 
         layout.addWidget(content_group)
@@ -286,20 +286,20 @@ class CounselingSessionForm(QDialog):
         rec_group = QGroupBox("💡 مداخلات و توصیه‌ها")
         rec_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
                 background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         rec_layout = QFormLayout(rec_group)
@@ -308,19 +308,19 @@ class CounselingSessionForm(QDialog):
         self.interventions_input = QTextEdit()
         self.interventions_input.setPlaceholderText("مداخلات مطرح‌شده (هر مورد در یک خط)...")
         self.interventions_input.setMaximumHeight(60)
-        self.interventions_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 4px;")
+        self.interventions_input.setStyleSheet("border: 1px solid #DEE2E6; border-radius: 4px; padding: 4px;")
         rec_layout.addRow("🛠️ مداخلات:", self.interventions_input)
 
         self.recommendations_input = QTextEdit()
         self.recommendations_input.setPlaceholderText("توصیه‌ها (هر مورد در یک خط)...")
         self.recommendations_input.setMaximumHeight(60)
-        self.recommendations_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 4px;")
+        self.recommendations_input.setStyleSheet("border: 1px solid #DEE2E6; border-radius: 4px; padding: 4px;")
         rec_layout.addRow("📋 توصیه‌ها:", self.recommendations_input)
 
         self.homework_input = QTextEdit()
         self.homework_input.setPlaceholderText("تکالیف (هر مورد در یک خط)...")
         self.homework_input.setMaximumHeight(60)
-        self.homework_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 4px;")
+        self.homework_input.setStyleSheet("border: 1px solid #DEE2E6; border-radius: 4px; padding: 4px;")
         rec_layout.addRow("📚 تکالیف:", self.homework_input)
 
         layout.addWidget(rec_group)
@@ -329,20 +329,20 @@ class CounselingSessionForm(QDialog):
         follow_group = QGroupBox("🔔 نتیجه و پیگیری")
         follow_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
                 background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         follow_layout = QFormLayout(follow_group)
@@ -351,11 +351,11 @@ class CounselingSessionForm(QDialog):
         self.outcome_input = QTextEdit()
         self.outcome_input.setPlaceholderText("نتیجه جلسه...")
         self.outcome_input.setMaximumHeight(60)
-        self.outcome_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 4px;")
+        self.outcome_input.setStyleSheet("border: 1px solid #DEE2E6; border-radius: 4px; padding: 4px;")
         follow_layout.addRow("📊 نتیجه:", self.outcome_input)
 
         self.follow_up_check = QCheckBox("نیاز به پیگیری دارد")
-        self.follow_up_check.setStyleSheet("font-weight: bold; color: #17212B;")
+        self.follow_up_check.setStyleSheet("font-weight: bold; color: #2C3E50;")
         follow_layout.addRow("", self.follow_up_check)
 
         next_date_layout = QHBoxLayout()
@@ -367,7 +367,7 @@ class CounselingSessionForm(QDialog):
         self.next_notes_input = QTextEdit()
         self.next_notes_input.setPlaceholderText("یادداشت جلسه بعدی...")
         self.next_notes_input.setMaximumHeight(40)
-        self.next_notes_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 4px;")
+        self.next_notes_input.setStyleSheet("border: 1px solid #DEE2E6; border-radius: 4px; padding: 4px;")
         follow_layout.addRow("📝 یادداشت:", self.next_notes_input)
 
         self.status_combo = QComboBox()
@@ -387,14 +387,14 @@ class CounselingSessionForm(QDialog):
         self.save_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 10px 30px;
                 border: none;
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 14px;
             }
-            QPushButton:hover { background-color: #F2F6FA; }
+            QPushButton:hover { background-color: #F8F9FA; }
         """)
         self.save_btn.clicked.connect(self.save_session)
         button_layout.addWidget(self.save_btn)
@@ -403,7 +403,7 @@ class CounselingSessionForm(QDialog):
         self.cancel_btn.setMinimumHeight(40)
         self.cancel_btn.setStyleSheet("""
             QPushButton {
-                background-color: #B42318;
+                background-color: #C0392B;
                 color: #FFFFFF;
                 padding: 10px 20px;
                 border: none;
