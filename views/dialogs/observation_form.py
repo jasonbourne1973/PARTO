@@ -94,7 +94,7 @@ class ObservationForm(QDialog):
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        scroll.setStyleSheet("QScrollArea { border: none; background-color: #0B2E4F; }")
+        scroll.setStyleSheet("QScrollArea { border: none; background-color: #2C3E50; }")
 
         container = QWidget()
         container.setMinimumWidth(0)
@@ -102,7 +102,7 @@ class ObservationForm(QDialog):
             QSizePolicy.Policy.Ignored,
             QSizePolicy.Policy.Preferred
         )
-        container.setStyleSheet("background-color: #0B2E4F;")
+        container.setStyleSheet("background-color: #2C3E50;")
         layout = QVBoxLayout(container)
         layout.setSpacing(8)
         layout.setContentsMargins(10, 10, 10, 10)
@@ -115,7 +115,7 @@ class ObservationForm(QDialog):
             QLabel {
                 font-size: 18px;
                 font-weight: bold;
-                color: #D9AF24;
+                color: #3498DB;
             }
         """)
         header_layout.addWidget(title_label)
@@ -125,14 +125,14 @@ class ObservationForm(QDialog):
         self.guide_btn = QPushButton("❓ راهنما")
         self.guide_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0B2E4F;
-                color: #D9AF24;
+                background-color: #2C3E50;
+                color: #3498DB;
                 border: none;
                 border-radius: 4px;
                 padding: 5px 15px;
                 font-size: 12px;
             }
-            QPushButton:hover { background-color: #08223A; }
+            QPushButton:hover { background-color: #1A252F; }
         """)
         self.guide_btn.clicked.connect(self.show_guide)
         header_layout.addWidget(self.guide_btn)
@@ -147,20 +147,20 @@ class ObservationForm(QDialog):
         main_group = QGroupBox("اطلاعات مشاهده")
         main_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
                 background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         form_layout = QFormLayout(main_group)
@@ -177,7 +177,7 @@ class ObservationForm(QDialog):
         student_layout = QVBoxLayout(student_widget)
         student_layout.setContentsMargins(0, 0, 0, 0)
         student_label = QLabel("دانش‌آموز:")
-        student_label.setStyleSheet("font-weight: bold; color: #17212B;")
+        student_label.setStyleSheet("font-weight: bold; color: #2C3E50;")
         student_layout.addWidget(student_label)
 
         self.student_combo = QComboBox()
@@ -186,9 +186,9 @@ class ObservationForm(QDialog):
         self.student_combo.setMinimumHeight(32)
         self.student_combo.setStyleSheet("""
             QComboBox {
-    color: #D9AF24;
-    background-color: #08223A;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+    background-color: #1A252F;
+                border: 1px solid #DEE2E6;
                 border-radius: 4px;
                 padding: 4px 8px;
                 font-size: 13px;
@@ -196,7 +196,7 @@ class ObservationForm(QDialog):
             }
             QComboBox:focus {
     color: #FFFFFF;
-    background-color: #0B2E4F; border: 2px solid #D9AF24; }
+    background-color: #2C3E50; border: 2px solid #3498DB; }
             QComboBox::drop-down { border: none; }
         """)
         # تنظیم Tooltip
@@ -210,16 +210,16 @@ class ObservationForm(QDialog):
         date_layout = QVBoxLayout(date_widget)
         date_layout.setContentsMargins(0, 0, 0, 0)
         date_label = QLabel("تاریخ:")
-        date_label.setStyleSheet("font-weight: bold; color: #D9AF24;")
+        date_label.setStyleSheet("font-weight: bold; color: #3498DB;")
         date_layout.addWidget(date_label)
 
         self.date_input = ShamsiDateInput()
         self.date_input.setMinimumHeight(32)
         self.date_input.setStyleSheet("""
             QLineEdit {
-    color: #D9AF24;
-    background-color: #08223A;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+    background-color: #1A252F;
+                border: 1px solid #DEE2E6;
                 border-radius: 4px;
                 padding: 4px 8px;
                 font-size: 13px;
@@ -227,7 +227,7 @@ class ObservationForm(QDialog):
             }
             QLineEdit:focus {
     color: #FFFFFF;
-    background-color: #0B2E4F; border: 2px solid #D9AF24; }
+    background-color: #2C3E50; border: 2px solid #3498DB; }
         """)
         # تنظیم Tooltip
         TooltipManager.set_field_tooltip(self.date_input, 'date')
@@ -246,7 +246,7 @@ class ObservationForm(QDialog):
         observer_layout = QVBoxLayout(observer_widget)
         observer_layout.setContentsMargins(0, 0, 0, 0)
         observer_label = QLabel("مشاهده‌گر:")
-        observer_label.setStyleSheet("font-weight: bold; color: #D9AF24;")
+        observer_label.setStyleSheet("font-weight: bold; color: #3498DB;")
         observer_layout.addWidget(observer_label)
 
         self.observer_combo = QComboBox()
@@ -254,9 +254,9 @@ class ObservationForm(QDialog):
         self.observer_combo.setMinimumHeight(32)
         self.observer_combo.setStyleSheet("""
             QComboBox {
-    color: #D9AF24;
-    background-color: #08223A;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+    background-color: #1A252F;
+                border: 1px solid #DEE2E6;
                 border-radius: 4px;
                 padding: 4px 8px;
                 font-size: 13px;
@@ -264,7 +264,7 @@ class ObservationForm(QDialog):
             }
             QComboBox:focus {
     color: #FFFFFF;
-    background-color: #0B2E4F; border: 2px solid #D9AF24; }
+    background-color: #2C3E50; border: 2px solid #3498DB; }
         """)
         # تنظیم Tooltip
         TooltipManager.set_field_tooltip(self.observer_combo, 'observer')
@@ -277,7 +277,7 @@ class ObservationForm(QDialog):
         location_layout = QVBoxLayout(location_widget)
         location_layout.setContentsMargins(0, 0, 0, 0)
         location_label = QLabel("محیط:")
-        location_label.setStyleSheet("font-weight: bold; color: #17212B;")
+        location_label.setStyleSheet("font-weight: bold; color: #2C3E50;")
         location_layout.addWidget(location_label)
 
         self.location_combo = QComboBox()
@@ -286,9 +286,9 @@ class ObservationForm(QDialog):
         self.location_combo.setMinimumHeight(32)
         self.location_combo.setStyleSheet("""
             QComboBox {
-    color: #D9AF24;
-    background-color: #08223A;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+    background-color: #1A252F;
+                border: 1px solid #DEE2E6;
                 border-radius: 4px;
                 padding: 4px 8px;
                 font-size: 13px;
@@ -296,7 +296,7 @@ class ObservationForm(QDialog):
             }
             QComboBox:focus {
     color: #FFFFFF;
-    background-color: #0B2E4F; border: 2px solid #D9AF24; }
+    background-color: #2C3E50; border: 2px solid #3498DB; }
         """)
         # تنظیم Tooltip
         TooltipManager.set_field_tooltip(self.location_combo, 'location')
@@ -311,20 +311,20 @@ class ObservationForm(QDialog):
         behavior_group = QGroupBox("رفتار مشاهده‌شده")
         behavior_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
                 background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         behavior_layout = QVBoxLayout(behavior_group)
@@ -332,12 +332,12 @@ class ObservationForm(QDialog):
         quick_guide = QLabel("✏️ رفتار قابل مشاهده را ثبت کنید (مثال: در زنگ تفریح، همکلاسی را هل داد)")
         quick_guide.setStyleSheet("""
             QLabel {
-                background-color: #B42318;
+                background-color: #C0392B;
                 padding: 5px 10px;
                 border-radius: 4px;
                 color: #FFFFFF;
                 font-size: 12px;
-                border: 1px solid #D9AF24;
+                border: 1px solid #3498DB;
             }
         """)
         quick_guide.setWordWrap(True)
@@ -349,16 +349,16 @@ class ObservationForm(QDialog):
         self.behavior_input.setMaximumHeight(100)
         self.behavior_input.setStyleSheet("""
             QTextEdit {
-    color: #D9AF24;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                border: 1px solid #DEE2E6;
                 border-radius: 4px;
                 padding: 8px;
                 font-size: 14px;
-                background-color: #08223A;
+                background-color: #1A252F;
             }
             QTextEdit:focus {
     color: #FFFFFF;
-    background-color: #0B2E4F; border: 2px solid #D9AF24; }
+    background-color: #2C3E50; border: 2px solid #3498DB; }
         """)
         behavior_layout.addWidget(self.behavior_input)
 
@@ -366,13 +366,13 @@ class ObservationForm(QDialog):
         self.show_more_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
-                color: #667085;
+                color: #7F8C8D;
                 border: none;
                 font-size: 12px;
                 text-align: right;
                 padding: 2px;
             }
-            QPushButton:hover { color: #17212B; }
+            QPushButton:hover { color: #2C3E50; }
         """)
         self.show_more_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.show_more_btn.clicked.connect(self.toggle_more_fields)
@@ -388,7 +388,7 @@ class ObservationForm(QDialog):
         self.antecedent_input = QTextEdit()
         self.antecedent_input.setPlaceholderText("قبل از رفتار چه اتفاقی افتاد؟ (اختیاری)")
         self.antecedent_input.setMaximumHeight(40)
-        self.antecedent_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 4px; font-size: 12px;")
+        self.antecedent_input.setStyleSheet("border: 1px solid #DEE2E6; border-radius: 4px; padding: 4px; font-size: 12px;")
         # تنظیم Tooltip
         TooltipManager.set_field_tooltip(self.antecedent_input, 'antecedent')
         more_layout.addRow("🔴 زمینه:", self.antecedent_input)
@@ -397,7 +397,7 @@ class ObservationForm(QDialog):
         self.consequence_input = QTextEdit()
         self.consequence_input.setPlaceholderText("پس از رفتار چه اتفاقی افتاد؟ (اختیاری)")
         self.consequence_input.setMaximumHeight(40)
-        self.consequence_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 4px; font-size: 12px;")
+        self.consequence_input.setStyleSheet("border: 1px solid #DEE2E6; border-radius: 4px; padding: 4px; font-size: 12px;")
         # تنظیم Tooltip
         TooltipManager.set_field_tooltip(self.consequence_input, 'consequence')
         more_layout.addRow("🟢 پیامد:", self.consequence_input)
@@ -406,7 +406,7 @@ class ObservationForm(QDialog):
         self.description_input = QTextEdit()
         self.description_input.setPlaceholderText("توضیحات تکمیلی (اختیاری)...")
         self.description_input.setMaximumHeight(40)
-        self.description_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 4px; font-size: 12px;")
+        self.description_input.setStyleSheet("border: 1px solid #DEE2E6; border-radius: 4px; padding: 4px; font-size: 12px;")
         # تنظیم Tooltip
         TooltipManager.set_field_tooltip(self.description_input, 'description')
         more_layout.addRow("📝 توضیحات:", self.description_input)
@@ -414,7 +414,7 @@ class ObservationForm(QDialog):
         # برچسب‌ها
         self.tags_input = QLineEdit()
         self.tags_input.setPlaceholderText("ورزشی, آموزشی, رفتاری, ... (اختیاری)")
-        self.tags_input.setStyleSheet("border: 1px solid #D0D5DD; border-radius: 4px; padding: 4px; font-size: 12px;")
+        self.tags_input.setStyleSheet("border: 1px solid #DEE2E6; border-radius: 4px; padding: 4px; font-size: 12px;")
         # تنظیم Tooltip
         TooltipManager.set_field_tooltip(self.tags_input, 'tags')
         more_layout.addRow("🏷️ برچسب‌ها:", self.tags_input)
@@ -428,20 +428,20 @@ class ObservationForm(QDialog):
         competency_group = QGroupBox("📊 شایستگی مرتبط (اختیاری)")
         competency_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
                 background-color: #FFFFFF;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         competency_layout = QVBoxLayout(competency_group)
@@ -452,9 +452,9 @@ class ObservationForm(QDialog):
                 background-color: #FFFFFF;
                 padding: 5px 10px;
                 border-radius: 4px;
-                color: #17212B;
+                color: #2C3E50;
                 font-size: 12px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
             }
         """)
         comp_guide.setWordWrap(True)
@@ -474,12 +474,12 @@ class ObservationForm(QDialog):
         self.selected_path_label = QLabel("هیچ شایستگی‌ای انتخاب نشده است")
         self.selected_path_label.setStyleSheet("""
             QLabel {
-                color: #E4E7EC;
+                color: #DEE2E6;
                 font-size: 12px;
                 padding: 4px 8px;
-                background-color: #0B2E4F;
+                background-color: #2C3E50;
                 border-radius: 4px;
-                border: 1px solid #08223A;
+                border: 1px solid #1A252F;
                 font-weight: bold;
             }
         """)
@@ -489,7 +489,7 @@ class ObservationForm(QDialog):
         clear_comp_btn = QPushButton("🗑️ پاک کردن انتخاب شایستگی")
         clear_comp_btn.setStyleSheet("""
             QPushButton {
-                background-color: #B42318;
+                background-color: #C0392B;
                 color: #FFFFFF;
                 padding: 4px 15px;
                 border: none;
@@ -497,7 +497,7 @@ class ObservationForm(QDialog):
                 font-size: 12px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #D94B4B; }
+            QPushButton:hover { background-color: #E74C3C; }
         """)
         clear_comp_btn.clicked.connect(self.clear_competency_selection)
         competency_layout.addWidget(clear_comp_btn)
@@ -513,7 +513,7 @@ class ObservationForm(QDialog):
         type_layout = QVBoxLayout(type_widget)
         type_layout.setContentsMargins(0, 0, 0, 0)
         type_label = QLabel("نوع رفتار:")
-        type_label.setStyleSheet("font-weight: bold; color: #D9AF24;")
+        type_label.setStyleSheet("font-weight: bold; color: #3498DB;")
         type_layout.addWidget(type_label)
 
         self.type_combo = QComboBox()
@@ -521,9 +521,9 @@ class ObservationForm(QDialog):
         self.type_combo.setMinimumHeight(30)
         self.type_combo.setStyleSheet("""
             QComboBox {
-    color: #D9AF24;
-    background-color: #08223A;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+    background-color: #1A252F;
+                border: 1px solid #DEE2E6;
                 border-radius: 4px;
                 padding: 4px 8px;
                 font-size: 13px;
@@ -540,7 +540,7 @@ class ObservationForm(QDialog):
         severity_layout = QVBoxLayout(severity_widget)
         severity_layout.setContentsMargins(0, 0, 0, 0)
         severity_label = QLabel("شدت:")
-        severity_label.setStyleSheet("font-weight: bold; color: #17212B;")
+        severity_label.setStyleSheet("font-weight: bold; color: #2C3E50;")
         severity_layout.addWidget(severity_label)
 
         severity_row = QHBoxLayout()
@@ -552,9 +552,9 @@ class ObservationForm(QDialog):
         self.severity_spin.setMinimumHeight(30)
         self.severity_spin.setStyleSheet("""
             QSpinBox {
-    color: #D9AF24;
-    background-color: #08223A;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+    background-color: #1A252F;
+                border: 1px solid #DEE2E6;
                 border-radius: 4px;
                 padding: 4px;
                 font-size: 13px;
@@ -566,7 +566,7 @@ class ObservationForm(QDialog):
         severity_row.addWidget(self.severity_spin)
 
         self.severity_label = QLabel("⭐" * 3)
-        self.severity_label.setStyleSheet("font-size: 14px; color: #B54708;")
+        self.severity_label.setStyleSheet("font-size: 14px; color: #D35400;")
         severity_row.addWidget(self.severity_label)
 
         severity_layout.addLayout(severity_row)
@@ -584,14 +584,14 @@ class ObservationForm(QDialog):
         self.save_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 10px 30px;
                 border: none;
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 14px;
             }
-            QPushButton:hover { background-color: #F2F6FA; }
+            QPushButton:hover { background-color: #F8F9FA; }
         """)
         self.save_btn.clicked.connect(self.save_observation)
         button_layout.addWidget(self.save_btn)
@@ -600,7 +600,7 @@ class ObservationForm(QDialog):
         self.cancel_btn.setMinimumHeight(40)
         self.cancel_btn.setStyleSheet("""
             QPushButton {
-                background-color: #B42318;
+                background-color: #C0392B;
                 color: #FFFFFF;
                 padding: 10px 20px;
                 border: none;
@@ -608,7 +608,7 @@ class ObservationForm(QDialog):
                 font-weight: bold;
                 font-size: 14px;
             }
-            QPushButton:hover { background-color: #D94B4B; }
+            QPushButton:hover { background-color: #E74C3C; }
         """)
         self.cancel_btn.clicked.connect(self.reject)
         button_layout.addWidget(self.cancel_btn)
@@ -686,7 +686,7 @@ class ObservationForm(QDialog):
             self.selected_path_label.setText(f"✅ انتخاب‌شده: {full_path}")
             self.selected_path_label.setStyleSheet("""
                 QLabel {
-                    color: #17212B;
+                    color: #2C3E50;
                     font-size: 12px;
                     padding: 4px 8px;
                     background-color: #eafaf1;
@@ -699,12 +699,12 @@ class ObservationForm(QDialog):
             self.selected_path_label.setText("هیچ شایستگی‌ای انتخاب نشده است")
             self.selected_path_label.setStyleSheet("""
                 QLabel {
-                    color: #E4E7EC;
+                    color: #DEE2E6;
                     font-size: 12px;
                     padding: 4px 8px;
-                    background-color: #0B2E4F;
+                    background-color: #2C3E50;
                     border-radius: 4px;
-                    border: 1px solid #08223A;
+                    border: 1px solid #1A252F;
                     font-weight: bold;
                 }
             """)
@@ -716,12 +716,12 @@ class ObservationForm(QDialog):
         self.selected_path_label.setText("هیچ شایستگی‌ای انتخاب نشده است")
         self.selected_path_label.setStyleSheet("""
             QLabel {
-                color: #E4E7EC;
+                color: #DEE2E6;
                 font-size: 12px;
                 padding: 4px 8px;
-                background-color: #0B2E4F;
+                background-color: #2C3E50;
                 border-radius: 4px;
-                border: 1px solid #08223A;
+                border: 1px solid #1A252F;
                 font-weight: bold;
             }
         """)
@@ -800,7 +800,7 @@ class ObservationForm(QDialog):
                     self.selected_path_label.setText(f"✅ انتخاب‌شده: {full_path}")
                     self.selected_path_label.setStyleSheet("""
                         QLabel {
-                            color: #17212B;
+                            color: #2C3E50;
                             font-size: 12px;
                             padding: 4px 8px;
                             background-color: #eafaf1;
