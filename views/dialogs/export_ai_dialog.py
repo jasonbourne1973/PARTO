@@ -79,12 +79,12 @@ class ExportAIDialog(QDialog):
                 border-radius: 5px;
             }
             QScrollBar::handle:vertical {
-                background-color: #F8FAFC;
+                background-color: #F8F9FA;
                 border-radius: 5px;
                 min-height: 30px;
             }
             QScrollBar::handle:vertical:hover {
-                background-color: #F8FAFC;
+                background-color: #F8F9FA;
             }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
                 height: 0px;
@@ -110,10 +110,10 @@ class ExportAIDialog(QDialog):
         desc_label.setWordWrap(True)
         desc_label.setStyleSheet("""
             QLabel {
-                background-color: #08223A;
+                background-color: #1A252F;
                 padding: 12px;
                 border-radius: 8px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 font-size: 13px;
                 line-height: 1.6;
             }
@@ -124,27 +124,27 @@ class ExportAIDialog(QDialog):
         info_group = QGroupBox("👤 اطلاعات دانش‌آموز")
         info_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
     background-color: #FFFFFF;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         info_layout = QFormLayout()
         info_group.setLayout(info_layout)
 
         self.student_name_label = QLabel("نامشخص")
-        self.student_name_label.setStyleSheet("font-weight: bold; color: #17212B;")
+        self.student_name_label.setStyleSheet("font-weight: bold; color: #2C3E50;")
         info_layout.addRow("👤 دانش‌آموز:", self.student_name_label)
 
         self.student_grade_label = QLabel("نامشخص")
@@ -162,27 +162,27 @@ class ExportAIDialog(QDialog):
         format_group = QGroupBox("📁 انتخاب فرمت خروجی")
         format_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
     background-color: #FFFFFF;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         format_layout = QVBoxLayout()
         format_group.setLayout(format_layout)
 
         format_help = QLabel("💡 هر هوش مصنوعی فرمت خاصی را بهتر پشتیبانی می‌کند. فرمت مناسب را انتخاب کنید:")
-        format_help.setStyleSheet("font-size: 12px; color: #667085;")
+        format_help.setStyleSheet("font-size: 12px; color: #7F8C8D;")
         format_help.setWordWrap(True)
         format_layout.addWidget(format_help)
 
@@ -218,7 +218,7 @@ class ExportAIDialog(QDialog):
             format_layout.addWidget(radio)
 
             tip_label = QLabel(f"   ↳ {tooltip}")
-            tip_label.setStyleSheet("font-size: 11px; color: #667085; padding-left: 30px;")
+            tip_label.setStyleSheet("font-size: 11px; color: #7F8C8D; padding-left: 30px;")
             format_layout.addWidget(tip_label)
 
         container_layout.addWidget(format_group)
@@ -227,20 +227,20 @@ class ExportAIDialog(QDialog):
         prompt_group = QGroupBox("📋 پرامپت پیشنهادی برای هوش مصنوعی")
         prompt_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
     background-color: #FFFFFF;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 10px;
                 padding-top: 10px;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         prompt_layout = QVBoxLayout()
@@ -252,9 +252,9 @@ class ExportAIDialog(QDialog):
         self.prompt_text.setMaximumHeight(200)
         self.prompt_text.setStyleSheet("""
             QTextEdit {
-    color: #D9AF24;
-                background-color: #08223A;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #1A252F;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
                 padding: 8px;
                 font-size: 12px;
@@ -277,7 +277,7 @@ class ExportAIDialog(QDialog):
         self.export_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 12px 30px;
                 border: none;
                 border-radius: 6px;
@@ -285,7 +285,7 @@ class ExportAIDialog(QDialog):
                 font-size: 14px;
                 min-height: 40px;
             }
-            QPushButton:hover { background-color: #F2F6FA; }
+            QPushButton:hover { background-color: #F8F9FA; }
         """)
         self.export_btn.clicked.connect(self.export_data)
         button_layout.addWidget(self.export_btn)
@@ -293,8 +293,8 @@ class ExportAIDialog(QDialog):
         self.copy_prompt_btn = QPushButton("📋 کپی پرامپت")
         self.copy_prompt_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0B2E4F;
-                color: #D9AF24;
+                background-color: #2C3E50;
+                color: #3498DB;
                 padding: 12px 20px;
                 border: none;
                 border-radius: 6px;
@@ -302,7 +302,7 @@ class ExportAIDialog(QDialog):
                 font-size: 13px;
                 min-height: 40px;
             }
-            QPushButton:hover { background-color: #08223A; }
+            QPushButton:hover { background-color: #1A252F; }
         """)
         self.copy_prompt_btn.clicked.connect(self.copy_prompt)
         button_layout.addWidget(self.copy_prompt_btn)
@@ -312,7 +312,7 @@ class ExportAIDialog(QDialog):
         self.cancel_btn = QPushButton("❌ انصراف")
         self.cancel_btn.setStyleSheet("""
             QPushButton {
-                background-color: #B42318;
+                background-color: #C0392B;
                 color: #FFFFFF;
                 padding: 12px 20px;
                 border: none;
