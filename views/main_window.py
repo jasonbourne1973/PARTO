@@ -288,7 +288,7 @@ class MainWindow(QMainWindow):
 
         # ===== انتخاب سال تحصیلی =====
         self.year_label = QLabel("📅 سال: بارگذاری...")
-        self.year_label.setStyleSheet("color: #111111; font-size: 11px; font-weight: bold; padding: 5px 8px; background-color: #66BB6A; border-radius: 4px; margin: 3px 8px;")
+        self.year_label.setStyleSheet("color: #2C3E50; font-size: 11px; font-weight: bold; padding: 5px 8px; background-color: #27AE60; border-radius: 4px; margin: 3px 8px;")
         self.year_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         menu_layout.addWidget(self.year_label)
 
@@ -407,7 +407,7 @@ class MainWindow(QMainWindow):
             QFrame {
                 background: qlineargradient(
                     x1: 0, y1: 0, x2: 1, y2: 1,
-                    stop: 0 #061B2D,
+                    stop: 0 #08223A,
                     stop: 0.35 #2C3E50,
                     stop: 0.65 #3498DB,
                     stop: 1 #1A252F
@@ -431,7 +431,7 @@ class MainWindow(QMainWindow):
         header_layout.addStretch()
 
         user_info_label = QLabel(f"👤 {self.current_username or 'کاربر'}")
-        user_info_label.setStyleSheet("font-size: 13px; color: #66BB6A; font-weight: 600;")
+        user_info_label.setStyleSheet("font-size: 13px; color: #27AE60; font-weight: 600;")
         header_layout.addWidget(user_info_label)
 
         version_label = QLabel(f"نسخه {APP_VERSION}")
