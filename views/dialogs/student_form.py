@@ -191,20 +191,20 @@ class StudentForm(QDialog):
         self.save_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 10px 20px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #F2F6FA; }
+            QPushButton:hover { background-color: #F8F9FA; }
         """)
         self.save_btn.clicked.connect(self.save_student)
 
         self.cancel_btn = QPushButton("❌ انصراف")
         self.cancel_btn.setStyleSheet("""
             QPushButton {
-                background-color: #B42318;
+                background-color: #C0392B;
                 color: #FFFFFF;
                 padding: 10px 20px;
                 border: none;
