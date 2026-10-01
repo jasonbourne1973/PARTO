@@ -262,7 +262,7 @@ class HelpWidget(QDialog):
                 font-size: 12px;
             }
             QLineEdit:focus {
-                border: 2px solid #0B2E4F;
+                border: 2px solid #2C3E50;
             }
         """)
         self.search_input.textChanged.connect(self.on_search_changed)
@@ -287,7 +287,7 @@ class HelpWidget(QDialog):
                 background-color: #e8f0fe;
             }
             QListWidget::item:selected {
-                background-color: #0B2E4F;
+                background-color: #2C3E50;
                 color: white;
             }
         """)
@@ -365,7 +365,7 @@ class HelpWidget(QDialog):
         self.next_btn = QPushButton("بعدی ▶")
         self.next_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0B2E4F;
+                background-color: #2C3E50;
                 color: white;
                 border: none;
                 border-radius: 4px;
@@ -373,7 +373,7 @@ class HelpWidget(QDialog):
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #174F78;
+                background-color: #34495E;
             }
             QPushButton:disabled {
                 background-color: #bdc3c7;
@@ -492,7 +492,7 @@ class HelpWidget(QDialog):
             'competencies': 'شایستگی‌ها',
         }
         cat_label = QLabel(f"📂 {category_names.get(category, 'عمومی')}")
-        cat_label.setStyleSheet("font-size: 12px; color: #64748B;")
+        cat_label.setStyleSheet("font-size: 12px; color: #7F8C8D;")
         self.content_layout.addWidget(cat_label)
         
         self.content_layout.addSpacing(10)
@@ -536,7 +536,7 @@ class HelpWidget(QDialog):
         if tags:
             tags_text = "🏷️ " + ", ".join(tags)
             tags_label = QLabel(tags_text)
-            tags_label.setStyleSheet("font-size: 11px; color: #64748B;")
+            tags_label.setStyleSheet("font-size: 11px; color: #7F8C8D;")
             self.content_layout.addWidget(tags_label)
         
         # افزودن فضای خالی در انتها
@@ -566,7 +566,7 @@ class HelpWidget(QDialog):
                 line-height: 2;
                 color: #1E293B;
                 padding: 40px 20px;
-                background-color: #F8FAFC;
+                background-color: #F8F9FA;
                 border-radius: 8px;
             }
         """)
