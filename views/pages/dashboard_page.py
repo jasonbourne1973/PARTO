@@ -171,7 +171,7 @@ class DashboardPage(YearAwarePage, QWidget):
                 color: #0F172A;
             }
             QTabBar::tab:hover {
-                background-color: #FFFAEB;
+                background-color: #FFFBEB;
                 color: #0F172A;
             }
         """)
@@ -270,8 +270,8 @@ class DashboardPage(YearAwarePage, QWidget):
         cards_config = [
             ("دانش‌آموزان", "کل دانش‌آموزان", "👨‍🎓", "#1E293B", "#1E293B", "پرونده‌های فعال سامانه"),
             ("مشاهدات", "مشاهدات ثبت‌شده", "📝", "#D97706", "#FFFBEB", "رفتاری و آموزشی"),
-            ("مداخلات", "مداخلات انجام‌شده", "🛠️", "#7C3AED", "#F4F0FE", "راهبردهای بهبود"),
-            ("پیگیری باز", "پیگیری‌های باز", "🔔", "#DC2626", "#FEF3F2", "نیازمند اقدام فوری"),
+            ("مداخلات", "مداخلات انجام‌شده", "🛠️", "#7C3AED", "#F5F3FF", "راهبردهای بهبود"),
+            ("پیگیری باز", "پیگیری‌های باز", "🔔", "#DC2626", "#FEF2F2", "نیازمند اقدام فوری"),
         ]
 
         for i, (key, title, icon, accent_color, bg_light, subtext) in enumerate(cards_config):
@@ -659,7 +659,7 @@ class DashboardPage(YearAwarePage, QWidget):
 
         # رسم میله‌ها
         ax.bar(x - width/2, positive, width, label='مثبت', 
-               color='#2E7D32', edgecolor='none', alpha=0.8)
+               color='#059669', edgecolor='none', alpha=0.8)
         ax.bar(x + width/2, negative, width, label='منفی',
                color='#DC2626', edgecolor='none', alpha=0.8)
 
@@ -696,7 +696,7 @@ class DashboardPage(YearAwarePage, QWidget):
                     font-size: 11px;
                     font-weight: bold;
                     color: #DC2626;
-                    background-color: #FFFAEB;
+                    background-color: #FFFBEB;
                     padding: 3px 10px;
                     border-radius: 12px;
                     border: 1px solid #DC2626;
@@ -726,7 +726,7 @@ class DashboardPage(YearAwarePage, QWidget):
             else:
                 empty_item = QTableWidgetItem("🎉 هیچ پیگیری معوق یا نیازمند اقدامی وجود ندارد.")
                 empty_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                empty_item.setForeground(QColor("#2E7D32"))
+                empty_item.setForeground(QColor("#059669"))
                 self.reminder_table.setItem(0, 0, empty_item)
                 self.reminder_table.setSpan(0, 0, 1, 4)
                 self.reminder_table.setRowHeight(0, 40)
@@ -738,11 +738,11 @@ class DashboardPage(YearAwarePage, QWidget):
         """بارگذاری فعالیت‌های اخیر"""
         try:
             action_map = {
-                'create': ('➕ ایجاد', '#2E7D32'),
+                'create': ('➕ ایجاد', '#059669'),
                 'edit': ('✏️ ویرایش', '#1E293B'),
                 'delete_soft': ('🗑️ حذف', '#DC2626'),
-                'delete': ('🗑️ حذف دائم', '#7A271A'),
-                'restore': ('↩️ بازیابی', '#2E7D32'),
+                'delete': ('🗑️ حذف دائم', '#334155'),
+                'restore': ('↩️ بازیابی', '#059669'),
                 'login_success': ('🔓 ورود', '#7C3AED'),
                 'logout': ('🚪 خروج', '#64748B'),
                 'export': ('📤 خروجی', '#D97706'),
