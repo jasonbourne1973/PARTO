@@ -75,7 +75,7 @@ class IndicatorsPage(YearAwarePage, QWidget):
             QLabel {
                 font-size: 20px;
                 font-weight: bold;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         toolbar.addWidget(title_label)
@@ -115,18 +115,18 @@ class IndicatorsPage(YearAwarePage, QWidget):
         self.search_input.setPlaceholderText("جستجوی نام یا کد ملی...")
         self.search_input.setStyleSheet("""
             QLineEdit {
-    color: #D9AF24;
-    background-color: #08223A;
+    color: #3498DB;
+    background-color: #1A252F;
                 padding: 5px 10px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
                 font-size: 13px;
                 min-width: 150px;
             }
             QLineEdit:focus {
     color: #FFFFFF;
-    background-color: #0B2E4F;
-                border: 2px solid #D9AF24;
+    background-color: #2C3E50;
+                border: 2px solid #3498DB;
             }
         """)
         toolbar.addWidget(self.search_input)
@@ -134,14 +134,14 @@ class IndicatorsPage(YearAwarePage, QWidget):
         self.search_btn = QPushButton("🔍 جستجو")
         self.search_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0B2E4F;
-                color: #D9AF24;
+                background-color: #2C3E50;
+                color: #3498DB;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #08223A; }
+            QPushButton:hover { background-color: #1A252F; }
         """)
         self.search_btn.clicked.connect(self.search_student)
         toolbar.addWidget(self.search_btn)
@@ -150,7 +150,7 @@ class IndicatorsPage(YearAwarePage, QWidget):
         self.clear_search_btn.setFixedSize(30, 30)
         self.clear_search_btn.setStyleSheet("""
             QPushButton {
-                background-color: #B42318;
+                background-color: #C0392B;
                 color: #FFFFFF;
                 border: none;
                 border-radius: 5px;
@@ -167,12 +167,12 @@ class IndicatorsPage(YearAwarePage, QWidget):
         self.insufficient_data_label = QLabel("")
         self.insufficient_data_label.setStyleSheet("""
             QLabel {
-                background-color: #B42318;
+                background-color: #C0392B;
                 color: #FFFFFF;
                 padding: 10px;
                 border-radius: 5px;
                 font-weight: bold;
-                border: 1px solid #D9AF24;
+                border: 1px solid #3498DB;
             }
         """)
         self.insufficient_data_label.setVisible(False)
@@ -190,25 +190,25 @@ class IndicatorsPage(YearAwarePage, QWidget):
         self.tree.setColumnWidth(2, 120)
         self.tree.setStyleSheet("""
             QTreeWidget {
-    color: #D9AF24;
-    gridline-color: #E4E7EC;
-                background-color: #0B2E4F;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+    gridline-color: #DEE2E6;
+                background-color: #2C3E50;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
             QTreeWidget::item {
-    color: #D9AF24;
-    border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F;
+    color: #3498DB;
+    border-bottom: 1px solid #DEE2E6;
+    background-color: #2C3E50;
                 padding: 5px;
             }
             QTreeWidget::item:selected {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
             }
             QTreeWidget::item:hover {
     color: #FFFFFF;
-                background-color: #174F78;
+                background-color: #34495E;
             }
         """)
         self.tree.itemClicked.connect(self.show_competency_details)
@@ -219,9 +219,9 @@ class IndicatorsPage(YearAwarePage, QWidget):
         self.details_panel.setReadOnly(True)
         self.details_panel.setStyleSheet("""
             QTextEdit {
-    color: #D9AF24;
-                background-color: #08223A;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #1A252F;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
                 padding: 10px;
                 font-size: 13px;
@@ -237,15 +237,15 @@ class IndicatorsPage(YearAwarePage, QWidget):
         refresh_btn = QPushButton("🔄 به‌روزرسانی شاخص‌ها")
         refresh_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0B2E4F;
-                color: #D9AF24;
+                background-color: #2C3E50;
+                color: #3498DB;
                 padding: 10px 20px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #08223A;
+                background-color: #1A252F;
             }
         """)
         refresh_btn.clicked.connect(self.refresh_indicators)
