@@ -72,7 +72,7 @@ class LoginDialog(QDialog):
             QLabel {
                 font-size: 28px;
                 font-weight: bold;
-                color: #17212B;
+                color: #2C3E50;
                 letter-spacing: 2px;
             }
         """)
@@ -83,7 +83,7 @@ class LoginDialog(QDialog):
         subtitle_label.setStyleSheet("""
             QLabel {
                 font-size: 13px;
-                color: #667085;
+                color: #7F8C8D;
                 font-weight: 500;
             }
         """)
@@ -91,7 +91,7 @@ class LoginDialog(QDialog):
 
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setStyleSheet("background-color: #08223A; max-height: 1px; margin: 10px 0;")
+        separator.setStyleSheet("background-color: #1A252F; max-height: 1px; margin: 10px 0;")
         logo_layout.addWidget(separator)
 
         main_layout.addLayout(logo_layout)
@@ -107,16 +107,16 @@ class LoginDialog(QDialog):
         self.username_input.setMinimumHeight(38)
         self.username_input.setStyleSheet("""
             QLineEdit {
-    color: #D9AF24;
-    background-color: #08223A;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+    background-color: #1A252F;
+                border: 1px solid #DEE2E6;
                 border-radius: 6px;
                 padding: 8px 12px;
                 font-size: 13px;
             }
             QLineEdit:focus {
     color: #FFFFFF;
-    background-color: #0B2E4F; border: 2px solid #D9AF24; }
+    background-color: #2C3E50; border: 2px solid #3498DB; }
         """)
         # تنظیم Tooltip
         TooltipManager.set_tooltip(self.username_input, "نام کاربری خود را وارد کنید. (مثال: admin)")
@@ -129,16 +129,16 @@ class LoginDialog(QDialog):
         self.password_input.setMinimumHeight(38)
         self.password_input.setStyleSheet("""
             QLineEdit {
-    color: #D9AF24;
-    background-color: #08223A;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+    background-color: #1A252F;
+                border: 1px solid #DEE2E6;
                 border-radius: 6px;
                 padding: 8px 12px;
                 font-size: 13px;
             }
             QLineEdit:focus {
     color: #FFFFFF;
-    background-color: #0B2E4F; border: 2px solid #D9AF24; }
+    background-color: #2C3E50; border: 2px solid #3498DB; }
         """)
         # تنظیم Tooltip
         TooltipManager.set_tooltip(self.password_input, "رمز عبور خود را وارد کنید.")
@@ -154,7 +154,7 @@ class LoginDialog(QDialog):
         self.show_password_check.setStyleSheet("""
             QCheckBox {
                 font-size: 12px;
-                color: #667085;
+                color: #7F8C8D;
             }
             QCheckBox::indicator {
                 width: 16px;
@@ -171,16 +171,16 @@ class LoginDialog(QDialog):
         self.login_btn.setMinimumHeight(45)
         self.login_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0B2E4F;
-                color: #D9AF24;
+                background-color: #2C3E50;
+                color: #3498DB;
                 border: none;
                 border-radius: 8px;
                 font-size: 15px;
                 font-weight: bold;
                 padding: 10px;
             }
-            QPushButton:hover { background-color: #08223A; }
-            QPushButton:disabled { background-color: #F8FAFC; }
+            QPushButton:hover { background-color: #1A252F; }
+            QPushButton:disabled { background-color: #F8F9FA; }
         """)
         self.login_btn.clicked.connect(self.login)
         main_layout.addWidget(self.login_btn)
@@ -190,7 +190,7 @@ class LoginDialog(QDialog):
         self.error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.error_label.setStyleSheet("""
             QLabel {
-                color: #B42318;
+                color: #C0392B;
                 font-size: 13px;
                 font-weight: bold;
                 padding: 5px;
@@ -208,7 +208,7 @@ class LoginDialog(QDialog):
         self.change_pass_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFAEB;
-                color: #17212B;
+                color: #2C3E50;
                 border: none;
                 border-radius: 5px;
                 padding: 8px 15px;
@@ -226,7 +226,7 @@ class LoginDialog(QDialog):
         self.exit_btn = QPushButton("خروج")
         self.exit_btn.setStyleSheet("""
             QPushButton {
-                background-color: #B42318;
+                background-color: #C0392B;
                 color: #FFFFFF;
                 border: none;
                 border-radius: 5px;
@@ -248,7 +248,7 @@ class LoginDialog(QDialog):
         version_label.setStyleSheet("""
             QLabel {
                 font-size: 11px;
-                color: #667085;
+                color: #7F8C8D;
                 margin-top: 8px;
             }
         """)
@@ -257,13 +257,13 @@ class LoginDialog(QDialog):
         # استایل کلی
         self.setStyleSheet("""
             QDialog {
-                background-color: #0B2E4F;
+                background-color: #2C3E50;
                 border-radius: 10px;
             }
             QFormLayout QLabel {
                 font-size: 13px;
                 font-weight: 600;
-                color: #D9AF24;
+                color: #3498DB;
             }
         """)
 
