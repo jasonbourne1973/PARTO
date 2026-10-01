@@ -118,14 +118,14 @@ class SettingsPage(YearAwarePage, QWidget):
         tabs = QTabWidget()
         tabs.setStyleSheet("""
             QTabWidget::pane {
-    color: #17212B;
+    color: #2C3E50;
                 border: 1px solid #DEE2E6;
                 border-radius: 5px;
                 padding: 10px;
                 background-color: #FFFFFF;
             }
             QTabBar::tab {
-    color: #17212B;
+    color: #2C3E50;
     border: 1px solid #DEE2E6;
     background-color: #FFFFFF;
                 padding: 8px 15px;
@@ -133,8 +133,8 @@ class SettingsPage(YearAwarePage, QWidget):
             }
             QTabBar::tab:selected {
     border-color: #3498DB;
-                background-color: #F2F6FA;
-                color: #17212B;
+                background-color: #F8F9FA;
+                color: #2C3E50;
             }
         """)
         
@@ -186,7 +186,7 @@ class SettingsPage(YearAwarePage, QWidget):
         form_group = QGroupBox("➕ افزودن سال تحصیلی جدید")
         form_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
     background-color: #FFFFFF;
                 font-weight: bold;
                 border: 2px solid #3498DB;
@@ -195,11 +195,11 @@ class SettingsPage(YearAwarePage, QWidget):
                 padding-top: 12px;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         form_layout = QHBoxLayout()
@@ -214,7 +214,7 @@ class SettingsPage(YearAwarePage, QWidget):
         self.add_year_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
@@ -247,7 +247,7 @@ class SettingsPage(YearAwarePage, QWidget):
     background-color: #2C3E50; padding: 8px; }
             QHeaderView::section {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px;
                 border: 1px solid #DEE2E6;
                 font-weight: bold;
@@ -305,7 +305,7 @@ class SettingsPage(YearAwarePage, QWidget):
                 if year.is_active == 0 and year.is_archived == 0:
                     activate_btn = QPushButton("✅ فعال کن")
                     activate_btn.setFixedSize(70, 25)
-                    activate_btn.setStyleSheet("background-color: #FFFFFF; color: #17212B; border: none; border-radius: 3px;")
+                    activate_btn.setStyleSheet("background-color: #FFFFFF; color: #2C3E50; border: none; border-radius: 3px;")
                     activate_btn.clicked.connect(lambda checked, y=year: self.activate_year(y))
                     btn_layout.addWidget(activate_btn)
                 
@@ -407,7 +407,7 @@ class SettingsPage(YearAwarePage, QWidget):
         form_group = QGroupBox("➕ افزودن عضو جدید کادر")
         form_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
     background-color: #FFFFFF;
                 font-weight: bold;
                 border: 2px solid #3498DB;
@@ -416,11 +416,11 @@ class SettingsPage(YearAwarePage, QWidget):
                 padding-top: 12px;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         form_layout = QHBoxLayout()
@@ -441,7 +441,7 @@ class SettingsPage(YearAwarePage, QWidget):
         self.add_staff_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
@@ -474,7 +474,7 @@ class SettingsPage(YearAwarePage, QWidget):
     background-color: #2C3E50; padding: 8px; }
             QHeaderView::section {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px;
                 border: 1px solid #DEE2E6;
                 font-weight: bold;
@@ -529,7 +529,7 @@ class SettingsPage(YearAwarePage, QWidget):
                 else:
                     activate_btn = QPushButton("🟢 فعال کن")
                     activate_btn.setFixedSize(80, 25)
-                    activate_btn.setStyleSheet("background-color: #FFFFFF; color: #17212B; border: none; border-radius: 3px;")
+                    activate_btn.setStyleSheet("background-color: #FFFFFF; color: #2C3E50; border: none; border-radius: 3px;")
                     activate_btn.clicked.connect(lambda checked, s=staff: self.toggle_staff_status(s))
                     btn_layout.addWidget(activate_btn)
                 
@@ -637,7 +637,7 @@ class SettingsPage(YearAwarePage, QWidget):
         form_group = QGroupBox("➕ افزودن کاربر جدید")
         form_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
     background-color: #FFFFFF;
                 font-weight: bold;
                 border: 2px solid #3498DB;
@@ -646,11 +646,11 @@ class SettingsPage(YearAwarePage, QWidget):
                 padding-top: 12px;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         form_layout = QGridLayout()
@@ -689,7 +689,7 @@ class SettingsPage(YearAwarePage, QWidget):
         self.add_user_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px 20px;
                 border: none;
                 border-radius: 5px;
@@ -722,7 +722,7 @@ class SettingsPage(YearAwarePage, QWidget):
     background-color: #2C3E50; padding: 8px; }
             QHeaderView::section {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px;
                 border: 1px solid #DEE2E6;
                 font-weight: bold;
@@ -829,7 +829,7 @@ class SettingsPage(YearAwarePage, QWidget):
                 else:
                     activate_btn = QPushButton("🟢 فعال کن")
                     activate_btn.setFixedSize(80, 25)
-                    activate_btn.setStyleSheet("background-color: #FFFFFF; color: #17212B; border: none; border-radius: 3px;")
+                    activate_btn.setStyleSheet("background-color: #FFFFFF; color: #2C3E50; border: none; border-radius: 3px;")
                     activate_btn.clicked.connect(lambda checked, u=user: self.toggle_user_status(u))
                     btn_layout.addWidget(activate_btn)
                 
@@ -1127,7 +1127,7 @@ class SettingsPage(YearAwarePage, QWidget):
         save_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 10px 25px;
                 border: none;
                 border-radius: 5px;
@@ -1234,7 +1234,7 @@ class SettingsPage(YearAwarePage, QWidget):
                         {APP_EMAIL}
                     </a>
                 </p>
-                <p style='font-size: 14px; color: #17212B;'>
+                <p style='font-size: 14px; color: #2C3E50;'>
                     <b>🌐 وب‌سایت:</b> 
                     <a href='http://{APP_WEBSITE}' style='color: #2C3E50; text-decoration: none;'>
                         {APP_WEBSITE}
@@ -1318,7 +1318,7 @@ class SettingsPage(YearAwarePage, QWidget):
         auto_group = QGroupBox("🤖 پشتیبان‌گیری خودکار")
         auto_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
     background-color: #FFFFFF;
                 font-weight: bold;
                 border: 2px solid #3498DB;
@@ -1327,11 +1327,11 @@ class SettingsPage(YearAwarePage, QWidget):
                 padding-top: 12px;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         auto_layout = QFormLayout()
@@ -1361,7 +1361,7 @@ class SettingsPage(YearAwarePage, QWidget):
         self.start_auto_backup_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -1540,7 +1540,7 @@ class SettingsPage(YearAwarePage, QWidget):
         form_group = QGroupBox("➕ افزودن کلاس جدید")
         form_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
     background-color: #FFFFFF;
                 font-weight: bold;
                 border: 2px solid #3498DB;
@@ -1549,11 +1549,11 @@ class SettingsPage(YearAwarePage, QWidget):
                 padding-top: 12px;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         form_layout = QGridLayout()
@@ -1640,7 +1640,7 @@ class SettingsPage(YearAwarePage, QWidget):
     background-color: #2C3E50; padding: 8px; }
             QHeaderView::section {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px;
                 border: 1px solid #DEE2E6;
                 font-weight: bold;
