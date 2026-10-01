@@ -130,7 +130,7 @@ class BackupPage(QWidget):
         
         # ===== عنوان =====
         title_label = QLabel("💾 پشتیبان‌گیری و بازیابی")
-        title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; color: #17212B; }")
+        title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; color: #2C3E50; }")
         layout.addWidget(title_label)
         
         # ===== نوار ابزار =====
@@ -140,13 +140,13 @@ class BackupPage(QWidget):
         self.create_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 10px 20px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #F2F6FA; }
+            QPushButton:hover { background-color: #F8F9FA; }
         """)
         self.create_btn.clicked.connect(self.create_backup)
         toolbar.addWidget(self.create_btn)
@@ -155,7 +155,7 @@ class BackupPage(QWidget):
         self.restore_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFAEB;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 10px 20px;
                 border: none;
                 border-radius: 5px;
@@ -170,14 +170,14 @@ class BackupPage(QWidget):
         self.refresh_btn.setFixedWidth(40)
         self.refresh_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0B2E4F;
-                color: #D9AF24;
+                background-color: #2C3E50;
+                color: #3498DB;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
                 font-size: 16px;
             }
-            QPushButton:hover { background-color: #08223A; }
+            QPushButton:hover { background-color: #1A252F; }
         """)
         self.refresh_btn.clicked.connect(self.load_backups)
         toolbar.addWidget(self.refresh_btn)
@@ -189,13 +189,13 @@ class BackupPage(QWidget):
         self.progress_bar.setVisible(False)
         self.progress_bar.setStyleSheet("""
             QProgressBar {
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
                 text-align: center;
                 height: 25px;
             }
             QProgressBar::chunk {
-                background-color: #F2F6FA;
+                background-color: #F8F9FA;
                 border-radius: 5px;
             }
         """)
@@ -208,22 +208,22 @@ class BackupPage(QWidget):
         self.table.setAlternatingRowColors(True)
         self.table.setStyleSheet("""
             QTableWidget {
-    color: #D9AF24;
-                background-color: #0B2E4F;
-                alternate-background-color: #0B2E4F;
-                gridline-color: #E4E7EC;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #2C3E50;
+                alternate-background-color: #2C3E50;
+                gridline-color: #DEE2E6;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #D9AF24;
-    border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F; padding: 8px; }
+    color: #3498DB;
+    border-bottom: 1px solid #DEE2E6;
+    background-color: #2C3E50; padding: 8px; }
             QHeaderView::section {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 font-weight: bold;
             }
         """)
@@ -262,7 +262,7 @@ class BackupPage(QWidget):
                 status = backup.get('status', 'no_checksum')
                 status_item = QTableWidgetItem(backup.get('status_display', status))
                 status_item.setBackground(QColor(*self.STATUS_COLORS.get(status, (255, 240, 200))))
-                status_item.setForeground(QColor('#17212B'))
+                status_item.setForeground(QColor('#2C3E50'))
                 self.table.setItem(row, 3, status_item)
                 
                 # دکمه‌ها
@@ -273,14 +273,14 @@ class BackupPage(QWidget):
                 restore_btn = QPushButton("🔄 بازیابی")
                 restore_btn.setFixedSize(70, 25)
                 # (بازرسی شانزدهم) زرد روی زرد (#F4C542 روی #F4D35E) خوانا نبود
-                restore_btn.setStyleSheet("background-color: #FFFAEB; color: #0B2E4F; border: none; border-radius: 3px;")
+                restore_btn.setStyleSheet("background-color: #FFFAEB; color: #2C3E50; border: none; border-radius: 3px;")
                 restore_btn.setEnabled(status != 'corrupt')
                 restore_btn.clicked.connect(lambda checked, b=backup: self.restore_backup(b))
                 btn_layout.addWidget(restore_btn)
                 
                 delete_btn = QPushButton("🗑️")
                 delete_btn.setFixedSize(30, 25)
-                delete_btn.setStyleSheet("background-color: #B42318; color: #FFFFFF; border: none; border-radius: 3px;")
+                delete_btn.setStyleSheet("background-color: #C0392B; color: #FFFFFF; border: none; border-radius: 3px;")
                 delete_btn.clicked.connect(lambda checked, b=backup: self.delete_backup(b))
                 btn_layout.addWidget(delete_btn)
                 
