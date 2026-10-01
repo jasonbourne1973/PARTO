@@ -192,14 +192,14 @@ class PersianCalendarWidget(QWidget):
         today_btn = QPushButton("📍 امروز")
         today_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0B2E4F;
+                background-color: #2C3E50;
                 color: white;
                 padding: 5px;
                 border: none;
                 border-radius: 3px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #174F78; }
+            QPushButton:hover { background-color: #34495E; }
         """)
         today_btn.clicked.connect(self.set_today)
         layout.addWidget(today_btn)
@@ -293,7 +293,7 @@ class PersianCalendarWidget(QWidget):
                     background-color: #e8f0fe;
                 }
                 QPushButton:pressed {
-                    background-color: #0B2E4F;
+                    background-color: #2C3E50;
                     color: white;
                 }
             """)
@@ -301,9 +301,9 @@ class PersianCalendarWidget(QWidget):
             if day == self.selected_day:
                 btn.setStyleSheet("""
                     QPushButton {
-                        border: 2px solid #0B2E4F;
+                        border: 2px solid #2C3E50;
                         border-radius: 5px;
-                        background-color: #0B2E4F;
+                        background-color: #2C3E50;
                         color: white;
                         font-weight: bold;
                     }
@@ -372,12 +372,12 @@ class ShamsiDateEdit(QWidget):
         self.calendar_btn.setFixedSize(30, 30)
         self.calendar_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0B2E4F;
+                background-color: #2C3E50;
                 color: white;
                 border: none;
                 border-radius: 3px;
             }
-            QPushButton:hover { background-color: #174F78; }
+            QPushButton:hover { background-color: #34495E; }
         """)
         self.calendar_btn.clicked.connect(self.show_calendar)
         layout.addWidget(self.calendar_btn)
