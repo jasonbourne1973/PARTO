@@ -67,7 +67,7 @@ class RecommendationWidget(QWidget):
         header_layout = QHBoxLayout()
         
         title_label = QLabel("💡 پیشنهادات هوشمند")
-        title_label.setStyleSheet("font-size: 15px; font-weight: bold; color: #D9AF24;")
+        title_label.setStyleSheet("font-size: 15px; font-weight: bold; color: #3498DB;")
         header_layout.addWidget(title_label)
         
         header_layout.addStretch()
@@ -76,8 +76,8 @@ class RecommendationWidget(QWidget):
         self.generate_btn = QPushButton("🔄 تولید پیشنهادات جدید")
         self.generate_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0B2E4F;
-                color: #D9AF24;
+                background-color: #2C3E50;
+                color: #3498DB;
                 border: none;
                 border-radius: 6px;
                 padding: 4px 14px;
@@ -85,7 +85,7 @@ class RecommendationWidget(QWidget):
                 font-weight: 600;
             }
             QPushButton:hover {
-                background-color: #08223A;
+                background-color: #1A252F;
             }
         """)
         self.generate_btn.clicked.connect(self.generate_recommendations)
@@ -103,18 +103,18 @@ class RecommendationWidget(QWidget):
                 background-color: transparent;
             }
             QScrollBar:vertical {
-                background-color: #08223A;
+                background-color: #1A252F;
                 width: 4px;
                 border-radius: 2px;
                 margin: 2px;
             }
             QScrollBar::handle:vertical {
-                background-color: #F8FAFC;
+                background-color: #F8F9FA;
                 border-radius: 2px;
                 min-height: 30px;
             }
             QScrollBar::handle:vertical:hover {
-                background-color: #F8FAFC;
+                background-color: #F8F9FA;
             }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
                 height: 0px;
@@ -132,12 +132,12 @@ class RecommendationWidget(QWidget):
         self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty_label.setStyleSheet("""
             QLabel {
-                color: #E4E7EC;
+                color: #DEE2E6;
                 font-size: 13px;
                 padding: 30px 20px;
-                background-color: #0B2E4F;
+                background-color: #2C3E50;
                 border-radius: 8px;
-                border: 1px dashed #D0D5DD;
+                border: 1px dashed #DEE2E6;
             }
         """)
         self.container_layout.addWidget(self.empty_label)
@@ -149,9 +149,9 @@ class RecommendationWidget(QWidget):
         self.summary_frame = QFrame()
         self.summary_frame.setStyleSheet("""
             QFrame {
-                background-color: #0B2E4F;
+                background-color: #2C3E50;
                 border-radius: 8px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
             }
         """)
         summary_layout = QHBoxLayout(self.summary_frame)
@@ -160,10 +160,10 @@ class RecommendationWidget(QWidget):
         
         self.summary_labels = {}
         statuses = [
-            ('total', '📊 کل', '#0B2E4F'),
-            ('pending', '⏳ در انتظار', '#F59E0B'),
-            ('accepted', '✅ پذیرفته شده', '#22C55E'),
-            ('implemented', '🔄 اجرا شده', '#174F78'),
+            ('total', '📊 کل', '#2C3E50'),
+            ('pending', '⏳ در انتظار', '#F39C12'),
+            ('accepted', '✅ پذیرفته شده', '#2ECC71'),
+            ('implemented', '🔄 اجرا شده', '#34495E'),
             ('completed', '✔️ تکمیل شده', '#2E7D32')
         ]
         
@@ -237,8 +237,8 @@ class RecommendationWidget(QWidget):
         card = QFrame()
         card.setStyleSheet("""
             QFrame {
-                background-color: #0B2E4F;
-                border: 1px solid #D0D5DD;
+                background-color: #2C3E50;
+                border: 1px solid #DEE2E6;
                 border-radius: 8px;
             }
         """)
@@ -252,7 +252,7 @@ class RecommendationWidget(QWidget):
         
         # عنوان
         title_label = QLabel(recommendation.title)
-        title_label.setStyleSheet("font-size: 13px; font-weight: bold; color: #17212B;")
+        title_label.setStyleSheet("font-size: 13px; font-weight: bold; color: #2C3E50;")
         title_label.setWordWrap(True)
         top_row.addWidget(title_label, 2)
         
@@ -262,7 +262,7 @@ class RecommendationWidget(QWidget):
             QLabel {{
                 font-size: 10px;
                 font-weight: bold;
-                color: #0B2E4F;
+                color: #2C3E50;
                 background-color: {recommendation.priority_color};
                 padding: 2px 10px;
                 border-radius: 10px;
@@ -276,10 +276,10 @@ class RecommendationWidget(QWidget):
             QLabel {
                 font-size: 10px;
                 font-weight: bold;
-                background-color: #08223A;
+                background-color: #1A252F;
                 padding: 2px 10px;
                 border-radius: 10px;
-                color: #D9AF24;
+                color: #3498DB;
             }
         """)
         top_row.addWidget(status_label)
@@ -290,13 +290,13 @@ class RecommendationWidget(QWidget):
         middle_row = QHBoxLayout()
         
         category_label = QLabel(f"📂 {recommendation.category_display}")
-        category_label.setStyleSheet("font-size: 11px; color: #667085;")
+        category_label.setStyleSheet("font-size: 11px; color: #7F8C8D;")
         middle_row.addWidget(category_label)
         
         middle_row.addStretch()
         
         score_label = QLabel(f"⭐ امتیاز: {recommendation.score}")
-        score_label.setStyleSheet("font-size: 11px; color: #F59E0B; font-weight: 600;")
+        score_label.setStyleSheet("font-size: 11px; color: #F39C12; font-weight: 600;")
         middle_row.addWidget(score_label)
         
         layout.addLayout(middle_row)
@@ -313,8 +313,8 @@ class RecommendationWidget(QWidget):
             # (BUG-NEW-03) متن هم‌رنگ زمینه بود و «اقدام پیشنهادی» دیده نمی‌شد
             action_label.setStyleSheet("""
                 font-size: 12px;
-                color: #D9AF24;
-                background-color: #0B2E4F;
+                color: #3498DB;
+                background-color: #2C3E50;
                 padding: 4px 8px;
                 border-radius: 4px;
             """)
@@ -325,7 +325,7 @@ class RecommendationWidget(QWidget):
         linked_id = getattr(recommendation, 'linked_intervention_id', None)
         if linked_id:
             linked_label = QLabel(f"🔗 مداخلهٔ ثبت‌شده بر اساس این پیشنهاد: #{linked_id}")
-            linked_label.setStyleSheet("font-size: 11px; color: #667085;")
+            linked_label.setStyleSheet("font-size: 11px; color: #7F8C8D;")
             layout.addWidget(linked_label)
         
         # ===== دکمه‌های عملیات =====
@@ -336,8 +336,8 @@ class RecommendationWidget(QWidget):
             accept_btn = QPushButton("✅ پذیرش")
             accept_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #22C55E;
-                    color: #0B2E4F;
+                    background-color: #2ECC71;
+                    color: #2C3E50;
                     border: none;
                     border-radius: 4px;
                     padding: 4px 12px;
@@ -345,7 +345,7 @@ class RecommendationWidget(QWidget):
                     font-weight: 600;
                 }
                 QPushButton:hover {
-                    background-color: #16A34A;
+                    background-color: #27AE60;
                 }
             """)
             accept_btn.clicked.connect(lambda: self.accept_recommendation(recommendation))
@@ -354,8 +354,8 @@ class RecommendationWidget(QWidget):
             reject_btn = QPushButton("❌ رد")
             reject_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #EF4444;
-                    color: #0B2E4F;
+                    background-color: #EF5350;
+                    color: #2C3E50;
                     border: none;
                     border-radius: 4px;
                     padding: 4px 12px;
@@ -363,7 +363,7 @@ class RecommendationWidget(QWidget):
                     font-weight: 600;
                 }
                 QPushButton:hover {
-                    background-color: #DC2626;
+                    background-color: #E74C3C;
                 }
             """)
             reject_btn.clicked.connect(lambda: self.reject_recommendation(recommendation))
@@ -373,8 +373,8 @@ class RecommendationWidget(QWidget):
             implement_btn = QPushButton("🚀 اجرا")
             implement_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #174F78;
-                    color: #D9AF24;
+                    background-color: #34495E;
+                    color: #3498DB;
                     border: none;
                     border-radius: 4px;
                     padding: 4px 12px;
@@ -382,7 +382,7 @@ class RecommendationWidget(QWidget):
                     font-weight: 600;
                 }
                 QPushButton:hover {
-                    background-color: #0B2E4F;
+                    background-color: #2C3E50;
                 }
             """)
             implement_btn.clicked.connect(lambda: self.implement_recommendation(recommendation))
@@ -393,7 +393,7 @@ class RecommendationWidget(QWidget):
             complete_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #FFFFFF;
-                    color: #0B2E4F;
+                    color: #2C3E50;
                     border: none;
                     border-radius: 4px;
                     padding: 4px 12px;
@@ -401,7 +401,7 @@ class RecommendationWidget(QWidget):
                     font-weight: 600;
                 }
                 QPushButton:hover {
-                    background-color: #7C3AED;
+                    background-color: #9B59B6;
                 }
             """)
             complete_btn.clicked.connect(lambda: self.complete_recommendation(recommendation))
@@ -412,8 +412,8 @@ class RecommendationWidget(QWidget):
             intervention_btn = QPushButton("🛠️ ثبت مداخله")
             intervention_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #F59E0B;
-                    color: #0B2E4F;
+                    background-color: #F39C12;
+                    color: #2C3E50;
                     border: none;
                     border-radius: 4px;
                     padding: 4px 12px;
@@ -421,7 +421,7 @@ class RecommendationWidget(QWidget):
                     font-weight: 600;
                 }
                 QPushButton:hover {
-                    background-color: #D97706;
+                    background-color: #E67E22;
                 }
             """)
             intervention_btn.clicked.connect(lambda: self.request_intervention(recommendation))
