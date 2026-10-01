@@ -39,44 +39,44 @@ class ThemeManager:
     }
 
     COLORS: ClassVar[dict[str, str]] = {
-        "bg": "#F5F6F8",
+        "bg": "#F8F9FA",
         "surface": "#FFFFFF",
-        "surface_alt": "#F9FAFB",
-        "text": "#344054",
-        "text_strong": "#1D2939",
-        "text_muted": "#667085",
-        "border": "#D0D5DD",
-        "border_light": "#EAECF0",
-        "primary": "#344054",
-        "primary_hover": "#1D2939",
-        "primary_pressed": "#101828",
-        "accent": "#475467",
-        "success": "#2E7D32",
-        "warning": "#F79009",
-        "error": "#B42318",
-        "info": "#667085",
+        "surface_alt": "#FFFFFF",
+        "text": "#2C3E50",
+        "text_strong": "#1A252F",
+        "text_muted": "#7F8C8D",
+        "border": "#DEE2E6",
+        "border_light": "#ECF0F1",
+        "primary": "#2C3E50",
+        "primary_hover": "#1A252F",
+        "primary_pressed": "#1A252F",
+        "accent": "#3498DB",
+        "success": "#27AE60",
+        "warning": "#F39C12",
+        "error": "#E74C3C",
+        "info": "#7F8C8D",
     }
 
     # رنگ‌های قدیمی UI را به پالت خنثی جدید نگاشت می‌کنیم تا استایل‌های
     # مستقیم موجود در View/Dialogها نیز همان ظاهر اداری را حفظ کنند.
     _OLD_COLORS = {
-        "#F4C542": "#344054",
-        "#FFE8A3": "#EAECF0",
-        "#D9C36A": "#667085",
-        "#66BB6A": "#2E7D32",
-        "#8BC34A": "#D0D5DD",
-        "#111111": "#344054",
-        "#000000": "#344054",
-        "#F4D35E": "#475467",
-        "#061B2D": "#1D2939",
-        "#0B2E4F": "#344054",
-        "#174F78": "#475467",
-        "#08223A": "#1D2939",
-        "#D9AF24": "#475467",
-        "#B8860B": "#344054",
-        "#FFE8A3": "#EAECF0",
-        "#DCEAF5": "#E4E7EC",
-        "#E7EEF5": "#F2F4F7",
+        "#F4C542": "#2C3E50",
+        "#FFE8A3": "#ECF0F1",
+        "#D9C36A": "#7F8C8D",
+        "#66BB6A": "#27AE60",
+        "#8BC34A": "#DEE2E6",
+        "#111111": "#2C3E50",
+        "#000000": "#2C3E50",
+        "#F4D35E": "#3498DB",
+        "#061B2D": "#1A252F",
+        "#0B2E4F": "#2C3E50",
+        "#174F78": "#3498DB",
+        "#08223A": "#1A252F",
+        "#3498DB": "#3498DB",
+        "#2980B9": "#2C3E50",
+        "#FFE8A3": "#ECF0F1",
+        "#E8F0FE": "#DEE2E6",
+        "#E7EEF5": "#F1F2F6",
     }
 
     def __init__(self, app: Optional[QApplication] = None):
@@ -127,11 +127,11 @@ class ThemeManager:
         # تیره‌تر می‌شود تا ناوبری واضح بماند.
         if cls.is_menu_widget(widget):
             replacements.update({
-                "#F4C542": "#344054",
-                "#FFE8A3": "#1D2939",
-                "#D9C36A": "#667085",
-                "#66BB6A": "#475467",
-                "#F4D35E": "#344054",
+                "#F4C542": "#2C3E50",
+                "#FFE8A3": "#1A252F",
+                "#D9C36A": "#7F8C8D",
+                "#66BB6A": "#3498DB",
+                "#F4D35E": "#2C3E50",
             })
 
         pattern = re.compile("|".join(re.escape(token) for token in replacements), re.I)
@@ -140,13 +140,13 @@ class ThemeManager:
         if "qlineargradient" in normalized.lower():
             normalized = re.sub(
                 r"background\s*:\s*qlineargradient\([^;]*\);?",
-                "background: #F5F6F8;",
+                "background: #F8F9FA;",
                 normalized,
                 flags=re.IGNORECASE | re.DOTALL,
             )
             normalized = re.sub(
                 r"background-color\s*:\s*qlineargradient\([^;]*\);?",
-                "background-color: #F5F6F8;",
+                "background-color: #F8F9FA;",
                 normalized,
                 flags=re.IGNORECASE | re.DOTALL,
             )
