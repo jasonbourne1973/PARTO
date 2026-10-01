@@ -46,7 +46,7 @@ class HelpWidget(QFrame):
         self.setStyleSheet("""
             QFrame#HelpWidget {
                 background-color: #FFFAEB;
-                border: 1px solid #D9AF24;
+                border: 1px solid #3498DB;
                 border-radius: 6px;
             }
         """)
@@ -79,7 +79,7 @@ class HelpWidget(QFrame):
         self.title_label.setStyleSheet("""
             QLabel {
                 font-weight: bold;
-                color: #B42318;
+                color: #C0392B;
                 font-size: 13px;
             }
         """)
@@ -95,7 +95,7 @@ class HelpWidget(QFrame):
         self.toggle_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
-                color: #B42318;
+                color: #C0392B;
                 border: none;
                 font-size: 12px;
             }
@@ -148,7 +148,7 @@ class HelpWidget(QFrame):
         self.more_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
-                color: #0B2E4F;
+                color: #2C3E50;
                 border: none;
                 font-size: 11px;
                 font-weight: bold;
@@ -156,7 +156,7 @@ class HelpWidget(QFrame):
                 padding: 0;
             }
             QPushButton:hover {
-                color: #08223A;
+                color: #1A252F;
                 text-decoration: underline;
             }
         """)
@@ -225,7 +225,7 @@ class HelpWidget(QFrame):
         btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
-                color: #0B2E4F;
+                color: #2C3E50;
                 border: none;
                 font-size: 14px;
             }
