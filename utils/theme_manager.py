@@ -59,35 +59,23 @@ class ThemeManager:
 
     # رنگ‌های قدیمی UI را به پالت خنثی جدید نگاشت می‌کنیم تا استایل‌های
     # مستقیم موجود در View/Dialogها نیز همان ظاهر اداری را حفظ کنند.
+    # نگاشت رنگ‌های طراحی جدید به معادل‌های ظاهری نسخه ZIP قدیمی.
+    # رنگ‌های قدیمیِ خود ZIP هرگز دوباره به پالت دیگری تبدیل نمی‌شوند.
     _OLD_COLORS = {
-        "#F4C542": "#F4C542",
-        "#FFE8A3": "#FFE8A3",
-        "#D9C36A": "#7F8C8D",
-        "#66BB6A": "#27AE60",
-        "#8BC34A": "#BDC3C7",
-        "#111111": "#2C3E50",
-        "#000000": "#2C3E50",
-        "#F4D35E": "#3498DB",
-        "#061B2D": "#1A252F",
-        "#0B2E4F": "#2C3E50",
-        "#174F78": "#34495E",
-        "#08223A": "#1A252F",
-        "#D9AF24": "#3498DB",
-        "#B8860B": "#2980B9",
-        "#DCEAF5": "#E8F0FE",
-        "#E7EEF5": "#E2E8F0",
-        "#F5F6F8": "#F8F9FA",
-        "#F5F7FA": "#F8F9FA",
-        "#F9FAFB": "#FFFFFF",
-        "#F8FAFC": "#F1F2F6",
-        "#344054": "#2C3E50",
-        "#1D2939": "#1A252F",
-        "#101828": "#1A252F",
-        "#475467": "#3498DB",
-        "#667085": "#7F8C8D",
-        "#98A2B3": "#BDC3C7",
-        "#D0D5DD": "#DEE2E6",
-        "#EAECF0": "#ECF0F1",
+        "#0B2E4F": "#2C3E50", "#174F78": "#34495E", "#08223A": "#1A252F",
+        "#17212B": "#2C3E50", "#D9AF24": "#3498DB", "#B8860B": "#2980B9",
+        "#111111": "#2C3E50", "#061B2D": "#08223A", "#344054": "#2C3E50",
+        "#1D2939": "#1A252F", "#101828": "#1A252F", "#475467": "#7F8C8D",
+        "#667085": "#7F8C8D", "#98A2B3": "#BDC3C7", "#D0D5DD": "#DEE2E6",
+        "#EAECF0": "#ECF0F1", "#F2F6FA": "#F8F9FA", "#F5F6F8": "#F8F9FA",
+        "#F5F7FA": "#F8F9FA", "#F9FAFB": "#FFFFFF", "#F8FAFC": "#F8F9FA",
+        "#F0F2F5": "#F8F9FA", "#F1F5F9": "#F0F4F8", "#CBD5E1": "#BDC3C7",
+        "#94A3B8": "#95A5A6", "#64748B": "#7F8C8D", "#E2E8F0": "#DEE2E6",
+        "#E4E7EC": "#DEE2E6", "#DC2626": "#E74C3C", "#EF4444": "#EF5350",
+        "#B42318": "#C0392B", "#D97706": "#E67E22", "#F59E0B": "#F39C12",
+        "#16A34A": "#27AE60", "#22C55E": "#2ECC71", "#2563EB": "#3498DB",
+        "#3B82F6": "#3498DB", "#1D4ED8": "#2980B9", "#7C3AED": "#9B59B6",
+        "#8B5CF6": "#8E44AD",
     }
 
     def __init__(self, app: Optional[QApplication] = None):
@@ -128,41 +116,11 @@ class ThemeManager:
 
     @classmethod
     def _normalize_widget_style(cls, widget: QWidget, style: str) -> str:
-        """استایل مستقیم قدیمی را به Design System خنثی متصل می‌کند."""
+        """استایل مستقیم ویجت را فقط از پالت جدید به ظاهر نسخه ZIP قدیمی تبدیل می‌کند."""
         if not style:
             return style
-
-        replacements = dict(cls._OLD_COLORS)
-
-        # Sidebar هم مانند سایر بخش‌ها خنثی و روشن است؛ فقط حالت فعال کمی
-        # تیره‌تر می‌شود تا ناوبری واضح بماند.
-        if cls.is_menu_widget(widget):
-            replacements.update({
-                "#F4C542": "#2C3E50",
-                "#FFE8A3": "#1A252F",
-                "#D9C36A": "#7F8C8D",
-                "#66BB6A": "#3498DB",
-                "#F4D35E": "#2C3E50",
-            })
-
-        pattern = re.compile("|".join(re.escape(token) for token in replacements), re.I)
-        normalized = pattern.sub(lambda m: replacements.get(m.group(0).upper(), m.group(0)), style)
-
-        if "qlineargradient" in normalized.lower():
-            normalized = re.sub(
-                r"background\s*:\s*qlineargradient\([^;]*\);?",
-                "background: #F8F9FA;",
-                normalized,
-                flags=re.IGNORECASE | re.DOTALL,
-            )
-            normalized = re.sub(
-                r"background-color\s*:\s*qlineargradient\([^;]*\);?",
-                "background-color: #F8F9FA;",
-                normalized,
-                flags=re.IGNORECASE | re.DOTALL,
-            )
-
-        return normalized
+        pattern = re.compile("|".join(re.escape(token) for token in cls._OLD_COLORS), re.I)
+        return pattern.sub(lambda m: cls._OLD_COLORS.get(m.group(0).upper(), m.group(0)), style)
 
     @classmethod
     def _hide_legacy_theme_selector(cls, root: QWidget) -> None:
