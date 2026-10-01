@@ -74,7 +74,7 @@ class ActivitiesPage(YearAwarePage, QWidget):
         toolbar = QHBoxLayout()
         
         title_label = QLabel("🎯 مدیریت فعالیت‌های فوق‌برنامه")
-        title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; color: #17212B; }")
+        title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; color: #2C3E50; }")
         toolbar.addWidget(title_label)
         toolbar.addStretch()
         
@@ -103,13 +103,13 @@ class ActivitiesPage(YearAwarePage, QWidget):
         self.add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #F2F6FA; }
+            QPushButton:hover { background-color: #F8F9FA; }
         """)
         self.add_btn.clicked.connect(self.add_activity)
         toolbar.addWidget(self.add_btn)
@@ -120,14 +120,14 @@ class ActivitiesPage(YearAwarePage, QWidget):
         self.view_profile_btn = QPushButton("👤 مشاهده پرونده دانش‌آموز")
         self.view_profile_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0B2E4F;
-                color: #D9AF24;
+                background-color: #2C3E50;
+                color: #3498DB;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #08223A; }
+            QPushButton:hover { background-color: #1A252F; }
         """)
         self.view_profile_btn.clicked.connect(self.view_student_profile)
         toolbar.addWidget(self.view_profile_btn)
@@ -151,22 +151,22 @@ class ActivitiesPage(YearAwarePage, QWidget):
         self.table.setAlternatingRowColors(True)
         self.table.setStyleSheet("""
             QTableWidget {
-    color: #D9AF24;
-                background-color: #0B2E4F;
-                alternate-background-color: #0B2E4F;
-                gridline-color: #E4E7EC;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #2C3E50;
+                alternate-background-color: #2C3E50;
+                gridline-color: #DEE2E6;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #D9AF24;
-    border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F; padding: 8px; }
+    color: #3498DB;
+    border-bottom: 1px solid #DEE2E6;
+    background-color: #2C3E50; padding: 8px; }
             QHeaderView::section {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 font-weight: bold;
             }
         """)
@@ -283,19 +283,19 @@ class ActivitiesPage(YearAwarePage, QWidget):
             
             view_btn = QPushButton("👁️")
             view_btn.setFixedSize(30, 30)
-            view_btn.setStyleSheet("background-color: #0B2E4F; color: #D9AF24; border: none; border-radius: 4px;")
+            view_btn.setStyleSheet("background-color: #2C3E50; color: #3498DB; border: none; border-radius: 4px;")
             view_btn.clicked.connect(lambda checked, a=activity: self.view_activity(a))
             btn_layout.addWidget(view_btn)
             
             edit_btn = QPushButton("✏️")
             edit_btn.setFixedSize(30, 30)
-            edit_btn.setStyleSheet("background-color: #FFFAEB; color: #17212B; border: none; border-radius: 4px;")
+            edit_btn.setStyleSheet("background-color: #FFFAEB; color: #2C3E50; border: none; border-radius: 4px;")
             edit_btn.clicked.connect(lambda checked, a=activity: self.edit_activity(a))
             btn_layout.addWidget(edit_btn)
             
             delete_btn = QPushButton("🗑️")
             delete_btn.setFixedSize(30, 30)
-            delete_btn.setStyleSheet("background-color: #B42318; color: #FFFFFF; border: none; border-radius: 4px;")
+            delete_btn.setStyleSheet("background-color: #C0392B; color: #FFFFFF; border: none; border-radius: 4px;")
             delete_btn.clicked.connect(lambda checked, a=activity: self.delete_activity(a))
             btn_layout.addWidget(delete_btn)
             
