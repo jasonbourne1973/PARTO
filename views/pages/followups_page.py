@@ -68,7 +68,7 @@ class FollowUpsPage(YearAwarePage, QWidget):
         toolbar = QHBoxLayout()
         
         title_label = QLabel("🔔 مدیریت پیگیری‌ها")
-        title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; color: #17212B; }")
+        title_label.setStyleSheet("QLabel { font-size: 20px; font-weight: bold; color: #2C3E50; }")
         toolbar.addWidget(title_label)
         toolbar.addStretch()
         
@@ -85,18 +85,18 @@ class FollowUpsPage(YearAwarePage, QWidget):
         self.search_input.setPlaceholderText("جستجوی متن در پیگیری‌ها...")
         self.search_input.setStyleSheet("""
             QLineEdit {
-    color: #D9AF24;
-    background-color: #08223A;
+    color: #3498DB;
+    background-color: #1A252F;
                 padding: 5px 10px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
                 font-size: 13px;
                 min-width: 180px;
             }
             QLineEdit:focus {
     color: #FFFFFF;
-    background-color: #0B2E4F;
-                border: 2px solid #D9AF24;
+    background-color: #2C3E50;
+                border: 2px solid #3498DB;
             }
         """)
         self.search_input.returnPressed.connect(self.apply_search)
@@ -106,7 +106,7 @@ class FollowUpsPage(YearAwarePage, QWidget):
         self.search_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 5px 15px;
                 border: none;
                 border-radius: 5px;
@@ -133,7 +133,7 @@ class FollowUpsPage(YearAwarePage, QWidget):
         self.clear_search_btn.setFixedSize(30, 30)
         self.clear_search_btn.setStyleSheet("""
             QPushButton {
-                background-color: #B42318;
+                background-color: #C0392B;
                 color: #FFFFFF;
                 border: none;
                 border-radius: 5px;
@@ -148,7 +148,7 @@ class FollowUpsPage(YearAwarePage, QWidget):
         self.add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -174,22 +174,22 @@ class FollowUpsPage(YearAwarePage, QWidget):
         self.table.setAlternatingRowColors(True)
         self.table.setStyleSheet("""
             QTableWidget {
-    color: #D9AF24;
-                background-color: #0B2E4F;
-                alternate-background-color: #0B2E4F;
-                gridline-color: #E4E7EC;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                background-color: #2C3E50;
+                alternate-background-color: #2C3E50;
+                gridline-color: #DEE2E6;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
             QTableWidget::item {
-    color: #D9AF24;
-    border-bottom: 1px solid #D0D5DD;
-    background-color: #0B2E4F; padding: 8px; }
+    color: #3498DB;
+    border-bottom: 1px solid #DEE2E6;
+    background-color: #2C3E50; padding: 8px; }
             QHeaderView::section {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 font-weight: bold;
             }
         """)
@@ -345,14 +345,14 @@ class FollowUpsPage(YearAwarePage, QWidget):
             
             view_btn = QPushButton("👁️")
             view_btn.setFixedSize(30, 30)
-            view_btn.setStyleSheet("background-color: #0B2E4F; color: #D9AF24; border: none; border-radius: 4px;")
+            view_btn.setStyleSheet("background-color: #2C3E50; color: #3498DB; border: none; border-radius: 4px;")
             view_btn.clicked.connect(lambda checked, f=followup: self.view_followup(f))
             btn_layout.addWidget(view_btn)
             
             if AccessControl.has_permission(Permission.DELETE_FOLLOWUP.value):
                 delete_btn = QPushButton("🗑️")
                 delete_btn.setFixedSize(30, 30)
-                delete_btn.setStyleSheet("background-color: #B42318; color: #FFFFFF; border: none; border-radius: 4px;")
+                delete_btn.setStyleSheet("background-color: #C0392B; color: #FFFFFF; border: none; border-radius: 4px;")
                 delete_btn.clicked.connect(lambda checked, f=followup: self.delete_followup(f))
                 btn_layout.addWidget(delete_btn)
             
