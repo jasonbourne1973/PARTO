@@ -92,7 +92,7 @@ class ChartHelper:
         
         if title:
             ax.set_title(ChartHelper._farsi(title), fontsize=14, fontweight='bold', 
-                        color='#17212B', pad=15)
+                        color='#0F172A', pad=15)
         
         ax.legend(loc='upper right', fontsize=9, frameon=True, 
                   facecolor='#FFFFFF', edgecolor='#DEE2E6', framealpha=0.9)
@@ -112,7 +112,7 @@ class ChartHelper:
         ax.set_facecolor('#FFFFFF')
         
         if not colors:
-            colors = ['#27AE60', '#E74C3C', '#F39C12', '#0B2E4F', '#3498DB']
+            colors = ['#27AE60', '#E74C3C', '#F39C12', '#3498DB', '#3498DB']
         
         labels_fa = [ChartHelper._farsi(str(label)) for label in labels]
         _wedges, _texts, autotexts = ax.pie(
@@ -130,7 +130,7 @@ class ChartHelper:
         
         if title:
             ax.set_title(ChartHelper._farsi(title), fontsize=14, fontweight='bold', 
-                        color='#17212B', pad=15)
+                        color='#0F172A', pad=15)
         
         fig.subplots_adjust(left=0.05, right=0.95, top=0.88, bottom=0.05)
         
@@ -171,7 +171,7 @@ class ChartHelper:
         
         if title:
             ax.set_title(ChartHelper._farsi(title), fontsize=14, fontweight='bold', 
-                        color='#17212B', pad=15)
+                        color='#0F172A', pad=15)
         
         ax.legend(loc='upper right', fontsize=10, frameon=True, 
                   facecolor='#FFFFFF', edgecolor='#DEE2E6', framealpha=0.9)
@@ -181,7 +181,7 @@ class ChartHelper:
         if trend_text:
             fig.text(0.5, 0.02, ChartHelper._farsi(f"{trend_icon} روند کلی: {trend_text}"), 
                     ha='center', fontsize=11, fontweight='bold',
-                    color=progress_data.get('color', '#17212B'))
+                    color=progress_data.get('color', '#0F172A'))
         
         fig.subplots_adjust(left=0.1, right=0.96, top=0.85, bottom=0.12)
         
@@ -209,7 +209,7 @@ class ChartHelper:
         
         for event in display_events:
             if event['type'] == 'observation':
-                colors.append('#0B2E4F')
+                colors.append('#3498DB')
                 labels.append('مشاهده')
             elif event['type'] == 'intervention':
                 colors.append('#F39C12')
@@ -222,7 +222,7 @@ class ChartHelper:
                   c=colors, s=100, alpha=0.8, zorder=3)
         
         ax.set_title(ChartHelper._farsi('خط زمانی رویدادها'), fontsize=14, fontweight='bold', 
-                    color='#17212B', pad=15)
+                    color='#0F172A', pad=15)
         
         ax.set_yticklabels([ChartHelper._farsi(e['date'] or 'نامشخص') for e in display_events], 
                           fontsize=8, color='#475569')
@@ -279,7 +279,7 @@ class ChartHelper:
         values = [item[1] if isinstance(item, (list, tuple)) else 1 for item in items]
         
         if chart_type == 'pie':
-            colors = ['#27AE60', '#E74C3C', '#F39C12', '#0B2E4F', '#3498DB', '#94A3B8', '#2980B9']
+            colors = ['#27AE60', '#E74C3C', '#F39C12', '#3498DB', '#3498DB', '#94A3B8', '#2980B9']
             ax.pie(values, labels=labels, colors=colors[:len(labels)], 
                    autopct='%1.1f%%', startangle=90)
             if title:
@@ -287,7 +287,7 @@ class ChartHelper:
         
         elif chart_type == 'horizontal_bar':
             y_pos = np.arange(len(labels))
-            ax.barh(y_pos, values, color='#0B2E4F', edgecolor='none', alpha=0.8)
+            ax.barh(y_pos, values, color='#3498DB', edgecolor='none', alpha=0.8)
             ax.set_yticks(y_pos)
             ax.set_yticklabels(labels, fontsize=9)
             if title:
@@ -299,7 +299,7 @@ class ChartHelper:
                 spine.set_visible(False)
         
         else:  # bar
-            ax.bar(labels, values, color='#0B2E4F', edgecolor='none', alpha=0.8)
+            ax.bar(labels, values, color='#3498DB', edgecolor='none', alpha=0.8)
             if title:
                 ax.set_title(ChartHelper._farsi(title), fontsize=14, fontweight='bold')
             if xlabel:
@@ -340,7 +340,7 @@ class ChartHelper:
         x = np.arange(len(names))
         width = 0.35
         
-        bars = ax.bar(x, values, width, color='#0B2E4F', edgecolor='none', alpha=0.8)
+        bars = ax.bar(x, values, width, color='#3498DB', edgecolor='none', alpha=0.8)
         
         # رنگ‌بندی بر اساس میزان استفاده
         max_val = max(values) if values else 1
@@ -394,12 +394,12 @@ class ChartHelper:
         # رنگ‌های متناسب با وضعیت
         status_colors = {
             'planned': '#F39C12',
-            'in_progress': '#0B2E4F',
+            'in_progress': '#3498DB',
             'done': '#27AE60',
             'completed': '#27AE60',
             'cancelled': '#E74C3C',
             'pending': '#F39C12',
-            'continued': '#0B2E4F',
+            'continued': '#3498DB',
             'closed': '#BDC3C7',
             'active': '#27AE60',
             'inactive': '#BDC3C7'
@@ -448,7 +448,7 @@ class ChartHelper:
         values = [item.get('count', 0) for item in sorted_data]
         percentages = [item.get('percentage', 0) for item in sorted_data]
         
-        bars = ax.bar(labels, values, color='#0B2E4F', edgecolor='none', alpha=0.8)
+        bars = ax.bar(labels, values, color='#3498DB', edgecolor='none', alpha=0.8)
         
         # نمایش درصد روی میله‌ها
         for bar, pct in zip(bars, percentages):
