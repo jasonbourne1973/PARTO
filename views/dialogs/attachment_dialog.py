@@ -164,13 +164,13 @@ class AttachmentDialog(QDialog):
         self.add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #F2F6FA; }
+            QPushButton:hover { background-color: #F8F9FA; }
         """)
         self.add_btn.clicked.connect(self.add_attachment)
         toolbar.addWidget(self.add_btn)
@@ -182,18 +182,18 @@ class AttachmentDialog(QDialog):
         self.search_input.setPlaceholderText("🔍 جستجوی فایل...")
         self.search_input.setStyleSheet("""
             QLineEdit {
-    color: #D9AF24;
-    background-color: #08223A;
+    color: #3498DB;
+    background-color: #1A252F;
                 padding: 4px 10px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 border-radius: 4px;
                 font-size: 12px;
                 min-width: 150px;
             }
             QLineEdit:focus {
     color: #FFFFFF;
-    background-color: #0B2E4F;
-                border: 2px solid #D9AF24;
+    background-color: #2C3E50;
+                border: 2px solid #3498DB;
             }
         """)
         self.search_input.textChanged.connect(self.search_attachments)
@@ -203,7 +203,7 @@ class AttachmentDialog(QDialog):
         self.clear_search_btn.setFixedSize(30, 30)
         self.clear_search_btn.setStyleSheet("""
             QPushButton {
-                background-color: #B42318;
+                background-color: #C0392B;
                 color: #FFFFFF;
                 border: none;
                 border-radius: 4px;
@@ -220,14 +220,14 @@ class AttachmentDialog(QDialog):
         self.refresh_btn.setFixedSize(36, 36)
         self.refresh_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0B2E4F;
-                color: #D9AF24;
+                background-color: #2C3E50;
+                color: #3498DB;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
                 font-size: 16px;
             }
-            QPushButton:hover { background-color: #08223A; }
+            QPushButton:hover { background-color: #1A252F; }
         """)
         self.refresh_btn.clicked.connect(self.load_attachments)
         toolbar.addWidget(self.refresh_btn)
@@ -242,7 +242,7 @@ class AttachmentDialog(QDialog):
 
         # اطلاعات تعداد و حجم
         self.info_label = QLabel("تعداد: 0 | حجم کل: 0 B")
-        self.info_label.setStyleSheet("color: #667085; font-size: 13px;")
+        self.info_label.setStyleSheet("color: #7F8C8D; font-size: 13px;")
         toolbar.addWidget(self.info_label)
         
         main_layout.addLayout(toolbar)
@@ -252,13 +252,13 @@ class AttachmentDialog(QDialog):
         self.progress_bar.setVisible(False)
         self.progress_bar.setStyleSheet("""
             QProgressBar {
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
                 text-align: center;
                 height: 20px;
             }
             QProgressBar::chunk {
-                background-color: #0B2E4F;
+                background-color: #2C3E50;
                 border-radius: 5px;
             }
         """)
@@ -271,8 +271,8 @@ class AttachmentDialog(QDialog):
         left_frame = QFrame()
         left_frame.setStyleSheet("""
             QFrame {
-                background-color: #0B2E4F;
-                border: 1px solid #D0D5DD;
+                background-color: #2C3E50;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
         """)
@@ -280,7 +280,7 @@ class AttachmentDialog(QDialog):
         left_frame.setLayout(left_layout)
         
         list_title = QLabel("📋 لیست فایل‌ها")
-        list_title.setStyleSheet("font-size: 14px; font-weight: bold; color: #D9AF24; padding: 5px;")
+        list_title.setStyleSheet("font-size: 14px; font-weight: bold; color: #3498DB; padding: 5px;")
         left_layout.addWidget(list_title)
         
         self.file_list = QListWidget()
@@ -291,15 +291,15 @@ class AttachmentDialog(QDialog):
             }
             QListWidget::item {
                 padding: 8px;
-                border-bottom: 1px solid #08223A;
+                border-bottom: 1px solid #1A252F;
             }
             QListWidget::item:selected {
-                background-color: #174F78;
-                border: 1px solid #0B2E4F;
+                background-color: #34495E;
+                border: 1px solid #2C3E50;
                 border-radius: 5px;
             }
             QListWidget::item:hover {
-                background-color: #08223A;
+                background-color: #1A252F;
             }
         """)
         self.file_list.itemClicked.connect(self.on_file_selected)
@@ -312,8 +312,8 @@ class AttachmentDialog(QDialog):
         right_frame = QFrame()
         right_frame.setStyleSheet("""
             QFrame {
-                background-color: #0B2E4F;
-                border: 1px solid #D0D5DD;
+                background-color: #2C3E50;
+                border: 1px solid #DEE2E6;
                 border-radius: 5px;
             }
         """)
@@ -324,20 +324,20 @@ class AttachmentDialog(QDialog):
         preview_group = QGroupBox("👁️ پیش‌نمایش")
         preview_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
     background-color: #FFFFFF;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 12px;
                 padding-top: 12px;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         preview_layout = QVBoxLayout()
@@ -349,9 +349,9 @@ class AttachmentDialog(QDialog):
         preview_scroll.setFrameShape(QFrame.Shape.NoFrame)
         preview_scroll.setStyleSheet("""
             QScrollArea {
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
                 border-radius: 4px;
-                background-color: #0B2E4F;
+                background-color: #2C3E50;
             }
         """)
         
@@ -361,7 +361,7 @@ class AttachmentDialog(QDialog):
             QLabel {
                 padding: 20px;
                 min-height: 180px;
-                color: #667085;
+                color: #7F8C8D;
                 font-size: 14px;
             }
         """)
@@ -374,20 +374,20 @@ class AttachmentDialog(QDialog):
         info_group = QGroupBox("📋 اطلاعات فایل")
         info_group.setStyleSheet("""
             QGroupBox {
-    color: #17212B;
+    color: #2C3E50;
     background-color: #FFFFFF;
                 font-weight: bold;
-                border: 2px solid #D0D5DD;
+                border: 2px solid #DEE2E6;
                 border-radius: 8px;
                 margin-top: 12px;
                 padding-top: 12px;
             }
             QGroupBox::title {
-    background-color: #F2F6FA;
+    background-color: #F8F9FA;
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 8px 0 8px;
-                color: #17212B;
+                color: #2C3E50;
             }
         """)
         info_layout = QVBoxLayout()
@@ -398,10 +398,10 @@ class AttachmentDialog(QDialog):
         self.info_text.setMaximumHeight(100)
         self.info_text.setStyleSheet("""
             QTextEdit {
-    color: #D9AF24;
-                border: 1px solid #D0D5DD;
+    color: #3498DB;
+                border: 1px solid #DEE2E6;
                 padding: 5px;
-                background-color: #08223A;
+                background-color: #1A252F;
                 font-size: 12px;
                 line-height: 1.6;
             }
@@ -416,14 +416,14 @@ class AttachmentDialog(QDialog):
         self.open_btn = QPushButton("📂 باز کردن فایل")
         self.open_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0B2E4F;
-                color: #D9AF24;
+                background-color: #2C3E50;
+                color: #3498DB;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #08223A; }
+            QPushButton:hover { background-color: #1A252F; }
         """)
         self.open_btn.clicked.connect(self.open_file)
         btn_layout.addWidget(self.open_btn)
@@ -432,7 +432,7 @@ class AttachmentDialog(QDialog):
         self.download_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
@@ -446,7 +446,7 @@ class AttachmentDialog(QDialog):
         self.delete_btn = QPushButton("🗑️ حذف")
         self.delete_btn.setStyleSheet("""
             QPushButton {
-                background-color: #B42318;
+                background-color: #C0392B;
                 color: #FFFFFF;
                 padding: 8px 15px;
                 border: none;
@@ -462,13 +462,13 @@ class AttachmentDialog(QDialog):
         self.restore_btn.setStyleSheet("""
             QPushButton {
                 background-color: #FFFFFF;
-                color: #17212B;
+                color: #2C3E50;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #F2F6FA; }
+            QPushButton:hover { background-color: #F8F9FA; }
         """)
         self.restore_btn.setToolTip(
             "بازیابی پیوست حذف‌شده؛ فایل فیزیکی پیش از بازیابی "
@@ -482,14 +482,14 @@ class AttachmentDialog(QDialog):
         self.close_btn = QPushButton("❌ بستن")
         self.close_btn.setStyleSheet("""
             QPushButton {
-                background-color: #F8FAFC;
-                color: #17212B;
+                background-color: #F8F9FA;
+                color: #2C3E50;
                 padding: 8px 15px;
                 border: none;
                 border-radius: 5px;
                 font-weight: bold;
             }
-            QPushButton:hover { background-color: #F8FAFC; }
+            QPushButton:hover { background-color: #F8F9FA; }
         """)
         self.close_btn.clicked.connect(self.accept)
         btn_layout.addWidget(self.close_btn)
@@ -902,9 +902,9 @@ class AttachmentDialog(QDialog):
                             padding: 10px;
                             font-family: monospace;
                             font-size: 12px;
-                            color: #D9AF24;
-                            background-color: #08223A;
-                            border: 1px solid #D0D5DD;
+                            color: #3498DB;
+                            background-color: #1A252F;
+                            border: 1px solid #DEE2E6;
                             border-radius: 4px;
                         }
                     """)
@@ -929,7 +929,7 @@ class AttachmentDialog(QDialog):
             QLabel {
                 padding: 20px;
                 min-height: 180px;
-                color: #667085;
+                color: #7F8C8D;
                 font-size: 14px;
             }
         """)
