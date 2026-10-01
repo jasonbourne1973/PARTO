@@ -46,7 +46,7 @@ class NotificationItem(QFrame):
         color_frame = QFrame()
         color_frame.setFixedWidth(4)
         is_overdue = self.data.get('is_overdue', False)
-        color = "#B42318" if is_overdue else "#B54708"
+        color = "#C0392B" if is_overdue else "#B54708"
         color_frame.setStyleSheet(f"""
             QFrame {{
                 background-color: {color};
@@ -65,7 +65,7 @@ class NotificationItem(QFrame):
         # نام دانش‌آموز و نوع مداخله
         title = f"👤 {self.data.get('student_name', 'نامشخص')} - {self.data.get('intervention_type', 'مداخله')}"
         title_label = QLabel(title)
-        title_label.setStyleSheet("font-size: 12px; font-weight: bold; color: #17212B;")
+        title_label.setStyleSheet("font-size: 12px; font-weight: bold; color: #2C3E50;")
         info_layout.addWidget(title_label)
         
         # تاریخ اقدام بعدی
@@ -74,13 +74,13 @@ class NotificationItem(QFrame):
             date_label = QLabel(f"📅 تاریخ اقدام: {next_date}")
         else:
             date_label = QLabel("📅 تاریخ اقدام: تعیین نشده")
-        date_label.setStyleSheet("font-size: 11px; color: #667085;")
+        date_label.setStyleSheet("font-size: 11px; color: #7F8C8D;")
         info_layout.addWidget(date_label)
         
         # مسئول
         staff_name = self.data.get('staff_name', 'نامشخص')
         staff_label = QLabel(f"👨‍🏫 مسئول: {staff_name}")
-        staff_label.setStyleSheet("font-size: 11px; color: #667085;")
+        staff_label.setStyleSheet("font-size: 11px; color: #7F8C8D;")
         info_layout.addWidget(staff_label)
         
         layout.addWidget(info_widget)
@@ -93,11 +93,11 @@ class NotificationItem(QFrame):
                 QLabel {
                     font-size: 10px;
                     font-weight: bold;
-                    color: #B42318;
+                    color: #C0392B;
                     background-color: #FFFAEB;
                     padding: 2px 8px;
                     border-radius: 10px;
-                    border: 1px solid #B42318;
+                    border: 1px solid #C0392B;
                 }
             """)
             layout.addWidget(badge)
@@ -105,12 +105,12 @@ class NotificationItem(QFrame):
         # استایل
         self.setStyleSheet("""
             QFrame {
-                background-color: #0B2E4F;
+                background-color: #2C3E50;
                 border: none;
-                border-bottom: 1px solid #08223A;
+                border-bottom: 1px solid #1A252F;
             }
             QFrame:hover {
-                background-color: #0B2E4F;
+                background-color: #2C3E50;
             }
         """)
         
@@ -153,9 +153,9 @@ class NotificationWidget(QWidget):
         card = QFrame()
         card.setStyleSheet("""
             QFrame {
-                background-color: #0B2E4F;
+                background-color: #2C3E50;
                 border-radius: 12px;
-                border: 1px solid #D0D5DD;
+                border: 1px solid #DEE2E6;
             }
         """)
         card_layout = QVBoxLayout()
@@ -167,9 +167,9 @@ class NotificationWidget(QWidget):
         header = QFrame()
         header.setStyleSheet("""
             QFrame {
-                background-color: #0B2E4F;
+                background-color: #2C3E50;
                 border-radius: 12px 12px 0 0;
-                border-bottom: 1px solid #D0D5DD;
+                border-bottom: 1px solid #DEE2E6;
             }
         """)
         header_layout = QHBoxLayout()
@@ -177,7 +177,7 @@ class NotificationWidget(QWidget):
         header.setLayout(header_layout)
         
         title_label = QLabel("🔔 اعلان‌ها")
-        title_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #17212B;")
+        title_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #2C3E50;")
         header_layout.addWidget(title_label)
         
         header_layout.addStretch()
@@ -187,8 +187,8 @@ class NotificationWidget(QWidget):
             QLabel {
                 font-size: 11px;
                 font-weight: bold;
-                color: #0B2E4F;
-                background-color: #EF4444;
+                color: #2C3E50;
+                background-color: #EF5350;
                 padding: 1px 8px;
                 border-radius: 10px;
                 min-width: 20px;
@@ -206,21 +206,21 @@ class NotificationWidget(QWidget):
         scroll.setStyleSheet("""
             QScrollArea {
                 border: none;
-                background-color: #0B2E4F;
+                background-color: #2C3E50;
             }
             QScrollBar:vertical {
-                background-color: #08223A;
+                background-color: #1A252F;
                 width: 4px;
                 border-radius: 2px;
                 margin: 2px;
             }
             QScrollBar::handle:vertical {
-                background-color: #F8FAFC;
+                background-color: #F8F9FA;
                 border-radius: 2px;
                 min-height: 30px;
             }
             QScrollBar::handle:vertical:hover {
-                background-color: #F8FAFC;
+                background-color: #F8F9FA;
             }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
                 height: 0px;
@@ -228,7 +228,7 @@ class NotificationWidget(QWidget):
         """)
         
         container = QWidget()
-        container.setStyleSheet("background-color: #0B2E4F;")
+        container.setStyleSheet("background-color: #2C3E50;")
         container_layout = QVBoxLayout()
         container_layout.setContentsMargins(0, 0, 0, 0)
         container_layout.setSpacing(0)
@@ -240,7 +240,7 @@ class NotificationWidget(QWidget):
         self.list_widget.setStyleSheet("""
             QListWidget {
                 border: none;
-                background-color: #0B2E4F;
+                background-color: #2C3E50;
                 outline: 0;
             }
             QListWidget::item {
@@ -256,7 +256,7 @@ class NotificationWidget(QWidget):
         self.empty_label.setStyleSheet("""
             QLabel {
                 font-size: 13px;
-                color: #667085;
+                color: #7F8C8D;
                 padding: 30px 20px;
             }
         """)
@@ -270,9 +270,9 @@ class NotificationWidget(QWidget):
         footer = QFrame()
         footer.setStyleSheet("""
             QFrame {
-                border-top: 1px solid #D0D5DD;
+                border-top: 1px solid #DEE2E6;
                 border-radius: 0 0 12px 12px;
-                background-color: #0B2E4F;
+                background-color: #2C3E50;
             }
         """)
         footer_layout = QHBoxLayout()
@@ -282,8 +282,8 @@ class NotificationWidget(QWidget):
         self.view_all_btn = QPushButton("مشاهده همه در داشبورد")
         self.view_all_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0B2E4F;
-                color: #D9AF24;
+                background-color: #2C3E50;
+                color: #3498DB;
                 border: none;
                 border-radius: 6px;
                 padding: 6px 12px;
@@ -291,7 +291,7 @@ class NotificationWidget(QWidget):
                 font-weight: 600;
             }
             QPushButton:hover {
-                background-color: #08223A;
+                background-color: #1A252F;
             }
         """)
         self.view_all_btn.clicked.connect(self.view_all)
@@ -304,14 +304,14 @@ class NotificationWidget(QWidget):
         self.close_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
-                color: #667085;
+                color: #7F8C8D;
                 border: none;
                 border-radius: 4px;
                 font-size: 14px;
             }
             QPushButton:hover {
-                background-color: #08223A;
-                color: #D9AF24;
+                background-color: #1A252F;
+                color: #3498DB;
             }
         """)
         self.close_btn.clicked.connect(self.hide)
